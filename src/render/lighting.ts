@@ -114,6 +114,17 @@ export class Lighting {
     scene.add(this.sun, this.sun.target);
   }
 
+  /** Shadow-map resolution: 4096 for extra detail, else 2048. */
+  setDetail(hq: boolean) {
+    const n = hq ? 4096 : 2048;
+    const sh = this.sun.shadow;
+    if (sh.mapSize.x === n) return;
+    sh.mapSize.set(n, n);
+    sh.map?.dispose();
+    sh.map = null;
+    sh.needsUpdate = true;
+  }
+
   /**
    * `yaw` turns the interior environment so its light rows run along the nearest
    * platform. Shadows are redrawn every few frames, and only above ground.
@@ -127,7 +138,7 @@ export class Lighting {
     if (!shadows || !outside) return;
     if (this.shadowTick++ % 3 !== 0) return;
     // Snap the shadow box to its own texel grid so edges do not crawl as the player moves.
-    const step = 220 / 2048 * 8;
+    const step = 220 / this.sun.shadow.mapSize.x * 8;
     const tx = Math.round(cam.x / step) * step, tz = Math.round(cam.z / step) * step;
     this.sun.target.position.set(tx, 0, tz);
     this.sun.position.set(tx + SUN_DIR.x * 350, SUN_DIR.y * 350, tz + SUN_DIR.z * 350);

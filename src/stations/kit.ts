@@ -498,10 +498,10 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
     b.keepOut(-H, railY - 1.5, -wallZ, H, bedTop, -pe - 0.3, `${line.nameEn} track`);
   } else b.keepOut(-H, railY - 1.5, -pe + 0.3, H, bedTop, pe - 0.3, `${line.nameEn} track`);
   const dn = nums[0], up = nums[1];
-  if (island) b.zone('platform', -P, pf - 0.5, -pe, P, pf + 3, pe, `${line.nameJa} ${dn}・${up}番線ホーム`, `${line.nameEn} platforms ${dn}/${up}`);
+  if (island) b.zone('platform', -P, pf - 0.5, -pe, P, pf + 3, pe, `${line.nameJa} ${dn}・${up}番線ホーム`, `${line.nameEn} platforms ${dn}/${up}`, false, line.id);
   else {
-    b.zone('platform', -P, pf - 0.5, -wallZ, P, pf + 3, -pe, `${line.nameJa} ${dn}番線ホーム`, `${line.nameEn} platform ${dn}`);
-    b.zone('platform', -P, pf - 0.5, pe, P, pf + 3, wallZ, `${line.nameJa} ${up}番線ホーム`, `${line.nameEn} platform ${up}`);
+    b.zone('platform', -P, pf - 0.5, -wallZ, P, pf + 3, -pe, `${line.nameJa} ${dn}番線ホーム`, `${line.nameEn} platform ${dn}`, false, line.id);
+    b.zone('platform', -P, pf - 0.5, pe, P, pf + 3, wallZ, `${line.nameJa} ${up}番線ホーム`, `${line.nameEn} platform ${up}`, false, line.id);
   }
   return d;
 }

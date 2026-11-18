@@ -223,6 +223,8 @@ function ceilingGlobe(h: HallInfo, x: number, z: number, y: number) {
 
 export const theme: LineTheme = {
   opened: 1933,
+  // Pre-war: warm globes, faded like an old print.
+  grade: { warmth: 0.45, tint: 0.05, sat: 0.88, contrast: 0.1, fade: 0.03, shadow: [0.012, 0.006, 0] },
   vault: true,
   lowCeil: 3.4,
   pillarHalf: 0.21,

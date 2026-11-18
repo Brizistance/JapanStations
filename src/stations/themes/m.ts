@@ -65,6 +65,8 @@ const isVault = (seg: CeilSeg) => !!seg.vault && seg.emit;
 
 export const theme: LineTheme = {
   opened: 2023,
+  // Timber and violet light: warm neutral, violet in the shadows.
+  grade: { warmth: 0.15, tint: 0.12, sat: 1.02, contrast: 0.12, fade: 0, shadow: [0.008, 0, 0.012] },
   ceilMat: 'flat:#2b2826',
   soffitMat: 'flat:#24211f',
   pillarHalf: 0.22,

@@ -48,6 +48,8 @@ function openRuns(h: HallInfo, x0: number, x1: number): [number, number][] {
 
 export const theme: LineTheme = {
   opened: 2015,
+  // Night garden: cool, deep shadows with a blue-violet cast.
+  grade: { warmth: -0.4, tint: 0.15, sat: 1.05, contrast: 0.24, fade: 0, shadow: [0.004, 0, 0.016] },
   ceilMat: 'flat:#1c1d22',
   vaultMat: 'flat:#202128',
   soffitMat: 'flat:#15161a',

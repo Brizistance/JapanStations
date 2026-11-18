@@ -4,17 +4,15 @@
 import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, teleport } from '../player/player';
+import { fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
 
 export const dom = { canvas: null as HTMLCanvasElement | null };
 
-/** High = ambient occlusion, bloom and sun shadows. Low = none of those, for slower machines. */
-export type Quality = 'high' | 'low';
-const QUALITY_KEY = 'kawaminato.quality';
-function savedQuality(): Quality {
+function storage(): Storage | null {
   try {
-    return localStorage.getItem(QUALITY_KEY) === 'low' ? 'low' : 'high';
+    return localStorage;
   } catch {
-    return 'high';
+    return null;
   }
 }
 
@@ -24,8 +22,12 @@ interface UI {
   /** Mouse is captured for looking around. */
   locked: boolean;
   fast: boolean;
-  quality: Quality;
-  setQuality: (q: Quality) => void;
+  graphics: Graphics;
+  /** The in-game graphics panel (G). */
+  gfxOpen: boolean;
+  setPreset: (p: Preset) => void;
+  setFx: (patch: Partial<Fx>) => void;
+  setGfxOpen: (open: boolean) => void;
   start: (stationId: string) => void;
   goTo: (stationId: string) => void;
   setMap: (open: boolean) => void;
@@ -49,38 +51,47 @@ export const useUI = create<UI>((set, get) => ({
   mapOpen: false,
   locked: false,
   fast: false,
-  quality: savedQuality(),
-  setQuality: (quality) => {
-    try {
-      localStorage.setItem(QUALITY_KEY, quality);
-    } catch {
-      /* private mode: the choice just will not persist */
-    }
-    set({ quality });
+  graphics: loadGraphics(storage()),
+  gfxOpen: false,
+  setPreset: (p) => {
+    const graphics = fromPreset(p);
+    saveGraphics(storage(), graphics);
+    set({ graphics });
+  },
+  setFx: (patch) => {
+    const graphics = withFx(get().graphics, patch);
+    saveGraphics(storage(), graphics);
+    set({ graphics });
+  },
+  setGfxOpen: (open) => {
+    if (get().mode !== 'play') return;
+    clearInput();
+    if (open) document.exitPointerLock?.();
+    set({ gfxOpen: open, mapOpen: open ? false : get().mapOpen });
   },
   start: (id) => {
     teleport(id);
     clearInput();
-    set({ mode: 'play', mapOpen: false });
+    set({ mode: 'play', mapOpen: false, gfxOpen: false });
     capturePointer();
   },
   goTo: (id) => {
     teleport(id);
     clearInput();
-    set({ mode: 'play', mapOpen: false });
+    set({ mode: 'play', mapOpen: false, gfxOpen: false });
     capturePointer();
   },
   setMap: (open) => {
     if (get().mode !== 'play') return;
     clearInput();
     if (open) document.exitPointerLock?.();
-    set({ mapOpen: open });
+    set({ mapOpen: open, gfxOpen: open ? false : get().gfxOpen });
   },
   toMenu: () => {
     clearInput();
     document.exitPointerLock?.();
     clock.scale = 1;
-    set({ mode: 'menu', mapOpen: false, fast: false });
+    set({ mode: 'menu', mapOpen: false, gfxOpen: false, fast: false });
   },
   setLocked: (v) => set({ locked: v }),
   toggleFast: () => {

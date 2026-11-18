@@ -23,10 +23,11 @@ src/
               index (registry + collision frames)
   trains/     car (rolling stock as parts: collision, doors, signs), system (live train state)
   render/     materials, textures (procedural PBR sets), lit (the shader patch),
-              lighting (environments, sun, sky), post (AO + bloom), geometry,
-              part-view, sign-set, track, world-view, Scene.tsx
+              lighting (environments, sun, sky), post (the effect chain), graphics
+              (presets + switches), ssr, grade, film, geometry, part-view, sign-set,
+              track, world-view, Scene.tsx
   player/     player.ts (state + movement)
-  ui/         store, MainMenu, MetroMap, Hud
+  ui/         store, MainMenu, MetroMap, Hud, GraphicsSettings
 ```
 
 ## Data flow
@@ -81,7 +82,18 @@ All of this lives in one shader patch on `MeshStandardMaterial` (`render/lit.ts`
 
 Materials are PBR sets (colour, normal, roughness). Procedural patterns are computed once as float fields and re-tinted per colour (`render/textures.ts`), so `tile:#24407a` and `tile:#ece8df` share their normal and roughness maps.
 
-**Quality setting** (menu, stored in `localStorage`): *High* adds ambient occlusion (GTAO), bloom and sun shadows through `render/post.ts`; *Low* renders directly with none of them.
+**Graphics settings** (`render/graphics.ts`, stored in `localStorage` as `kawaminato.graphics`). There are three presets: *Low* (no effects), *High* (made for a laptop) and *Ultra* (made for a gaming GPU). Under them is a switch for each effect; changing one by hand turns the preset into *Custom*. They can be changed on the main menu (Advanced) or in game with **G**, and apply live. The effect chain in `render/post.ts`:
+
+```
+scene → GTAO → floor reflections (ssr.ts) → bloom → lens: chroma + dirt (film.ts)
+      → tone mapping (OutputPass) → grade + vignette + grain (grade.ts)
+```
+
+- A pass is created the first time it is switched on, then only skipped or kept, so toggles are instant. With every effect off, the composer is not built and the scene renders straight to the screen.
+- **Floor reflections** are our own pass, not three's SSRPass: that one renders the scene itself and would have to replace the RenderPass, ahead of GTAO. A prepass draws view-space normals, with the material's `userData.ssr` reflectivity in alpha (set with `setReflective`, currently on `floor:` and `water`). The rays are traced at half resolution, then blurred and added on. Where a ray misses, the lit material's own env-map reflection stays.
+- **Colour grading** eases between an outdoor and an underground grade, using the same "under" test as the fog. On a line's platforms (zones carry `line`) or on its trains underground, the line's own `LineTheme.grade` takes over.
+- **Lens dirt** is lit by bloom's blurred mips, so it needs Glow.
+- *Extra detail* doubles the sun shadow map (4096), raises the GTAO samples and lengthens the reflection rays. *Render scale* caps the device pixel ratio (1, 1.5 or 2).
 
 ## Rendering notes
 

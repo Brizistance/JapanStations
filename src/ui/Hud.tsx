@@ -5,6 +5,7 @@ import { player, where } from '../player/player';
 import { clock, formatClock, lineSim } from '../sim';
 import { nextDepartures } from '../sim/timetable';
 import { Controls } from './MainMenu';
+import { GraphicsPanel } from './GraphicsSettings';
 import { LineBullet, MetroMap, NumberBadge, StationPanel, useTick } from './MetroMap';
 import { capturePointer, useUI } from './store';
 
@@ -102,7 +103,7 @@ function Board() {
 
 export function Hud() {
   useTick(250);
-  const { mapOpen, locked, fast, setMap, goTo, toMenu } = useUI();
+  const { mapOpen, gfxOpen, locked, fast, setMap, setGfxOpen, goTo, toMenu } = useUI();
   const [selected, setSelected] = useState<string>(player.lastStation);
   const [help, setHelp] = useState(false);
   useEffect(() => {
@@ -125,13 +126,15 @@ export function Hud() {
         <span><kbd>Space</kbd> ジャンプ</span>
         <span><kbd>M</kbd> 路線図</span>
         <span><kbd>F</kbd> 早送り</span>
+        <span><kbd>G</kbd> 画質</span>
       </div>
       <div className="hud-buttons">
         <button className="btn" onClick={() => setMap(true)}>路線図 <em>Map</em></button>
+        <button className="btn" onClick={() => setGfxOpen(!gfxOpen)}>画質 <em>Graphics</em></button>
         <button className="btn" onClick={() => setHelp((h) => !h)}>操作 <em>Help</em></button>
         <button className="btn" onClick={toMenu}>メニュー <em>Menu</em></button>
       </div>
-      {!locked && !mapOpen && !help && (
+      {!locked && !mapOpen && !help && !gfxOpen && (
         <button className="hud-capture" onClick={capturePointer}>
           クリックして視点操作 <em>Click the view to look around · Esc to release</em>
         </button>
@@ -145,6 +148,7 @@ export function Hud() {
           </div>
         </div>
       )}
+      {gfxOpen && <GraphicsPanel />}
       {mapOpen && (
         <div className="overlay" onClick={() => setMap(false)}>
           <div className="map-wrap sheet" onClick={(e) => e.stopPropagation()}>

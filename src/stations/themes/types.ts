@@ -10,6 +10,7 @@
 
 import type { LineDef, StationDef } from '../../data/types';
 import type { Builder } from '../../world/builder';
+import type { Grade } from '../../render/grade';
 import type { CeilSeg, HallOpts, StationStyle } from '../kit';
 
 /** What a hook is told about the hall. Coordinates are hall-local: +x along the track, +y up. */
@@ -40,6 +41,11 @@ export interface HallInfo {
 export interface LineTheme {
   /** Year the line opened. */
   opened: number;
+  /**
+   * Colour grade on this line's underground platforms and trains, over the generic underground
+   * grade (render/grade.ts). Keep it subtle: line colours on signs must still read true.
+   */
+  grade?: Partial<Grade>;
   /** Barrel-vault the open parts of ordinary underground halls (stations may also ask for one). */
   vault?: boolean;
   /** Finish of flat ceilings (default 'ceil'). */

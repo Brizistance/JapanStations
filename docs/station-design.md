@@ -44,7 +44,7 @@ Named by material key and resolved in `src/render/materials.ts`:
 | `flat:#hex` | Plain satin | Small parts with no finish worth showing |
 | `glass`, `glassDark`, `glassTint` | Reflective glass | Screens, windows, canopies |
 | `tactile`, `tactileBar` | Warning domes / guidance bars | Platform edges, routes |
-| `light`, `glow:#hex` | Self-lit, blooms on High | Light diffusers, lamps, LEDs |
+| `light`, `glow:#hex` | Self-lit, blooms when Glow is on | Light diffusers, lamps, LEDs |
 
 Station identity comes from the spec's wall, floor and pillar keys. The shapes those finishes are applied to come from the line's theme.
 
@@ -60,6 +60,8 @@ Station identity comes from the spec's wall, floor and pillar keys. The shapes t
 | **S** Shiokaze | 2004 | Sea breeze | White fins rippling in a wave | Slim paired white tubes | Cool lines between the fins | **Wind streaks** | Pale wood on steel |
 | **K** Kikyō | 2015 | Night garden | Near-black | Round, flaring to a lit bell capital | Pentagon of downlights (the **bellflower**) | Star studs over a dark base | Drum seats |
 | **M** Sumire | 2023 | Timber and soft light | Timber battens | Slim timber posts with a violet light slot | LED lines between battens | Timber wainscot, drifting **violet petals** | Timber blocks |
+
+Each theme also carries a subtle **colour grade** (`grade` in the theme file), applied on its underground platforms and trains when Colour grading is on: Y is warm and faded like an old print, N has a faint fluorescent green, A is warm and deep, S is clean and cool, K is cool with blue-violet shadows, and M is warm neutral with violet in the shadows. Keep it subtle enough that line colours on signs still read as themselves.
 
 A hall takes the theme of the line it is built for, so interchanges and the hub show two or more themes. Where Sumire trains run on Shiokaze track, the platforms are Shiokaze's. Themes cover platform halls only; concourses, gates and exits are still shared.
 

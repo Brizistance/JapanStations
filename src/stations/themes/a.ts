@@ -67,6 +67,8 @@ function downlight(h: HallInfo, x: number, y: number, z: number, d: number) {
 
 export const theme: LineTheme = {
   opened: 1994,
+  // Stone and brass: warm and deep.
+  grade: { warmth: 0.35, tint: 0.08, sat: 1.04, contrast: 0.22, fade: 0, shadow: [0.006, 0.002, 0] },
   ceilMat: 'flat:#3a3c40',
   soffitMat: 'flat:#1f2023',
   vaultMat: 'flat:#ddd6c8',

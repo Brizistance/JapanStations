@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { lit, type LitOpts } from './lit';
+import { setReflective } from './ssr';
 import { fbm, pattern, scan, type TexSet } from './textures';
 
 const cache = new Map<string, THREE.Material>();
@@ -186,8 +187,12 @@ function make(key: string): THREE.Material {
       return fromSet(pattern('tile', a), {}, { macro: 0.08, macroRough: 0.12 });
     case 'panel':
       return fromSet(pattern('panel', a), {}, { macro: 0.06, macroRough: 0.14 });
-    case 'floor':
-      return fromSet(pattern('floor', a), {}, { macro: 0.12, macroRough: 0.3 });
+    case 'floor': {
+      // Polished station floors (and water) get screen-space reflections on Ultra.
+      const m = fromSet(pattern('floor', a), {}, { macro: 0.12, macroRough: 0.3 });
+      setReflective(m, 0.6);
+      return m;
+    }
     case 'ceil':
       return fromSet(pattern('ceil', '#eceae4'), {}, { macro: 0.06, macroRough: 0 });
     case 'tactile':
@@ -228,8 +233,11 @@ function make(key: string): THREE.Material {
       return fromSet(scan('grass', [2.6, 2.6], {}), { roughness: 0.95 }, { macro: 0.3, macroRough: 0 });
     case 'ground':
       return lit({ map: groundTexture(), roughness: 0.95, metalness: 0 }, { macro: 0.1, macroRough: 0 });
-    case 'water':
-      return lit({ color: '#17404f', roughness: 0.07, metalness: 0, normalMap: rippleNormal(), normalScale: new THREE.Vector2(0.5, 0.5) }, { macro: 0.2, macroRough: 0 });
+    case 'water': {
+      const m = lit({ color: '#17404f', roughness: 0.07, metalness: 0, normalMap: rippleNormal(), normalScale: new THREE.Vector2(0.5, 0.5) }, { macro: 0.2, macroRough: 0 });
+      setReflective(m, 0.9);
+      return m;
+    }
 
     // ── Glass ──
     case 'glass':

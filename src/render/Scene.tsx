@@ -8,6 +8,8 @@ import { updateTrains } from '../trains/system';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
 import { HORIZON, Lighting } from './lighting';
+import { lineGrade, OUTDOOR, UNDERGROUND, type Grade } from './grade';
+import { needsPost } from './graphics';
 import { Post } from './post';
 import { WorldView } from './world-view';
 
@@ -16,7 +18,8 @@ const tmp: [number, number, number] = [0, 0, 0];
 
 function World() {
   const { camera, scene, gl, size } = useThree();
-  const quality = useUI((s) => s.quality);
+  const fx = useUI((s) => s.graphics.fx);
+  const wantPost = needsPost(fx);
   const view = useMemo(() => new WorldView(), []);
   const lighting = useRef<Lighting | null>(null);
   const post = useRef<Post | null>(null);
@@ -35,18 +38,22 @@ function World() {
       lighting.current = null;
     };
   }, [scene, camera, gl, view]);
-  // The post-processing chain only exists on High.
+  // The post-processing chain only exists while some effect needs it (not on Low).
   useEffect(() => {
-    if (quality !== 'high') return;
-    const p = new Post(gl, scene, camera, size.width, size.height);
+    if (!wantPost) return;
+    const p = new Post(gl, scene, camera as THREE.PerspectiveCamera, size.width, size.height, useUI.getState().graphics.fx);
     post.current = p;
     return () => {
       p.dispose();
       post.current = null;
     };
-    // Size changes are handled below without rebuilding the chain.
+    // Size and effect changes are handled below without rebuilding the chain.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quality, gl, scene, camera]);
+  }, [wantPost, gl, scene, camera]);
+  useEffect(() => {
+    post.current?.apply(fx);
+    lighting.current?.setDetail(fx.hq);
+  }, [fx, wantPost]);
   useEffect(() => {
     post.current?.setSize(size.width, size.height);
   }, [size]);
@@ -82,13 +89,21 @@ function World() {
     fog.far += ((under ? 520 : 1700) - fog.far) * k;
 
     const near = nearestStation(camera.position.x, camera.position.z).world.frame;
-    lighting.current?.update(camera.position, near.yaw, quality === 'high');
+    lighting.current?.update(camera.position, near.yaw, fx.shadows);
     // Priority 1 takes over rendering from R3F.
-    if (post.current) post.current.render();
+    if (post.current) post.current.render(gradeFor(under), dt, state.clock.elapsedTime);
     else gl.render(scene, camera);
   }, 1);
 
   return <primitive object={view.root} />;
+}
+
+/** Colour grade to ease towards: daylight, generic underground, or the line you're on. */
+function gradeFor(under: boolean): Grade {
+  if (!under) return OUTDOOR;
+  if (useUI.getState().mode !== 'play') return UNDERGROUND;
+  const line = where.train?.sim.geom.def.id ?? where.zone?.line;
+  return line ? lineGrade(line) : UNDERGROUND;
 }
 
 const KEYS: Record<string, keyof typeof input> = {
@@ -106,20 +121,22 @@ function Controls() {
     let dragging = false;
     const playing = () => {
       const s = useUI.getState();
-      return s.mode === 'play' && !s.mapOpen;
+      return s.mode === 'play' && !s.mapOpen && !s.gfxOpen;
     };
     const key = (down: boolean) => (e: KeyboardEvent) => {
       const ui = useUI.getState();
       if (ui.mode !== 'play') return;
       if (down && !e.repeat) {
         if (e.code === 'KeyM') return ui.setMap(!ui.mapOpen);
+        if (e.code === 'KeyG') return ui.setGfxOpen(!ui.gfxOpen);
         if (e.code === 'Escape' && ui.mapOpen) return ui.setMap(false);
-        if (ui.mapOpen) return;
+        if (e.code === 'Escape' && ui.gfxOpen) return ui.setGfxOpen(false);
+        if (ui.mapOpen || ui.gfxOpen) return;
         if (e.code === 'KeyF') return ui.toggleFast();
         if (e.code === 'KeyR') return teleport(nearestStation(player.body.pos[0], player.body.pos[2]).world.def.id);
       }
       const k = KEYS[e.code];
-      if (!k || ui.mapOpen) return;
+      if (!k || ui.mapOpen || ui.gfxOpen) return;
       input[k] = down;
       if (e.code === 'Space' || e.code.startsWith('Arrow') || e.code.startsWith('Page')) e.preventDefault();
     };
@@ -156,8 +173,9 @@ function Controls() {
 }
 
 export function Scene() {
+  const scale = useUI((s) => s.graphics.fx.scale);
   return (
-    <Canvas dpr={[1, 1.5]} camera={{ fov: 72, near: 0.08, far: 3200 }} gl={{ antialias: true }}>
+    <Canvas dpr={[1, scale]} camera={{ fov: 72, near: 0.08, far: 3200 }} gl={{ antialias: true }}>
       <World />
       <Controls />
     </Canvas>

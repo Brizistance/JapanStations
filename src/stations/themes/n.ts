@@ -153,6 +153,8 @@ function seats(h: HallInfo, x: number, y: number, zb: number, d: number, first: 
 
 export const theme: LineTheme = {
   opened: 1961,
+  // Bare fluorescent battens: a slight green cast, flat.
+  grade: { warmth: -0.15, tint: -0.45, sat: 0.92, contrast: 0.06, fade: 0.015 },
   lowCeil: 3.45,
 
   ceiling(h, seg, y) {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { HOME_STATION, LINES, OPERATOR, STATIONS } from '../data/network';
 import { clock, formatClock } from '../sim';
+import { EffectSwitches, PresetButtons, PresetHint } from './GraphicsSettings';
 import { LineBullet, MetroMap, StationPanel, useTick } from './MetroMap';
 import { useUI } from './store';
 
@@ -23,6 +24,7 @@ export function Controls() {
     ['Shift', '走る', 'Run'],
     ['M', '路線図・駅へ移動', 'Route map / teleport'],
     ['F', '早送り', 'Fast-forward time ×6'],
+    ['G', '画質設定', 'Graphics settings'],
     ['R', '最寄り駅に戻る', 'Respawn at nearest station'],
     ['Esc', 'マウス解放', 'Release the mouse'],
     ['← → / Q E', '視点 (キーボード)', 'Turn with the keyboard'],
@@ -44,8 +46,6 @@ export function Controls() {
 
 export function MainMenu() {
   const start = useUI((s) => s.start);
-  const quality = useUI((s) => s.quality);
-  const setQuality = useUI((s) => s.setQuality);
   const [selected, setSelected] = useState<string>(HOME_STATION);
   const [tab, setTab] = useState<'map' | 'controls' | 'about'>('map');
   useTick(1000);
@@ -80,9 +80,12 @@ export function MainMenu() {
           </nav>
           <div className="menu-quality" role="group" aria-label="Graphics quality">
             <span>画質 <em>Graphics</em></span>
-            <button className={quality === 'high' ? 'on' : ''} aria-pressed={quality === 'high'} onClick={() => setQuality('high')}>高 <em>High</em></button>
-            <button className={quality === 'low' ? 'on' : ''} aria-pressed={quality === 'low'} onClick={() => setQuality('low')}>低 <em>Low</em></button>
-            <small>High adds soft shadows, sun shadows and glow. Choose Low if movement stutters.</small>
+            <PresetButtons />
+            <PresetHint />
+            <details className="gfx-advanced">
+              <summary>詳細設定 <em>Advanced · also in game with G</em></summary>
+              <EffectSwitches />
+            </details>
           </div>
           <div className="menu-lines">
             {LINES.map((l) => (

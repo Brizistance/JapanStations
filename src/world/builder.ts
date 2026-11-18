@@ -70,6 +70,8 @@ export interface Zone {
   en: string;
   /** Below street level but open to daylight (an atrium): keep the sky, not tunnel darkness. */
   sky?: boolean;
+  /** Line id of a platform zone (picks the line's colour grade). */
+  line?: string;
 }
 
 /** Half extents of the walkable plot around an ordinary station, metres. */
@@ -231,10 +233,10 @@ export class Builder {
     this.out.gates.push({ ...rest, pos: this.pt(x, y, z), along: this.dir(along) });
   }
 
-  zone(kind: Zone['kind'], x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ja: string, en: string, sky = false) {
+  zone(kind: Zone['kind'], x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ja: string, en: string, sky = false, line?: string) {
     const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
     this.out.zones.push({
-      kind, ja, en, sky,
+      kind, ja, en, sky, line,
       min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])],
       max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])],
     });

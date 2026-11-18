@@ -27,6 +27,8 @@ const finSpan = (h: HallInfo): [number, number] => (h.island ? [-(h.pe - 0.1), h
 
 export const theme: LineTheme = {
   opened: 2004,
+  // Bright white halls: clean and cool.
+  grade: { warmth: -0.35, tint: 0, sat: 1, contrast: 0.08, fade: 0, exposure: 1.04 },
   // Pale grey instead of the near-black default, so the hall reads bright end to end.
   soffitMat: 'flat:#c9cdd0',
 
