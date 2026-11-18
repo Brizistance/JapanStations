@@ -8,6 +8,7 @@ import type { Builder } from '../world/builder';
 import { lookFor } from './looks';
 import type { ExitInfo } from './looks/types';
 import { themeFor } from './themes';
+import { wayfindExit } from './wayfinding';
 import type { HallInfo } from './themes/types';
 
 export const PF_H = 1.1; // platform height above rail
@@ -602,6 +603,7 @@ export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear 
     0, cf + 2.6, 0, narrow ? 4.4 : 5.6, 0.5,
     { ceil: cf + clear, back: { k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', arrow: 'up' } },
   );
+  b.protect(-0.7, cf + 2.3, -(narrow ? 2.3 : 2.9), 0.7, cf + clear, narrow ? 2.3 : 2.9);
   // Live departures screen facing the unpaid side.
   const sz = narrow ? -(edge + cw) / 2 : -7.25;
   b.deco('flat:#15181c', 1.2, cf + 1.72, sz - 1.35, 1.3, cf + 2.9, sz + 1.35);
@@ -667,9 +669,13 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
     b.zone('passage', -4, cf - 0.2, 0, run, GY + 2.4, 4.0, `${num}番出口`, `Exit ${num}`);
   });
   b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num }, -2, cf + (ext > 0 ? 2.25 : 2.72), -0.02, [0, -1], 2.6, 0.5);
+  b.protect(-3.4, cf + (ext > 0 ? 1.95 : 2.42), -0.4, -0.6, cf + 3.0, 0.02);
   const info: ExitInfo = { b, station, style, wall, floor: style.floor, cf, gy: GY, num, ext, run };
-  look.canopy?.(info);
-  look.exit?.(info);
+  wayfindExit(info);
+  b.guard(() => {
+    look.canopy?.(info);
+    look.exit?.(info);
+  });
 }
 
 /** Wall-mounted row of ticket machines with the fare board above, along a wall facing +z. */

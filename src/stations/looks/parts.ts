@@ -82,6 +82,11 @@ export const SHOPS = {
   photoMinato: { ja: 'フォトミナト', en: 'Photo Minato', bg: '#ffd23f', fg: '#1b1b1b', kind: 'photo' },
   kawaminatodo: { ja: 'おみやげ 川湊堂', en: 'Kawaminato-dō Gifts', bg: '#0d3b66', fg: '#fff', kind: 'goods' },
   sorano: { ja: 'そらの雑貨店', en: 'Sorano Zakka', bg: '#f7f4ee', fg: '#3a6ea5', kind: 'goods' },
+  // Island shops (default look).
+  minamoDrug: { ja: 'ミナモドラッグ', en: 'Minamo Drug', bg: '#2a9d4b', fg: '#fff', kind: 'drugstore' },
+  komeya: { ja: 'おむすび こめ屋', en: 'Omusubi Komeya', bg: '#f4efe2', fg: '#2f3a2c', kind: 'bento' },
+  shirasagi: { ja: '白鷺茶房', en: 'Shirasagi Tea Room', bg: '#4a5d3a', fg: '#f1ead8', kind: 'cafe' },
+  tsubakiShobo: { ja: 'つばき書房', en: 'Tsubaki Shobō', bg: '#7a2a32', fg: '#fbe9d0', kind: 'books' },
 } satisfies Record<string, Brand>;
 
 /** All brands of one kind. */
@@ -185,17 +190,138 @@ export interface ShopOpts {
 /** Fascia sign widths come from a few sizes, so sign textures are shared. */
 const fasciaW = (len: number) => Math.max(1, Math.min(6, Math.floor((len - 0.3) * 2) / 2));
 
-/** Shelves of goods against the wall: boards at heights `ys`, coloured blocks on each. */
-function shelves(i: ConcInfo, s: Wall, x0: number, x1: number, ys: number[], d0: number, d1: number, cols: string[], h = 0.3) {
-  const n = Math.max(1, Math.round((x1 - x0) / 0.9));
+// ── Faces ────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A vertical face to build against, anywhere: it runs along `axis`, its back plane is at cross
+ * position `at` (z for an 'x' face, x for a 'z' face) and it faces `n` (±1 across). Positions
+ * along it are `u`; depths are measured out from the back plane. Long wall `s` is
+ * `wallFace(i, s)`; a shop island has a face on each side of its spine.
+ */
+export interface Face {
+  axis: Axis;
+  at: number;
+  n: Wall;
+}
+
+/** The face of long wall `s` (runs along x, faces into the hall). */
+export const wallFace = (i: { cw: number }, s: Wall): Face => ({ axis: 'x', at: s * i.cw, n: -s as Wall });
+
+/** A box on face `f`: along u0 … u1, depths d0 … d1 out from its back plane. Decoration unless `solid`. */
+export function fbox(b: Builder, f: Face, mat: string, u0: number, u1: number, y0: number, y1: number, d0: number, d1: number, solid = false) {
+  const p = f.at + f.n * d0, q = f.at + f.n * d1;
+  if (f.axis === 'x') b.box(mat, u0, y0, Math.min(p, q), u1, y1, Math.max(p, q), solid);
+  else b.box(mat, Math.min(p, q), y0, u0, Math.max(p, q), y1, u1, solid);
+}
+
+/** The point at `u` along face `f`, `d` out from its back plane, as [x, z]. */
+export const fpt = (f: Face, u: number, d: number): [number, number] => (f.axis === 'x' ? [u, f.at + f.n * d] : [f.at + f.n * d, u]);
+
+/** The way face `f` faces, as a sign normal. */
+export const fnormal = (f: Face): [number, number] => (f.axis === 'x' ? [0, f.n] : [f.n, 0]);
+
+/** Shelves of goods against a face: boards at heights `ys`, coloured blocks about every `pitch` m on each. */
+function shelves(b: Builder, f: Face, x0: number, x1: number, ys: number[], d0: number, d1: number, cols: string[], h = 0.3, pitch = 0.9) {
+  const n = Math.max(1, Math.round((x1 - x0) / pitch));
   const w = (x1 - x0) / n;
   ys.forEach((y, r) => {
-    wbox(i, s, 'flat:#d9d4c7', x0, x1, y - 0.025, y, d0, d1);
+    fbox(b, f, 'flat:#d9d4c7', x0, x1, y - 0.025, y, d0, d1);
     for (let k = 0; k < n; k++) {
       const col = cols[(k + r * 2) % cols.length];
-      wbox(i, s, `flat:${col}`, x0 + k * w + 0.04, x0 + (k + 1) * w - 0.04, y, y + h * (0.75 + 0.25 * hash(k + r * 7, x0)), d0 + 0.02, d1 - 0.03);
+      fbox(b, f, `flat:${col}`, x0 + k * w + 0.04, x0 + (k + 1) * w - 0.04, y, y + h * (0.75 + 0.25 * hash(k + r * 7, x0)), d0 + 0.02, d1 - 0.03);
     }
   });
+}
+
+/** A shop on any face: `ShopOpts` without the wall, x0 … x1 being positions along the face. */
+type FaceShop = Omit<ShopOpts, 's' | 'clear'> & {
+  /** Top of the fascia (default the ceiling). Below it the sign shrinks to fit. */
+  top?: number;
+  /** Fewer shelves and larger goods (islands, to keep the part count down). */
+  lite?: boolean;
+};
+
+/**
+ * The shop itself against face `f`, no checks: fascia with the brand's sign (cf + 2.35 … top),
+ * pilasters, and a glazed front with a door, an open counter, or a stall of goods. Solid over
+ * x0 … x1 × depth.
+ */
+function shopFace(i: Has & { cf: number; clear: number }, f: Face, o: FaceShop) {
+  const { b, cf } = i;
+  const { x0, x1, brand } = o;
+  const d = o.depth ?? 0.3, front = o.front ?? 'glazed';
+  const top = o.top ?? cf + i.clear, fy = cf + FASCIA;
+  const body = o.body ?? 'flat:#ebe8e0';
+  const goods = o.goods ?? PALETTES[brand.kind];
+  const xa = x0 + 0.12, xb = x1 - 0.12;
+  const box = (mat: string, u0: number, u1: number, y0: number, y1: number, d0: number, d1: number, solid = false) => fbox(b, f, mat, u0, u1, y0, y1, d0, d1, solid);
+  const lite = !!o.lite, pitch = lite ? 1.4 : 0.9;
+
+  // Fascia and sign, a brand-colour stripe under it, pilasters at both ends.
+  box(body, x0, x1, fy, top, 0, d);
+  box(`flat:${brand.bg}`, x0, x1, fy, fy + 0.06, d, d + 0.01);
+  const sh = o.top === undefined ? 0.5 : Math.max(0.2, Math.min(0.5, top - fy - 0.12));
+  const sy = o.top === undefined ? fy + 0.34 : (fy + 0.06 + top) / 2;
+  const [sx, sz] = fpt(f, (x0 + x1) / 2, d + 0.015);
+  b.sign({ k: 'shop', ja: brand.ja, en: brand.en, bg: brand.bg, fg: brand.fg }, sx, sy, sz, fnormal(f), fasciaW(x1 - x0), sh);
+  box(body, x0, xa, cf, fy, 0, d, true);
+  box(body, xb, x1, cf, fy, 0, d, true);
+  // The back wall inside, and a warm strip light under the fascia.
+  box('flat:#f1ebdd', xa, xb, cf, fy, 0, 0.02);
+  if (o.glow !== false) box('glow:#fff1d6', xa + 0.1, xb - 0.1, fy - 0.06, fy - 0.02, 0.02, Math.min(0.3, d - 0.06));
+
+  if (front === 'glazed') {
+    box('none', xa, xb, cf, fy, 0, d, true);
+    shelves(b, f, xa + 0.1, xb - 0.1, lite ? [cf + 0.7, cf + 1.4] : [cf + 0.55, cf + 1.1, cf + 1.65], 0.02, Math.min(0.45, d - 0.06), goods, 0.3, pitch);
+    const door = o.door === false ? null : (o.door ?? xb - 0.7);
+    const gaps: Span[] = door === null ? [] : [[door - 0.5, door + 0.5]];
+    for (const [p, q] of cut([xa, xb], gaps)) {
+      box('flat:#3a3d41', p, q, cf, cf + 0.3, d - 0.05, d);
+      box('glass', p, q, cf + 0.3, fy, d - 0.025, d - 0.012);
+      // Mullions about every 1.6 m.
+      const m = Math.round((q - p) / 1.6);
+      for (let k = 1; k < m; k++) {
+        const x = p + ((q - p) * k) / m;
+        box('metal:#b9bdc2', x - 0.025, x + 0.025, cf + 0.3, fy, d - 0.04, d);
+      }
+    }
+    if (door !== null) {
+      box('metal:#b9bdc2', door - 0.5, door + 0.5, cf + 2.1, fy, d - 0.05, d);
+      box('glassTint', door - 0.47, door + 0.47, cf, cf + 2.1, d - 0.03, d - 0.015);
+      box('metal:#b9bdc2', door - 0.05, door + 0.05, cf + 0.9, cf + 1.2, d - 0.015, d + 0.03);
+    }
+  } else {
+    // Staff space behind a counter or stall: nobody walks in there.
+    const back = front === 'counter' ? 0.55 : 0.75;
+    box('none', xa, xb, cf, fy, 0, d - back, true);
+    shelves(b, f, xa + 0.1, xb - 0.1, lite ? [cf + 1.4] : [cf + 1.15, cf + 1.65], 0.02, Math.min(0.35, d - back - 0.05), goods, 0.3, pitch);
+    if (front === 'counter') {
+      box(o.body ?? 'flat:#d8d2c4', xa, xb, cf + 0.12, cf + 0.95, d - 0.5, d, true);
+      box('flat:#3a3d41', xa, xb, cf, cf + 0.12, d - 0.5, d - 0.03, true);
+      box('wood:#9a7650', xa, xb, cf + 0.95, cf + 1.0, d - 0.55, d + 0.05);
+      // Goods on the counter's front (papers, snacks).
+      if (brand.kind === 'kiosk') shelves(b, f, xa + 0.05, xb - 0.05, lite ? [cf + 0.5] : [cf + 0.35, cf + 0.65], d - 0.02, d + 0.12, goods, 0.22, pitch);
+    } else {
+      // Two-step stand, goods on both steps (a flower stall puts buckets on the lower one).
+      box('flat:#6b5a48', xa, xb, cf, cf + 0.5, d - 0.7, d, true);
+      box('flat:#6b5a48', xa, xb, cf + 0.5, cf + 0.85, d - 0.7, d - 0.35, true);
+      if (brand.kind !== 'flowers') shelves(b, f, xa + 0.05, xb - 0.05, [cf + 0.5], d - 0.33, d - 0.02, goods, 0.25, pitch);
+      shelves(b, f, xa + 0.05, xb - 0.05, [cf + 0.85], d - 0.68, d - 0.37, goods, 0.3, pitch);
+    }
+    if (o.noren) noren(i, f.axis, f.at + f.n * (d - 0.03), xa, xb, fy, { color: o.noren.color, text: o.noren.text, fg: o.noren.fg, face: f.n });
+  }
+
+  if (o.awning) {
+    const col = o.awning === true ? brand.bg : o.awning;
+    // Canopy at cf + 2.36 … 2.4 and a striped valance down to cf + 2.3 (white stripes in front).
+    box(`flat:${col}`, x0, x1, cf + 2.36, cf + 2.4, d, d + 0.55);
+    box(`flat:${col}`, x0, x1, cf + 2.3, cf + 2.4, d + 0.55, d + 0.555);
+    const n = Math.max(2, Math.round((x1 - x0) / 0.5));
+    for (let k = 0; k < n; k += 2) {
+      const p = x0 + ((x1 - x0) * k) / n, q = x0 + ((x1 - x0) * (k + 1)) / n;
+      box('flat:#f4f1e6', p, q, cf + 2.3, cf + 2.4, d + 0.555, d + 0.565);
+    }
+  }
 }
 
 /**
@@ -205,79 +331,11 @@ function shelves(i: ConcInfo, s: Wall, x0: number, x1: number, ys: number[], d0:
  * x0 … x1 × depth + clear; returns false (building nothing) if that is not free.
  */
 export function shopFront(i: ConcInfo, o: ShopOpts): boolean {
-  const { b, cf } = i;
-  const { s, x0, x1, brand } = o;
-  const d = o.depth ?? 0.3, clear = o.clear ?? 1.2, front = o.front ?? 'glazed';
-  const [za, zb] = band(i, s, 0, d + clear);
-  if (x1 - x0 < 1.2 || !i.free(x0, za, x1, zb)) return false;
-  i.claim(x0, za, x1, zb);
-  const top = cf + i.clear, fy = cf + FASCIA;
-  const body = o.body ?? 'flat:#ebe8e0';
-  const goods = o.goods ?? PALETTES[brand.kind];
-  const xa = x0 + 0.12, xb = x1 - 0.12;
-
-  // Fascia and sign, a brand-colour stripe under it, pilasters at both ends.
-  wbox(i, s, body, x0, x1, fy, top, 0, d);
-  wbox(i, s, `flat:${brand.bg}`, x0, x1, fy, fy + 0.06, d, d + 0.01);
-  b.sign({ k: 'shop', ja: brand.ja, en: brand.en, bg: brand.bg, fg: brand.fg }, (x0 + x1) / 2, fy + 0.34, s * (i.cw - d - 0.015), [0, -s], fasciaW(x1 - x0), 0.5);
-  wbox(i, s, body, x0, xa, cf, fy, 0, d, true);
-  wbox(i, s, body, xb, x1, cf, fy, 0, d, true);
-  // The back wall inside, and a warm strip light under the fascia.
-  wbox(i, s, 'flat:#f1ebdd', xa, xb, cf, fy, 0, 0.02);
-  if (o.glow !== false) wbox(i, s, 'glow:#fff1d6', xa + 0.1, xb - 0.1, fy - 0.06, fy - 0.02, 0.02, Math.min(0.3, d - 0.06));
-
-  if (front === 'glazed') {
-    wbox(i, s, 'none', xa, xb, cf, fy, 0, d, true);
-    shelves(i, s, xa + 0.1, xb - 0.1, [cf + 0.55, cf + 1.1, cf + 1.65], 0.02, Math.min(0.45, d - 0.06), goods);
-    const door = o.door === false ? null : (o.door ?? xb - 0.7);
-    const gaps: Span[] = door === null ? [] : [[door - 0.5, door + 0.5]];
-    for (const [p, q] of cut([xa, xb], gaps)) {
-      wbox(i, s, 'flat:#3a3d41', p, q, cf, cf + 0.3, d - 0.05, d);
-      wbox(i, s, 'glass', p, q, cf + 0.3, fy, d - 0.025, d - 0.012);
-      // Mullions about every 1.6 m.
-      const m = Math.round((q - p) / 1.6);
-      for (let k = 1; k < m; k++) {
-        const x = p + ((q - p) * k) / m;
-        wbox(i, s, 'metal:#b9bdc2', x - 0.025, x + 0.025, cf + 0.3, fy, d - 0.04, d);
-      }
-    }
-    if (door !== null) {
-      wbox(i, s, 'metal:#b9bdc2', door - 0.5, door + 0.5, cf + 2.1, fy, d - 0.05, d);
-      wbox(i, s, 'glassTint', door - 0.47, door + 0.47, cf, cf + 2.1, d - 0.03, d - 0.015);
-      wbox(i, s, 'metal:#b9bdc2', door - 0.05, door + 0.05, cf + 0.9, cf + 1.2, d - 0.015, d + 0.03);
-    }
-  } else {
-    // Staff space behind a counter or stall: nobody walks in there.
-    const back = front === 'counter' ? 0.55 : 0.75;
-    wbox(i, s, 'none', xa, xb, cf, fy, 0, d - back, true);
-    shelves(i, s, xa + 0.1, xb - 0.1, [cf + 1.15, cf + 1.65], 0.02, Math.min(0.35, d - back - 0.05), goods);
-    if (front === 'counter') {
-      wbox(i, s, o.body ?? 'flat:#d8d2c4', xa, xb, cf + 0.12, cf + 0.95, d - 0.5, d, true);
-      wbox(i, s, 'flat:#3a3d41', xa, xb, cf, cf + 0.12, d - 0.5, d - 0.03, true);
-      wbox(i, s, 'wood:#9a7650', xa, xb, cf + 0.95, cf + 1.0, d - 0.55, d + 0.05);
-      // Goods on the counter's front (papers, snacks).
-      if (brand.kind === 'kiosk') shelves(i, s, xa + 0.05, xb - 0.05, [cf + 0.35, cf + 0.65], d - 0.02, d + 0.12, goods, 0.22);
-    } else {
-      // Two-step stand, goods on both steps (a flower stall puts buckets on the lower one).
-      wbox(i, s, 'flat:#6b5a48', xa, xb, cf, cf + 0.5, d - 0.7, d, true);
-      wbox(i, s, 'flat:#6b5a48', xa, xb, cf + 0.5, cf + 0.85, d - 0.7, d - 0.35, true);
-      if (brand.kind !== 'flowers') shelves(i, s, xa + 0.05, xb - 0.05, [cf + 0.5], d - 0.33, d - 0.02, goods, 0.25);
-      shelves(i, s, xa + 0.05, xb - 0.05, [cf + 0.85], d - 0.68, d - 0.37, goods, 0.3);
-    }
-    if (o.noren) noren(i, 'x', s * (i.cw - d + 0.03), xa, xb, fy, { color: o.noren.color, text: o.noren.text, fg: o.noren.fg, face: -s as Wall });
-  }
-
-  if (o.awning) {
-    const col = o.awning === true ? brand.bg : o.awning;
-    // Canopy at cf + 2.36 … 2.4 and a striped valance down to cf + 2.3 (white stripes in front).
-    wbox(i, s, `flat:${col}`, x0, x1, cf + 2.36, cf + 2.4, d, d + 0.55);
-    wbox(i, s, `flat:${col}`, x0, x1, cf + 2.3, cf + 2.4, d + 0.55, d + 0.555);
-    const n = Math.max(2, Math.round((x1 - x0) / 0.5));
-    for (let k = 0; k < n; k += 2) {
-      const p = x0 + ((x1 - x0) * k) / n, q = x0 + ((x1 - x0) * (k + 1)) / n;
-      wbox(i, s, 'flat:#f4f1e6', p, q, cf + 2.3, cf + 2.4, d + 0.555, d + 0.565);
-    }
-  }
+  const d = o.depth ?? 0.3, clear = o.clear ?? 1.2;
+  const [za, zb] = band(i, o.s, 0, d + clear);
+  if (o.x1 - o.x0 < 1.2 || !i.free(o.x0, za, o.x1, zb)) return false;
+  i.claim(o.x0, za, o.x1, zb);
+  shopFace(i, wallFace(i, o.s), o);
   return true;
 }
 
@@ -486,6 +544,256 @@ export function planter(i: ConcInfo, x: number, z: number, o: { w?: number; d?: 
     const px = x - w / 2 + (k + 0.5) * (w / n);
     b.mesh(k % 2 ? 'flat:#3d6b2f' : 'flat:#4f7d3a', 'sphere', px, cf + 0.75, z, w / n + 0.1, 0.55, d + 0.05);
   }
+  return true;
+}
+
+// ── Islands (free-standing blocks in the middle of the floor, on x0 … x1 × z0 … z1) ────────────
+//
+// Each runs along its longer side. It checks `margin` (default 1.2) clear all round, builds
+// nothing and returns false if that is not free, and otherwise claims its footprint plus
+// `room` (default 1.0) all round to stand at it. Keep the aisles round them (3 m or more) in
+// the caller: pillars may stand in an aisle, so the margin here is only a minimum.
+
+/** A unit of a shop island: a brand (glazed, or the island's front), or a brand with its own front. */
+export type IslandUnit = Brand | { brand: Brand; front?: ShopOpts['front']; awning?: string | boolean; noren?: ShopOpts['noren']; body?: string };
+
+export interface IslandOpts {
+  /** Units along the low face (towards −z on an x island, −x on a z island), in order along it. */
+  lo: IslandUnit[];
+  /** Units along the high face. */
+  hi: IslandUnit[];
+  /** A unit across each short end (low end, high end; counters unless they say), or null for a blank end with a poster. */
+  ends?: [IslandUnit | null, IslandUnit | null];
+  /** Front of units that do not say (default 'glazed'). */
+  front?: ShopOpts['front'];
+  /** Top of the fascias above the floor (default 2.85); `clear` or more runs to the ceiling. */
+  height?: number;
+  /** Fill from the fascias up to the ceiling (a finish, or true for the shell's) so the block reads as built in. */
+  bulkhead?: string | boolean;
+  /** Shell finish: fascias, pilasters, ends (default pale enamel). */
+  body?: string;
+  glow?: boolean;
+  margin?: number;
+  room?: number;
+}
+
+const unitOf = (u: IslandUnit) => ('kind' in u ? { brand: u } : u);
+
+/** Island footprint check and claim; returns the long axis, or null if it does not fit. */
+function islandSite(i: ConcInfo, x0: number, z0: number, x1: number, z1: number, margin = 1.2, room = 1.0): Axis | null {
+  if (!(x1 > x0 && z1 > z0) || !i.free(x0, z0, x1, z1, margin)) return null;
+  i.claim(x0 - room, z0 - room, x1 + room, z1 + room);
+  return x1 - x0 >= z1 - z0 ? 'x' : 'z';
+}
+
+/**
+ * Shop island: a block of back-to-back shop units, a solid core with shop fronts (fascia and
+ * sign, glazing or an open counter, pilasters, warm light, goods) along both long faces, each
+ * face shared evenly by its units, and a unit or a poster panel across each short end. The
+ * fascias stop at cf + `height` under a dark cap, or run to the ceiling; `bulkhead` fills
+ * above them. Wants 2.4 m or more along and 1.8 m or more across.
+ */
+export function shopIsland(i: ConcInfo, x0: number, z0: number, x1: number, z1: number, o: IslandOpts): boolean {
+  const L = Math.max(x1 - x0, z1 - z0), D = Math.min(x1 - x0, z1 - z0);
+  if (L < 2.4 || D < 1.8) return false;
+  const ax = islandSite(i, x0, z0, x1, z1, o.margin, o.room);
+  if (!ax) return false;
+  const { b, cf } = i;
+  const [u0, u1, c0, c1] = ax === 'x' ? [x0, x1, z0, z1] : [z0, z1, x0, x1];
+  const half = (c1 - c0) / 2, mid = (c0 + c1) / 2, across: Axis = ax === 'x' ? 'z' : 'x';
+  const ceil = cf + i.clear, top = Math.min(ceil, cf + (o.height ?? 2.85));
+  const body = o.body ?? 'flat:#ebe8e0';
+  const endD = Math.min(1.4, L / 4);
+  const e0 = o.ends?.[0] ? endD : 0, e1 = o.ends?.[1] ? endD : 0;
+  // A counter or stall needs room behind it; a shallower unit is glazed.
+  const frontFor = (f: ShopOpts['front'], d: number): ShopOpts['front'] => {
+    const fr = f ?? o.front ?? 'glazed';
+    return d < (fr === 'stall' ? 1.1 : fr === 'counter' ? 0.9 : 0) ? 'glazed' : fr;
+  };
+  const build = (f: Face, a: number, c: number, d: number, u: IslandUnit, door: number | false) => {
+    const v = unitOf(u), front = frontFor(v.front, d);
+    shopFace(i, f, {
+      x0: a, x1: c, brand: v.brand, depth: d, front, top, lite: true, glow: o.glow,
+      body: v.body ?? o.body, awning: v.awning, noren: v.noren, door: front === 'glazed' ? door : false,
+    });
+  };
+
+  // One collider for the whole block (the units add their own inside it).
+  b.block(x0, cf, z0, x1, cf + 2.3, z1);
+  for (const [n, list] of [[-1, o.lo], [1, o.hi]] as const) {
+    const f: Face = { axis: ax, at: mid, n };
+    const len = L - e0 - e1, us = list.slice(0, Math.max(1, Math.floor(len / 1.8)));
+    const w = len / Math.max(1, us.length);
+    if (!us.length) {
+      // A blank face: shell, skirting and a poster.
+      fbox(b, f, body, u0 + e0, u1 - e1, cf, top, 0, half);
+      fbox(b, f, 'flat:#4b4d50', u0 + e0, u1 - e1, cf, cf + 0.13, half, half + 0.018);
+      const [px, pz] = fpt(f, (u0 + u1) / 2, half + 0.03);
+      b.sign({ k: 'poster', v: Math.floor(hash(Math.round(px * 3 + pz * 7)) * 8) }, px, cf + 1.5, pz, fnormal(f), 1.25, 1.75);
+      continue;
+    }
+    us.forEach((u, k) => {
+      const a = u0 + e0 + k * w, c = a + w;
+      build(f, a, c, half, u, w >= 2.2 ? (k % 2 ? c - 0.75 : a + 0.75) : false);
+    });
+  }
+  ([[0, u0, e0, -1], [1, u1, e1, 1]] as const).forEach(([k, u, e, n]) => {
+    const unit = o.ends?.[k];
+    if (unit && e > 0) {
+      const v = unitOf(unit);
+      build({ axis: across, at: u - n * e, n }, c0, c1, e, { ...v, front: v.front ?? 'counter' }, false);
+      return;
+    }
+    // A blank end: the shell, skirting and a framed poster.
+    const f: Face = { axis: across, at: u, n };
+    fbox(b, f, 'flat:#4b4d50', c0, c1, cf, cf + 0.13, 0, 0.018);
+    if (c1 - c0 >= 1.5) {
+      const w = Math.min(1.25, c1 - c0 - 0.5), [px, pz] = fpt(f, mid, 0.03);
+      fbox(b, f, 'flat:#c9c9c4', mid - w / 2 - 0.04, mid + w / 2 + 0.04, cf + 0.56, cf + 2.04, 0.008, 0.022);
+      b.sign({ k: 'poster', v: Math.floor(hash(Math.round(px * 3 + pz * 7)) * 8) }, px, cf + 1.3, pz, fnormal(f), w, 1.4);
+    }
+  });
+  // A dark cap on the fascias, and a bulkhead above if asked.
+  if (top < ceil - 0.02) {
+    b.deco('flat:#3a3d41', x0 - 0.01, top - 0.04, z0 - 0.01, x1 + 0.01, top + 0.01, z1 + 0.01);
+    if (o.bulkhead) b.deco(typeof o.bulkhead === 'string' ? o.bulkhead : body, x0 + 0.05, top + 0.01, z0 + 0.05, x1 - 0.05, ceil, z1 - 0.05);
+  }
+  return true;
+}
+
+/**
+ * Vending island: `n` drink machines (kit `vending`) back to back each side of a spine wall,
+ * three recycling bins across one end. Footprint n·1.05 + 0.8 along by 1.52 across.
+ */
+export function vendingIsland(i: ConcInfo, x0: number, z0: number, x1: number, z1: number, o: { n?: number; bins?: boolean; margin?: number; room?: number } = {}): boolean {
+  const bins = o.bins ?? true;
+  if (Math.min(x1 - x0, z1 - z0) < 1.5 || Math.max(x1 - x0, z1 - z0) < 1.15 + (bins ? 0.7 : 0)) return false;
+  const ax = islandSite(i, x0, z0, x1, z1, o.margin ?? 0.9, o.room);
+  if (!ax) return false;
+  const { b, cf } = i;
+  const [u0, u1, c0, c1] = ax === 'x' ? [x0, x1, z0, z1] : [z0, z1, x0, x1];
+  const mid = (c0 + c1) / 2;
+  const n = Math.max(1, Math.min(o.n ?? 9, Math.floor((u1 - u0 - (bins ? 0.7 : 0) - 0.1) / 1.05)));
+  const ue = u0 + 0.1 + n * 1.05;
+  const spine: Face = { axis: ax, at: mid, n: 1 };
+  fbox(b, spine, 'paint:#cfd3d6', u0, ue, cf, cf + 2.0, -0.04, 0.04, true);
+  fbox(b, spine, 'flat:#3a3d41', u0 - 0.02, ue + 0.02, cf + 2.0, cf + 2.06, -0.06, 0.06);
+  for (const s of [-1, 1] as const) {
+    const f: Face = { axis: ax, at: mid, n: s };
+    for (let k = 0; k < n; k++) {
+      const [x, z] = fpt(f, u0 + 0.05 + 0.525 + k * 1.05, 0.41);
+      vending(b, x, cf, z, fnormal(f), (k + (s > 0 ? 1 : 0)) % 2 ? 'vending2' : 'vending');
+    }
+  }
+  if (bins) {
+    const [x, z] = fpt(spine, Math.min(u1 - 0.3, ue + 0.4), 0);
+    binSet(b, cf, x, z, ax === 'x' ? 'z' : 'x');
+  }
+  return true;
+}
+
+/**
+ * Bench-and-planter island: a long planter of shrubs (a small tree in it if `tree`) with a
+ * backless bench along each side. Footprint at least 2.4 along by 1.8 across.
+ */
+export function benchIsland(i: ConcInfo, x0: number, z0: number, x1: number, z1: number, o: { color?: string; mat?: string; tree?: boolean; margin?: number; room?: number } = {}): boolean {
+  const ax = islandSite(i, x0, z0, x1, z1, o.margin ?? 0.9, o.room);
+  if (!ax) return false;
+  const { b, cf } = i;
+  const [u0, u1, c0, c1] = ax === 'x' ? [x0, x1, z0, z1] : [z0, z1, x0, x1];
+  const mid = (c0 + c1) / 2, half = (c1 - c0) / 2, pw = Math.max(0.5, half * 2 - 1.1) / 2;
+  const f: Face = { axis: ax, at: mid, n: 1 };
+  // The planter (solid), soil, and shrubs about every 0.8 m.
+  fbox(b, f, o.mat ?? 'flat:#5b5f63', u0, u1, cf, cf + 0.55, -pw, pw, true);
+  fbox(b, f, 'flat:#3b2e24', u0 + 0.05, u1 - 0.05, cf + 0.55, cf + 0.56, -pw + 0.05, pw - 0.05);
+  const n = Math.max(2, Math.round((u1 - u0) / 0.8));
+  for (let k = 0; k < n; k++) {
+    if (o.tree && k === Math.floor(n / 2)) continue;
+    const [x, z] = fpt(f, u0 + (k + 0.5) * ((u1 - u0) / n), 0);
+    const w = (u1 - u0) / n + 0.1;
+    b.mesh(k % 2 ? 'flat:#3d6b2f' : 'flat:#4f7d3a', 'sphere', x, cf + 0.75, z, ax === 'x' ? w : pw * 2 + 0.05, 0.55, ax === 'x' ? pw * 2 + 0.05 : w);
+  }
+  if (o.tree) {
+    const [x, z] = fpt(f, (u0 + u1) / 2, 0);
+    b.mesh('wood:#6b4a32', 'cyl', x, cf + 1.2, z, 0.14, 1.3, 0.14);
+    b.mesh('flat:#4f7d3a', 'sphere', x, cf + 2.05, z, 1.1, 0.75, 1.1);
+  }
+  // A bench each side: 0.5 deep seat at 0.45 on two end legs.
+  const col = o.color ?? '#7f858b';
+  for (const s of [-1, 1] as const) {
+    const fs: Face = { axis: ax, at: mid, n: s };
+    const d0 = pw + 0.05, d1 = Math.min(half, d0 + 0.5);
+    fbox(b, fs, 'none', u0 + 0.1, u1 - 0.1, cf, cf + 0.45, d0, d1, true);
+    fbox(b, fs, `paint:${col}`, u0 + 0.1, u1 - 0.1, cf + 0.4, cf + 0.46, d0, d1);
+    for (const u of [u0 + 0.3, u1 - 0.3]) fbox(b, fs, 'metal:#7f858b', u - 0.03, u + 0.03, cf, cf + 0.4, d0 + 0.03, d1 - 0.03);
+  }
+  return true;
+}
+
+/**
+ * A row of free-standing advert totems along the footprint's long side: slim stands 0.6 wide,
+ * 0.3 deep and 2.1 high about every `pitch` (2.2) m, a poster on each face (`digital`: a dark
+ * screen with a lit top edge).
+ */
+export function totemRow(i: ConcInfo, x0: number, z0: number, x1: number, z1: number, o: { pitch?: number; digital?: boolean; trim?: string; margin?: number; room?: number } = {}): boolean {
+  const ax = islandSite(i, x0, z0, x1, z1, o.margin ?? 0.9, o.room ?? 0.6);
+  if (!ax) return false;
+  const { b, cf } = i;
+  const [u0, u1, c0, c1] = ax === 'x' ? [x0, x1, z0, z1] : [z0, z1, x0, x1];
+  const mid = (c0 + c1) / 2, pitch = o.pitch ?? 2.2;
+  const n = Math.max(1, Math.floor((u1 - u0 - 0.6) / pitch) + 1), start = (u0 + u1) / 2 - ((n - 1) * pitch) / 2;
+  const f: Face = { axis: ax, at: mid, n: 1 };
+  let v = Math.floor(hash(Math.round(mid * 5 + u0)) * 8);
+  for (let k = 0; k < n; k++) {
+    const u = start + k * pitch;
+    fbox(b, f, o.digital ? 'flat:#16181b' : 'panel:#e9e8e2', u - 0.3, u + 0.3, cf, cf + 2.1, -0.15, 0.15, true);
+    fbox(b, f, 'flat:#4b4d50', u - 0.31, u + 0.31, cf, cf + 0.12, -0.16, 0.16);
+    fbox(b, f, o.trim ? `paint:${o.trim}` : 'flat:#3a3d41', u - 0.31, u + 0.31, cf + 2.06, cf + 2.12, -0.16, 0.16);
+    for (const s of [-1, 1] as const) {
+      const fs: Face = { axis: ax, at: mid, n: s };
+      const [px, pz] = fpt(fs, u, 0.16);
+      b.sign({ k: 'poster', v: v++ % 8 }, px, cf + 1.2, pz, fnormal(fs), 0.5, 1.5);
+      if (o.digital) fbox(b, fs, 'glow:#9fd3ff', u - 0.26, u + 0.26, cf + 1.97, cf + 2.0, 0.15, 0.155);
+    }
+  }
+  return true;
+}
+
+/**
+ * Glazed waiting room: a glass box with a slim frame and a flat roof at cf + 2.4, a doorway
+ * 1.2 m wide in the middle of the `door` face (±1 across, default +1), benches along the
+ * other long side inside, and a label over the door. Wants 4 m or more along by 2.6 across.
+ */
+export function waitingRoom(i: ConcInfo, x0: number, z0: number, x1: number, z1: number, o: { door?: Wall; frame?: string; margin?: number; room?: number } = {}): boolean {
+  if (Math.max(x1 - x0, z1 - z0) < 4 || Math.min(x1 - x0, z1 - z0) < 2.6) return false;
+  const ax = islandSite(i, x0, z0, x1, z1, o.margin, o.room);
+  if (!ax) return false;
+  const { b, cf } = i;
+  const [u0, u1, c0, c1] = ax === 'x' ? [x0, x1, z0, z1] : [z0, z1, x0, x1];
+  const mid = (c0 + c1) / 2, half = (c1 - c0) / 2, dn = o.door ?? 1, um = (u0 + u1) / 2;
+  const frame = o.frame ?? 'metal:#9da2a8', roof = cf + 2.4;
+  const f: Face = { axis: ax, at: mid, n: dn };
+  const back: Face = { axis: ax, at: mid, n: -dn as Wall };
+  const ends: Face = { axis: ax === 'x' ? 'z' : 'x', at: (u0 + u1) / 2, n: 1 };
+  // Glass walls (solid), the door face in two pieces either side of the doorway.
+  for (const [p, q] of cut([u0, u1], [[um - 0.6, um + 0.6]])) fbox(b, f, 'glass', p, q, cf, roof, half - 0.03, half, true);
+  fbox(b, back, 'glass', u0, u1, cf, roof, half - 0.03, half, true);
+  for (const s of [-1, 1]) fbox(b, ends, 'glass', c0, c1, cf, roof, s * ((u1 - u0) / 2 - 0.03), s * (u1 - u0) / 2, true);
+  // Frame: corner posts, door posts, the roof slab and its edge.
+  for (const s of [-1, 1] as const) {
+    for (const u of s === dn ? [u0, u1 - 0.06, um - 0.66, um + 0.6] : [u0, u1 - 0.06]) {
+      fbox(b, { axis: ax, at: mid, n: s }, frame, u, u + 0.06, cf, roof, half - 0.06, half + 0.01);
+    }
+  }
+  fbox(b, f, 'paint:#e6e5e0', u0 - 0.05, u1 + 0.05, roof, roof + 0.12, -half - 0.05, half + 0.05);
+  fbox(b, f, frame, u0 - 0.06, u1 + 0.06, roof + 0.12, roof + 0.16, -half - 0.06, half + 0.06);
+  fbox(b, f, 'light', u0 + 0.4, u1 - 0.4, roof - 0.015, roof, -0.15, 0.15);
+  // Benches along the back wall, inside.
+  fbox(b, back, 'none', u0 + 0.3, u1 - 0.3, cf, cf + 0.45, half - 0.6, half - 0.08, true);
+  fbox(b, back, 'wood:#9a7650', u0 + 0.3, u1 - 0.3, cf + 0.4, cf + 0.46, half - 0.6, half - 0.08);
+  fbox(b, back, 'metal:#7f858b', u0 + 0.3, u1 - 0.3, cf, cf + 0.4, half - 0.4, half - 0.3);
+  const [lx, lz] = fpt(f, um, half + 0.07);
+  b.sign({ k: 'label', text: '待合室', sub: 'Waiting room', fg: '#fff', bg: '#14233b' }, lx, roof + 0.06, lz, fnormal(f), 1.4, 0.28);
   return true;
 }
 
