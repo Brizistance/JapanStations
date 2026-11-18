@@ -6,25 +6,44 @@ The single source of truth for lines and stations is [`src/data/network.ts`](../
 
 | Code | Name (EN) | Name (JP) | Color | Platforms | Track spacing | Headway |
 |---|---|---|---|---|---|---|
-| Y | Yanagisuji Line | 柳筋線 | green `#1f9d55` | island | ±5.5 m (twin single-track tunnels) | 4 min, 5 trains |
-| N | Nagisa Line | 渚線 | blue `#1673c9` | side | ±1.9 m (one double-track box) | 5 min, 4 trains |
-| A | Akanesuji Line | 茜筋線 | madder red `#b7282e` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 5 trains |
-| S | Shiokaze Line | 汐風線 | sunset orange `#ee7b1a` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 5 trains |
+| Y | Yanagisuji Line | 柳筋線 | green `#1f9d55` | island | ±5.5 m (twin single-track tunnels) | 4 min, 8 trains |
+| N | Nagisa Line | 渚線 | blue `#1673c9` | side | ±1.9 m (one double-track box) | 5 min, 7 trains |
+| A | Akanesuji Line | 茜筋線 | madder red `#b7282e` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 9 trains |
+| S | Shiokaze Line | 汐風線 | sunset orange `#ee7b1a` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 8 trains |
 
-Y and N are about 3–3.5 km end to end, with stations 650–1100 m apart and a 20-minute round trip (cycle). A is the long one: about 5.4 km, stations 580–1310 m apart, 25-minute cycle. S is about 4.1 km, stations 680–1130 m apart, 25-minute cycle.
+After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/features/network-expansion/plan.md)) every line has 10–12 stations, mostly 650–900 m apart (the inner sections keep their old 580–1310 m spacing). End to end, Y is 6.5 km (32-minute round trip), N 7.1 km (35 min), A 9.6 km (45 min) and S 7.6 km (40 min). The timetable code works out each cycle and train count from the headway: 32 trains in all.
 
 ### Stations in order
 
-- **Y** (north → south, "down"): Midorizaka Y-11 · Kita-Ōdōri Y-12 · **Tsumugibashi Y-13** · Hyōtanbori Y-14 · Tsurumatsu Y-15
-- **N** (west → east, "down"): Kawaminato-kō N-11 · **Aizomechō N-12** · **Tsumugibashi N-13** · **Kawaminato-daigaku-mae N-14** · Hibarino N-15
-- **A** (south-west → north-east, "down"): Kamomehama A-11 · Watayamachi A-12 · **Aizomechō A-13** · **Kita-Ōdōri A-14** · Suzukakedōri A-15 · Tsukimizaka A-16 · Yamabukidai A-17
-- **S** (west → south-east, "down"): Yūnagihama S-11 · Kurayashiki S-12 · **Kita-Ōdōri S-13** · **Kawaminato-daigaku-mae S-14** · Tōmyōbori S-15 · Sakurazutsumi S-16
+- **Y** (north → south, "down"): Shin-Midorigaoka Y-09 · Aobadai Y-10 · Midorizaka Y-11 · **Kita-Ōdōri Y-12** · **Tsumugibashi Y-13** · Hyōtanbori Y-14 · Tsurumatsu Y-15 · Minamihorie Y-16 · Kaiseichō Y-17 · Nankōdai Y-18
+- **N** (west → east, "down"): Minato Center N-09 · Umibe-shiyakusho-mae N-10 · Kawaminato-kō N-11 · **Aizomechō N-12** · **Tsumugibashi N-13** · **Kawaminato-daigaku-mae N-14** · Hibarino N-15 · Asahino N-16 · Takanodai N-17 · Izumigaoka N-18
+- **A** (south-west → north-east, "down"): Shin-Kamome A-09 · Shiosai-kōen A-10 · Kamomehama A-11 · Watayamachi A-12 · **Aizomechō A-13** · **Kita-Ōdōri A-14** · Suzukakedōri A-15 · Tsukimizaka A-16 · Yamabukidai A-17 · Momijigaoka A-18 · Seiryōdai A-19 · Hoshimine A-20
+- **S** (west → south-east, "down"): Shiomi S-09 · Nishi-Yūnagi S-10 · Yūnagihama S-11 · Kurayashiki S-12 · **Kita-Ōdōri S-13** · **Kawaminato-daigaku-mae S-14** · Tōmyōbori S-15 · Sakurazutsumi S-16 · Hanamizuki S-17 · Shin-Sakuragawa S-18 · Uminomori S-19
 
-Rail level (metres below street): Y is −10, −13, −19, −14, −11. N is −11, −12, −11.5, −11, then **+6.5** at Hibarino: the line climbs out of the tunnel through an open cut onto a viaduct. A is −15, −17, −19.5, −20.5, −18, −16, −14: bored tunnel end to end, and exactly 7.5 m below the line it crosses at each interchange (the same gap Tsumugibashi uses). S is −10, −11, −20.5, −18.5, −14, −12: at A's depth at the hub, 7.5 m below N at Daigaku-mae.
+Rail level (metres below street), in station order:
 
-The Akanesuji Line follows two streets: north–south under **Akane-suji** (x = 1070) through the merchant quarter, then east under **Kita-Ōdōri avenue** (z = −680) through the hub, then north (x = 3000) into the hills. That stair-step makes it cross each older line once, at a right angle, at a station.
+| Line | Levels | Notes |
+|---|---|---|
+| Y | −10, −11, −10, −13, −19, −14, −11, −12, −11, −10 | |
+| N | −16, −15, −11, −12, −11.5, −11, **+6.5**, +6.5, +6.5, +6.5 | The west end runs out under the bay to reclaimed land. After Daigaku-mae the line climbs through an open cut onto a viaduct, and stays on it to Izumigaoka. |
+| A | −14, −16, −15, −17, −19.5, −20.5, −18, −16, −14, −12, −11, −10 | Bored tunnel end to end, and exactly 7.5 m below the line it crosses at each interchange (the same gap Tsumugibashi uses). |
+| S | −10, −11, −10, −11, −20.5, −18.5, −14, −12, −13, −12, −10 | At A's depth at the hub, and 7.5 m below N at Daigaku-mae. |
 
-The Shiokaze Line runs west–east along the north bank of the **Mio-gawa**, 15.9 m south of the Akanesuji Line (z = −664.1), from the river mouth through the hub's B4 box. East of the hub it turns 65° south (400 m radius) to cross the Nagisa Line at right angles at Daigaku-mae, then continues 25° east of south to the canals. It crosses the Akanesuji Line once **between stations**, at about (1358, −664), where A curves south: S is 7.9 m above it there.
+The Akanesuji Line follows streets in a stair-step:
+- east along z = 1400 from the reclaimed islands to Kamomehama;
+- north under **Akane-suji** (x = 1070) through the merchant quarter;
+- east under **Kita-Ōdōri avenue** (z = −680) through the hub;
+- north (x = 3000) into the hills;
+- east along the ridge road (z = −2500) to Hoshimine.
+
+That stair-step makes it cross each older line once, at a right angle, at a station.
+
+The Shiokaze Line runs west–east along the north bank of the **Mio-gawa**, 15.9 m south of the Akanesuji Line (z = −664.1), from the landfill at Shiomi through the hub's B4 box.
+- East of the hub it turns 65° south (400 m radius) to cross the Nagisa Line at right angles at Daigaku-mae, then continues 25° east of south to the canals.
+- Past Hanamizuki it turns 65° back to due east along the bay shore.
+- It crosses the Akanesuji Line once **between stations**, at about (1358, −664), where A curves south. S is 7.9 m above A there.
+
+The stage 1 extensions add **no new crossings between stations**. The route reserved for the Kikyō Line (stage 2) is in [stage1.md](../Plans/features/network-expansion/stage1.md).
 
 ## Numbering
 
@@ -44,7 +63,7 @@ The Shiokaze Line runs west–east along the north bank of the **Mio-gawa**, 15.
 ## Geometry
 
 - World coordinates are metres: **x = east, z = south**, y up, street level = 0.
-- A line's `alignment` is a polyline of `[x, z]` vertices; corners are rounded with circular arcs of `radius` (`src/sim/alignment.ts`). Y and N have one 400 m-radius bend each; A has three right-angle ones.
+- A line's `alignment` is a polyline of `[x, z]` vertices; corners are rounded with circular arcs of `radius` (`src/sim/alignment.ts`). Y and N have one 400 m-radius bend each, A has four right-angle ones, and S has two 65° ones.
 - A station's `position` must lie on the alignment of every line serving it. Its chainage is found by projection, so every interchange is consistent by construction. `npm test` checks this, and that lines sharing a station cross at right angles and at different depths.
 - **Exception: a line beside another.** `StationDef.at` gives a line its own platform centre at a station (Kita-Ōdōri: `at: { S: … }`). The test then requires that pair to be parallel, at the same depth and exactly 15.9 m apart (`S_BESIDE_A`, which must match the hub's box). Any third line must still cross both at right angles.
 - **Crossings between stations** need at least 7 m between rail levels. `npm test` sweeps every pair of lines for this.
@@ -87,9 +106,9 @@ interface StationDef {
   numbers: Record<LineId, string>;
   position: { x: number; y: number };   // world metres (y = south)
   at?: Partial<Record<LineId, { x: number; y: number }>>; // per-line platform centre (a line beside another)
-  diagram: { x: number; y: number;      // route-diagram coords
-             label?: 'right' | 'below'; // where the name goes (default below)
-             badges?: 'ne' | 'nw' };    // corner for an interchange's number badges
+  diagram: { x: number; y: number;      // route-diagram coords (1640 × 940 octilinear grid)
+             label?: 'right' | 'left' | 'below' | 'se' | 'ne' | 'nw'; // where the name goes
+             badges?: 'ne' | 'nw' | 'sw' };  // corner for the number badges
   district: string; districtJa: string;
   platforms: Record<LineId, [number, number]>;
   blurb: string;

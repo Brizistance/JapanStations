@@ -86,7 +86,13 @@ kbd {
 .card p { line-height: 1.7; }
 .card-title { display: flex; align-items: center; font-weight: 800; font-size: 16px; margin-bottom: 10px; }
 .map-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
-.map { width: 100%; height: auto; display: block; border-radius: 8px; }
+.map-frame { position: relative; }
+.map { width: 100%; height: auto; display: block; border-radius: 8px; touch-action: none; user-select: none; }
+.map.zoomed { cursor: grab; }
+.map.zoomed:active { cursor: grabbing; }
+.map-zoom { position: absolute; bottom: 10px; left: 10px; display: flex; gap: 6px; }
+.map-zoom .btn { padding: 4px 10px; min-width: 34px; font-size: 15px; }
+.map-zoom .btn:disabled { opacity: 0.45; cursor: default; }
 .map .stn { cursor: pointer; outline: none; }
 .map .stn:hover circle:nth-of-type(2), .map .stn.sel circle:nth-of-type(3) { filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.35)); }
 .map-ja { font-weight: 800; font-size: 19px; fill: #14233b; paint-order: stroke; stroke: #f7f6f1; stroke-width: 4px; }

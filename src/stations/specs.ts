@@ -42,7 +42,7 @@ export interface HubSpec {
 export type StationSpec = UndergroundSpec | InterchangeSpec | ElevatedSpec | HubSpec;
 
 export const SPECS: Record<StationId, StationSpec> = {
-  // Quiet residential terminus: warm brick, one small gate line, park outside.
+  // Quiet residential station (the old north terminus): warm brick, one small gate line, park outside.
   midorizaka: {
     kind: 'underground',
     concourse: [-20, 34],
@@ -88,7 +88,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 41, roadHalf: 9, cross: [-64, 78], canalAt: 78, left: 'neon', right: 'neon' },
   },
-  // Old-town terminus: green glazed tile, covered arcade outside.
+  // Old-town station (the old south terminus): green glazed tile, covered arcade outside.
   tsurumatsu: {
     kind: 'underground',
     concourse: [-34, 20],
@@ -103,7 +103,7 @@ export const SPECS: Record<StationId, StationSpec> = {
       arcadeAt: -60, arcadeName: { ja: '鶴松商店街', en: 'Tsurumatsu Shōtengai' },
     },
   },
-  // Bay terminus: cool blue-grey panels, wave mural, quay and cranes outside.
+  // Port station (the old west terminus): cool blue-grey panels, wave mural, quay and cranes outside.
   'kawaminato-ko': {
     kind: 'underground',
     concourse: [-22, 34],
@@ -136,7 +136,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     surface: { seed: 83, roadHalf: 8, cross: [-76, 72], left: 'apartment', right: 'campus', trees: true },
   },
   // ── Akanesuji Line ──
-  // Stadium terminus on the south bay: pale sea-grey panels, two gate lines for match days.
+  // Stadium station on the south bay: pale sea-grey panels, two gate lines for match days.
   kamomehama: {
     kind: 'underground',
     concourse: [-34, 34],
@@ -184,7 +184,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 131, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'apartment', trees: true, poles: true },
   },
-  // New-town terminus: cream panels, kerria-yellow trim.
+  // New-town station (the old north-east terminus): cream panels, kerria-yellow trim.
   yamabukidai: {
     kind: 'underground',
     concourse: [-20, 34],
@@ -197,7 +197,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     surface: { seed: 137, roadHalf: 8, cross: [-70, 62], left: 'apartment', right: 'house', trees: true },
   },
   // ── Shiokaze Line ──
-  // Waterfront terminus at the river mouth: warm sand panels, sunset mural, promenade outside.
+  // Waterfront station at the river mouth: warm sand panels, sunset mural, promenade outside.
   yunagihama: {
     kind: 'underground',
     concourse: [-20, 34],
@@ -236,7 +236,7 @@ export const SPECS: Record<StationId, StationSpec> = {
       canalName: { ja: '灯明橋', en: 'Tōmyō-bashi' }, canalLanterns: true,
     },
   },
-  // Cherry-embankment terminus: blush panels, cherry mural, cherry trees in the park and street.
+  // Cherry-embankment station: blush panels, cherry mural, cherry trees in the park and street.
   sakurazutsumi: {
     kind: 'underground',
     concourse: [-34, 20],
@@ -251,7 +251,7 @@ export const SPECS: Record<StationId, StationSpec> = {
       parkName: { ja: '桜堤公園', en: 'Sakurazutsumi Park' }, treeLeaf: 'flat:#f2bfcd',
     },
   },
-  // Elevated suburban terminus.
+  // Elevated suburban station, where the line leaves the tunnel.
   hibarino: {
     kind: 'elevated',
     style: {
@@ -259,5 +259,273 @@ export const SPECS: Record<StationId, StationSpec> = {
       accent: '#5aa0d8', mural: { v: 'hills', color: '#3f8f4f' },
     },
     surface: { seed: 97, roadHalf: 5, cross: [72], left: 'house', right: 'apartment', trees: true, poles: true },
+  },
+
+  // ══ Network expansion, stage 1 ══
+  // ── Yanagisuji Line, north ──
+  // Hilltop new-town terminus: fresh spring-green panels, a park at the end of the line.
+  'shin-midorigaoka': {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#e6efdc', concWall: 'panel:#eff4ea', floor: 'floor:#d1d4c8', pillar: 'panel:#e6efdc',
+      accent: '#4f9a3a', mural: { v: 'leaves', color: '#6fb24a' },
+    },
+    surface: {
+      seed: 173, roadHalf: 8, cross: [-70, 62], left: 'apartment', right: 'park', trees: true,
+      parkName: { ja: '新緑が丘公園', en: 'Shin-Midorigaoka Park' },
+    },
+  },
+  // Leafy residential heights: sage tile, rolling-hills mural, houses and a little shop street.
+  aobadai: {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#cfdcc8', concWall: 'tile:#eef2ea', floor: 'floor:#cdcbc1', pillar: 'tile:#4e7a5a',
+      accent: '#2f6b45', mural: { v: 'hills', color: '#4e8f5a' },
+    },
+    surface: { seed: 179, roadHalf: 7, cross: [-62, 66], left: 'house', right: 'mixed', trees: true, poles: true },
+  },
+  // ── Yanagisuji Line, south ──
+  // Boutique canal district: pale terrazzo-white panels, teal trim, a canal and bridge outside.
+  minamihorie: {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'panel:#eeece6', concWall: 'panel:#f3f1ec', floor: 'floor:#cfccc5', pillar: 'tile:#2f7f7a',
+      accent: '#2f7f7a', mural: { v: 'waves', color: '#2f7f7a' },
+    },
+    surface: {
+      seed: 181, roadHalf: 7.5, cross: [-64, 78], canalAt: 78, left: 'mixed', right: 'apartment', trees: true,
+      canalName: { ja: '南堀江橋', en: 'Minamihorie-bashi' },
+    },
+  },
+  // Meiji school town: red-brick walls, pine mural, a school campus on one side.
+  kaiseicho: {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'brick:#a4553e', concWall: 'tile:#f0ebe1', floor: 'floor:#cfc8bb', pillar: 'tile:#e9e1d0',
+      accent: '#1f3d2e', mural: { v: 'pines', color: '#2b5a43' },
+    },
+    surface: { seed: 191, roadHalf: 8, cross: [-66, 62], left: 'campus', right: 'house', trees: true, poles: true },
+  },
+  // Southern terminus above the container port: steel-grey panels, gulls, quay and cranes.
+  nankodai: {
+    kind: 'underground',
+    concourse: [-34, 20],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'panel:#d5dbe0', concWall: 'panel:#e6eaee', floor: 'floor:#c8cdd0', pillar: 'panel:#5c6b78',
+      accent: '#d9822b', mural: { v: 'gulls', color: '#33546e' },
+    },
+    surface: { seed: 193, roadHalf: 9, cross: [-74], left: 'warehouse', right: 'sea' },
+  },
+  // ── Nagisa Line, west (under the bay) ──
+  // Bay business district: glass-blue panels, skyline mural, towers and a promenade.
+  'minato-center': {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#dbe6ee', concWall: 'panel:#eaf0f4', floor: 'floor:#cdd3d8', pillar: 'panel:#9fb3c2',
+      accent: '#1673c9', mural: { v: 'skyline', color: '#1673c9' },
+    },
+    surface: { seed: 197, roadHalf: 11, cross: [-76], left: 'office', right: 'sea', waterfront: 'promenade', trees: true },
+  },
+  // City hall on the shore: pale granite panels, navy trim, civic plaza (park) opposite.
+  'umibe-shiyakusho-mae': {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'panel:#e7e6e1', concWall: 'panel:#f0efeb', floor: 'floor:#d0cfca', pillar: 'tile:#23395b',
+      accent: '#23395b', mural: { v: 'waves', color: '#3a6ea5' },
+    },
+    surface: {
+      seed: 199, roadHalf: 11, cross: [-76, 74], left: 'office', right: 'park', trees: true,
+      parkName: { ja: '市役所前広場', en: 'City Hall Plaza' },
+    },
+  },
+  // ── Nagisa Line, east (on the viaduct) ──
+  // Sunrise suburbs: warm cream panels and a gold sunrise.
+  asahino: {
+    kind: 'elevated',
+    style: {
+      wall: 'panel:#f1ebdc', concWall: 'panel:#f4f0e6', floor: 'floor:#d4d0c4', pillar: 'concrete',
+      accent: '#e2a400', mural: { v: 'sunset', color: '#f0a32a' },
+    },
+    surface: { seed: 211, roadHalf: 6, cross: [-64, 70], left: 'house', right: 'mixed', trees: true, poles: true },
+  },
+  // Hilltop estate: cool grey panels, hills mural, apartment blocks.
+  takanodai: {
+    kind: 'elevated',
+    style: {
+      wall: 'panel:#e2e5e8', concWall: 'panel:#edf0f1', floor: 'floor:#d0d1cd', pillar: 'concrete',
+      accent: '#4a7fb0', mural: { v: 'hills', color: '#4a7fb0' },
+    },
+    surface: { seed: 223, roadHalf: 7, cross: [66], left: 'apartment', right: 'apartment', trees: true },
+  },
+  // New-town terminus named for its spring: aqua panels, ripples mural, a park.
+  izumigaoka: {
+    kind: 'elevated',
+    style: {
+      wall: 'panel:#e3eff0', concWall: 'panel:#eef5f5', floor: 'floor:#cfd5d4', pillar: 'concrete',
+      accent: '#1f8f9a', mural: { v: 'ripples', color: '#1f8f9a' },
+    },
+    surface: {
+      seed: 227, roadHalf: 6, cross: [72], left: 'park', right: 'apartment', trees: true, poles: true,
+      parkName: { ja: '泉ヶ丘公園', en: 'Izumigaoka Park' },
+    },
+  },
+  // ── Akanesuji Line, west (the reclaimed islands) ──
+  // Newest island terminus: white panels, gulls, apartment towers facing the bay.
+  'shin-kamome': {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#f0f3f4', concWall: 'panel:#f5f7f8', floor: 'floor:#d0d5d7', pillar: 'panel:#f0f3f4',
+      accent: '#b7282e', mural: { v: 'gulls', color: '#2c6a96' },
+    },
+    surface: { seed: 229, roadHalf: 9, cross: [-74], left: 'apartment', right: 'sea', waterfront: 'promenade', trees: true },
+  },
+  // Seaside park: sea-green tile, wave mural, the park opposite the exit.
+  'shiosai-koen': {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#cfe3df', concWall: 'tile:#eaf3f1', floor: 'floor:#cbd1cf', pillar: 'tile:#2f7a74',
+      accent: '#2f7a74', mural: { v: 'waves', color: '#2f8f86' },
+    },
+    surface: {
+      seed: 233, roadHalf: 7, cross: [-66, 62], left: 'apartment', right: 'park', trees: true,
+      parkName: { ja: '潮騒公園', en: 'Shiosai Park' }, treeLeaf: 'leaf2',
+    },
+  },
+  // ── Akanesuji Line, north-east (the ridge) ──
+  // Maple hillside: deep crimson tile, maple mural, red-leaved trees in the park.
+  momijigaoka: {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#7c2b24', concWall: 'tile:#f1e9e1', floor: 'floor:#cdc6bb', pillar: 'tile:#d9a441',
+      accent: '#d9a441', mural: { v: 'maple', color: '#c8452a' },
+    },
+    surface: {
+      seed: 239, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'park', trees: true, poles: true,
+      parkName: { ja: '紅葉ヶ丘公園', en: 'Momijigaoka Park' }, treeLeaf: 'flat:#c8452a',
+    },
+  },
+  // Cool upland estate: mint-white panels, pine mural, a research campus.
+  seiryodai: {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'panel:#e4efeb', concWall: 'panel:#eef5f2', floor: 'floor:#cfd3cf', pillar: 'panel:#e4efeb',
+      accent: '#2e7d6b', mural: { v: 'pines', color: '#2e7d6b' },
+    },
+    surface: { seed: 241, roadHalf: 8, cross: [-70, 66], left: 'apartment', right: 'campus', trees: true },
+  },
+  // Ridge-top terminus below the observatory: midnight tile, star mural.
+  hoshimine: {
+    kind: 'underground',
+    concourse: [-34, 20],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#1d2540', concWall: 'tile:#eceef4', floor: 'floor:#cbcbc8', pillar: 'tile:#1d2540',
+      accent: '#f0d77a', mural: { v: 'stars', color: '#f0d77a' },
+    },
+    surface: {
+      seed: 251, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'park', trees: true, poles: true,
+      parkName: { ja: '星峰天文台公園', en: 'Hoshimine Observatory Park' },
+    },
+  },
+  // ── Shiokaze Line, west ──
+  // Landfill tip facing the open bay: sand-white panels, waves, promenade.
+  shiomi: {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#efe9df', concWall: 'panel:#f4f0e9', floor: 'floor:#d2ccc2', pillar: 'panel:#3d5f7a',
+      accent: '#ee7b1a', mural: { v: 'waves', color: '#3d7fa8' },
+    },
+    surface: { seed: 257, roadHalf: 8, cross: [-74], left: 'apartment', right: 'sea', waterfront: 'promenade', trees: true },
+  },
+  // River-mouth apartments: dusk-rose panels and a sunset like its neighbour's, but later.
+  'nishi-yunagi': {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'panel:#f0e2de', concWall: 'panel:#f5eeec', floor: 'floor:#d4ccc8', pillar: 'panel:#f0e2de',
+      accent: '#7a3b52', mural: { v: 'sunset', color: '#c4456a' },
+    },
+    surface: { seed: 263, roadHalf: 7, cross: [-62, 66], left: 'apartment', right: 'mixed', trees: true, poles: true },
+  },
+  // ── Shiokaze Line, south-east ──
+  // Dogwood avenue: white panels with pink trim, dogwood mural, white-blossom street trees.
+  hanamizuki: {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'panel:#f5f2ee', concWall: 'panel:#f8f6f3', floor: 'floor:#d5d0ca', pillar: 'tile:#d98aa0',
+      accent: '#c45a78', mural: { v: 'dogwood', color: '#e9a3b6' },
+    },
+    surface: { seed: 269, roadHalf: 8, cross: [-70, 66], left: 'house', right: 'apartment', trees: true, treeLeaf: 'flat:#f3eee6' },
+  },
+  // New cherry canal: blush tile, cherry mural, canal bridge with cherry trees.
+  'shin-sakuragawa': {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#f2dfe2', concWall: 'tile:#f7eff0', floor: 'floor:#d3cbc9', pillar: 'tile:#8a4a5a',
+      accent: '#8a4a5a', mural: { v: 'sakura', color: '#e28aa2' },
+    },
+    surface: {
+      seed: 271, roadHalf: 7, cross: [-64, 78], canalAt: 78, left: 'oldtown', right: 'apartment', trees: true,
+      canalName: { ja: '新桜橋', en: 'Shin-Sakura-bashi' }, treeLeaf: 'flat:#f2bfcd',
+    },
+  },
+  // Forest-park terminus on the old landfill: moss-green tile, leaves, the forest park outside.
+  uminomori: {
+    kind: 'underground',
+    concourse: [-34, 20],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#3e5f4a', concWall: 'tile:#ebf0ec', floor: 'floor:#cbccc4', pillar: 'tile:#3e5f4a',
+      accent: '#9cc45a', mural: { v: 'leaves', color: '#2f7a4a' },
+    },
+    surface: {
+      seed: 277, roadHalf: 7, cross: [-66], left: 'park', right: 'sea', waterfront: 'promenade', trees: true,
+      parkName: { ja: '海の森公園', en: 'Umi-no-Mori Park' },
+    },
   },
 };

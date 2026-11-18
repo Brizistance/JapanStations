@@ -1,7 +1,7 @@
 // Interactive route diagram. Everything is drawn from the network data, including
 // the live train markers, which come from the same timetable the 3D trains follow.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LINES, STATIONS, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { NET, clock, formatClock, lineSim } from '../sim';
@@ -33,24 +33,100 @@ export function LineBullet({ line, size = 22 }: { line: LineDef; size?: number }
   );
 }
 
-/** Where to put each station's label relative to its marker. */
+/** Where to put each station's label relative to its marker (dy is the Japanese line's baseline). */
 function labelPos(s: StationDef): { dx: number; dy: number; anchor: 'start' | 'middle' | 'end' } {
-  if (linesAt(s.id).length > 1) return { dx: 22, dy: 44, anchor: 'start' };
-  if (s.diagram.label === 'right') return { dx: 26, dy: -2, anchor: 'start' };
-  return { dx: 0, dy: 40, anchor: 'middle' };
+  const label = s.diagram.label ?? (linesAt(s.id).length > 1 ? 'se' : 'below');
+  switch (label) {
+    case 'right': return { dx: 26, dy: -2, anchor: 'start' };
+    case 'left': return { dx: -26, dy: -2, anchor: 'end' };
+    case 'se': return { dx: 22, dy: 44, anchor: 'start' };
+    case 'ne': return { dx: 24, dy: -30, anchor: 'start' };
+    case 'nw': return { dx: -24, dy: -38, anchor: 'end' };
+    default: return { dx: 0, dy: 40, anchor: 'middle' };
+  }
 }
 
 /** Top-left corner of the i-th number badge for a station. */
 function badgePos(s: StationDef, i: number, inter: boolean): [number, number] {
   const { x, y, badges, label } = s.diagram;
-  if (inter) {
-    // Interchanges: stacked on the left by default, or side by side in a free corner.
-    if (badges === 'ne') return [x + 20 + i * 34, y - 50];
-    if (badges === 'nw') return [x - 52 - i * 34, y - 50];
-    return [x - 52, i === 0 ? y - 50 : y + 20];
-  }
-  // Left of the marker when the label is on the right, otherwise above it.
-  return label === 'right' ? [x - 52, y - 15] : [x - 15, y - 50];
+  // A named corner: badges side by side, growing away from the marker.
+  if (badges === 'ne') return [x + 20 + i * 34, y - 50];
+  if (badges === 'nw') return [x - 52 - i * 34, y - 50];
+  if (badges === 'sw') return [x - 52 - i * 34, y + 20];
+  // Interchanges default to a stack on the left.
+  if (inter) return [x - 52, i === 0 ? y - 50 : y + 20];
+  // Opposite a side label, otherwise above the marker.
+  if (label === 'right') return [x - 52, y - 15];
+  if (label === 'left') return [x + 22, y - 15];
+  return [x - 15, y - 50];
+}
+
+/** The whole diagram, in SVG units. */
+const MAP_W = 1640, MAP_H = 940;
+const MIN_ZOOM = 1, MAX_ZOOM = 4;
+type View = { x: number; y: number; w: number };
+
+/** Keep the view inside the diagram (aspect ratio fixed by MAP_W / MAP_H). */
+function clampView(v: View): View {
+  const w = Math.min(MAP_W / MIN_ZOOM, Math.max(MAP_W / MAX_ZOOM, v.w));
+  const h = (w * MAP_H) / MAP_W;
+  return { w, x: Math.min(MAP_W - w, Math.max(0, v.x)), y: Math.min(MAP_H - h, Math.max(0, v.y)) };
+}
+
+/**
+ * Wheel to zoom about the cursor, drag to pan, buttons for the same. A drag that moves more
+ * than a few pixels swallows the click that ends it, so panning never selects a station.
+ */
+function usePanZoom() {
+  const [view, setView] = useState<View>({ x: 0, y: 0, w: MAP_W });
+  const svgRef = useRef<SVGSVGElement>(null);
+  const drag = useRef<{ px: number; py: number; v: View; moved: boolean } | null>(null);
+  const toMap = (clientX: number, clientY: number, v: View) => {
+    const r = svgRef.current!.getBoundingClientRect();
+    return { x: v.x + ((clientX - r.left) / r.width) * v.w, y: v.y + ((clientY - r.top) / r.height) * ((v.w * MAP_H) / MAP_W) };
+  };
+  const zoomAt = (f: number, cx?: number, cy?: number) =>
+    setView((v) => {
+      const c = cx === undefined || cy === undefined ? { x: v.x + v.w / 2, y: v.y + (v.w * MAP_H) / MAP_W / 2 } : toMap(cx, cy, v);
+      const w = Math.min(MAP_W / MIN_ZOOM, Math.max(MAP_W / MAX_ZOOM, v.w / f));
+      const k = w / v.w;
+      return clampView({ w, x: c.x - (c.x - v.x) * k, y: c.y - (c.y - v.y) * k });
+    });
+  // React's onWheel is passive, so preventDefault (to stop the page scrolling) needs a native listener.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+  const handlers = {
+    onPointerDown: (e: React.PointerEvent) => {
+      drag.current = { px: e.clientX, py: e.clientY, v: view, moved: false };
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const d = drag.current;
+      if (!d) return;
+      const dx = e.clientX - d.px, dy = e.clientY - d.py;
+      if (!d.moved && Math.hypot(dx, dy) < 5) return;
+      if (!d.moved) svgRef.current?.setPointerCapture(e.pointerId);
+      d.moved = true;
+      const r = svgRef.current!.getBoundingClientRect();
+      const k = d.v.w / r.width;
+      setView(clampView({ w: d.v.w, x: d.v.x - dx * k, y: d.v.y - dy * k }));
+    },
+    onPointerUp: () => {
+      // Keep the flag until the click that follows this pointerup has been swallowed.
+      setTimeout(() => (drag.current = null), 0);
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (drag.current?.moved) e.stopPropagation();
+    },
+  };
+  return { view, svgRef, handlers, zoomAt, reset: () => setView({ x: 0, y: 0, w: MAP_W }) };
 }
 
 function TrainDots() {
@@ -159,14 +235,19 @@ export function StationPanel({ id, onGo, goLabel }: { id: string; onGo?: (id: st
 }
 
 export function MetroMap({ selected, onSelect, here }: { selected: string | null; onSelect: (id: string) => void; here?: string | null }) {
+  const { view, svgRef, handlers, zoomAt, reset } = usePanZoom();
+  const zoomed = view.w < MAP_W - 1;
   return (
-    <svg className="map" viewBox="40 20 1040 560" role="img" aria-label="Route map">
-      <rect x="40" y="20" width="1040" height="560" fill="#f7f6f1" rx="10" />
-      {/* The Mio-gawa and the bay, purely decorative. The Shiokaze Line follows the river's north bank. */}
-      <path d="M40 215 C 260 190, 420 240, 620 205 S 900 120, 1080 150" stroke="#d3e6f1" strokeWidth="26" fill="none" />
-      <path d="M40 150 L 40 470 C 70 440, 95 390, 92 320 S 70 190, 40 150 Z" fill="#d3e6f1" />
-      <text x="56" y="330" className="map-geo" transform="rotate(-90 56 330)">川湊湾 Kawaminato Bay</text>
-      <text x="255" y="212" textAnchor="middle" className="map-geo">澪川 Mio-gawa</text>
+    <div className="map-frame">
+    <svg ref={svgRef} className={`map${zoomed ? ' zoomed' : ''}`} viewBox={`${view.x} ${view.y} ${view.w} ${(view.w * MAP_H) / MAP_W}`}
+      role="img" aria-label="Route map" {...handlers}>
+      <rect x="0" y="0" width={MAP_W} height={MAP_H} fill="#f7f6f1" rx="10" />
+      {/* The Mio-gawa and the bay, purely decorative. The Shiokaze Line follows the river's north bank;
+          the western ends of the lines run out under the bay to reclaimed land. */}
+      <path d="M0 50 L 0 940 L 120 940 C 70 860, 40 760, 60 640 S 120 420, 70 300 S 40 120, 0 50 Z" fill="#d3e6f1" />
+      <path d="M60 372 C 300 350, 520 395, 700 368 S 1000 300, 1180 330 S 1460 300, 1640 250" stroke="#d3e6f1" strokeWidth="24" fill="none" />
+      <text x="30" y="700" className="map-geo" transform="rotate(-90 30 700)">川湊湾 Kawaminato Bay</text>
+      <text x="300" y="376" textAnchor="middle" className="map-geo">澪川 Mio-gawa</text>
       {LINES.map((l) => (
         <polyline
           key={l.id}
@@ -205,7 +286,7 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
         );
       })}
       {/* Legend */}
-      <g transform={`translate(800, ${536 - LINES.length * 30})`}>
+      <g transform={`translate(${MAP_W - 270}, ${MAP_H - 64 - LINES.length * 30})`}>
         <rect width="250" height={LINES.length * 30 + 44} rx="8" fill="#fff" stroke="#d9d6cc" />
         {LINES.map((l, i) => (
           <g key={l.id} transform={`translate(16, ${20 + i * 30})`}>
@@ -221,5 +302,11 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
         </g>
       </g>
     </svg>
+      <div className="map-zoom">
+        <button className="btn" onClick={() => zoomAt(1.5)} aria-label="Zoom in">＋</button>
+        <button className="btn" onClick={() => zoomAt(1 / 1.5)} aria-label="Zoom out" disabled={!zoomed}>－</button>
+        <button className="btn" onClick={reset} aria-label="Show the whole map" disabled={!zoomed}>全体 <em>All</em></button>
+      </div>
+    </div>
   );
 }

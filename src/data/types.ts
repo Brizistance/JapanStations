@@ -66,10 +66,16 @@ export interface StationDef {
    */
   at?: Partial<Record<LineId, { x: number; y: number }>>;
   /**
-   * Schematic route-diagram coords. `label` = where the name goes (default below);
-   * `badges` = which corner an interchange's number badges sit in (default left).
+   * Schematic route-diagram coords on the octilinear map grid. `label` = where the name goes
+   * (default below, or below-right `se` at an interchange); `badges` = which corner the number
+   * badges sit in (default: left of a right-hand label, otherwise above).
    */
-  diagram: { x: number; y: number; label?: 'right' | 'below'; badges?: 'ne' | 'nw' };
+  diagram: {
+    x: number;
+    y: number;
+    label?: 'right' | 'left' | 'below' | 'se' | 'ne' | 'nw';
+    badges?: 'ne' | 'nw' | 'sw';
+  };
   district: string;
   districtJa: string;
   /** Platform numbers per line: [down platform, up platform]. */

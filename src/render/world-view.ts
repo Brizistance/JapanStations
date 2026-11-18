@@ -193,12 +193,28 @@ function buildBackdrop(): THREE.Group {
   const boxes: BoxPart[] = [];
   const mats = ['facade:grid:#cfcabd', 'facade:grid:#b7b1a4', 'facade:apt:#dcd6c9', 'facade:office:#8ea0ae', 'facade:grid:#a9a39a', 'facade:apt:#c9d0d4'];
   const PITCH = 46;
-  for (let gx = -400; gx < 4700; gx += PITCH) {
-    for (let gz = -2400; gz < 2300; gz += PITCH) {
+  // Open-track points bucketed on a 330 m grid: only the 3×3 cells around a lot can be in range.
+  const CELL = 330;
+  const buckets = new Map<string, { x: number; z: number }[]>();
+  for (const p of openPts) {
+    const k = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
+    (buckets.get(k) ?? buckets.set(k, []).get(k)!).push(p);
+  }
+  const openDistAt = (x: number, z: number) => {
+    let m = Infinity;
+    const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const p of buckets.get(`${cx + i},${cz + j}`) ?? []) m = Math.min(m, Math.hypot(p.x - x, p.z - z));
+    return m;
+  };
+  // The grid spans the whole network (bounds from the station frames), plus a margin.
+  const fx = STATION_WORLDS.map((s) => s.frame.x), fz = STATION_WORLDS.map((s) => s.frame.z);
+  const [x0, x1, z0, z1] = [Math.min(...fx) - 500, Math.max(...fx) + 500, Math.min(...fz) - 500, Math.max(...fz) + 500];
+  for (let gx = x0; gx < x1; gx += PITCH) {
+    for (let gz = z0; gz < z1; gz += PITCH) {
       const x = gx + (r() - 0.5) * 8, z = gz + (r() - 0.5) * 8;
       const w = 16 + r() * 16, d = 16 + r() * 16;
       const nearStation = STATION_WORLDS.some((s) => Math.hypot(s.frame.x - x, s.frame.z - z) < 480);
-      const openDist = openPts.reduce((m, p) => Math.min(m, Math.hypot(p.x - x, p.z - z)), Infinity);
+      const openDist = openDistAt(x, z);
       if (!nearStation && openDist > 330) continue;
       if (inPlot(x, z, 24) || openDist < 34) continue;
       const centre = Math.hypot(x - 1870, z);

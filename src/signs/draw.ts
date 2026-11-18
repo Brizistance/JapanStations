@@ -248,16 +248,18 @@ function drawDiagram(ctx: Ctx, x: number, y: number, w: number, h: number, here?
     ctx.arc(px, py, 8 * sc, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    const vertical = s.diagram.label === 'right';
-    const tx = vertical ? px + 14 * sc : px, ty = vertical ? py : py + 24 * sc;
-    text(ctx, s.nameJa, tx, ty, 17 * sc, { align: vertical ? 'left' : 'center', weight: 700, color: '#111' });
+    // Beside the marker on a vertical stretch of line, otherwise below it.
+    const side = s.diagram.label === 'right' ? 1 : s.diagram.label === 'left' ? -1 : 0;
+    const align = side > 0 ? 'left' : side < 0 ? 'right' : 'center';
+    const tx = px + side * 14 * sc, ty = side ? py : py + 24 * sc;
+    text(ctx, s.nameJa, tx, ty, 17 * sc, { align, weight: 700, color: '#111' });
     if (hereSt && s.id !== here) {
-      // Fare by rough distance: realistic-looking, deterministic.
+      // Fare by rough distance, in the usual 50-yen steps: realistic-looking, deterministic.
       const d = Math.hypot(s.position.x - hereSt.position.x, s.position.y - hereSt.position.y);
-      const fare = d < 900 ? 190 : d < 1800 ? 240 : 290;
-      text(ctx, String(fare), vertical ? tx : px, vertical ? py + 18 * sc : ty + 18 * sc, 14 * sc, { align: vertical ? 'left' : 'center', weight: 700, color: '#c0392b' });
+      const fare = d < 900 ? 190 : d < 1800 ? 240 : d < 3000 ? 290 : d < 4500 ? 340 : 390;
+      text(ctx, String(fare), tx, ty + 18 * sc, 14 * sc, { align, weight: 700, color: '#c0392b' });
     } else if (hereSt) {
-      text(ctx, '当駅', vertical ? tx : px, vertical ? py + 18 * sc : ty + 18 * sc, 13 * sc, { align: vertical ? 'left' : 'center', weight: 800, color: '#e02020' });
+      text(ctx, '当駅', tx, ty + 18 * sc, 13 * sc, { align, weight: 800, color: '#e02020' });
     }
   }
 }
@@ -692,6 +694,151 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       const x = ((i * 0.618) % 1) * W, y = H * (0.45 + 0.5 * ((i * 0.377) % 1));
       ctx.fillRect(x, y, H * 0.012, H * 0.008);
     }
+  } else if (c.v === 'maple') {
+    // Momiji: scattered five-lobed maple leaves in autumn reds and golds on warm cream.
+    ctx.fillStyle = '#f4ece0';
+    ctx.fillRect(0, 0, W, H);
+    const cols = [col, '#e07a2e', '#d9a441', '#9c2a22'];
+    const hash = (n: number) => {
+      const v = Math.sin(n * 12.9898) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    const leaf = (x: number, y: number, r: number, a: number) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(a);
+      // Palmate: five slender pointed lobes fanning from the stalk, the lowest pair shortest.
+      for (const [t, len] of [[0, 1], [-0.95, 0.85], [0.95, 0.85], [-1.85, 0.55], [1.85, 0.55]]) {
+        ctx.save();
+        ctx.rotate(t);
+        const L = r * len, wd = r * 0.3 * len;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(-wd, -L * 0.45, 0, -L);
+        ctx.quadraticCurveTo(wd, -L * 0.45, 0, 0);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillRect(-r * 0.035, 0, r * 0.07, r * 0.6); // stalk
+      ctx.restore();
+    };
+    for (let i = 0; i < Math.round(W / (H * 0.16)); i++) {
+      const x = hash(i + 1) * W, y = H * (0.14 + 0.72 * hash(i + 101));
+      ctx.fillStyle = cols[Math.floor(hash(i + 201) * cols.length)];
+      leaf(x, y, H * (0.08 + 0.05 * hash(i + 301)), (hash(i + 401) - 0.5) * 2.4);
+    }
+  } else if (c.v === 'stars') {
+    // Night sky over the ridge: star field, a few constellation lines and the observatory dome.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0b1230');
+    g.addColorStop(1, '#27325a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < (W / H) * 90; i++) {
+      const x = ((i * 0.618) % 1) * W, y = ((i * 0.7548) % 1) * H * 0.78;
+      ctx.globalAlpha = 0.4 + 0.6 * ((i * 0.31) % 1);
+      ctx.fillRect(x, y, H * 0.006, H * 0.006);
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = H * 0.006;
+    for (let c0 = 0; c0 < Math.max(2, Math.round(W / (H * 1.6))); c0++) {
+      const ox = (c0 + 0.3) * (W / Math.max(2, Math.round(W / (H * 1.6)))), pts: [number, number][] = [];
+      for (let k = 0; k < 5; k++) pts.push([ox + (k - 2) * H * 0.14 + Math.sin(k * 2.1 + c0) * H * 0.05, H * (0.2 + 0.1 * Math.cos(k * 1.7 + c0))]);
+      ctx.beginPath();
+      pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.stroke();
+      for (const [x, y] of pts) {
+        ctx.beginPath();
+        ctx.arc(x, y, H * 0.014, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // The ridge and the observatory.
+    ctx.fillStyle = '#060a1c';
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += W / 40) ctx.lineTo(x, H * (0.86 - 0.06 * Math.sin((x / W) * Math.PI)));
+    ctx.lineTo(W, H);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(W * 0.5, H * 0.8, H * 0.07, Math.PI, 0);
+    ctx.fill();
+  } else if (c.v === 'dogwood') {
+    // Hanamizuki: four-bracted dogwood flowers, white and pink, on a sage-green ground.
+    ctx.fillStyle = '#b9cba9';
+    ctx.fillRect(0, 0, W, H);
+    const flower = (x: number, y: number, r: number, a: number, fill: string) => {
+      ctx.fillStyle = fill;
+      for (let k = 0; k < 4; k++) {
+        const t = a + (k * Math.PI) / 2;
+        ctx.beginPath();
+        ctx.ellipse(x + Math.cos(t) * r * 0.55, y + Math.sin(t) * r * 0.55, r * 0.55, r * 0.36, t, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#7a9a3a';
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    const hash = (n: number) => {
+      const v = Math.sin(n * 12.9898) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    // Leaves behind, then the flowers: big four-bracted heads, mostly white, some pink.
+    ctx.fillStyle = '#7f9f68';
+    for (let i = 0; i < Math.round(W / (H * 0.22)); i++) {
+      ctx.beginPath();
+      ctx.ellipse(hash(i + 1) * W, H * (0.08 + 0.84 * hash(i + 51)), H * 0.11, H * 0.045, hash(i + 91) * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < Math.round(W / (H * 0.42)); i++) {
+      const x = hash(i + 501) * W, y = H * (0.2 + 0.6 * hash(i + 601));
+      flower(x, y, H * (0.13 + 0.06 * hash(i + 701)), hash(i + 801) * 1.5, hash(i + 901) < 0.35 ? col : '#fbfaf6');
+    }
+  } else if (c.v === 'skyline') {
+    // The bay new town: glass towers mirrored in the water.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#dcebf5');
+    g.addColorStop(0.62, '#f3f8fb');
+    g.addColorStop(0.63, col);
+    g.addColorStop(1, '#0d3f73');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const water = H * 0.62;
+    for (let x = 0, i = 0; x < W; i++) {
+      const w = H * (0.09 + 0.07 * ((i * 0.618) % 1)), h = H * (0.18 + 0.36 * ((i * 0.7548) % 1));
+      ctx.fillStyle = i % 3 === 0 ? col : i % 3 === 1 ? '#5f87ab' : '#9fb7cc';
+      ctx.fillRect(x, water - h, w - H * 0.012, h);
+      // Window bands.
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      for (let y = water - h + H * 0.02; y < water - H * 0.01; y += H * 0.035) ctx.fillRect(x + H * 0.008, y, w - H * 0.028, H * 0.008);
+      // Reflection.
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x, water + H * 0.01, w - H * 0.012, h * 0.45);
+      ctx.globalAlpha = 1;
+      x += w;
+    }
+  } else if (c.v === 'ripples') {
+    // A spring welling up: concentric rings spreading on still water.
+    ctx.fillStyle = '#eaf5f5';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = col;
+    const n = Math.max(3, Math.round(W / (H * 1.1)));
+    for (let i = 0; i < n; i++) {
+      const cx = ((i + 0.5) / n) * W + Math.sin(i * 2.3) * H * 0.2, cy = H * (0.5 + 0.18 * Math.sin(i * 1.7));
+      for (let k = 1; k <= 7; k++) {
+        ctx.globalAlpha = 1 - k / 8;
+        ctx.lineWidth = H * (0.02 - k * 0.002);
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, H * 0.07 * k, H * 0.035 * k, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
   } else if (c.v === 'willow') {
     // Gilded willow: long gold fronds on deep green, for the hub.
     ctx.fillStyle = '#12382c';
