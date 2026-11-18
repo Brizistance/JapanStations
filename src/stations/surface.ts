@@ -82,8 +82,15 @@ export function car(b: Builder, x: number, z: number, color: string, alongX = tr
 }
 
 export function tree(b: Builder, x: number, z: number, h = 5.2, leaf = 'leaf') {
-  b.mesh('flat:#5b4a3a', 'cyl', x, GY + h * 0.3, z, 0.32, h * 0.6, 0.32);
-  b.mesh(leaf, 'sphere', x, GY + h * 0.78, z, h * 0.62, h * 0.6, h * 0.62);
+  b.mesh('flat:#4f4034', 'cyl', x, GY + h * 0.3, z, 0.3, h * 0.6, 0.3);
+  // Canopy: one core and a ring of smaller clumps, placed from the trunk position so it is repeatable.
+  const w = h * 0.5;
+  b.mesh(leaf, 'sphere', x, GY + h * 0.8, z, w, h * 0.52, w);
+  const seed = Math.abs(Math.round(x * 13 + z * 7));
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + (seed % 7), k = 0.72 + ((seed >> i) % 3) * 0.1;
+    b.mesh(i % 2 ? leaf : leaf === 'leaf' ? 'leaf2' : 'leaf', 'sphere', x + Math.cos(a) * w * 0.38, GY + h * (0.68 + (i % 3) * 0.07), z + Math.sin(a) * w * 0.38, w * k, h * 0.36 * k, w * k);
+  }
   b.block(x - 0.2, GY, z - 0.2, x + 0.2, GY + 2.5, z + 0.2);
 }
 
@@ -338,7 +345,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
         } else fillLots(b, r, style, xa, xb, swOut);
       }
       if (style === 'park') park(b, r, swOut);
-      if (style === 'sea') quay(b, r, swOut, seaZ);
+      if (style === 'sea') b.open(() => quay(b, r, swOut, seaZ));
       if (style === 'campus') campusFront(b, swOut);
     });
   }
@@ -355,7 +362,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     }
   }
 
-  if (canal !== undefined) canalFeature(b, canal, swOut, Z);
+  if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z));
   if (spec.arcadeAt !== undefined) arcade(b, spec.arcadeAt, swOut, spec.arcadeName ?? { ja: '商店街', en: 'Shopping Arcade' });
   if (spec.avenue) {
     // The crossing avenue gets its own lane lines and trees.

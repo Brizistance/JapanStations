@@ -44,6 +44,8 @@ export function Controls() {
 
 export function MainMenu() {
   const start = useUI((s) => s.start);
+  const quality = useUI((s) => s.quality);
+  const setQuality = useUI((s) => s.setQuality);
   const [selected, setSelected] = useState<string>(HOME_STATION);
   const [tab, setTab] = useState<'map' | 'controls' | 'about'>('map');
   useTick(1000);
@@ -76,6 +78,12 @@ export function MainMenu() {
             <button className={tab === 'controls' ? 'on' : ''} onClick={() => setTab('controls')}>操作方法 <em>Controls</em></button>
             <button className={tab === 'about' ? 'on' : ''} onClick={() => setTab('about')}>ご案内 <em>About</em></button>
           </nav>
+          <div className="menu-quality" role="group" aria-label="Graphics quality">
+            <span>画質 <em>Graphics</em></span>
+            <button className={quality === 'high' ? 'on' : ''} aria-pressed={quality === 'high'} onClick={() => setQuality('high')}>高 <em>High</em></button>
+            <button className={quality === 'low' ? 'on' : ''} aria-pressed={quality === 'low'} onClick={() => setQuality('low')}>低 <em>Low</em></button>
+            <small>High adds soft shadows, sun shadows and glow. Choose Low if movement stutters.</small>
+          </div>
           <div className="menu-lines">
             {LINES.map((l) => (
               <div key={l.id} className="menu-line">

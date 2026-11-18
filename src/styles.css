@@ -60,6 +60,18 @@ kbd {
 }
 .menu-nav button:hover { background: #fff; }
 .menu-nav button.on { background: #fff; border-left-color: var(--navy); }
+.menu-quality { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; }
+.menu-quality span { font-weight: 700; padding-right: 6px; }
+.menu-quality em { font-style: normal; font-weight: 400; font-size: 13px; color: var(--muted); }
+.menu-quality button {
+  font: inherit; font-weight: 700; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); color: var(--ink);
+}
+.menu-quality button:hover { background: #fff; }
+.menu-quality button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.menu-quality button.on em { color: rgba(255, 255, 255, 0.8); }
+.menu-quality button:focus-visible { outline: 3px solid #f2b705; outline-offset: 2px; }
+.menu-quality small { grid-column: 1 / -1; color: var(--muted); }
 .menu-lines { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .menu-line { display: flex; gap: 10px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .menu-line span { color: var(--muted); font-size: 13px; }

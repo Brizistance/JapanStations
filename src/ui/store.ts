@@ -7,12 +7,25 @@ import { clearInput, teleport } from '../player/player';
 
 export const dom = { canvas: null as HTMLCanvasElement | null };
 
+/** High = ambient occlusion, bloom and sun shadows. Low = none of those, for slower machines. */
+export type Quality = 'high' | 'low';
+const QUALITY_KEY = 'kawaminato.quality';
+function savedQuality(): Quality {
+  try {
+    return localStorage.getItem(QUALITY_KEY) === 'low' ? 'low' : 'high';
+  } catch {
+    return 'high';
+  }
+}
+
 interface UI {
   mode: 'menu' | 'play';
   mapOpen: boolean;
   /** Mouse is captured for looking around. */
   locked: boolean;
   fast: boolean;
+  quality: Quality;
+  setQuality: (q: Quality) => void;
   start: (stationId: string) => void;
   goTo: (stationId: string) => void;
   setMap: (open: boolean) => void;
@@ -36,6 +49,15 @@ export const useUI = create<UI>((set, get) => ({
   mapOpen: false,
   locked: false,
   fast: false,
+  quality: savedQuality(),
+  setQuality: (quality) => {
+    try {
+      localStorage.setItem(QUALITY_KEY, quality);
+    } catch {
+      /* private mode: the choice just will not persist */
+    }
+    set({ quality });
+  },
   start: (id) => {
     teleport(id);
     clearInput();

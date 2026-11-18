@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { EYE, input, player, teleport, tickPlayer, nearestStation } from '../player/player';
 import { clock } from '../sim';
@@ -7,20 +7,49 @@ import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
+import { HORIZON, Lighting } from './lighting';
+import { Post } from './post';
 import { WorldView } from './world-view';
 
-const SKY = new THREE.Color('#bcd6ea'), DARK = new THREE.Color('#0c0d10');
+const SKY = HORIZON, DARK = new THREE.Color('#050506');
 const tmp: [number, number, number] = [0, 0, 0];
 
 function World() {
-  const { camera, scene } = useThree();
+  const { camera, scene, gl, size } = useThree();
+  const quality = useUI((s) => s.quality);
   const view = useMemo(() => new WorldView(), []);
+  const lighting = useRef<Lighting | null>(null);
+  const post = useRef<Post | null>(null);
   useEffect(() => {
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.0;
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFShadowMap;
+    lighting.current = new Lighting(gl, scene);
     scene.fog = new THREE.Fog(SKY.clone(), 300, 1700);
     scene.background = SKY.clone();
     camera.rotation.order = 'YXZ';
-    return () => view.dispose();
-  }, [scene, camera, view]);
+    return () => {
+      view.dispose();
+      lighting.current?.dispose();
+      lighting.current = null;
+    };
+  }, [scene, camera, gl, view]);
+  // The post-processing chain only exists on High.
+  useEffect(() => {
+    if (quality !== 'high') return;
+    const p = new Post(gl, scene, camera, size.width, size.height);
+    post.current = p;
+    return () => {
+      p.dispose();
+      post.current = null;
+    };
+    // Size changes are handled below without rebuilding the chain.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quality, gl, scene, camera]);
+  useEffect(() => {
+    post.current?.setSize(size.width, size.height);
+  }, [size]);
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
@@ -51,7 +80,13 @@ function World() {
     (scene.background as THREE.Color).copy(fog.color);
     fog.near += ((under ? 70 : 300) - fog.near) * k;
     fog.far += ((under ? 520 : 1700) - fog.far) * k;
-  });
+
+    const near = nearestStation(camera.position.x, camera.position.z).world.frame;
+    lighting.current?.update(camera.position, near.yaw, quality === 'high');
+    // Priority 1 takes over rendering from R3F.
+    if (post.current) post.current.render();
+    else gl.render(scene, camera);
+  }, 1);
 
   return <primitive object={view.root} />;
 }
@@ -122,10 +157,7 @@ function Controls() {
 
 export function Scene() {
   return (
-    <Canvas flat dpr={[1, 1.5]} camera={{ fov: 72, near: 0.08, far: 3200 }} gl={{ antialias: true }}>
-      <ambientLight intensity={1.05} color="#ffffff" />
-      <hemisphereLight args={["#eaf2ff", "#7d786c", 0.75]} />
-      <directionalLight position={[300, 500, 180]} intensity={1.15} color="#fff4e0" />
+    <Canvas dpr={[1, 1.5]} camera={{ fov: 72, near: 0.08, far: 3200 }} gl={{ antialias: true }}>
       <World />
       <Controls />
     </Canvas>

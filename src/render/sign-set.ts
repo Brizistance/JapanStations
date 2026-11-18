@@ -5,19 +5,31 @@ import * as THREE from 'three';
 import { signKey, type SignContent } from '../signs/content';
 import { drawSign, signPixels } from '../signs/draw';
 import type { SignPart } from '../world/builder';
+import { skyAt } from './geometry';
+import { lit } from './lit';
 
 interface Entry {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   tex: THREE.CanvasTexture;
-  mat: THREE.MeshBasicMaterial;
+  mat: THREE.Material;
   content: SignContent;
   live: boolean;
 }
 export type SignCache = Map<string, Entry>;
 
 const LIVE = new Set(['dep', 'depAll', 'lcd']);
-const plane = new THREE.PlaneGeometry(1, 1);
+/** Printed or physical things (posters, murals, machine fronts, doors): lit by the room, not self-lit. */
+const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap']);
+
+function planeWith(sky: number): THREE.PlaneGeometry {
+  const g = new THREE.PlaneGeometry(1, 1);
+  const env = new Float32Array(g.getAttribute('position').count * 2);
+  for (let i = 0; i < env.length; i += 2) env[i] = sky;
+  g.setAttribute('aEnv', new THREE.BufferAttribute(env, 2));
+  return g;
+}
+const planeIn = planeWith(0), planeOut = planeWith(1);
 
 function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
   const k = signKey(c, w, h);
@@ -31,8 +43,11 @@ function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
     drawSign(ctx, W, H, c);
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
-    const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    tex.anisotropy = 16;
+    // Signs are light boxes: self-lit, and LED boards are bright enough to bloom a little.
+    const mat = PRINTED.has(c.k)
+      ? lit({ map: tex, roughness: c.k === 'machine' ? 0.35 : 0.55, metalness: 0 }, { macro: 0, macroRough: 0 })
+      : new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(LIVE.has(c.k) ? 1.5 : 1.12) });
     e = { canvas, ctx, tex, mat, content: c, live: LIVE.has(c.k) };
     cache.set(k, e);
   }
@@ -68,7 +83,8 @@ export class SignSet {
     for (const part of parts) {
       const c = this.resolve(part.content);
       const e = entry(cache, c, part.w, part.h);
-      const mesh = new THREE.Mesh(plane, e.mat);
+      const mesh = new THREE.Mesh(skyAt(part.pos[1]) > 0.5 ? planeOut : planeIn, e.mat);
+      mesh.receiveShadow = true;
       mesh.scale.set(part.w, part.h, 1);
       mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
       if (part.normal) mesh.rotation.y = Math.atan2(part.normal[0], part.normal[1]);

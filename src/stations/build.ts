@@ -8,7 +8,7 @@ import { Builder, type Build } from '../world/builder';
 import type { SignContent } from '../signs/content';
 import {
   CONC_CLEAR, CONC_RISE, GROUND_Y, SLAB, STAIR_RUN,
-  escalator, exit, gateLine, hall, hallDims, rail, stairs, ticketMachines, vending,
+  ceilingLight, escalator, exit, gateLine, hall, hallDims, pillar, rail, stairs, ticketMachines, vending,
   type CeilSeg, type Ctx, type StationStyle,
 } from './kit';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
@@ -121,10 +121,13 @@ function concourse(c: Ctx, o: ShellOpts) {
   b.box(style.concWall, x0 - 0.4, cf, -cw, x0, cf + CONC_CLEAR, cw);
   b.box(style.concWall, x1, cf, -cw, x1 + 0.4, cf + CONC_CLEAR, cw);
   // Accent skirting.
-  for (const s of [-1, 1]) b.deco(`flat:${style.accent}`, x0, cf + 0.9, s * cw - 0.015, x1, cf + 1.0, s * cw + 0.015);
+  for (const s of [-1, 1]) {
+    b.deco(`paint:${style.accent}`, x0, cf + 0.9, s * cw - 0.015, x1, cf + 1.0, s * cw + 0.015);
+    b.deco('flat:#4b4d50', x0, cf, s * cw - 0.02, x1, cf + 0.13, s * cw + 0.02);
+  }
 
   for (let x = x0 + 2; x + 2.4 < x1; x += 4.2) {
-    for (const z of [-cw + 3, -cw / 3, cw / 3, cw - 3]) b.deco('light', x, cf + CONC_CLEAR - 0.03, z - 0.3, x + 2.4, cf + CONC_CLEAR, z + 0.3);
+    for (const z of [-cw + 3, -cw / 3, cw / 3, cw - 3]) ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, cf + CONC_CLEAR);
   }
   const paid0 = Math.max(x0, ...o.ends.filter((e) => !e.hi).map((e) => e.g));
   const paid1 = Math.min(x1, ...o.ends.filter((e) => e.hi).map((e) => e.g));
@@ -134,8 +137,7 @@ function concourse(c: Ctx, o: ShellOpts) {
     for (const s of [-1, 1]) {
       const z = s * o.pillarZ;
       if (inHole(x, z)) continue;
-      b.box(style.pillar, x - 0.35, cf, z - 0.35, x + 0.35, cf + CONC_CLEAR, z + 0.35);
-      b.deco(`flat:${c.line.color}`, x - 0.37, cf + 2.2, z - 0.37, x + 0.37, cf + 2.34, z + 0.37);
+      pillar(b, x, z, cf, cf + CONC_CLEAR, 0.35, style.pillar, c.line.color, cf + 2.27);
     }
   }
   // Paid area: posters and the toilets.
@@ -237,7 +239,7 @@ function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir:
       b.box(wall, -1.86, pfN + 2.3, zc1, 1.86, pfN + 2.8, zc1 + 0.3);
       b.box('ceil', -26.3, pfN + 2.8, zc0, 4, pfN + 3.3, zc1 + 0.3);
       b.box(wall, 3.7, pfN + 2.8, zc0, 4, cf - SLAB, zc1 + 0.3);
-      for (let x = -24; x < 2; x += 5) b.deco('light', x, pfN + 2.77, zc0 + 1.9, x + 2.6, pfN + 2.8, zc0 + 2.4);
+      for (let x = -24; x < 2; x += 5) ceilingLight(b, x, x + 2.6, zc0 + 1.9, zc0 + 2.4, pfN + 2.8);
       // Stairs + escalator up to the concourse.
       b.with({ t: [4, 0, 0] }, () => {
         stairs(b, { x0: 0, x1: STAIR_RUN, z0: zc0 + 0.2, z1: zc0 + 2.1, yLow: pfN, yHigh: cf });
@@ -255,7 +257,7 @@ function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir:
       for (const sx of [-1, 1]) b.box(wall, Math.min(sx * 1.86, sx * 2.16), shaftBase, zc1 + 0.3, Math.max(sx * 1.86, sx * 2.16), shaftTop, zc1 + runY);
       b.box(wall, -2.16, shaftBase, zc1 + runY, 2.16, shaftTop, zc1 + runY + 0.3);
       b.box('ceil', -2.16, shaftTop, zc1 + 0.3, 2.16, shaftTop + 0.5, zc1 + runY + 0.3);
-      b.deco('light', -0.3, shaftTop - 0.03, zc1 + 2, 0.3, shaftTop, zc1 + runY - 2);
+      ceilingLight(b, -0.3, 0.3, zc1 + 2, zc1 + runY - 2, shaftTop);
       // Wayfinding.
       const yName = `${o.line.nameJa} のりば ${o.station.platforms[o.line.id].join('・')}`;
       b.sign({ k: 'guide', ja: yName, en: `${o.line.nameEn} platforms`, bg: 'white', badges: [o.line.id], arrow: 'up' }, 0, pfN + 2.55, zc1 - 0.02, [0, -1], 3.6, 0.44);
@@ -351,7 +353,7 @@ function buildElevated(c: Ctx, spec: ElevatedSpec) {
   b.box(style.concWall, cx0 - 0.15, fl, 3, cx0, deckUnder, cw);
   b.deco('flat:#dfe2e5', cx0 - 0.15, fl + 3.0, -3, cx0, deckUnder, 3);
   b.sign({ k: 'entrance', station: station.id }, cx0 - 0.17, fl + 3.6, 0, [-1, 0], 5.4, 0.9);
-  for (let x = cx0 + 2; x + 2.4 < cx1; x += 4.5) for (const z of [-5, 0, 5]) b.deco('light', x, deckUnder - 0.04, z - 0.25, x + 2.4, deckUnder - 0.01, z + 0.25);
+  for (let x = cx0 + 2; x + 2.4 < cx1; x += 4.5) for (const z of [-5, 0, 5]) ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, deckUnder);
 
   // Gates (unpaid side is west, -x), machines, departures.
   b.with({ ...MIRROR_X, t: [-4, 0, 0] }, () => gateLine(c, fl, cw, lines, deckUnder - fl));
