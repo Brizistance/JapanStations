@@ -40,6 +40,8 @@ export interface LineDef {
    * track spacing is constant along the whole line and never has to flare.
    */
   platformType: 'island' | 'side';
+  /** Platform screen doors: waist-high gates (default) or full-height glass screens. */
+  platformDoors?: 'half' | 'full';
   /** Distance of each track centre from the line centreline, metres. */
   trackOffset: number;
   /** Centreline in world metres (x = east, z = south). Corners are filleted with `radius`. */
@@ -55,8 +57,11 @@ export interface StationDef {
   numbers: Record<LineId, string>; // { Y: "Y-13", N: "N-13" }
   /** World position in metres (x = east, y = south). Must lie on every serving line's alignment. */
   position: { x: number; y: number };
-  /** Schematic route-diagram coords. */
-  diagram: { x: number; y: number };
+  /**
+   * Schematic route-diagram coords. `label` = where the name goes (default below);
+   * `badges` = which corner an interchange's number badges sit in (default left).
+   */
+  diagram: { x: number; y: number; label?: 'right' | 'below'; badges?: 'ne' | 'nw' };
   district: string;
   districtJa: string;
   /** Platform numbers per line: [down platform, up platform]. */

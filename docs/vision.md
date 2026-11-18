@@ -14,16 +14,16 @@ A fictional transit simulator for an invented Japanese city. The city has an Osa
 
 | Pillar | What it is | State |
 |---|---|---|
-| **Map / network** | A stylized route diagram driven by network data | Done for 2 lines. No geographic view yet. |
+| **Map / network** | A stylized route diagram driven by network data | Done for 3 lines. No geographic view yet. |
 | **Operations sim** | Trains running to a timetable: headways, dwell times | Done: fixed headway all day. No rush hour, delays or passenger flow. |
-| **Station walk-throughs** | First-person exploration of 3D stations | Done for all 9 stations, generated from kits + per-station specs. |
+| **Station walk-throughs** | First-person exploration of 3D stations | Done for all 14 stations, generated from kits + per-station specs, plus one hand-composed hub. |
 | **Ride-along** | Riding between stations | Done: board, ride, look out of the cab end. No audio yet. |
 
 ## Scope
 
-- **Now:** 2 lines, 9 stations, one operator (Kawaminato Metro).
-- **Next, in rough order of value:** audio (door chimes, announcements, departure melodies), a third line, passenger NPCs, rush-hour service patterns, working elevators, day/night.
-- **Later, maybe:** JR-style elevated or commuter lines, private railways, through-running, express services.
+- **Now:** 3 lines, 14 stations, one operator (Kawaminato Metro), and a central station (Kita-Ōdōri / Kawaminato Station) with space reserved for four more railways.
+- **Next, in rough order of value:** audio (door chimes, announcements, departure melodies), passenger NPCs, rush-hour service patterns, working elevators, day/night.
+- **Later, maybe:** the railways the hub is waiting for (a fourth metro line, a JR-style main line, a private-railway terminal, a high-speed line), through-running, express services.
 - **Out of scope:** real-world data, real station names, and exact replicas of real stations.
 
 ## Roadmap (loose)
@@ -33,12 +33,13 @@ A fictional transit simulator for an invented Japanese city. The city has an Osa
 3. ~~Phase 3: First station walk-through.~~ Done, and extended to every station.
 4. ~~Phase 4: Ride-along.~~ Done (silent).
 5. **Phase 5: Atmosphere.** Audio, NPCs, better lighting, day/night.
-6. **Phase 6: Growth.** More lines and stations, express/local patterns, a bigger city.
+6. **Phase 6: Growth.** Started: the Akanesuji Line and the hub. Still to come: more lines, express/local patterns, a bigger city.
 
 ## Known limitations (deliberate, for now)
 
 - Service is the same frequency around the clock; there are no first/last trains, delays or incidents.
-- Every station on a line shares one platform type (island on Y, side on N) so the track spacing never has to flare. See network.md.
+- Every station on a line shares one platform type (island on Y and A, side on N) so the track spacing never has to flare. See network.md.
+- The hub's upper levels are shells: you can see the future platforms but not enter them, and nothing runs there.
 - Elevators are scenery. Escalators carry you; ticket gates are open (no fares).
 - No audio, no passengers, always daytime.
 - The city beyond each station's plot is a low-detail backdrop you cannot walk into.

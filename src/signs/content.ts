@@ -23,6 +23,8 @@ export type SignContent =
   | { k: 'dep'; station: StationId; line: LineId; dir: Dir }
   /** Live concourse departure summary for all lines at the station. */
   | { k: 'depAll'; station: StationId }
+  /** Live station clock (analogue face), showing the sim time. */
+  | { k: 'clock' }
   /** Train destination LED. */
   | { k: 'dest'; line: LineId; dir: Dir | 'none' }
   /** Live in-car information display. */

@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { EYE, input, player, teleport, tickPlayer, nearestStation } from '../player/player';
+import { EYE, input, player, teleport, tickPlayer, nearestStation, where } from '../player/player';
 import { clock } from '../sim';
 import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
@@ -45,7 +45,7 @@ function World() {
 
     // Underground the far distance fades to black; above ground to sky.
     const fog = scene.fog as THREE.Fog;
-    const under = camera.position.y < -1.2;
+    const under = camera.position.y < -1.2 && !(useUI.getState().mode === 'play' && where.zone?.sky);
     const k = Math.min(1, dt * 3);
     fog.color.lerp(under ? DARK : SKY, k);
     (scene.background as THREE.Color).copy(fog.color);

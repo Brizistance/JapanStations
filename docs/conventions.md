@@ -43,7 +43,7 @@ Signs, the map, departure boards and the timetable pick it up automatically.
 ## Adding a line
 
 1. Add a `LineDef` to `LINES` with an alignment, stops, rail levels and a service pattern. Leave 290 m of track beyond each terminus for the turnback siding.
-2. Add its stations as above. A station shared with another line needs the lines to cross at right angles there, and uses `kind: 'interchange'`.
+2. Add its stations as above. A station shared with another line needs the lines to cross at right angles there, 7.5 m apart in depth, and uses `kind: 'interchange'` with `primary` set to the upper line. That composer needs side platforms above and an island below; any other pairing needs its own composer, as the hub has.
 3. Give the map positions (`diagram`) for the new stations.
 
 ## Text

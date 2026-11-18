@@ -51,7 +51,9 @@ export class GateSet {
   readonly glass: THREE.InstancedMesh | null;
   private last: number[] = [];
 
-  constructor(private gates: GatePart[], withWindow: boolean) {
+  /** `withWindow`: glaze every leaf (train doors). Otherwise only gates marked `window` are glazed. */
+  constructor(private gates: GatePart[], private allWindows: boolean) {
+    const withWindow = allWindows || gates.some((g) => g.window);
     const mat = getMaterial(gates[0]?.mat ?? 'flat:#fff');
     this.mesh = new THREE.InstancedMesh(unitBox, mat, gates.length * 2);
     this.mesh.frustumCulled = false;
@@ -77,8 +79,12 @@ export class GateSet {
       m4.setPosition(x, g.pos[1] + g.height / 2, z);
       this.mesh.setMatrixAt(i * 2 + k, m4);
       if (this.glass) {
-        m4.makeScale(alongX ? half * 0.7 : g.thick * 1.3, g.height * 0.42, alongX ? g.thick * 1.3 : half * 0.7);
-        m4.setPosition(x, g.pos[1] + g.height * 0.68, z);
+        if (this.allWindows || g.window) {
+          // Tall screens get a taller pane than the small window in a train door.
+          const gh = g.window ? 0.62 : 0.42, gy = g.window ? 0.58 : 0.68;
+          m4.makeScale(alongX ? half * 0.7 : g.thick * 1.3, g.height * gh, alongX ? g.thick * 1.3 : half * 0.7);
+          m4.setPosition(x, g.pos[1] + g.height * gy, z);
+        } else m4.makeScale(0, 0, 0);
         this.glass.setMatrixAt(i * 2 + k, m4);
       }
     }

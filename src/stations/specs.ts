@@ -29,7 +29,15 @@ export interface ElevatedSpec {
   style: StationStyle;
   surface: SurfaceSpec;
 }
-export type StationSpec = UndergroundSpec | InterchangeSpec | ElevatedSpec;
+/** The central station: two metro lines under a glass-roofed atrium, with shells for future railways. */
+export interface HubSpec {
+  kind: 'hub';
+  /** Line whose direction the station frame follows (the deeper, east–west one). */
+  primary: string;
+  style: StationStyle;
+  seed: number;
+}
+export type StationSpec = UndergroundSpec | InterchangeSpec | ElevatedSpec | HubSpec;
 
 export const SPECS: Record<StationId, StationSpec> = {
   // Quiet residential terminus: warm brick, one small gate line, park outside.
@@ -44,17 +52,16 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 11, roadHalf: 6.5, cross: [-70, 62], left: 'park', right: 'house', trees: true, poles: true },
   },
-  // Business hub: white enamel panels and a vaulted hall with hanging lights.
+  // The central station. White enamel panels and gold trim; the Yanagisuji platforms keep
+  // their vaulted hall, and everything else is built by the hub composer (hub.ts).
   'kita-odori': {
-    kind: 'underground',
-    concourse: [-60, -16],
-    gates: ['lo'],
-    stairs: [{ x: -16, up: -1 }, { x: -38, up: 1 }],
+    kind: 'hub',
+    primary: 'A',
     style: {
       wall: 'panel:#f1efe8', concWall: 'panel:#f4f2ec', floor: 'floor:#d9d7d0', pillar: 'panel:#f1efe8',
-      accent: '#b08d3c', mural: { v: 'leaves', color: '#b08d3c' }, vault: true,
+      accent: '#b08d3c', mural: { v: 'willow', color: '#d9b43a' }, vault: true,
     },
-    surface: { seed: 23, roadHalf: 11, cross: [-78, 70], left: 'office', right: 'office', trees: true },
+    seed: 23,
   },
   // Central interchange: woven-textile mural, two lines, four exits.
   tsumugibashi: {
@@ -105,17 +112,15 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 61, roadHalf: 8, cross: [-74], left: 'warehouse', right: 'sea' },
   },
-  // Merchant quarter: deep indigo tile.
+  // Merchant quarter: deep indigo tile. Nagisa Line above, Akanesuji Line crossing below.
   aizomecho: {
-    kind: 'underground',
-    concourse: [-34, 22],
-    gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    kind: 'interchange',
+    primary: 'N',
     style: {
       wall: 'tile:#24407a', concWall: 'tile:#e9ecf3', floor: 'floor:#cdccc8', pillar: 'tile:#24407a',
       accent: '#f1ead8', mural: { v: 'waves', color: '#24407a' },
     },
-    surface: { seed: 73, roadHalf: 8, cross: [-58, 66], left: 'oldtown', right: 'mixed', poles: true },
+    surface: { seed: 73, roadHalf: 9, cross: [-88, 88], left: 'oldtown', right: 'mixed', poles: true, avenue: true },
   },
   // University: brick walls, campus gate outside.
   'daigaku-mae': {
@@ -128,6 +133,67 @@ export const SPECS: Record<StationId, StationSpec> = {
       accent: '#3d2014', mural: { v: 'leaves', color: '#c9a227' },
     },
     surface: { seed: 83, roadHalf: 8, cross: [-76, 72], left: 'apartment', right: 'campus', trees: true },
+  },
+  // ── Akanesuji Line ──
+  // Stadium terminus on the south bay: pale sea-grey panels, two gate lines for match days.
+  kamomehama: {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'panel:#e3eaee', concWall: 'panel:#eef2f4', floor: 'floor:#cdd3d6', pillar: 'panel:#e3eaee',
+      accent: '#0f7a8a', mural: { v: 'gulls', color: '#1d5f8a' },
+    },
+    surface: { seed: 101, roadHalf: 9, cross: [-74], left: 'dome', right: 'sea', trees: true },
+  },
+  // Cotton wholesalers: unbleached-cotton tile with madder-red pillars.
+  watayamachi: {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#f1ece0', concWall: 'tile:#f4f0e6', floor: 'floor:#cfc9bb', pillar: 'tile:#9c2a30',
+      accent: '#27344f', mural: { v: 'threads', color: '#b7282e' },
+    },
+    surface: { seed: 113, roadHalf: 7.5, cross: [-62, 66], left: 'oldtown', right: 'oldtown', poles: true },
+  },
+  // Civic and theatre district: pale stone panels, plane-leaf mural.
+  suzukakedori: {
+    kind: 'underground',
+    concourse: [-22, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#e9e5d8', concWall: 'panel:#f0ede3', floor: 'floor:#d3cfc3', pillar: 'tile:#c8bfa6',
+      accent: '#6b7f3a', mural: { v: 'leaves', color: '#6b7f3a' },
+    },
+    surface: { seed: 127, roadHalf: 11, cross: [-76, 74], left: 'office', right: 'mixed', trees: true },
+  },
+  // Hillside neighbourhood: night-blue tile and a moon mural.
+  tsukimizaka: {
+    kind: 'underground',
+    concourse: [-34, 20],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#27324d', concWall: 'tile:#eceef3', floor: 'floor:#cfcdc8', pillar: 'tile:#27324d',
+      accent: '#e8c65a', mural: { v: 'moon', color: '#f0d77a' },
+    },
+    surface: { seed: 131, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'apartment', trees: true, poles: true },
+  },
+  // New-town terminus: cream panels, kerria-yellow trim.
+  yamabukidai: {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#f3f0e2', concWall: 'panel:#f6f4ea', floor: 'floor:#d6d2c4', pillar: 'panel:#f3f0e2',
+      accent: '#e2a400', mural: { v: 'kerria', color: '#e8b200' },
+    },
+    surface: { seed: 137, roadHalf: 8, cross: [-70, 62], left: 'apartment', right: 'house', trees: true },
   },
   // Elevated suburban terminus.
   hibarino: {

@@ -9,7 +9,6 @@ import type { Build, V3 } from '../world/builder';
 import { makeColliders, type Blocker, type Frame } from '../world/collision';
 import { buildStation } from './build';
 import { SPECS } from './specs';
-import { PLOT_X, PLOT_Z } from './surface';
 
 export interface StationWorld {
   def: StationDef;
@@ -56,13 +55,13 @@ function make(def: StationDef): StationWorld {
     const hx = g.along[0] !== 0 ? g.width / 2 : 0.1, hz = g.along[0] !== 0 ? 0.1 : g.width / 2;
     return {
       min: [g.pos[0] - hx, g.pos[1], g.pos[2] - hz],
-      max: [g.pos[0] + hx, g.pos[1] + 1.3, g.pos[2] + hz],
+      max: [g.pos[0] + hx, g.pos[1] + Math.max(1.3, g.height), g.pos[2] + hz],
       isOpen: () => gateOpen(g.line!, g.stop!, g.track!) > 0.7,
     };
   });
   const frame: Frame = {
     id: def.id, kind: 'station', x: o.x, y: 0, z: o.z, yaw, pitch: 0,
-    colliders: makeColliders(build), blockers, radius: Math.hypot(PLOT_X, PLOT_Z) + 5, zones: build.zones,
+    colliders: makeColliders(build), blockers, radius: Math.hypot(build.plot.x, build.plot.z) + 5, zones: build.zones,
   };
   const c = Math.cos(yaw), sn = Math.sin(yaw);
   const sp = build.spawn.pos;

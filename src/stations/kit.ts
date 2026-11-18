@@ -85,14 +85,28 @@ export interface HallOpts {
 
 const inBlocks = (x: number, blocks: [number, number][], m = 1.2) => blocks.some(([a, c]) => x > a - m && x < c + m);
 
-/** Half-height platform screen doors along one platform edge. */
+/** Height of the full-height screens used on newer lines. */
+export const PSD_FULL_H = 2.5;
+
+/** Platform screen doors along one platform edge: waist-high gates, or full-height glass screens. */
 function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: number) {
   const { b, line } = c;
   const z = zEdge + inward * 0.14;
   const xs = doorXs(line.service.cars);
   const half = 0.95;
+  const full = line.platformDoors === 'full';
   let from = -PLATFORM_HALF;
   const panel = (xa: number, xb: number) => {
+    if (full) {
+      // Floor-to-header glass screen with a line-colour fascia.
+      b.block(xa, pf, z - 0.09, xb, pf + PSD_FULL_H, z + 0.09);
+      b.deco('flat:#e9eaec', xa, pf, z - 0.07, xb, pf + 0.3, z + 0.07);
+      b.deco('glass', xa + 0.12, pf + 0.3, z - 0.02, xb - 0.12, pf + 2.12, z + 0.02);
+      b.deco('flat:#e9eaec', xa, pf + 2.12, z - 0.1, xb, pf + PSD_FULL_H - 0.14, z + 0.1);
+      b.deco(`flat:${line.color}`, xa, pf + PSD_FULL_H - 0.14, z - 0.11, xb, pf + PSD_FULL_H, z + 0.11);
+      for (const x of [xa, xb - 0.12]) b.deco('flat:#c9ccd0', x, pf, z - 0.1, x + 0.12, pf + 2.12, z + 0.1);
+      return;
+    }
     b.block(xa, pf, z - 0.09, xb, pf + 1.3, z + 0.09);
     b.deco('flat:#f1f0ea', xa + 0.2, pf, z - 0.06, xb - 0.2, pf + 0.72, z + 0.06);
     b.deco('glass', xa + 0.2, pf + 0.72, z - 0.02, xb - 0.2, pf + 1.16, z + 0.02);
@@ -103,7 +117,16 @@ function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: nu
   };
   for (const xd of xs) {
     panel(from, xd - half);
-    b.gate({ x: xd, y: pf, z, along: [1, 0], width: half * 2, height: 1.22, thick: 0.07, mat: 'flat:#f1f0ea', line: line.id, stop: c.stop, track });
+    if (full) {
+      // Header over the doorway carries the fascia across the opening.
+      b.deco('flat:#e9eaec', xd - half, pf + 2.12, z - 0.1, xd + half, pf + PSD_FULL_H - 0.14, z + 0.1);
+      b.deco(`flat:${line.color}`, xd - half, pf + PSD_FULL_H - 0.14, z - 0.11, xd + half, pf + PSD_FULL_H, z + 0.11);
+      b.block(xd - half, pf + 2.12, z - 0.09, xd + half, pf + PSD_FULL_H, z + 0.09);
+    }
+    b.gate({
+      x: xd, y: pf, z, along: [1, 0], width: half * 2, height: full ? 2.1 : 1.22, thick: 0.07,
+      mat: 'flat:#f1f0ea', window: full, line: line.id, stop: c.stop, track,
+    });
     from = xd + half;
   }
   panel(from, PLATFORM_HALF);
@@ -355,6 +378,12 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   }
 
   // ── Zones ──
+  // The track beds, whichever way this hall is turned inside its station.
+  const bedTop = pf - 0.3;
+  if (island) {
+    b.keepOut(-H, railY - 1.5, pe + 0.3, H, bedTop, wallZ, `${line.nameEn} track`);
+    b.keepOut(-H, railY - 1.5, -wallZ, H, bedTop, -pe - 0.3, `${line.nameEn} track`);
+  } else b.keepOut(-H, railY - 1.5, -pe + 0.3, H, bedTop, pe - 0.3, `${line.nameEn} track`);
   const dn = nums[0], up = nums[1];
   if (island) b.zone('platform', -P, pf - 0.5, -pe, P, pf + 3, pe, `${line.nameJa} ${dn}・${up}番線ホーム`, `${line.nameEn} platforms ${dn}/${up}`);
   else {

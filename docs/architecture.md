@@ -18,7 +18,8 @@ src/
   world/      builder (part lists), collision (character controller), structure
   signs/      content (sign types as data), draw (canvas rendering)
   stations/   kit (reusable parts), surface (street generator), build (composers),
-              specs (per-station design), index (registry + collision frames)
+              hub (the central station's composer), specs (per-station design),
+              index (registry + collision frames)
   trains/     car (rolling stock as parts), system (live train state)
   render/     materials, geometry, part-view, sign-set, track, world-view, Scene.tsx
   player/     player.ts (state + movement)
@@ -57,20 +58,21 @@ No physics engine. The world is a set of **frames**: each station, and each trai
 - **Riding:** if the player is inside a car's interior box, they are moved by the car's change in pose before their own movement is applied, and the camera turns with the car.
 - **Stairs** are ramps (smooth to walk); the visible steps are decoration. **Escalators** are ramps with a conveyor speed.
 - **Doors and platform gates** are blockers with an `isOpen()` read from the timetable.
-- Each station has a walkable plot bounded by invisible walls. Falling out of the world respawns you at the last station.
+- Each station has a walkable plot bounded by invisible walls. Its size is part of the build (`Build.plot`): 260 × 170 m by default, 380 × 320 m for the hub. Falling out of the world respawns you at the last station.
 
 ## Rendering notes
 
-- **Stations** are streamed: mounted within ~520 m of the camera, disposed beyond ~680 m. Collision for all stations is always loaded (it is small).
+- **Stations** are streamed: mounted within ~520 m of the camera, disposed beyond ~680 m (further for a station with a bigger plot). Collision for all stations is always loaded (it is small).
 - **Track** (`render/track.ts`) is swept along the alignment: twin or double tunnels, an open cut, a viaduct with piers, rails and sleepers, crossovers at both ends. What structure carries the track is derived from the rail level (`world/structure.ts`).
 - **Backdrop**: a ground plane with holes for station plots and the open cut, and low-detail buildings near anything visible from the surface.
 - **Signs** are `SignContent` data drawn to canvas textures. Live ones (`dep`, `depAll`, `lcd`) are redrawn from the timetable.
-- Fog fades to black underground and to sky above ground.
+- Fog fades to black underground and to sky above ground. A zone flagged `sky` (the hub's atrium floor) keeps the sky even though it is below street level.
+- Platform gates are one instanced mesh per station. A gate marked `window` (full-height screens) also gets a glass pane.
 
 ## Tests
 
-- `src/sim/sim.test.ts` — network data sanity, timetable continuity, speed limits, train separation, departures match trains at platforms with doors open.
-- `src/stations/walk.test.ts` — flood-fills each station from its spawn with the real character controller: every platform, concourse, passage and street must be reachable, and the track bed must not be.
+- `src/sim/sim.test.ts` — network data sanity, every interchange crossing squarely at different depths, timetable continuity, speed limits, train separation, departures match trains at platforms with doors open.
+- `src/stations/walk.test.ts` — flood-fills each station from its spawn with the real character controller: every platform, concourse, passage and street must be reachable, and no keep-out volume may be (the track beds of every line, and the hub's closed shells). It explores as far as each station's zones reach, so a bigger station is covered without special cases.
 
 ## Not verified automatically
 

@@ -51,6 +51,8 @@ export interface GatePart {
   height: number;
   thick: number;
   mat: string;
+  /** Glazed leaf (train doors, full-height platform screens). */
+  window?: boolean;
   /** What controls it. Platform gates: line/stop/track. Car doors: side (+1 = local +z). */
   line?: string;
   stop?: number;
@@ -64,7 +66,12 @@ export interface Zone {
   max: V3;
   ja: string;
   en: string;
+  /** Below street level but open to daylight (an atrium): keep the sky, not tunnel darkness. */
+  sky?: boolean;
 }
+
+/** Half extents of the walkable plot around an ordinary station, metres. */
+export const DEFAULT_PLOT = { x: 130, z: 85 };
 
 export interface MeshPart {
   mat: string;
@@ -83,6 +90,10 @@ export interface Build {
   /** Openings in the street surface, as [x0, z0, x1, z1]. */
   holes: [number, number, number, number][];
   spawn: { pos: V3; yaw: number };
+  /** Half extents of the walkable plot (frame-local x and z). */
+  plot: { x: number; z: number };
+  /** Volumes nobody may be able to walk into (track beds, closed-off shells). Checked by the walk test. */
+  keepOut: { min: V3; max: V3; en: string }[];
 }
 
 export interface Xf {
@@ -125,6 +136,8 @@ export class Builder {
   readonly out: Build = {
     boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], holes: [],
     spawn: { pos: [0, 0, 0], yaw: 0 },
+    plot: { ...DEFAULT_PLOT },
+    keepOut: [],
   };
   private m: M = toM({});
 
@@ -204,10 +217,20 @@ export class Builder {
     this.out.gates.push({ ...rest, pos: this.pt(x, y, z), along: this.dir(along) });
   }
 
-  zone(kind: Zone['kind'], x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ja: string, en: string) {
+  zone(kind: Zone['kind'], x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ja: string, en: string, sky = false) {
     const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
     this.out.zones.push({
-      kind, ja, en,
+      kind, ja, en, sky,
+      min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])],
+      max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])],
+    });
+  }
+
+  /** Declare a volume that must not be reachable on foot. */
+  keepOut(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, en: string) {
+    const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
+    this.out.keepOut.push({
+      en,
       min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])],
       max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])],
     });

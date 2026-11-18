@@ -27,11 +27,27 @@ describe('network data', () => {
       for (let i = 1; i < g.stopS.length; i++) expect(g.stopS[i] - g.stopS[i - 1]).toBeGreaterThan(2 * FLAT_M + 100);
     }
   });
-  it('the interchange has both lines at the same point, at different depths', () => {
-    const y = lineSim('Y').geom, n = lineSim('N').geom;
-    const py = y.point(y.stopS[2], 0), pn = n.point(n.stopS[2], 0);
-    expect(Math.hypot(py.x - pn.x, py.z - pn.z)).toBeLessThan(0.5);
-    expect(Math.abs(py.y - pn.y)).toBeGreaterThan(6);
+  it('every interchange has its lines at the same point, at right angles and different depths', () => {
+    const shared = STATIONS.filter((s) => linesAt(s.id).length > 1);
+    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'kita-odori', 'tsumugibashi']);
+    for (const s of shared) {
+      const at = linesAt(s.id).map((l) => {
+        const g = lineSim(l.id).geom, ss = g.stopS[l.stops.indexOf(s.id)];
+        return { p: g.point(ss, 0), t: g.path.pointAt(ss) };
+      });
+      for (let i = 0; i < at.length; i++) {
+        for (let j = i + 1; j < at.length; j++) {
+          expect(Math.hypot(at[i].p.x - at[j].p.x, at[i].p.z - at[j].p.z)).toBeLessThan(0.5);
+          expect(Math.abs(at[i].p.y - at[j].p.y)).toBeGreaterThan(6);
+          expect(Math.abs(at[i].t.tx * at[j].t.tx + at[i].t.tz * at[j].t.tz)).toBeLessThan(1e-6);
+        }
+      }
+    }
+  });
+  it('the Akanesuji Line stays in bored tunnel end to end', () => {
+    // The Akanesuji Line never surfaces: no open cut or viaduct to draw.
+    const a = lineSim('A').geom;
+    expect(Math.max(...a.def.railY)).toBeLessThan(-6);
   });
 });
 
@@ -102,6 +118,6 @@ describe('timetable', () => {
       const deps = nextDepartures(tt, 1, 'down', 0, 5);
       for (let i = 1; i < deps.length; i++) expect(deps[i].dep - deps[i - 1].dep).toBe(tt.headway);
     }
-    expect(LINES.length).toBe(2);
+    expect(LINES.length).toBe(3);
   });
 });

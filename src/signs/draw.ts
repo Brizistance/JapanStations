@@ -248,7 +248,7 @@ function drawDiagram(ctx: Ctx, x: number, y: number, w: number, h: number, here?
     ctx.arc(px, py, 8 * sc, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    const vertical = linesAt(s.id).length === 1 && linesAt(s.id)[0].id === 'Y';
+    const vertical = s.diagram.label === 'right';
     const tx = vertical ? px + 14 * sc : px, ty = vertical ? py : py + 24 * sc;
     text(ctx, s.nameJa, tx, ty, 17 * sc, { align: vertical ? 'left' : 'center', weight: 700, color: '#111' });
     if (hereSt && s.id !== here) {
@@ -478,6 +478,117 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       ctx.lineTo(W, H);
       ctx.fill();
     });
+  } else if (c.v === 'gulls') {
+    // Gulls wheeling over a pale sea.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#eaf4f8');
+    g.addColorStop(1, '#c4dde8');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = col;
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(0, H * 0.82, W, H * 0.18);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = col;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 22; i++) {
+      const x = ((i * 0.618) % 1) * W, y = H * (0.14 + 0.55 * ((i * 0.377) % 1)), s = H * (0.07 + 0.06 * ((i * 5) % 4) / 4);
+      ctx.lineWidth = s * 0.14;
+      ctx.beginPath();
+      ctx.moveTo(x - s, y);
+      ctx.quadraticCurveTo(x - s * 0.5, y - s * 0.6, x, y);
+      ctx.quadraticCurveTo(x + s * 0.5, y - s * 0.6, x + s, y);
+      ctx.stroke();
+    }
+  } else if (c.v === 'threads') {
+    // Cotton skeins: long drooping threads in a few dyed colours.
+    ctx.fillStyle = '#f6f1e6';
+    ctx.fillRect(0, 0, W, H);
+    const cols = [col, '#27344f', '#d9b25a', '#f6f1e6', col];
+    for (let i = 0; i < 90; i++) {
+      const x = (i / 90) * W;
+      ctx.strokeStyle = cols[Math.floor(i / 6) % cols.length];
+      ctx.lineWidth = H * 0.012;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.bezierCurveTo(x + H * 0.05, H * 0.4, x - H * 0.05, H * 0.6, x + H * 0.02 * Math.sin(i), H);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#5b4a3a';
+    ctx.fillRect(0, H * 0.06, W, H * 0.035);
+  } else if (c.v === 'moon') {
+    // Full moon over a slope, pampas grass in front.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#141b33');
+    g.addColorStop(1, '#2c3a63');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(W * 0.72, H * 0.36, H * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0d1224';
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, H * 0.55);
+    ctx.quadraticCurveTo(W * 0.5, H * 0.75, W, H * 0.88);
+    ctx.lineTo(W, H);
+    ctx.fill();
+    ctx.strokeStyle = '#e9e2c8';
+    ctx.lineWidth = H * 0.01;
+    for (let i = 0; i < 40; i++) {
+      const x = (i / 40) * W, base = H * (0.6 + 0.28 * (x / W));
+      ctx.beginPath();
+      ctx.moveTo(x, base + H * 0.1);
+      ctx.quadraticCurveTo(x + H * 0.02, base - H * 0.1, x + H * (0.06 + 0.04 * (i % 3)), base - H * 0.2);
+      ctx.stroke();
+    }
+  } else if (c.v === 'kerria') {
+    // Yamabuki: five-petalled yellow flowers on arching green stems.
+    ctx.fillStyle = '#f7f5e8';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#5d8a3a';
+    ctx.lineWidth = H * 0.014;
+    for (let i = 0; i < 12; i++) {
+      const x = (i / 12) * W;
+      ctx.beginPath();
+      ctx.moveTo(x, H);
+      ctx.quadraticCurveTo(x + W * 0.03, H * 0.3, x + W * 0.09, H * (0.25 + 0.2 * (i % 3)));
+      ctx.stroke();
+    }
+    for (let i = 0; i < 46; i++) {
+      const x = ((i * 0.618) % 1) * W, y = H * (0.12 + 0.72 * ((i * 0.377) % 1)), r = H * (0.045 + 0.02 * (i % 3));
+      ctx.fillStyle = col;
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2 + i;
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7, r * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#b8791a';
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (c.v === 'willow') {
+    // Gilded willow: long gold fronds on deep green, for the hub.
+    ctx.fillStyle = '#12382c';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    for (let i = 0; i < 60; i++) {
+      const x = (i / 60) * W + W / 120, len = H * (0.55 + 0.4 * ((i * 37) % 10) / 10);
+      ctx.lineWidth = H * 0.006;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.quadraticCurveTo(x + H * 0.05, len / 2, x - H * 0.015, len);
+      ctx.stroke();
+      for (let k = 1; k < 12; k++) {
+        ctx.beginPath();
+        ctx.ellipse(x + (k % 2 ? 1 : -1) * H * 0.022, (len * k) / 12, H * 0.03, H * 0.008, k % 2 ? 1.0 : -1.0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   } else {
     // Leaves (willow / ginkgo) scattered on a pale ground.
     ctx.fillStyle = '#f5f3ea';
@@ -499,6 +610,42 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       }
     }
   }
+}
+
+function drawClock(ctx: Ctx, W: number, H: number) {
+  // Plain railway clock: white face, black batons, red second hand. Reads the sim clock.
+  const t = ((clock.time % 43200) + 43200) % 43200;
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2;
+  ctx.fillStyle = '#1b1f24';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fbfbf8';
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.92, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#111';
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2, big = i % 5 === 0;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(a);
+    ctx.fillRect(-R * (big ? 0.025 : 0.01), -R * 0.86, R * (big ? 0.05 : 0.02), R * (big ? 0.18 : 0.07));
+    ctx.restore();
+  }
+  const hand = (frac: number, len: number, w: number, col: string) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(frac * Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fillRect(-R * w / 2, -R * len, R * w, R * (len + 0.14));
+    ctx.restore();
+  };
+  hand(t / 43200, 0.5, 0.07, '#111');
+  hand((t % 3600) / 3600, 0.78, 0.05, '#111');
+  hand(Math.floor(t % 60) / 60, 0.8, 0.018, '#d0211c');
+  ctx.fillStyle = '#d0211c';
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.05, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 const AMBER = '#ffb300', LEDG = '#7CFC6A';
@@ -657,6 +804,7 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
       text(ctx, c.text, W / 2, c.sub ? H * 0.4 : H / 2, H * (c.sub ? 0.46 : 0.6), { align: 'center', color: c.fg, weight: 800, maxW: W * 0.92 });
       if (c.sub) text(ctx, c.sub, W / 2, H * 0.8, H * 0.22, { align: 'center', color: c.fg, weight: 600, maxW: W * 0.92 });
       return;
+    case 'clock': return drawClock(ctx, W, H);
     case 'dep': return drawDep(ctx, W, H, c);
     case 'depAll': return drawDepAll(ctx, W, H, c);
     case 'dest': return drawDest(ctx, W, H, c);

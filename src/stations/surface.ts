@@ -2,10 +2,10 @@
 // Generated from a small spec + a seeded RNG, so each station gets a distinct but
 // repeatable neighbourhood. Coordinates are station-frame metres (x along the line).
 
-import { rng, type Builder } from '../world/builder';
+import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
 import { GROUND_Y, vending } from './kit';
 
-export type BlockStyle = 'office' | 'mixed' | 'neon' | 'apartment' | 'house' | 'oldtown' | 'warehouse' | 'campus' | 'park' | 'sea';
+export type BlockStyle = 'office' | 'mixed' | 'neon' | 'apartment' | 'house' | 'oldtown' | 'warehouse' | 'campus' | 'park' | 'sea' | 'dome';
 
 export interface SurfaceSpec {
   seed: number;
@@ -27,17 +27,17 @@ export interface SurfaceSpec {
   arcadeName?: { ja: string; en: string };
 }
 
-export const PLOT_X = 130;
-export const PLOT_Z = 85;
+export const PLOT_X = DEFAULT_PLOT.x;
+export const PLOT_Z = DEFAULT_PLOT.z;
 const GY = GROUND_Y;
 
-interface Shop {
+export interface Shop {
   ja: string;
   en: string;
   bg: string;
   fg: string;
 }
-const SHOPS: Shop[] = [
+export const SHOPS: Shop[] = [
   { ja: 'マルホシマート', en: 'Maruhoshi Mart', bg: '#0b8f6a', fg: '#fff' },
   { ja: 'カフェ つむぎ', en: 'Café Tsumugi', bg: '#5b3a29', fg: '#f6e7c8' },
   { ja: 'らーめん 川一', en: 'Ramen Kawaichi', bg: '#c62828', fg: '#fff' },
@@ -56,6 +56,12 @@ const SHOPS: Shop[] = [
   { ja: '歯科クリニック', en: 'Dental Clinic', bg: '#e0f2f1', fg: '#00695c' },
   { ja: '喫茶 灯', en: 'Kissa Akari', bg: '#4e342e', fg: '#ffe0b2' },
   { ja: 'お好み焼き 千', en: 'Okonomiyaki Sen', bg: '#b71c1c', fg: '#fff8e1' },
+  { ja: '和菓子 つむぎ庵', en: 'Wagashi Tsumugi-an', bg: '#6a1b3a', fg: '#fbe9d0' },
+  { ja: 'お弁当 みなと屋', en: 'Bento Minatoya', bg: '#f6efe0', fg: '#8a2b18' },
+  { ja: '茜珈琲', en: 'Akane Coffee', bg: '#3a1f1a', fg: '#f0b8a0' },
+  { ja: 'おみやげ 川湊堂', en: 'Kawaminato-dō Gifts', bg: '#0d3b66', fg: '#fff' },
+  { ja: 'そば処 きた', en: 'Soba Kita', bg: '#2f3a2c', fg: '#f4f1e6' },
+  { ja: 'フラワー やなぎ', en: 'Yanagi Flowers', bg: '#e8f3e4', fg: '#2e6b35' },
 ];
 const NEON = ['#ff3d57', '#ffcf4a', '#35e0ff', '#7cff6b', '#ff7ad9', '#ffffff', '#ff8f00'];
 const NEON_WORDS = ['居酒屋', 'カラオケ', '串カツ', 'バー', 'ラーメン', '焼鳥', 'スナック', '寿司', 'たこ焼', 'ホルモン', '麻雀', '立呑み'];
@@ -101,7 +107,7 @@ function utilityPole(b: Builder, x: number, z: number) {
 }
 
 /** Japanese-style horizontal signal head on a mast arm reaching over the road. */
-function signal(b: Builder, x: number, z: number, armZ: number, faceX: 1 | -1, green: boolean) {
+export function signal(b: Builder, x: number, z: number, armZ: number, faceX: 1 | -1, green: boolean) {
   b.box('flat:#6f767d', x - 0.1, GY, z - 0.1, x + 0.1, GY + 6, z + 0.1);
   const z1 = z + armZ;
   b.deco('flat:#6f767d', x - 0.06, GY + 5.7, Math.min(z, z1), x + 0.06, GY + 5.82, Math.max(z, z1));
@@ -190,8 +196,8 @@ function building(b: Builder, r: () => number, style: BlockStyle, x0: number, x1
   }
 }
 
-function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: number, xb: number, z0: number) {
-  if (style === 'park' || style === 'sea') return;
+export function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: number, xb: number, z0: number, zMax = PLOT_Z) {
+  if (style === 'park' || style === 'sea' || style === 'dome') return;
   const st = STYLE[style];
   let x = xa;
   while (xb - x > 4) {
@@ -211,13 +217,13 @@ function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: number, xb
     if (xb - x - w < 16) w = xb - x;
     const floors = Math.round(bs.floors[0] + r() * (bs.floors[1] - bs.floors[0])) + (style === 'office' ? 6 : 2);
     const mat = bs.mat[Math.floor(r() * bs.mat.length)];
-    if (PLOT_Z - 1 - zb > 6) b.box(mat, x + 0.5, GY, zb, x + w - 0.5, GY + floors * 3.3, PLOT_Z - 1);
+    if (zMax - 1 - zb > 6) b.box(mat, x + 0.5, GY, zb, x + w - 0.5, GY + floors * 3.3, zMax - 1);
     x += w;
   }
 }
 
 /** Zebra crossing: stripes run along `alongX ? x : z`. */
-function crosswalk(b: Builder, cx: number, cz: number, len: number, width: number, stripesAlongX: boolean) {
+export function crosswalk(b: Builder, cx: number, cz: number, len: number, width: number, stripesAlongX: boolean) {
   const n = Math.floor(len / 0.9);
   for (let i = 0; i < n; i++) {
     const o = -len / 2 + 0.25 + i * 0.9;
@@ -340,6 +346,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
       if (style === 'park') park(b, r, swOut);
       if (style === 'sea') quay(b, r, swOut, seaZ);
       if (style === 'campus') campusFront(b, swOut);
+      if (style === 'dome') dome(b, swOut);
     });
   }
 
@@ -411,6 +418,35 @@ function quay(b: Builder, r: () => number, z0: number, seaZ: number) {
   b.deco('flat:#0d3b66', -20, 0.2, seaZ + 5.95, 36, 0.9, seaZ + 18.05);
   b.deco('flat:#f4f4f0', -8, 3.2, seaZ + 8, 22, 6.2, seaZ + 16);
   b.deco('flat:#d9482b', 6, 6.2, seaZ + 10.5, 10, 9, seaZ + 13.5);
+}
+
+function dome(b: Builder, z0: number) {
+  // Kawaminato Dome: a low drum and a shallow roof shell across a paved forecourt.
+  const cx = -8, cz = z0 + 50, R = 37;
+  b.box('paver', -PLOT_X + 1, GY, z0 + 1, PLOT_X - 1, GY + 0.04, z0 + 12);
+  b.mesh('panel:#dfe3e6', 'cyl', cx, GY + 5.5, cz, 2 * R, 11, 2 * R);
+  b.mesh('flat:#f1f3f4', 'sphere', cx, GY + 11, cz, 2 * R - 1, 22, 2 * R - 1);
+  b.mesh('flat:#0f7a8a', 'cyl', cx, GY + 10.6, cz, 2 * R + 0.8, 0.9, 2 * R + 0.8);
+  b.block(cx - R * 0.72, GY, cz - R * 0.72, cx + R * 0.72, GY + 12, cz + R * 0.72);
+  b.block(cx - R, GY, cz - R * 0.35, cx + R, GY + 12, cz + R * 0.35);
+  b.block(cx - R * 0.35, GY, cz - R, cx + R * 0.35, GY + 12, cz + R);
+  // Gate canopy and name.
+  b.box('flat:#3b4046', cx - 12, GY + 4.4, z0 + 12.2, cx + 12, GY + 5.0, z0 + 15);
+  for (const px of [-11, -4, 4, 11]) b.box('flat:#8d949b', cx + px - 0.2, GY, z0 + 12.4, cx + px + 0.2, GY + 4.4, z0 + 12.8);
+  b.sign({ k: 'label', text: '川湊ドーム', sub: 'Kawaminato Dome', fg: '#fff', bg: '#0f7a8a' }, cx, GY + 6.4, z0 + 12.18, [0, -1], 22, 2.6);
+  b.deco('flat:#3b4046', cx - 11.2, GY + 5.0, z0 + 12.2, cx + 11.2, GY + 7.8, z0 + 12.3);
+  for (const g of [-9, -6, -3, 0, 3, 6, 9]) b.box('flat:#c4c8cc', cx + g - 0.5, GY, z0 + 13.6, cx + g + 0.5, GY + 1.0, z0 + 13.9);
+  // Flag poles and floodlight masts.
+  const flags = ['#b7282e', '#0f7a8a', '#f1f3f4'];
+  [-60, -45, 30, 45, 60].forEach((fx, i) => {
+    b.box('flat:#b7bcc2', fx - 0.06, GY, z0 + 6, fx + 0.06, GY + 9, z0 + 6.12);
+    b.deco(`flat:${flags[i % 3]}`, fx + 0.06, GY + 7.4, z0 + 6.03, fx + 1.9, GY + 8.8, z0 + 6.09);
+  });
+  for (const [mx, mz] of [[cx - R - 6, cz - 18], [cx + R + 6, cz - 18]]) {
+    b.box('flat:#6f767d', mx - 0.3, GY, mz - 0.3, mx + 0.3, GY + 30, mz + 0.3);
+    b.deco('light', mx - 3, GY + 30, mz - 0.4, mx + 3, GY + 33, mz + 0.4);
+  }
+  for (let x = -120; x < 120; x += 14) if (Math.abs(x - cx) > 16) tree(b, x, z0 + 3.5, 5.5, 'leaf2');
 }
 
 function campusFront(b: Builder, z0: number) {

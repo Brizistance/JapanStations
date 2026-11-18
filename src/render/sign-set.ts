@@ -16,7 +16,7 @@ interface Entry {
 }
 export type SignCache = Map<string, Entry>;
 
-const LIVE = new Set(['dep', 'depAll', 'lcd']);
+const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock']);
 const plane = new THREE.PlaneGeometry(1, 1);
 
 function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {

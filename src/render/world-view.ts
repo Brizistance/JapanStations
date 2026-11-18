@@ -5,13 +5,12 @@
 import * as THREE from 'three';
 import { NET } from '../sim';
 import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
-import { PLOT_X, PLOT_Z } from '../stations/surface';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF } from '../trains/car';
 import type { BoxPart } from '../world/builder';
 import { halfWidth, sampleChainages, structureAt } from '../world/structure';
-import { rng } from '../world/builder';
+import { DEFAULT_PLOT, rng } from '../world/builder';
 import { boxesToGeometry, groupBy } from './geometry';
 import { getMaterial } from './materials';
 import { GateSet, makeSigns, staticGroup } from './part-view';
@@ -20,6 +19,8 @@ import type { SignContent } from '../signs/content';
 import { buildTrack } from './track';
 
 const STATION_IN = 520, STATION_OUT = 680, TRAIN_RANGE = 750;
+/** A station with a bigger plot is mounted from correspondingly further away. */
+const BASE_RADIUS = Math.hypot(DEFAULT_PLOT.x, DEFAULT_PLOT.z) + 5;
 
 interface StationView {
   group: THREE.Group;
@@ -38,6 +39,7 @@ function mountStation(w: StationWorld): StationView {
   group.add(makeSigns(w.build, cache).group);
   const gates = w.build.gates.length ? new GateSet(w.build.gates, false) : null;
   if (gates) group.add(gates.mesh);
+  if (gates?.glass) group.add(gates.glass);
   group.updateMatrixWorld(true);
   return {
     group, cache, gates,
@@ -111,13 +113,14 @@ function buildBackdrop(): THREE.Group {
   const plots = STATION_WORLDS.map((w) => {
     const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
     const corner = (lx: number, lz: number) => new THREE.Vector2(w.frame.x + lx * c + lz * s, -(w.frame.z - lx * s + lz * c));
-    return { w, pts: [corner(-PLOT_X, -PLOT_Z), corner(PLOT_X, -PLOT_Z), corner(PLOT_X, PLOT_Z), corner(-PLOT_X, PLOT_Z)] };
+    const { x: px, z: pz } = w.build.plot;
+    return { w, pts: [corner(-px, -pz), corner(px, -pz), corner(px, pz), corner(-px, pz)] };
   });
   const inPlot = (x: number, z: number, m: number) =>
     plots.some(({ w }) => {
       const dx = x - w.frame.x, dz = z - w.frame.z;
       const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
-      return Math.abs(dx * c - dz * s) < PLOT_X + m && Math.abs(dx * s + dz * c) < PLOT_Z + m;
+      return Math.abs(dx * c - dz * s) < w.build.plot.x + m && Math.abs(dx * s + dz * c) < w.build.plot.z + m;
     });
 
   // Open-air track: holes in the ground for the cut, and a keep-clear corridor for buildings.
@@ -191,7 +194,7 @@ export class WorldView {
     // Stations: at most one mount per frame to spread the cost.
     let mounted = false;
     for (const w of STATION_WORLDS) {
-      const d = Math.hypot(w.frame.x - cam.x, w.frame.z - cam.z);
+      const d = Math.hypot(w.frame.x - cam.x, w.frame.z - cam.z) - (w.frame.radius - BASE_RADIUS);
       const v = this.stations.get(w.def.id);
       if (!v && d < STATION_IN && !mounted) {
         const nv = mountStation(w);

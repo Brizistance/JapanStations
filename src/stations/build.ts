@@ -1,5 +1,5 @@
 // Station composers: assemble kit parts into complete stations.
-// Three layouts so far — generic underground, the two-line interchange, and elevated.
+// Four layouts — generic underground, the two-line interchange, elevated, and the hub (hub.ts).
 
 import { linesAt, lineById } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
@@ -11,19 +11,20 @@ import {
   escalator, exit, gateLine, hall, hallDims, rail, stairs, ticketMachines, vending,
   type CeilSeg, type Ctx, type StationStyle,
 } from './kit';
+import { buildHub } from './hub';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { car, surface, tree, PLOT_X, PLOT_Z } from './surface';
 
-type Rect = [number, number, number, number];
+export type Rect = [number, number, number, number];
 const rect = (b: Builder, x0: number, z0: number, x1: number, z1: number): Rect => {
   const p = b.pt(x0, 0, z0), q = b.pt(x1, 0, z1);
   return [Math.min(p[0], q[0]), Math.min(p[2], q[2]), Math.max(p[0], q[0]), Math.max(p[2], q[2])];
 };
 /** Mirror in x about the origin (keeps z). */
-const MIRROR_X = { rot: 2, mz: true } as const;
+export const MIRROR_X = { rot: 2, mz: true } as const;
 
 /** Island platform stair + up escalator, foot at x = 0 climbing +x. Returns the floor opening above. */
-function islandUnit(b: Builder, yLow: number, yHigh: number, run: number, railsAt: number | null): Rect {
+export function islandUnit(b: Builder, yLow: number, yHigh: number, run: number, railsAt: number | null): Rect {
   stairs(b, { x0: 0, x1: run, z0: -1.7, z1: 0.1, yLow, yHigh });
   escalator(b, { x0: 0, x1: run, z0: 0.3, z1: 1.7, yLow, yHigh, dir: 1 });
   if (railsAt !== null) {
@@ -49,7 +50,7 @@ interface StairSet {
 }
 
 /** Platform ↔ concourse stairs for either platform type. */
-function platformStairs(c: Ctx, units: { x: number; up: 1 | -1 }[], pf: number, cf: number, wallZ: number): StairSet {
+export function platformStairs(c: Ctx, units: { x: number; up: 1 | -1 }[], pf: number, cf: number, wallZ: number): StairSet {
   const { b, line, station } = c;
   const out: StairSet = { holes: [], blocks: [] };
   for (const u of units) {
@@ -195,7 +196,7 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
 }
 
 /** Quarter turns from the frame's +x to another line's direction. */
-function quarterTurns(from: [number, number], to: [number, number]): 0 | 1 | 2 | 3 {
+export function quarterTurns(from: [number, number], to: [number, number]): 0 | 1 | 2 | 3 {
   const cos = from[0] * to[0] + from[1] * to[1], sin = from[0] * to[1] - from[1] * to[0];
   const k = Math.round(Math.atan2(sin, cos) / (Math.PI / 2));
   if (Math.abs(Math.atan2(sin, cos) - (k * Math.PI) / 2) > 0.01) throw new Error('interchange lines must cross at right angles');
@@ -475,10 +476,12 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
   const { station, spec } = input;
   const style: StationStyle = spec.style;
   const mk = (l: StationBuildInput['lines'][number]): Ctx => ({ b, line: l.line, station, stop: l.stop, railY: l.railY, style });
-  if (spec.kind === 'interchange') {
+  if (spec.kind === 'interchange' || spec.kind === 'hub') {
     const p = input.lines.find((l) => l.line.id === spec.primary)!;
     const o = input.lines.find((l) => l.line.id !== spec.primary)!;
-    buildInterchange(mk(p), spec, { ctx: mk(o), dir: o.dir, primaryDir: p.dir });
+    const other = { ctx: mk(o), dir: o.dir, primaryDir: p.dir };
+    if (spec.kind === 'hub') buildHub(mk(p), spec, other);
+    else buildInterchange(mk(p), spec, other);
     return { build: b.out, primary: p.line.id };
   }
   const l = input.lines[0];

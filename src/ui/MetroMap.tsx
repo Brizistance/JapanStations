@@ -35,10 +35,22 @@ export function LineBullet({ line, size = 22 }: { line: LineDef; size?: number }
 
 /** Where to put each station's label relative to its marker. */
 function labelPos(s: StationDef): { dx: number; dy: number; anchor: 'start' | 'middle' | 'end' } {
-  const ls = linesAt(s.id);
-  if (ls.length > 1) return { dx: 22, dy: 44, anchor: 'start' };
-  if (ls[0].id === 'Y') return { dx: 26, dy: -2, anchor: 'start' };
+  if (linesAt(s.id).length > 1) return { dx: 22, dy: 44, anchor: 'start' };
+  if (s.diagram.label === 'right') return { dx: 26, dy: -2, anchor: 'start' };
   return { dx: 0, dy: 40, anchor: 'middle' };
+}
+
+/** Top-left corner of the i-th number badge for a station. */
+function badgePos(s: StationDef, i: number, inter: boolean): [number, number] {
+  const { x, y, badges, label } = s.diagram;
+  if (inter) {
+    // Interchanges: stacked on the left by default, or side by side in a free corner.
+    if (badges === 'ne') return [x + 20 + i * 34, y - 50];
+    if (badges === 'nw') return [x - 52 - i * 34, y - 50];
+    return [x - 52, i === 0 ? y - 50 : y + 20];
+  }
+  // Left of the marker when the label is on the right, otherwise above it.
+  return label === 'right' ? [x - 52, y - 15] : [x - 15, y - 50];
 }
 
 function TrainDots() {
@@ -176,9 +188,7 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
             <circle cx={x} cy={y} r={inter ? 15 : 11} fill="#fff" stroke={inter ? '#1b1f24' : ls[0].color} strokeWidth={inter ? 5 : 4.5} />
             {here === s.id && <circle cx={x} cy={y} r={5.5} fill="#e02020" />}
             {ls.map((l, i) => {
-              // Badge sits left of the marker on the vertical line, above it on the horizontal one.
-              const bx = inter || ls[0].id === 'Y' ? x - 52 : x - 15;
-              const by = inter ? (i === 0 ? y - 50 : y + 20) : ls[0].id === 'Y' ? y - 15 : y - 50;
+              const [bx, by] = badgePos(s, i, inter);
               const [letter, num] = s.numbers[l.id].split('-');
               return (
                 <g key={l.id} transform={`translate(${bx}, ${by})`}>
@@ -194,7 +204,7 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
         );
       })}
       {/* Legend */}
-      <g transform="translate(800, 440)">
+      <g transform={`translate(800, ${536 - LINES.length * 30})`}>
         <rect width="250" height={LINES.length * 30 + 44} rx="8" fill="#fff" stroke="#d9d6cc" />
         {LINES.map((l, i) => (
           <g key={l.id} transform={`translate(16, ${20 + i * 30})`}>

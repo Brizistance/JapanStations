@@ -6,7 +6,7 @@ Goals: portfolio piece, personal worldbuilding project, and a vehicle for learni
 
 ## Status
 
-Playable foundation. Two lines (Yanagisuji **Y**, Nagisa **N**), nine stations, one interchange (Tsumugibashi). Main menu with interactive route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. See [docs/vision.md](docs/vision.md) for what is and isn't done.
+Playable foundation. Three lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**), 14 stations, three interchanges. Kita-Ōdōri is the central hub: the metro under the glass atrium of Kawaminato Station, with closed-off shells for future railways. Main menu with interactive route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. See [docs/vision.md](docs/vision.md) for what is and isn't done.
 
 ## Stack
 

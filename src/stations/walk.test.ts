@@ -55,12 +55,20 @@ describe('station walkability', () => {
     it(`${w.def.id}: all zones reachable from spawn, track is not`, () => {
       // Force every platform gate shut, whatever the timetable says.
       for (const k of w.frame.blockers) k.isOpen = () => false;
-      const pts = flood(w, 72, 40);
+      // Explore at least the standard area, and further where a station's zones reach further.
+      const inner = w.frame.zones.filter((z) => z.kind !== 'street');
+      const reach = (i: 0 | 2) => Math.max(...inner.map((z) => Math.max(Math.abs(z.min[i]), Math.abs(z.max[i])))) + 4;
+      const pts = flood(w, Math.max(72, reach(0)), Math.max(40, reach(2)));
       const l: V3 = [0, 0, 0];
       const local = pts.map((p) => [...toLocal(w.frame, p, l)] as V3);
       for (const z of w.frame.zones) {
         const hit = local.some((q) => q[0] >= z.min[0] && q[0] <= z.max[0] && q[1] >= z.min[1] - 0.1 && q[1] <= z.max[1] && q[2] >= z.min[2] && q[2] <= z.max[2]);
         expect(hit, `${w.def.id}: zone "${z.en}" unreachable`).toBe(true);
+      }
+      // Track beds (every line, however its hall is turned) and closed shells stay out of reach.
+      for (const k of w.build.keepOut) {
+        const inside = local.filter((q) => q[0] > k.min[0] && q[0] < k.max[0] && q[1] > k.min[1] && q[1] < k.max[1] && q[2] > k.min[2] && q[2] < k.max[2]);
+        expect(inside.length, `${w.def.id}: player can reach ${k.en}`).toBe(0);
       }
       // Nothing reachable may be at track-bed level inside a hall.
       for (const line of LINES.filter((x) => x.stops.includes(w.def.id))) {
