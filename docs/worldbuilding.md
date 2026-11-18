@@ -26,10 +26,23 @@ Brand: navy `#0d3b66` roundel with three flowing white strokes (a stylised 川).
 |---|---|---|---|---|
 | **Y** | Yanagisuji Line | 柳筋線 (やなぎすじせん) | green `#1f9d55` | North–south trunk under Yanagi-suji. Osaka-style street name. |
 | **N** | Nagisa Line | 渚線 (なぎさせん) | blue `#1673c9` | East–west, from the bay to the eastern hills. Nagisa = "water's edge". |
-| **A** | Akanesuji Line | 茜筋線 (あかねすじせん) | madder red `#b7282e` | The newest, deepest line: a diagonal from the south bay to the north-east hills, under Akane-suji and then Kita-Ōdōri avenue. Akane = madder dye, in keeping with Tsumugibashi (silk) and Aizomechō (indigo). |
+| **A** | Akanesuji Line | 茜筋線 (あかねすじせん) | madder red `#b7282e` | The deepest line, and the first with full-height platform doors: a diagonal from the south bay to the north-east hills, under Akane-suji and then Kita-Ōdōri avenue. Akane = madder dye, in keeping with Tsumugibashi (silk) and Aizomechō (indigo). |
 | **S** | Shiokaze Line | 汐風線 (しおかぜせん) | sunset orange `#ee7b1a` | The fourth line: from the river mouth along the Mio-gawa's north bank, through the box at Kita-Ōdōri that was built for it, then south-east to the canals. Shiokaze = "sea breeze"; a place-style name, the first line not named after a street. |
 | **M** | Sumire Line | すみれ線 (すみれせん) | violet `#c2368f` | The sixth line, and the first to through-run: from the north-east hills via Midorizaka and the hub, then on the Shiokaze Line's track as an express (passing Tōmyōbori and Sakurazutsumi) to Hanamizuki, and on to the southern heights. Sumire = violet; its mural is at Seiran. Name from the user's draft map. |
 | **K** | Kikyō Line | 桔梗線 (ききょうせん) | bellflower purple `#7b4fa8` | The fifth line: a crosstown line through the south that meets every other line once, from the bay front at Shinshio to the eastern hills. Kikyō = Chinese bellflower, one of the seven autumn flowers; its mural is at Higashigaoka. Name and colour from the user's draft map. |
+
+### When each line opened
+
+The opening year decides a line's architecture (see "Line themes" in [station-design.md](station-design.md)). Invented, 2026-11-18.
+
+| Line | Opened | The city at the time |
+|---|---|---|
+| Yanagisuji | 1933 | The first subway, built under the widened Yanagi-suji as a show of civic pride |
+| Nagisa | 1961 | High-growth years: built fast and plain to reach the port and the eastern suburbs |
+| Akanesuji | 1994 | Planned in the bubble years, so deep and richly finished |
+| Shiokaze | 2004 | Waterfront redevelopment along the Mio-gawa and the bay |
+| Kikyō | 2015 | The crosstown link the south had waited decades for |
+| Sumire | 2023 | The newest line, sharing the Shiokaze Line's track |
 
 ## Stations
 

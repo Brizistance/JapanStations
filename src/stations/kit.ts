@@ -5,6 +5,8 @@
 import type { LineDef, StationDef } from '../data/types';
 import { CAR_PITCH, HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
 import type { Builder } from '../world/builder';
+import { themeFor } from './themes';
+import type { HallInfo } from './themes/types';
 
 export const PF_H = 1.1; // platform height above rail
 export const CONC_RISE = 4.9; // platform floor → concourse floor
@@ -155,6 +157,9 @@ function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: nu
 /** Round clad column with a steel base ring and a colour band. The collider stays a square post. */
 export function pillar(b: Builder, x: number, z: number, y0: number, y1: number, half: number, mat: string, band: string, bandY: number) {
   b.block(x - half, y0, z - half, x + half, y1, z + half);
+  pillarLook(b, x, z, y0, y1, half, mat, band, bandY);
+}
+function pillarLook(b: Builder, x: number, z: number, y0: number, y1: number, half: number, mat: string, band: string, bandY: number) {
   const d = half * 2.2;
   b.mesh(mat, 'cyl', x, (y0 + y1) / 2, z, d, y1 - y0, d);
   b.mesh('metal:#9da2a8', 'cyl', x, y0 + 0.06, z, d + 0.07, 0.12, d + 0.07);
@@ -170,7 +175,6 @@ export function ceilingLight(b: Builder, x0: number, x1: number, z0: number, z1:
 
 function bench(b: Builder, x: number, y: number, z: number, color: string) {
   // Back-to-back seats on a steel beam, the usual island-platform bench.
-  b.block(x - 0.9, y, z - 0.5, x + 0.9, y + 0.46, z + 0.5);
   b.deco('metal:#7f858b', x - 0.9, y + 0.3, z - 0.04, x + 0.9, y + 0.38, z + 0.04);
   for (const lx of [-0.75, 0.75]) {
     b.deco('metal:#7f858b', x + lx - 0.03, y, z - 0.03, x + lx + 0.03, y + 0.3, z + 0.03);
@@ -206,6 +210,22 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   const maxCeil = o.elevated ? pf + 3.6 : Math.max(...o.ceil.map((s) => s.y + (s.vault ? 1.6 : 0)));
   const holes = o.platHoles ?? [];
   const nums = station.platforms[line.id];
+  const th = themeFor(line.id);
+  const info: HallInfo = {
+    b, line, station, style, o, pf, pe, wallZ, island, P, H, ceilAt,
+    blocked: (x0, x1, m = 0.4) =>
+      o.blocks.some(([a, c]) => x1 > a - m && x0 < c + m) || (o.ceilHoles ?? []).some((q) => x1 > q[0] - m && x0 < q[2] + m),
+    wallRuns: (s) => {
+      const runs: [number, number][] = [];
+      let x = -H;
+      for (const g of (o.gaps ?? []).filter((q) => q.s === s).sort((p, q) => p.x0 - q.x0)) {
+        if (g.x0 > x) runs.push([x, g.x0]);
+        x = Math.max(x, g.x1);
+      }
+      if (x < H) runs.push([x, H]);
+      return runs;
+    },
+  };
 
   // ── Structure ──
   const gaps = o.gaps ?? [];
@@ -256,8 +276,11 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       }
       b.box('concreteDark', -H, railY - 1, lo, H, pf - 0.2, hi);
       const zi = s * (wallZ - 0.02);
-      b.deco(`paint:${line.color}`, -H, pf + 2.62, Math.min(z0, zi), H, pf + 2.8, Math.max(z0, zi));
-      b.deco(`paint:${style.accent}`, -H, pf + 2.56, Math.min(z0, zi), H, pf + 2.62, Math.max(z0, zi));
+      if (th.wallTrim) th.wallTrim(info, s);
+      else {
+        b.deco(`paint:${line.color}`, -H, pf + 2.62, Math.min(z0, zi), H, pf + 2.8, Math.max(z0, zi));
+        b.deco(`paint:${style.accent}`, -H, pf + 2.56, Math.min(z0, zi), H, pf + 2.62, Math.max(z0, zi));
+      }
       // Skirting where the wall meets a platform (side platforms only).
       if (!island) {
         const zk = s * (wallZ - 0.025);
@@ -288,21 +311,23 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
           for (let k = 0; k < n; k++) {
             const zc = -wallZ + (k + 0.5) * w;
             const rise = 1.6 * Math.sqrt(Math.max(0, 1 - (zc / wallZ) ** 2));
-            b.box('flat:#f3f1ea', s.x0, s.y + rise, zc - w / 2, s.x1, s.y + rise + SLAB, zc + w / 2);
+            b.box(th.vaultMat ?? 'flat:#f3f1ea', s.x0, s.y + rise, zc - w / 2, s.x1, s.y + rise + SLAB, zc + w / 2);
           }
           // Vault ribs.
-          for (let x = s.x0 + 3; x < s.x1; x += 6) b.deco(`flat:${style.accent}`, x - 0.15, s.y - 0.05, -wallZ, x + 0.15, s.y + 0.12, wallZ);
-        } else b.slab('ceil', s.x0, -wallZ - 0.5, s.x1, wallZ + 0.5, s.y, s.y + SLAB, o.ceilHoles ?? []);
+          if (!th.ceiling) for (let x = s.x0 + 3; x < s.x1; x += 6) b.deco(`flat:${style.accent}`, x - 0.15, s.y - 0.05, -wallZ, x + 0.15, s.y + 0.12, wallZ);
+        } else b.slab(th.ceilMat ?? 'ceil', s.x0, -wallZ - 0.5, s.x1, wallZ + 0.5, s.y, s.y + SLAB, o.ceilHoles ?? []);
       } else if (!o.elevated) {
         // Under the concourse: hang ceiling panels below its slab, except where stairs come through.
         const cuts = o.blocks.filter(([a, c]) => c > s.x0 && a < s.x1).map(([a, c]) => [a - 0.4, -wallZ, c + 0.4, wallZ]);
-        b.slab('ceil', s.x0, -wallZ, s.x1, wallZ, s.y - 0.05, s.y, cuts, false);
+        b.slab(th.ceilMat ?? 'ceil', s.x0, -wallZ, s.x1, wallZ, s.y - 0.05, s.y, cuts, false);
       }
-      if (!s.vault && !o.elevated) {
+      const soffit = th.soffitMat === undefined ? 'flat:#26282b' : th.soffitMat;
+      if (!s.vault && !o.elevated && soffit) {
         // Exposed dark soffit over the tracks, as if the panels stop at the platform edge.
         const over: [number, number][] = island ? [[-wallZ, -pe - 0.2], [pe + 0.2, wallZ]] : [[-pe + 0.2, pe - 0.2]];
-        for (const [za, zb] of over) b.deco('flat:#26282b', s.x0, s.y - 0.07, za, s.x1, s.y - 0.05, zb);
+        for (const [za, zb] of over) b.deco(soffit, s.x0, s.y - 0.07, za, s.x1, s.y - 0.05, zb);
       }
+      if (!o.elevated) th.ceiling?.(info, s, s.emit ? s.y : s.y - 0.05);
       const nx = o.ceil[i + 1];
       if (nx && Math.abs(nx.y - s.y) > 0.01) {
         const lo = Math.min(s.y, nx.y), hi = Math.max(s.y, nx.y) + (s.vault || nx.vault ? 1.6 : 0) + SLAB;
@@ -331,16 +356,24 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         b.box('concrete', xa, bedY, Math.min(s * wallZ, s * (wallZ + 0.6)), xb, bedY + 1.3, Math.max(s * wallZ, s * (wallZ + 0.6)));
       }
     }
+    th.elevated?.(info);
   }
 
   // Centre columns between the tracks (double-track box).
   if (!island && !o.elevated) {
-    for (let x = -H + 3; x < H; x += 6) b.deco('concrete', x - 0.2, bedY, -0.2, x + 0.2, ceilAt(x) + 0.1, 0.2);
+    for (let x = -H + 3; x < H; x += 6) {
+      if (th.trackColumn) th.trackColumn(info, x, bedY, ceilAt(x));
+      else b.deco('concrete', x - 0.2, bedY, -0.2, x + 0.2, ceilAt(x) + 0.1, 0.2);
+    }
   }
 
   // ── Lighting ──
   const lightRows = island ? [-2.6, 2.6] : [-(pe + 2.2), pe + 2.2];
   for (const s of o.elevated ? [] : o.ceil) {
+    if (th.lights) {
+      th.lights(info, s, s.emit ? s.y : s.y - 0.05);
+      continue;
+    }
     for (let x = s.x0 + 1.5; x + 3 <= s.x1; x += 4) {
       for (const z of lightRows) {
         if (s.vault) {
@@ -364,7 +397,10 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       const seg = o.ceil.find((s) => x >= s.x0 && x <= s.x1);
       if (seg?.vault || inBlocks(x, o.blocks, 0.6)) continue;
       for (const z of [-2.05, 2.05]) {
-        pillar(b, x, z, pf, ceilAt(x), 0.27, style.pillar, line.color, pf + 1.98);
+        const half = Math.min(th.pillarHalf ?? 0.27, 0.42);
+        b.block(x - half, pf, z - half, x + half, ceilAt(x), z + half);
+        if (th.pillar) th.pillar(info, x, z, pf, ceilAt(x));
+        else pillarLook(b, x, z, pf, ceilAt(x), 0.27, style.pillar, line.color, pf + 1.98);
       }
     }
   }
@@ -415,7 +451,11 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       if (i % 3 === 1) {
         vending(b, x - 0.55, pf, 0, [0, -1], 'vending');
         vending(b, x + 0.55, pf, 0, [0, 1], 'vending2');
-      } else bench(b, x, pf, 0, style.accent);
+      } else {
+        b.block(x - 0.9, pf, -0.5, x + 0.9, pf + 0.46, 0.5);
+        if (th.bench) th.bench(info, x, pf, 0, 0);
+        else bench(b, x, pf, 0, style.accent);
+      }
     }
   } else {
     for (const s of [-1, 1]) {
@@ -425,8 +465,12 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         const z = s * (wallZ - 0.45);
         if (i % 4 === 2) vending(b, x, pf, z, [0, -s], s > 0 ? 'vending' : 'vending2');
         else {
-          b.box('metal:#7f858b', x - 0.9, pf, z - 0.28, x + 0.9, pf + 0.4, z + 0.28);
-          b.deco(`paint:${style.accent}`, x - 0.92, pf + 0.4, z - 0.3, x + 0.92, pf + 0.46, z + 0.3);
+          b.block(x - 0.9, pf, z - 0.28, x + 0.9, pf + 0.4, z + 0.28);
+          if (th.bench) th.bench(info, x, pf, z, s as 1 | -1);
+          else {
+            b.deco('metal:#7f858b', x - 0.9, pf, z - 0.28, x + 0.9, pf + 0.4, z + 0.28);
+            b.deco(`paint:${style.accent}`, x - 0.92, pf + 0.4, z - 0.3, x + 0.92, pf + 0.46, z + 0.3);
+          }
         }
       }
     }

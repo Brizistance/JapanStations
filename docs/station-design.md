@@ -46,7 +46,24 @@ Named by material key and resolved in `src/render/materials.ts`:
 | `tactile`, `tactileBar` | Warning domes / guidance bars | Platform edges, routes |
 | `light`, `glow:#hex` | Self-lit, blooms on High | Light diffusers, lamps, LEDs |
 
-Station identity comes from the spec's wall, floor and pillar keys; everything else is shared.
+Station identity comes from the spec's wall, floor and pillar keys. The shapes those finishes are applied to come from the line's theme.
+
+## Line themes (`src/stations/themes/`)
+
+**The line sets the form, the station sets the colour.** Each line has one file exporting a `LineTheme`: a set of optional hooks that `hall()` calls in place of its default ceiling trim, lights, pillars, wall trim and benches. A hook left out keeps the default. Themes draw decoration only (`deco`/`mesh`); `hall()` owns every collider, the screen doors, signs and zones, so a theme cannot change where you can walk. The contract and its clearances are in `themes/types.ts`.
+
+| Line | Opened | Idea | Ceiling | Pillars | Lighting | Wall motif | Benches |
+|---|---|---|---|---|---|---|---|
+| **Y** Yanagisuji | 1933 | The first subway | Barrel vault with arch ribs; riveted cross-beams under a concourse | Square riveted steel | Pendant globes | Tile dado, **willow** strands | Wooden slats |
+| **N** Nagisa | 1961 | High-growth era, plain | Concrete downstand beams | Chunky tiled columns between the tracks | Rows of fluorescent battens | Two-tone tile, stepped **shoreline** band | Shell seats; scalloped canopy valance when elevated |
+| **A** Akanesuji | 1994 | Bubble-era stone and brass | Dark coffers, lit centre cove | Fat round stone columns, brass collars | Cove glow and downlights | **Madder-dyed warp threads** | Stone plinth, red cushion |
+| **S** Shiokaze | 2004 | Sea breeze | White fins rippling in a wave | Slim paired white tubes | Cool lines between the fins | **Wind streaks** | Pale wood on steel |
+| **K** Kikyō | 2015 | Night garden | Near-black | Round, flaring to a lit bell capital | Pentagon of downlights (the **bellflower**) | Star studs over a dark base | Drum seats |
+| **M** Sumire | 2023 | Timber and soft light | Timber battens | Slim timber posts with a violet light slot | LED lines between battens | Timber wainscot, drifting **violet petals** | Timber blocks |
+
+A hall takes the theme of the line it is built for, so interchanges and the hub show two or more themes. Where Sumire trains run on Shiokaze track, the platforms are Shiokaze's. Themes cover platform halls only; concourses, gates and exits are still shared.
+
+To add a theme for a new line: write `themes/<id>.ts`, register it in `themes/index.ts`, and add a row here and an opening year in worldbuilding.md.
 
 ## Details that make it read as "Japan"
 
@@ -107,7 +124,7 @@ To open a shell later: add the line to the network data, replace the hoarding wi
 
 ## Design rules
 
-- Each line has a **visual identity**: its color appears on pillars, signs, and screen door trim.
+- Each line has a **visual identity**: its colour on signs and screen door trim, and its own architecture (see Line themes).
 - Each station gets **one distinctive feature** so stations don't all feel the same.
 - Station designs are **invented but plausible**. Draw from real stations for patterns, never copy one exactly.
 - Build reusable parts so new stations can be assembled quickly. A new station should be a spec, not new geometry code, unless it needs a new layout.

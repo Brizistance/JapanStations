@@ -13,6 +13,7 @@ import {
 } from './kit';
 import { buildHub } from './hub';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
+import { themeFor } from './themes';
 import { car, surface, tree, PLOT_X, PLOT_Z } from './surface';
 
 export type Rect = [number, number, number, number];
@@ -168,11 +169,13 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
   const cf = d.pf + CONC_RISE;
   const cw = 12;
   const [cx0, cx1] = spec.concourse;
-  const open = style.vault ? d.pf + 5.0 : d.pf + 4.2;
+  // A station can ask for a tall vault; a line's theme (Yanagisuji) gives every station a lower one.
+  const vault = style.vault || themeFor(line.id).vault;
+  const open = style.vault ? d.pf + 5.0 : vault ? d.pf + 4.4 : d.pf + 4.2;
   const ceil: CeilSeg[] = [];
-  if (cx0 > -HALL_HALF) ceil.push({ x0: -HALL_HALF, x1: cx0, y: open, emit: true, vault: style.vault });
+  if (cx0 > -HALL_HALF) ceil.push({ x0: -HALL_HALF, x1: cx0, y: open, emit: true, vault });
   ceil.push({ x0: cx0, x1: cx1, y: cf - SLAB, emit: false });
-  if (cx1 < HALL_HALF) ceil.push({ x0: cx1, x1: HALL_HALF, y: open, emit: true, vault: style.vault });
+  if (cx1 < HALL_HALF) ceil.push({ x0: cx1, x1: HALL_HALF, y: open, emit: true, vault });
 
   const st = platformStairs(c, spec.stairs, d.pf, cf, d.wallZ);
   if (d.island) {
