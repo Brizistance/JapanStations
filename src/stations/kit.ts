@@ -436,10 +436,12 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       b.hang({ k: 'dir', station: station.id, line: line.id, dir: sd.dir }, x, signY, zc, w, 0.46, { ceil: hangCeil(x) });
     }
   }
+  // Departure boards: in a deep case and hung lower than the printed signs, so the two never
+  // read alike.
   for (const x of [-38, 38, 0]) {
     if (inBlocks(x, o.blocks, 2)) continue;
     for (const sd of sides) {
-      b.hang({ k: 'dep', station: station.id, line: line.id, dir: sd.dir }, x, signY + 0.06, island ? sd.z * 0.98 : sd.z, island ? 3.0 : 3.4, 0.62, { ceil: hangCeil(x), dynamic: true });
+      b.screen({ k: 'dep', station: station.id, line: line.id, dir: sd.dir }, x, pf + 2.45, island ? sd.z * 0.98 : sd.z, island ? 3.0 : 3.4, 0.72, { ceil: hangCeil(x), dynamic: true });
     }
   }
   // Station name boards and posters on the walls.
@@ -606,9 +608,11 @@ export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear 
   b.protect(-0.7, cf + 2.3, -(narrow ? 2.3 : 2.9), 0.7, cf + clear, narrow ? 2.3 : 2.9);
   // Live departures screen facing the unpaid side.
   const sz = narrow ? -(edge + cw) / 2 : -7.25;
-  b.deco('flat:#15181c', 1.2, cf + 1.72, sz - 1.35, 1.3, cf + 2.9, sz + 1.35);
+  b.deco('metal:#2b2f34', 1.12, cf + 1.66, sz - 1.39, 1.3, cf + 2.94, sz + 1.39);
+  b.deco('metal:#1c1f23', 1.12, cf + 2.94, sz - 1.42, 1.42, cf + 2.975, sz + 1.42);
+  b.deco('flat:#050607', 1.296, cf + 1.715, sz - 1.325, 1.304, cf + 2.885, sz + 1.325);
   b.sign({ k: 'depAll', station: station.id }, 1.31, cf + 2.3, sz, [1, 0], 2.6, 1.12, { dynamic: true });
-  b.deco('flat:#555a60', 1.23, cf + 2.9, sz - 0.02, 1.27, cf + CONC_CLEAR, sz + 0.02);
+  b.deco('metal:#3a3f45', 1.18, cf + 2.975, sz - 0.035, 1.25, cf + CONC_CLEAR, sz + 0.035);
 }
 
 /**

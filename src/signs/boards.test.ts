@@ -8,7 +8,13 @@ import { nextDepartures } from '../sim/timetable';
 import { stationExits } from '../stations/exits';
 import { SPECS } from '../stations/specs';
 import type { Picto, SignContent } from './content';
-import { drawSign, platformTrains, signPixels } from './draw';
+import { drawSign, platformTrains, signSize } from './draw';
+import { LINES, linesAt } from '../data/network';
+import { formatClock } from '../sim';
+import { nextArrivals, trainStateAt } from '../sim/timetable';
+import { themeFor } from '../stations/themes';
+import { BOARD, lineBoard, stationBoard } from './board-style';
+import { depAllModel, depAllRows, depModel, drawDep, drawDepAll } from './departures';
 
 const S = lineById('S'), M = lineById('M');
 
@@ -93,7 +99,7 @@ function recorder(W: number, H: number) {
 }
 
 function draw(c: SignContent, w: number, h: number) {
-  const [W, H] = signPixels(w, h);
+  const [W, H] = signSize(c, w, h);
   const { ctx, texts } = recorder(W, H);
   drawSign(ctx, W, H, c);
   return { W, H, texts };
@@ -186,6 +192,82 @@ describe('wayfinding sign layout', () => {
           for (const n of named) if (n) expect(am.texts.some((t) => t.s === n.ja), `areamap ${id} ${w}×${h}: ${n.en}`).toBe(true);
         }
       }
+    }
+  });
+});
+
+// ── Departure boards (発車標) ──
+
+describe('departure boards', () => {
+  it('each line has a board style, and the style table agrees with the line themes', () => {
+    for (const l of LINES) {
+      expect(BOARD[l.id], l.id).toBeDefined();
+      expect(BOARD[l.id].opened, l.id).toBe(themeFor(l.id).opened);
+      expect(lineBoard(l.id), l.id).toBe(BOARD[l.id].opened < 2000 ? 'led' : 'lcd');
+    }
+    expect(stationBoard('kita-odori')).toBe('led');
+  });
+
+  /** Every (station, line, dir) platform that has a board. */
+  const platforms = STATIONS.flatMap((st) => linesAt(st.id).filter((l) => st.platforms[l.id] && !l.shares).flatMap((l) => (['down', 'up'] as const).map((dir) => ({ st, line: l, dir }))));
+
+  it('shows only timetable times, and the approach lamp follows the real train', () => {
+    let lit = 0;
+    for (const { st, line, dir } of platforms) {
+      // Every time this platform could show: departures (or terminating arrivals) of its own line and of any line on its track.
+      const times = new Set<string>();
+      for (const l of [line, ...LINES.filter((x) => x.shares?.line === line.id && x.stops.includes(st.id))]) {
+        const { tt } = lineSim(l.id), stop = l.stops.indexOf(st.id);
+        for (const d of [...nextDepartures(tt, stop, dir, 36000, 40), ...nextArrivals(tt, stop, dir, 36000, 40)]) times.add(formatClock(d.dep)).add(formatClock(d.arr));
+      }
+      for (let t = 36000; t < 39600; t += 37) {
+        const c = { k: 'dep' as const, station: st.id, line: line.id, dir };
+        const m = depModel(c, t, 0);
+        // The board's rows are the platform's next trains, in order.
+        expect(m.rows.map((r) => r.arr)).toEqual(platformTrains(line, st, dir, t, m.rows.length).map((r) => r.arr));
+        const [W, H] = signSize(c, 3.4, 0.72);
+        const { ctx, texts } = recorder(W, H);
+        drawDep(ctx, W, H, c, 0, t);
+        for (const s of texts.map((x) => x.s).filter((s) => /^\d\d:\d\d$/.test(s))) {
+          expect(s === formatClock(t) || times.has(s), `${st.id} ${line.id} ${dir} @${t}: ${s}`).toBe(true);
+        }
+        // Boarding means the train is here.
+        if (m.status === 'boarding' || m.status === 'closing') expect(m.away).toBe(0);
+        if (m.away === null) continue;
+        lit++;
+        const r = m.rows[0], i = r.line.stops.indexOf(st.id), sg = dir === 'down' ? 1 : -1;
+        const p = trainStateAt(lineSim(r.line.id).tt, r.train, t).phase;
+        expect(p.dir).toBe(dir);
+        if (p.kind === 'dwell') expect(p.stop).toBe(i - sg * m.away);
+        // Running: away is in (n, n + 1] where n stops remain after the one it is running to.
+        else expect(p.toStop).toBe(i - sg * (Math.ceil(m.away) - 1));
+      }
+    }
+    expect(lit).toBeGreaterThan(100);
+  });
+
+  it('keeps every board tidy in both styles and both languages, at every station', () => {
+    const tidy = (label: string, c: SignContent, w: number, h: number, ticker: (now: number, wall: number) => string) => {
+      const [W, H] = signSize(c, w, h);
+      for (const now of [36000, 36100, 36230, 36290]) {
+        for (const wall of [1, 5]) {
+          const { ctx, texts } = recorder(W, H);
+          if (c.k === 'dep') drawDep(ctx, W, H, c, wall, now);
+          else if (c.k === 'depAll') drawDepAll(ctx, W, H, c, wall, now);
+          // The ticker scrolls through the board's edges on purpose.
+          const tk = ticker(now, wall);
+          expectTidy(`${label} @${now} ${wall > 4 ? 'en' : 'ja'}`, W, H, texts.filter((t) => t.s !== tk));
+        }
+      }
+    };
+    for (const { st, line, dir } of platforms) {
+      const c = { k: 'dep' as const, station: st.id, line: line.id, dir };
+      for (const [w, h] of [[3.4, 0.72], [3.0, 0.72]]) tidy(`dep ${st.id} ${line.id} ${dir} ${w}`, c, w, h, (now, wall) => depModel(c, now, wall).ticker);
+    }
+    for (const st of STATIONS) {
+      if (!depAllRows(st.id).length) continue;
+      const c = { k: 'depAll' as const, station: st.id };
+      tidy(`depAll ${st.id}`, c, 2.6, 1.12, (now, wall) => depAllModel(c, now, wall).ticker);
     }
   });
 });

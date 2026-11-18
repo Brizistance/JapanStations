@@ -22,6 +22,8 @@ import type { SignContent } from '../signs/content';
 import { buildTrack } from './track';
 
 const STATION_IN = 520, STATION_OUT = 680, TRAIN_RANGE = 750;
+/** Within this distance of a station, its departure boards animate smoothly. */
+const FAST_RANGE = 120;
 /** A station with a bigger plot is mounted from correspondingly further away. */
 const BASE_RADIUS = Math.hypot(DEFAULT_PLOT.x, DEFAULT_PLOT.z) + 5;
 
@@ -236,6 +238,7 @@ export class WorldView {
   private stations = new Map<string, StationView>();
   private trainViews = new Map<string, TrainView>();
   private liveTimer = 0;
+  private fastTimer = 0;
 
   constructor() {
     this.root.add(buildBackdrop());
@@ -257,9 +260,14 @@ export class WorldView {
   update(dt: number, cam: THREE.Vector3) {
     // Stations: at most one mount per frame to spread the cost.
     let mounted = false;
+    // Departure boards in the station around the player redraw at ~15 Hz (scrolling tickers).
+    this.fastTimer -= dt;
+    const fast = this.fastTimer <= 0;
+    if (fast) this.fastTimer = 1 / 15;
     for (const w of STATION_WORLDS) {
       const d = Math.hypot(w.frame.x - cam.x, w.frame.z - cam.z) - (w.frame.radius - BASE_RADIUS);
       const v = this.stations.get(w.def.id);
+      if (v && fast && d < FAST_RANGE) redrawLive(v.cache, true);
       if (!v && d < STATION_IN && !mounted) {
         const nv = mountStation(w);
         this.stations.set(w.def.id, nv);

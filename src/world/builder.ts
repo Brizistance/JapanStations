@@ -286,6 +286,26 @@ export class Builder {
     }
   }
 
+  /**
+   * Electronic board hanging across the x axis (faces ±x): a deep metal case with a black
+   * bezel round each face, a hood over the top and two stout drop rods. Unlike a printed
+   * sign's thin backing, it reads as a piece of equipment. `ceil` = height of the rods' top.
+   */
+  screen(content: SignContent, x: number, y: number, z: number, w: number, h: number, o: SignOpts & { ceil?: number; back?: SignContent } = {}) {
+    const d = 0.11, rim = 0.07;
+    const y0 = y - h / 2 - rim, y1 = y + h / 2 + rim, z0 = z - w / 2 - rim, z1 = z + w / 2 + rim;
+    this.deco('metal:#2b2f34', x - d, y0, z0, x + d, y1, z1);
+    this.deco('metal:#1c1f23', x - d - 0.09, y1, z0 - 0.03, x + d + 0.09, y1 + 0.035, z1 + 0.03);
+    for (const s of [-1, 1]) this.deco('flat:#050607', x + s * d - 0.004, y - h / 2 - 0.025, z - w / 2 - 0.025, x + s * d + 0.004, y + h / 2 + 0.025, z + w / 2 + 0.025);
+    this.sign(content, x + d + 0.008, y, z, [1, 0], w, h, o);
+    this.sign(o.back ?? content, x - d - 0.008, y, z, [-1, 0], w, h, o);
+    if (o.ceil !== undefined) {
+      for (const dz of [-w / 2 + 0.35, w / 2 - 0.35]) {
+        this.deco('metal:#3a3f45', x - 0.035, y1 + 0.035, z + dz - 0.035, x + 0.035, o.ceil, z + dz + 0.035);
+      }
+    }
+  }
+
   gate(g: Omit<GatePart, 'pos' | 'along'> & { x: number; y: number; z: number; along: V2 }) {
     const { x, y, z, along, ...rest } = g;
     this.out.gates.push({ ...rest, pos: this.pt(x, y, z), along: this.dir(along) });

@@ -3,13 +3,14 @@
 import { LINES, OPERATOR, STATIONS, diagramRuns, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
-import { nextArrivals, nextDepartures, trainStateAt } from '../sim/timetable';
+import { trainStateAt } from '../sim/timetable';
 import {
   ELEVATED, KIND, PLACE, PLOT, STREET, concourseY, mezzanineY, stationExits, stationStreet,
   type Named, type PlanRect, type StationExit, type StationStreet,
 } from '../stations/exits';
 import type { BlockStyle } from '../stations/surface';
 import type { Arrow, Picto, SignContent } from './content';
+import { boardPixels, boards, drawDep, drawDepAll, platformNo } from './departures';
 
 export const FONT = '"Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans JP",system-ui,sans-serif';
 const NAVY = '#14233b';
@@ -19,7 +20,7 @@ const font = (ctx: Ctx, px: number, weight = 700) => {
   ctx.font = `${weight} ${Math.max(4, px)}px ${FONT}`;
 };
 /** Draw text shrunk horizontally to fit maxW. */
-function text(ctx: Ctx, s: string, x: number, y: number, px: number, opts: { maxW?: number; align?: CanvasTextAlign; color?: string; weight?: number } = {}) {
+export function text(ctx: Ctx, s: string, x: number, y: number, px: number, opts: { maxW?: number; align?: CanvasTextAlign; color?: string; weight?: number } = {}) {
   font(ctx, px, opts.weight ?? 700);
   ctx.textAlign = opts.align ?? 'left';
   ctx.textBaseline = 'middle';
@@ -36,7 +37,7 @@ function text(ctx: Ctx, s: string, x: number, y: number, px: number, opts: { max
   ctx.fillText(s, x, y);
   return w;
 }
-function rr(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
+export function rr(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
 }
@@ -135,34 +136,6 @@ function drawName(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: '
     text(ctx, R.nameRomaji, W - bandH * 1.0, mid + bandH * 0.05, bandH * 0.3, { color: '#fff', weight: 600, align: 'right', maxW: W * 0.2 });
     text(ctx, R.nameJa, W - bandH * 1.15 - we, mid, bandH * 0.5, { color: '#fff', align: 'right', maxW: W * 0.22 });
   }
-}
-
-const platformNo = (st: StationDef, line: LineDef, dir: Dir) => st.platforms[line.id][dir === 'down' ? 0 : 1];
-const boards = (line: LineDef, st: StationDef, dir: Dir) => terminusOf(line, dir).id !== st.id;
-
-/**
- * The next trains at one platform: the platform's own line, plus any line that runs on its
- * track and stops here (Sumire trains at the Shiokaze platforms). Boarding departures, or
- * terminating arrivals at the end of a line, in order of arrival.
- */
-export function platformTrains(line: LineDef, st: StationDef, dir: Dir, now: number, count: number) {
-  const lines = [line, ...LINES.filter((l) => l.shares?.line === line.id && l.stops.includes(st.id))];
-  return lines
-    .flatMap((l) => {
-      const { tt } = lineSim(l.id);
-      const stop = l.stops.indexOf(st.id), boarding = boards(l, st, dir);
-      const list = boarding ? nextDepartures(tt, stop, dir, now, count) : nextArrivals(tt, stop, dir, now, count);
-      return list.map((d) => ({ ...d, line: l, boarding }));
-    })
-    .sort((a, b) => a.arr - b.arr)
-    .slice(0, count);
-}
-
-/** A line colour lifted towards white, readable on the black LED board. */
-function lighten(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const ch = (s: number) => Math.round(((n >> s) & 255) * 0.55 + 255 * 0.45);
-  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
 }
 
 function drawDir(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'dir' }>) {
@@ -1829,88 +1802,6 @@ function drawClock(ctx: Ctx, W: number, H: number) {
   ctx.fill();
 }
 
-const AMBER = '#ffb300', LEDG = '#7CFC6A';
-
-function drawDep(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'dep' }>) {
-  const st = stationById(c.station), line = lineById(c.line);
-  const now = clock.time;
-  ctx.fillStyle = '#05080c';
-  ctx.fillRect(0, 0, W, H);
-  // Platform number block.
-  ctx.fillStyle = line.color;
-  ctx.fillRect(0, 0, H * 0.62, H);
-  text(ctx, String(platformNo(st, line, c.dir)), H * 0.31, H * 0.42, H * 0.56, { align: 'center', color: '#fff', weight: 800 });
-  text(ctx, 'のりば', H * 0.31, H * 0.84, H * 0.14, { align: 'center', color: '#fff', weight: 700 });
-  const x0 = H * 0.75;
-  const list = platformTrains(line, st, c.dir, now, 2);
-  const rowH = H * 0.3;
-  list.forEach((d, i) => {
-    const y = H * 0.2 + i * rowH;
-    const boarding = d.boarding, dest = terminusOf(d.line, c.dir);
-    text(ctx, i === 0 ? '先発' : '次発', x0, y, rowH * 0.5, { color: i === 0 ? LEDG : '#9fb3c8' });
-    text(ctx, formatClock(boarding ? d.dep : d.arr), x0 + W * 0.11, y, rowH * 0.72, { color: '#fff', weight: 800 });
-    if (boarding) {
-      // A train from a line that runs on this one's track shows that line's name, in its colour.
-      if (d.line.id === line.id) text(ctx, '普通', x0 + W * 0.29, y, rowH * 0.56, { color: AMBER });
-      else text(ctx, d.line.nameJa, x0 + W * 0.29, y, rowH * 0.5, { color: lighten(d.line.color), weight: 800, maxW: W * 0.11 });
-      text(ctx, dest.nameJa, x0 + W * 0.41, y, rowH * 0.72, { color: '#fff', weight: 800, maxW: W * 0.2 });
-      text(ctx, dest.nameRomaji, x0 + W * 0.63, y + rowH * 0.06, rowH * 0.42, { color: '#cfd8e3', weight: 600, maxW: W - x0 - W * 0.65 });
-    } else {
-      text(ctx, '当駅止まり', x0 + W * 0.29, y, rowH * 0.62, { color: AMBER, maxW: W * 0.24 });
-      text(ctx, 'Terminates here', x0 + W * 0.55, y + rowH * 0.06, rowH * 0.42, { color: '#cfd8e3', weight: 600, maxW: W - x0 - W * 0.57 });
-    }
-  });
-  // Status line, driven by the actual train.
-  const first = list[0];
-  let ja = '', en = '';
-  if (first) {
-    if (now >= first.arr) {
-      ja = first.boarding ? '電車が停車中です' : 'この電車にはご乗車になれません';
-      en = first.boarding ? `Now boarding — departs ${formatClock(first.dep)}` : 'Not in service — please do not board';
-    } else if (first.arr - now < 45) {
-      if (Math.floor(now * 2) % 2 === 0) {
-        ja = 'まもなく電車がまいります';
-        en = 'A train is arriving';
-      }
-    } else {
-      const m = Math.ceil((first.arr - now) / 60);
-      ja = `つぎの電車は 約${m}分後に到着します`;
-      en = `Next train in about ${m} min`;
-    }
-  }
-  text(ctx, ja, x0, H * 0.83, H * 0.17, { color: AMBER, maxW: W * 0.48 });
-  text(ctx, en, W - H * 0.08, H * 0.84, H * 0.14, { color: '#cfd8e3', weight: 600, align: 'right', maxW: W * 0.34 });
-}
-
-function drawDepAll(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'depAll' }>) {
-  const st = stationById(c.station);
-  const now = clock.time;
-  ctx.fillStyle = '#0a1422';
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#0d3b66';
-  ctx.fillRect(0, 0, W, H * 0.14);
-  text(ctx, '発車案内  Departures', H * 0.05, H * 0.075, H * 0.085, { color: '#fff' });
-  text(ctx, formatClock(now), W - H * 0.05, H * 0.075, H * 0.1, { color: '#fff', align: 'right', weight: 800 });
-  const rows: { line: LineDef; dir: Dir }[] = [];
-  for (const l of linesAt(st.id)) for (const dir of ['down', 'up'] as Dir[]) if (boards(l, st, dir)) rows.push({ line: l, dir });
-  const rh = (H * 0.84) / Math.max(rows.length, 2);
-  rows.forEach((r, i) => {
-    const y = H * 0.15 + rh * (i + 0.5);
-    const { tt } = lineSim(r.line.id);
-    const deps = nextDepartures(tt, r.line.stops.indexOf(st.id), r.dir, now, 2);
-    const rr2 = Math.min(rh * 0.3, H * 0.09);
-    lineBadge(ctx, H * 0.11, y, rr2, r.line);
-    const t = terminusOf(r.line, r.dir);
-    text(ctx, `${t.nameJa} 方面`, H * 0.24, y - rr2 * 0.45, rr2 * 1.0, { color: '#fff', maxW: W * 0.34 });
-    text(ctx, `for ${t.nameRomaji}`, H * 0.24, y + rr2 * 0.65, rr2 * 0.6, { color: '#9fb3c8', weight: 600, maxW: W * 0.34 });
-    text(ctx, `${platformNo(st, r.line, r.dir)}番線`, W * 0.5, y, rr2 * 0.9, { color: '#cfd8e3' });
-    deps.forEach((d, k) => {
-      const at = now >= d.arr;
-      text(ctx, formatClock(d.dep), W * (0.66 + k * 0.17), y, rr2 * 1.25, { color: k === 0 ? (at ? LEDG : '#fff') : '#9fb3c8', weight: 800 });
-    });
-  });
-}
-
 function drawDest(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'dest' }>) {
   ctx.fillStyle = '#060606';
   ctx.fillRect(0, 0, W, H);
@@ -2004,3 +1895,10 @@ export function signPixels(w: number, h: number): [number, number] {
 }
 
 export { OPERATOR };
+
+/** Canvas size for a sign: one pixel per LED on a dot-matrix board, signPixels otherwise. */
+export function signSize(c: SignContent, w: number, h: number): [number, number] {
+  return boardPixels(c, w, h) ?? signPixels(w, h);
+}
+
+export { isLed, platformTrains } from './departures';

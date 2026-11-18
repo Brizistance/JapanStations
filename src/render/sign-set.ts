@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { signKey, type SignContent } from '../signs/content';
-import { drawSign, signPixels } from '../signs/draw';
+import { drawSign, isLed, signSize } from '../signs/draw';
 import type { SignPart } from '../world/builder';
 import { skyAt } from './geometry';
 import { lit } from './lit';
@@ -15,10 +15,13 @@ interface Entry {
   mat: THREE.Material;
   content: SignContent;
   live: boolean;
+  /** Departure boards: redrawn often near the player so tickers scroll smoothly. */
+  fast: boolean;
 }
 export type SignCache = Map<string, Entry>;
 
 const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock']);
+const FAST = new Set(['dep', 'depAll']);
 /** Printed or physical things (posters, murals, machine fronts, doors): lit by the room, not self-lit. */
 const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap']);
 
@@ -31,11 +34,36 @@ function planeWith(sky: number): THREE.PlaneGeometry {
 }
 const planeIn = planeWith(0), planeOut = planeWith(1);
 
+/**
+ * A dot-matrix LED board: one texel per LED, drawn as a round dot. Lit dots are bright enough
+ * to bloom; unlit ones stay faintly visible, as on a real board. Far away, where a dot is
+ * smaller than a couple of pixels, the mask fades to its average so it doesn't shimmer.
+ */
+function ledMaterial(tex: THREE.CanvasTexture, W: number, H: number): THREE.Material {
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  const mat = new THREE.MeshBasicMaterial({ map: tex });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uGrid = { value: new THREE.Vector2(W, H) };
+    sh.fragmentShader = 'uniform vec2 uGrid;\n' + sh.fragmentShader.replace('#include <map_fragment>', /* glsl */ `
+      vec4 texel = texture2D(map, vMapUv);
+      vec2 g = vMapUv * uGrid;
+      float dotMask = 1.0 - smoothstep(0.3, 0.44, length(fract(g) - 0.5));
+      vec2 fw = fwidth(g);
+      dotMask = mix(dotMask, 0.45, clamp(max(fw.x, fw.y) * 2.0 - 0.6, 0.0, 1.0));
+      float lit = step(0.05, max(texel.r, max(texel.g, texel.b)));
+      diffuseColor.rgb = mix(vec3(0.035, 0.032, 0.03), texel.rgb * 2.4, lit) * dotMask;
+    `);
+  };
+  mat.customProgramCacheKey = () => 'led-dots';
+  return mat;
+}
+
 function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
   const k = signKey(c, w, h);
   let e = cache.get(k);
   if (!e) {
-    const [W, H] = signPixels(w, h);
+    const [W, H] = signSize(c, w, h);
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
@@ -45,19 +73,20 @@ function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 16;
     // Signs are light boxes: self-lit, and LED boards are bright enough to bloom a little.
-    const mat = PRINTED.has(c.k)
+    // LCD boards glow less than LED dots but more than the printed signs, which stay below bloom.
+    const mat = isLed(c) ? ledMaterial(tex, W, H) : PRINTED.has(c.k)
       ? lit({ map: tex, roughness: c.k === 'machine' ? 0.35 : 0.55, metalness: 0 }, { macro: 0, macroRough: 0 })
-      : new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(LIVE.has(c.k) ? 1.5 : 1.12) });
-    e = { canvas, ctx, tex, mat, content: c, live: LIVE.has(c.k) };
+      : new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(FAST.has(c.k) ? 1.35 : LIVE.has(c.k) ? 1.5 : 1.12) });
+    e = { canvas, ctx, tex, mat, content: c, live: LIVE.has(c.k), fast: FAST.has(c.k) };
     cache.set(k, e);
   }
   return e;
 }
 
-/** Redraw every live sign in a cache from the current sim state. */
-export function redrawLive(cache: SignCache) {
+/** Redraw every live sign in a cache from the current sim state (only departure boards if `fastOnly`). */
+export function redrawLive(cache: SignCache, fastOnly = false) {
   for (const e of cache.values()) {
-    if (!e.live) continue;
+    if (!e.live || (fastOnly && !e.fast)) continue;
     drawSign(e.ctx, e.canvas.width, e.canvas.height, e.content);
     e.tex.needsUpdate = true;
   }
