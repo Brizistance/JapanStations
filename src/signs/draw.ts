@@ -135,6 +135,31 @@ function drawName(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: '
 const platformNo = (st: StationDef, line: LineDef, dir: Dir) => st.platforms[line.id][dir === 'down' ? 0 : 1];
 const boards = (line: LineDef, st: StationDef, dir: Dir) => terminusOf(line, dir).id !== st.id;
 
+/**
+ * The next trains at one platform: the platform's own line, plus any line that runs on its
+ * track and stops here (Sumire trains at the Shiokaze platforms). Boarding departures, or
+ * terminating arrivals at the end of a line, in order of arrival.
+ */
+export function platformTrains(line: LineDef, st: StationDef, dir: Dir, now: number, count: number) {
+  const lines = [line, ...LINES.filter((l) => l.shares?.line === line.id && l.stops.includes(st.id))];
+  return lines
+    .flatMap((l) => {
+      const { tt } = lineSim(l.id);
+      const stop = l.stops.indexOf(st.id), boarding = boards(l, st, dir);
+      const list = boarding ? nextDepartures(tt, stop, dir, now, count) : nextArrivals(tt, stop, dir, now, count);
+      return list.map((d) => ({ ...d, line: l, boarding }));
+    })
+    .sort((a, b) => a.arr - b.arr)
+    .slice(0, count);
+}
+
+/** A line colour lifted towards white, readable on the black LED board. */
+function lighten(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (s: number) => Math.round(((n >> s) & 255) * 0.55 + 255 * 0.45);
+  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
+}
+
 function drawDir(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'dir' }>) {
   const st = stationById(c.station), line = lineById(c.line);
   ctx.fillStyle = NAVY;
@@ -1015,8 +1040,6 @@ const AMBER = '#ffb300', LEDG = '#7CFC6A';
 
 function drawDep(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'dep' }>) {
   const st = stationById(c.station), line = lineById(c.line);
-  const { tt } = lineSim(c.line);
-  const stop = line.stops.indexOf(c.station);
   const now = clock.time;
   ctx.fillStyle = '#05080c';
   ctx.fillRect(0, 0, W, H);
@@ -1026,16 +1049,17 @@ function drawDep(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'd
   text(ctx, String(platformNo(st, line, c.dir)), H * 0.31, H * 0.42, H * 0.56, { align: 'center', color: '#fff', weight: 800 });
   text(ctx, 'のりば', H * 0.31, H * 0.84, H * 0.14, { align: 'center', color: '#fff', weight: 700 });
   const x0 = H * 0.75;
-  const boarding = boards(line, st, c.dir);
-  const list = boarding ? nextDepartures(tt, stop, c.dir, now, 2) : nextArrivals(tt, stop, c.dir, now, 2);
-  const dest = terminusOf(line, c.dir);
+  const list = platformTrains(line, st, c.dir, now, 2);
   const rowH = H * 0.3;
   list.forEach((d, i) => {
     const y = H * 0.2 + i * rowH;
+    const boarding = d.boarding, dest = terminusOf(d.line, c.dir);
     text(ctx, i === 0 ? '先発' : '次発', x0, y, rowH * 0.5, { color: i === 0 ? LEDG : '#9fb3c8' });
     text(ctx, formatClock(boarding ? d.dep : d.arr), x0 + W * 0.11, y, rowH * 0.72, { color: '#fff', weight: 800 });
     if (boarding) {
-      text(ctx, '普通', x0 + W * 0.29, y, rowH * 0.56, { color: AMBER });
+      // A train from a line that runs on this one's track shows that line's name, in its colour.
+      if (d.line.id === line.id) text(ctx, '普通', x0 + W * 0.29, y, rowH * 0.56, { color: AMBER });
+      else text(ctx, d.line.nameJa, x0 + W * 0.29, y, rowH * 0.5, { color: lighten(d.line.color), weight: 800, maxW: W * 0.11 });
       text(ctx, dest.nameJa, x0 + W * 0.41, y, rowH * 0.72, { color: '#fff', weight: 800, maxW: W * 0.2 });
       text(ctx, dest.nameRomaji, x0 + W * 0.63, y + rowH * 0.06, rowH * 0.42, { color: '#cfd8e3', weight: 600, maxW: W - x0 - W * 0.65 });
     } else {
@@ -1048,8 +1072,8 @@ function drawDep(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'd
   let ja = '', en = '';
   if (first) {
     if (now >= first.arr) {
-      ja = boarding ? '電車が停車中です' : 'この電車にはご乗車になれません';
-      en = boarding ? `Now boarding — departs ${formatClock(first.dep)}` : 'Not in service — please do not board';
+      ja = first.boarding ? '電車が停車中です' : 'この電車にはご乗車になれません';
+      en = first.boarding ? `Now boarding — departs ${formatClock(first.dep)}` : 'Not in service — please do not board';
     } else if (first.arr - now < 45) {
       if (Math.floor(now * 2) % 2 === 0) {
         ja = 'まもなく電車がまいります';

@@ -100,7 +100,7 @@ The Sumire Line runs on the Shiokaze Line's track from just before Daigaku-mae t
 - **Timetable.** M runs every 10 minutes, a whole multiple of S's 5. `sim/index.ts` shifts M's whole timetable (`offset`) so M enters the shared section half an S headway after an S train going down. It then splits M's layover between its two termini (`padEnd`) so the same holds going up.
   - M skips two stops and gains about 90 s, so it arrives about 35 s after the S train ahead has left.
   - A test checks every second of the combined cycle: no M train comes within a train length of an S train on the same track.
-- **Drawing.** The track renderer skips spans where M is on S's track (`onHostTrack`). The screen doors at a shared platform open for either line's trains (`gateOpen`).
+- **Drawing.** The track renderer skips spans where M is on S's track (`onHostTrack`). The screen doors at a shared platform open for either line's trains (`gateOpen`), and its departure boards list both lines' trains in arrival order (`platformTrains`); a guest train shows its line's name where the service type would be.
 - **Crossings between stations** need at least 7 m between rail levels. `npm test` sweeps every pair of lines for this.
 - Stations must sit on straight, level track. The profile is level for 150 m either side of a station and eases between rail levels in between.
 - Trains keep left. The "down" track is on the left of increasing chainage.
