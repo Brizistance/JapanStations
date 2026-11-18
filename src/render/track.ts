@@ -17,17 +17,22 @@ interface Sample {
   y: number;
   tx: number;
   tz: number;
+  /** Lighting at this chainage: daylight (0…1) and how shaded the station-type light is. */
+  sky: number;
+  shade: number;
 }
 type Profile = [number, number][]; // (lateral, height above rail)
 
 class Sweep {
   pos: number[] = [];
   uv: number[] = [];
+  env: number[] = [];
   quad(a: Sample, b: Sample, p0: [number, number], p1: [number, number], q0: [number, number], q1: [number, number], v0: number, v1: number) {
     const P = (m: Sample, p: [number, number]) => [m.x - m.tz * p[0], m.y + p[1], m.z + m.tx * p[0]];
     const A = P(a, p0), B = P(a, p1), C = P(b, q1), D = P(b, q0);
     this.pos.push(...A, ...B, ...C, ...A, ...C, ...D);
     this.uv.push(a.s, v0, a.s, v1, b.s, v1, a.s, v0, b.s, v1, b.s, v0);
+    this.env.push(a.sky, a.shade, a.sky, a.shade, b.sky, b.shade, a.sky, a.shade, b.sky, b.shade, b.sky, b.shade);
   }
   /** Sweep a profile between two samples. The profile may differ at each end (same point count). */
   span(a: Sample, b: Sample, pa: Profile, pb: Profile, closed: boolean) {
@@ -46,15 +51,19 @@ class Sweep {
     const A = P(z0, y0), B = P(z1, y0), C = P(z1, y1), D = P(z0, y1);
     this.pos.push(...A, ...B, ...C, ...A, ...C, ...D);
     this.uv.push(z0, y0, z1, y0, z1, y1, z0, y0, z1, y1, z0, y1);
+    for (let i = 0; i < 6; i++) this.env.push(m.sky, m.shade);
   }
   mesh(mat: string): THREE.Mesh | null {
     if (this.pos.length === 0) return null;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+    g.setAttribute('aEnv', new THREE.Float32BufferAttribute(this.env, 2));
     g.computeVertexNormals();
     const m = new THREE.Mesh(g, getMaterial(mat));
     m.matrixAutoUpdate = false;
+    m.receiveShadow = true;
+    m.castShadow = mat === 'viaduct';
     return m;
   }
 }
@@ -85,14 +94,27 @@ export function buildTrack(sim: LineSim): THREE.Group {
   const ss = sampleChainages(geom);
   const samples: Sample[] = ss.map((s) => {
     const p = geom.path.pointAt(s);
-    return { s, x: p.x, z: p.z, y: geom.railY(s), tx: p.tx, tz: p.tz };
+    const y = geom.railY(s);
+    const type = structureAt(geom, s);
+    // Same depth test as structureAt, so an elevated station counts as open air.
+    const sky = type === 'tunnel' || (type === 'station' && y < -5.4) ? 0 : 1;
+    return { s, x: p.x, z: p.z, y, tx: p.tx, tz: p.tz, sky, shade: type === 'tunnel' ? 0.9 : sky ? 0 : 0.3 };
   });
+  // Tunnel lamps every 12 m: each one lifts the shade around it, so the walls show pools of light.
+  const lit = new Set<Sample>();
+  let lampAt = 0;
+  for (const m of samples) {
+    if (structureAt(geom, m.s + 2) !== 'tunnel' || m.s < lampAt) continue;
+    lampAt = m.s + 12;
+    lit.add(m);
+    m.shade = 0.5;
+  }
   const L = geom.def.trackOffset, W = halfWidth(geom);
   const tunnel = new Sweep(), open = new Sweep(), sleepers = new Sweep(), rails = new Sweep();
   const piers: MeshPart[] = [];
   const lights: THREE.Matrix4[] = [];
   const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(0.5, 0.14, 0.08), v = new THREE.Vector3();
-  let nextLight = 0, nextPier = 0;
+  let nextPier = 0;
 
   for (let i = 0; i < samples.length - 1; i++) {
     const a = samples[i], b = samples[i + 1];
@@ -104,8 +126,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
     const target = type === 'tunnel' ? tunnel : open;
     pa.forEach((p, k) => target.span(a, b, p.p, pb[k].p, p.closed));
 
-    if (type === 'tunnel' && a.s >= nextLight) {
-      nextLight = a.s + 12;
+    if (type === 'tunnel' && lit.has(a)) {
       const twin = geom.def.platformType === 'island' && !siding;
       const lats = twin ? [-L - 2.15, L + 2.15] : [-W + 0.05, W - 0.05];
       for (const lat of lats) {
@@ -154,10 +175,14 @@ export function buildTrack(sim: LineSim): THREE.Group {
     const m = sw.mesh(mat);
     if (m) group.add(m);
   }
-  const pg = meshesToGeometry(piers);
-  if (pg) group.add(new THREE.Mesh(pg, getMaterial('concrete')));
+  const pg = meshesToGeometry(piers, { kind: 'sky' });
+  if (pg) {
+    const pm = new THREE.Mesh(pg, getMaterial('concrete'));
+    pm.castShadow = pm.receiveShadow = true;
+    group.add(pm);
+  }
   if (lights.length) {
-    const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: '#e6eeff' }), lights.length);
+    const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color('#e6eeff').multiplyScalar(2.6) }), lights.length);
     lights.forEach((m, i) => im.setMatrixAt(i, m));
     im.frustumCulled = false;
     group.add(im);

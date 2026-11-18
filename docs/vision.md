@@ -32,7 +32,7 @@ A fictional transit simulator for an invented Japanese city. The city has an Osa
 2. ~~Phase 2: Operations sim.~~ Done (basic, reliable service).
 3. ~~Phase 3: First station walk-through.~~ Done, and extended to every station.
 4. ~~Phase 4: Ride-along.~~ Done (silent).
-5. **Phase 5: Atmosphere.** Audio, NPCs, better lighting, day/night.
+5. **Phase 5: Atmosphere.** ~~Better lighting and materials~~ (done, see Plans/features/visual-realism). Still to do: audio, NPCs, day/night.
 6. **Phase 6: Growth.** Started: the Akanesuji Line and the hub. Still to come: more lines, express/local patterns, a bigger city.
 
 ## Known limitations (deliberate, for now)

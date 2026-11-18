@@ -1,6 +1,6 @@
 # Station Design
 
-A reference for building stylized-realistic Japanese metro stations. The aim is clean geometry and correct details with good lighting, not photorealism.
+A reference for building stylized-realistic Japanese metro stations. The aim is clean geometry, believable materials and good lighting — "somewhat realistic", not photorealism.
 
 ## Layouts implemented
 
@@ -18,6 +18,8 @@ Vertical order underground: street (0) → concourse floor (platform + 4.9 m) �
 Reusable parts, all driven by the line/station data:
 
 - `hall` — track bed, platforms, **platform screen doors** aligned to the train doors (waist-high, or full-height glass screens when the line has `platformDoors: 'full'`), tactile strip, walls with line-colour band, ceilings (flat or faceted **vault**), pillars, lighting, benches, vending machines, name boards, posters, direction signs, live departure boards.
+- `pillar` — round clad column with steel base ring and line-colour band (the collider stays a square post).
+- `ceilingLight` — strip light: white housing with a glowing diffuser. Use it instead of a bare `light` box.
 - `stairs`, `escalator`, `rail` — vertical circulation.
 - `gateLine` — automatic ticket gates, fences, station office, header signs, live departures screen.
 - `ticketMachines` — machines with the fare board above (drawn from the network).
@@ -26,10 +28,31 @@ Reusable parts, all driven by the line/station data:
 
 Every hall also declares its track beds as **keep-out volumes** (`Builder.keepOut`), which the walk test checks nobody can reach. Use the same call for anything else that must stay closed.
 
+## Finishes
+
+Named by material key and resolved in `src/render/materials.ts`:
+
+| Key | Look | Use for |
+|---|---|---|
+| `floor:#hex` | 400 mm stone-look tile, semi-gloss | Platform and concourse floors |
+| `tile:#hex` | 150 mm glazed tile | Walls, columns |
+| `panel:#hex` | 900 × 1200 enamel panels | Walls, platform end screens |
+| `brick:#hex`, `wood:#hex` | Scanned brick / boards, re-tinted | Feature walls, old-town fronts |
+| `ceil` | Perforated ceiling panels | Ceilings over platforms and concourses |
+| `paint:#hex` | Glossy painted metal | Screen-door panels, colour bands, seats |
+| `metal:#hex` | Brushed stainless | Gates, handrails, housings, base rings |
+| `flat:#hex` | Plain satin | Small parts with no finish worth showing |
+| `glass`, `glassDark`, `glassTint` | Reflective glass | Screens, windows, canopies |
+| `tactile`, `tactileBar` | Warning domes / guidance bars | Platform edges, routes |
+| `light`, `glow:#hex` | Self-lit, blooms on High | Light diffusers, lamps, LEDs |
+
+Station identity comes from the spec's wall, floor and pillar keys; everything else is shared.
+
 ## Details that make it read as "Japan"
 
 - **Tactile paving** (点字ブロック) along platform edges.
-- **Platform screen doors** with a line-colour top rail: half height on the older lines, full height on the Akanesuji Line.
+- **Platform screen doors**: white panels, glass above, line-colour top rail, housings with a status lamp between doors. Half height on the older lines; full-height glass screens on the Akanesuji Line.
+- **Platform edge**: dark coping, yellow tactile strip, white line. Dark exposed soffit over the tracks, pale panels over the platform.
 - **Ticket gates** (改札) with IC readers, and a staffed window.
 - **Signage**: line colour + station number badge, bilingual (JP large, EN smaller), exits on **yellow**, platform headers on navy with the platform number in the line colour.
 - **Station name board** (駅名標): name, kana, romaji, number, and neighbouring stations with arrows that point the right way for where the sign is mounted.

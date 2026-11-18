@@ -16,6 +16,8 @@ export interface BoxPart {
   min: V3;
   max: V3;
   solid: boolean;
+  /** Set on parts that are open to the sky although they sit below street level (canals, the sea). */
+  open?: boolean;
 }
 
 export interface RampPart {
@@ -78,6 +80,7 @@ export interface MeshPart {
   shape: 'cyl' | 'sphere' | 'cone';
   pos: V3; // centre
   size: V3; // full extents
+  open?: boolean;
 }
 
 export interface Build {
@@ -140,6 +143,15 @@ export class Builder {
     keepOut: [],
   };
   private m: M = toM({});
+  private isOpen = false;
+
+  /** Parts added inside `fn` are daylit even below street level. */
+  open(fn: () => void) {
+    const prev = this.isOpen;
+    this.isOpen = true;
+    fn();
+    this.isOpen = prev;
+  }
 
   /** Run `fn` with an extra transform applied. */
   with(x: Xf, fn: () => void) {
@@ -164,7 +176,9 @@ export class Builder {
     const min: V3 = [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])];
     const max: V3 = [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])];
     if (max[0] - min[0] < 1e-6 || max[1] - min[1] < 1e-6 || max[2] - min[2] < 1e-6) return;
-    this.out.boxes.push({ mat, min, max, solid: solid && mat !== 'deco' });
+    const part: BoxPart = { mat, min, max, solid: solid && mat !== 'deco' };
+    if (this.isOpen) part.open = true;
+    this.out.boxes.push(part);
   }
   /** Visual only. */
   deco(mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
@@ -238,7 +252,9 @@ export class Builder {
 
   mesh(mat: string, shape: MeshPart['shape'], x: number, y: number, z: number, sx: number, sy: number, sz: number) {
     const r = this.dir([sx, sz]);
-    this.out.meshes.push({ mat, shape, pos: this.pt(x, y, z), size: [Math.abs(r[0]), sy, Math.abs(r[1])] });
+    const part: MeshPart = { mat, shape, pos: this.pt(x, y, z), size: [Math.abs(r[0]), sy, Math.abs(r[1])] };
+    if (this.isOpen) part.open = true;
+    this.out.meshes.push(part);
   }
 
   hole(x0: number, z0: number, x1: number, z1: number) {

@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import type { Build, GatePart } from '../world/builder';
-import { boxesToGeometry, groupBy, meshesToGeometry } from './geometry';
+import { boxesToGeometry, groupBy, meshesToGeometry, skyAt, type EnvMode } from './geometry';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
 import type { SignContent } from '../signs/content';
@@ -11,56 +11,80 @@ import type { SignContent } from '../signs/content';
 const geoCache = new Map<string, THREE.Group>();
 
 /** Static geometry for a build. If `shareKey` is given the meshes are built once and cloned. */
-export function staticGroup(build: Build, shareKey?: string): { group: THREE.Group; dispose: () => void } {
+export function staticGroup(build: Build, mode: EnvMode, shareKey?: string): { group: THREE.Group; dispose: () => void } {
   if (shareKey) {
     let proto = geoCache.get(shareKey);
     if (!proto) {
-      proto = makeStatic(build);
+      proto = makeStatic(build, mode);
       geoCache.set(shareKey, proto);
     }
     return { group: proto.clone(), dispose: () => {} };
   }
-  const group = makeStatic(build);
+  const group = makeStatic(build, mode);
   return {
     group,
     dispose: () => group.traverse((o) => (o as THREE.Mesh).geometry?.dispose()),
   };
 }
 
-function makeStatic(build: Build): THREE.Group {
+function makeStatic(build: Build, mode: EnvMode): THREE.Group {
   const group = new THREE.Group();
   const add = (g: THREE.BufferGeometry | null, mat: string) => {
     if (!g) return;
-    const m = new THREE.Mesh(g, getMaterial(mat));
+    const material = getMaterial(mat);
+    const m = new THREE.Mesh(g, material);
     m.matrixAutoUpdate = false;
-    const t = (m.material as THREE.Material).transparent;
-    if (t) m.renderOrder = 2;
+    if (material.transparent) m.renderOrder = 2;
+    // Only lit, opaque surfaces take part in sun shadows.
+    const litOpaque = !material.transparent && (material as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;
+    m.castShadow = litOpaque;
+    m.receiveShadow = litOpaque;
     group.add(m);
   };
-  for (const [mat, boxes] of groupBy(build.boxes)) add(boxesToGeometry(boxes), mat);
-  for (const [mat, parts] of groupBy(build.meshes)) add(meshesToGeometry(parts), mat);
+  for (const [mat, boxes] of groupBy(build.boxes)) add(boxesToGeometry(boxes, mode), mat);
+  for (const [mat, parts] of groupBy(build.meshes)) add(meshesToGeometry(parts, mode), mat);
   return group;
 }
 
-const unitBox = new THREE.BoxGeometry(1, 1, 1);
+/** One instanced layer of a gate leaf, as a fraction of the leaf: [u0, v0, u1, v1], and how far it stands proud. */
+interface LeafLayer {
+  mat: string;
+  rect: [number, number, number, number];
+  proud: number;
+}
+
+const unitBox = (() => {
+  const g = new THREE.BoxGeometry(1, 1, 1);
+  g.setAttribute('aEnv', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2));
+  return g;
+})();
 const m4 = new THREE.Matrix4();
 
-/** Sliding gate leaves (platform screen doors / train doors) as one instanced mesh. */
+/**
+ * Sliding gate leaves (platform screen doors / train doors) as instanced meshes:
+ * the leaf itself plus optional layers (window, colour band) that move with it.
+ */
 export class GateSet {
-  readonly mesh: THREE.InstancedMesh;
-  readonly glass: THREE.InstancedMesh | null;
+  readonly meshes: THREE.InstancedMesh[] = [];
   private last: number[] = [];
+  private layers: LeafLayer[];
 
-  /** `withWindow`: glaze every leaf (train doors). Otherwise only gates marked `window` are glazed. */
-  constructor(private gates: GatePart[], private allWindows: boolean) {
-    const withWindow = allWindows || gates.some((g) => g.window);
-    const mat = getMaterial(gates[0]?.mat ?? 'flat:#fff');
-    this.mesh = new THREE.InstancedMesh(unitBox, mat, gates.length * 2);
-    this.mesh.frustumCulled = false;
-    this.glass = withWindow ? new THREE.InstancedMesh(unitBox, getMaterial('glassTint'), gates.length * 2) : null;
-    if (this.glass) {
-      this.glass.frustumCulled = false;
-      this.glass.renderOrder = 2;
+  constructor(private gates: GatePart[], layers: LeafLayer[], mapMat: (m: THREE.Material) => THREE.Material = (m) => m) {
+    this.layers = [{ mat: gates[0]?.mat ?? 'flat:#fff', rect: [0, 0, 1, 1], proud: 0 }, ...layers];
+    // Daylit if the gates stand above street level (elevated stations).
+    const sky = gates.length ? skyAt(gates[0].pos[1]) : 0;
+    for (const l of this.layers) {
+      const mat = mapMat(getMaterial(l.mat));
+      const geo = sky > 0 ? unitBox.clone() : unitBox;
+      if (sky > 0) {
+        const a = geo.getAttribute('aEnv') as THREE.BufferAttribute;
+        for (let k = 0; k < a.count; k++) a.setX(k, sky);
+      }
+      const im = new THREE.InstancedMesh(geo, mat, gates.length * 2);
+      im.frustumCulled = false;
+      if (mat.transparent) im.renderOrder = 2;
+      else im.castShadow = im.receiveShadow = true;
+      this.meshes.push(im);
     }
     gates.forEach((_, i) => this.set(i, 0));
     this.commit();
@@ -73,25 +97,20 @@ export class GateSet {
     const alongX = g.along[0] !== 0;
     for (let k = 0; k < 2; k++) {
       const s = k === 0 ? -1 : 1;
-      const off = s * (half / 2 + open * half * 0.96);
-      const x = g.pos[0] + (alongX ? off : 0), z = g.pos[2] + (alongX ? 0 : off);
-      m4.makeScale(alongX ? half : g.thick, g.height, alongX ? g.thick : half);
-      m4.setPosition(x, g.pos[1] + g.height / 2, z);
-      this.mesh.setMatrixAt(i * 2 + k, m4);
-      if (this.glass) {
-        if (this.allWindows || g.window) {
-          // Tall screens get a taller pane than the small window in a train door.
-          const gh = g.window ? 0.62 : 0.42, gy = g.window ? 0.58 : 0.68;
-          m4.makeScale(alongX ? half * 0.7 : g.thick * 1.3, g.height * gh, alongX ? g.thick * 1.3 : half * 0.7);
-          m4.setPosition(x, g.pos[1] + g.height * gy, z);
-        } else m4.makeScale(0, 0, 0);
-        this.glass.setMatrixAt(i * 2 + k, m4);
-      }
+      const centre = s * (half / 2 + open * half * 0.96);
+      this.layers.forEach((l, li) => {
+        const [u0, v0, u1, v1] = l.rect;
+        // u runs from the meeting edge outwards, so both leaves mirror each other.
+        const along = centre + s * ((u0 + u1) / 2 - 0.5) * half;
+        const w = (u1 - u0) * half, h = (v1 - v0) * g.height, t = g.thick + l.proud * 2;
+        m4.makeScale(alongX ? w : t, h, alongX ? t : w);
+        m4.setPosition(g.pos[0] + (alongX ? along : 0), g.pos[1] + ((v0 + v1) / 2) * g.height, g.pos[2] + (alongX ? 0 : along));
+        this.meshes[li].setMatrixAt(i * 2 + k, m4);
+      });
     }
   }
   private commit() {
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.glass) this.glass.instanceMatrix.needsUpdate = true;
+    for (const m of this.meshes) m.instanceMatrix.needsUpdate = true;
   }
 
   /** `openOf(gate)` → 0…1. Only touches the GPU buffers when something moved. */
@@ -107,8 +126,7 @@ export class GateSet {
     if (dirty) this.commit();
   }
   dispose() {
-    this.mesh.dispose();
-    this.glass?.dispose();
+    for (const m of this.meshes) m.dispose();
   }
 }
 

@@ -21,7 +21,7 @@ import { HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder } from '../world/builder';
 import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from './build';
-import { CONC_RISE, GROUND_Y, SLAB, exit, gateLine, hall, hallDims, rail, ticketMachines, vending, type Ctx } from './kit';
+import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, gateLine, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
 import { SHOPS, car, crosswalk, fillLots, signal, tree, type Shop } from './surface';
 
@@ -228,16 +228,13 @@ function concourseLevel(h: H, holes: Rect[]) {
 
   // ── Lighting and pillars ──
   const lights = (x0: number, x1: number, z0: number, z1: number) => {
-    for (let x = x0 + 2; x + 2.4 < x1; x += 4.8) for (let z = z0 + 3; z < z1 - 1.5; z += 6) b.deco('light', x, top - 0.03, z - 0.3, x + 2.4, top, z + 0.3);
+    for (let x = x0 + 2; x + 2.4 < x1; x += 4.8) for (let z = z0 + 3; z < z1 - 1.5; z += 6) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, top);
   };
   lights(-MALL_X, MALL_X, -BAR, BAR);
   lights(-BAR, BAR, GATE_N, -BAR);
   lights(-LINK1, LINK1, FRONT, GATE_N);
   for (const s of [-1, 1]) lights(Math.min(s * LINK0, s * LINK1), Math.max(s * LINK0, s * LINK1), GATE_N, -BAR);
-  const pillar = (x: number, z: number, y1: number) => {
-    b.box(h.c.style.pillar, x - 0.4, cf, z - 0.4, x + 0.4, y1, z + 0.4);
-    b.deco(`flat:${c.style.accent}`, x - 0.42, cf + 2.5, z - 0.42, x + 0.42, cf + 2.64, z + 0.42);
-  };
+  const pillar = (x: number, z: number, y1: number) => column(b, x, z, cf, y1, 0.4, c.style.pillar, c.style.accent, cf + 2.5);
   for (let x = -MALL_X + 6; x < MALL_X; x += 8) {
     if (Math.abs(Math.abs(x) - PAID_X) < 5) continue;
     for (const z of [-6.5, 6.5]) pillar(x, z, top);
@@ -298,7 +295,7 @@ function concourseLevel(h: H, holes: Rect[]) {
     // Planters, benches and vending down the middle.
     for (const x of [68, 92, 108, 132]) {
       b.box('flat:#4a4038', x - 1.4, cf, -0.45, x + 1.4, cf + 0.55, 0.45);
-      b.mesh('leaf2', 'sphere', x, cf + 1.15, 0, 2.6, 1.3, 0.9);
+      b.mesh('leaf2', 'sphere', x, cf + 0.95, 0, 2.7, 0.95, 1.25);
       for (const s of [-1, 1]) b.box('wood:#6b5440', x - 1.2, cf, Math.min(s * 0.6, s * 1.1), x + 1.2, cf + 0.45, Math.max(s * 0.6, s * 1.1));
     }
     vending(b, 100, cf, 0, [0, 1], 'vending');
@@ -326,7 +323,7 @@ function concourseLevel(h: H, holes: Rect[]) {
   b.box(wall, stub[0], cf, BAR + 6, stub[1], top, BAR + 6.4);
   hoardingX(b, stub[0], stub[1], cf, BAR + 5.4, -1);
   b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), (stub[0] + stub[1]) / 2, cf + 1.15, BAR + 5.26, [0, -1], 6.4, 1.0);
-  b.deco('light', stub[0] + 2.8, top - 0.03, BAR + 2, stub[1] - 2.8, top, BAR + 4);
+  ceilingLight(b, stub[0] + 2.8, stub[1] - 2.8, BAR + 2, BAR + 4, top);
   b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, BAR + 5.4, '新線連絡通路（予定地）', 'Future metro line passage (reserved)');
 
   // ── Zones and spawn ──

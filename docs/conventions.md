@@ -22,7 +22,8 @@ npm run build
 - File names: `kebab-case.ts`, components `PascalCase.tsx`
 - Station and line IDs: lowercase ASCII slugs (`tsumugibashi`), with no macrons in IDs
 - `sim/`, `data/`, `world/`, `stations/`, `signs/content.ts` and `trains/car.ts` must not import three.js or touch the DOM: they run in tests.
-- Materials are named by string key (`tile:#24407a`, `glass`, …) and resolved in `render/materials.ts`. Add new finishes there.
+- Materials are named by string key (`tile:#24407a`, `glass`, …) and resolved in `render/materials.ts`. Add new finishes there: a procedural pattern in `render/textures.ts`, or a CC0 scan recorded in `docs/references.md`. The finish table is in `docs/station-design.md`.
+- Decoration must not change collision: use `deco` / `mesh` for looks and `block` for the collider, so the walk test keeps meaning what it says.
 - Sign text never lives in a component. Add a `SignContent` variant and draw it in `signs/draw.ts`.
 
 ## Coordinates

@@ -100,32 +100,44 @@ function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: nu
     if (full) {
       // Floor-to-header glass screen with a line-colour fascia.
       b.block(xa, pf, z - 0.09, xb, pf + PSD_FULL_H, z + 0.09);
-      b.deco('flat:#e9eaec', xa, pf, z - 0.07, xb, pf + 0.3, z + 0.07);
+      b.deco('paint:#e9eaec', xa, pf, z - 0.07, xb, pf + 0.3, z + 0.07);
       b.deco('glass', xa + 0.12, pf + 0.3, z - 0.02, xb - 0.12, pf + 2.12, z + 0.02);
-      b.deco('flat:#e9eaec', xa, pf + 2.12, z - 0.1, xb, pf + PSD_FULL_H - 0.14, z + 0.1);
-      b.deco(`flat:${line.color}`, xa, pf + PSD_FULL_H - 0.14, z - 0.11, xb, pf + PSD_FULL_H, z + 0.11);
-      for (const x of [xa, xb - 0.12]) b.deco('flat:#c9ccd0', x, pf, z - 0.1, x + 0.12, pf + 2.12, z + 0.1);
+      b.deco('paint:#e9eaec', xa, pf + 2.12, z - 0.1, xb, pf + PSD_FULL_H - 0.14, z + 0.1);
+      b.deco(`paint:${line.color}`, xa, pf + PSD_FULL_H - 0.14, z - 0.11, xb, pf + PSD_FULL_H, z + 0.11);
+      for (const x of [xa, xb - 0.12]) b.deco('metal:#c3c7cb', x, pf, z - 0.1, x + 0.12, pf + 2.12, z + 0.1);
       return;
     }
     b.block(xa, pf, z - 0.09, xb, pf + 1.3, z + 0.09);
-    b.deco('flat:#f1f0ea', xa + 0.2, pf, z - 0.06, xb - 0.2, pf + 0.72, z + 0.06);
+    b.deco('flat:#3a3d41', xa + 0.2, pf, z - 0.065, xb - 0.2, pf + 0.07, z + 0.065);
+    b.deco('paint:#f3f2ec', xa + 0.2, pf + 0.07, z - 0.06, xb - 0.2, pf + 0.72, z + 0.06);
     b.deco('glass', xa + 0.2, pf + 0.72, z - 0.02, xb - 0.2, pf + 1.16, z + 0.02);
-    b.deco(`flat:${line.color}`, xa + 0.2, pf + 1.16, z - 0.07, xb - 0.2, pf + 1.3, z + 0.07);
-    // Gate housings at each end.
-    b.deco('flat:#dcdad2', xa, pf, z - 0.1, xa + 0.2, pf + 1.36, z + 0.1);
-    b.deco('flat:#dcdad2', xb - 0.2, pf, z - 0.1, xb, pf + 1.36, z + 0.1);
+    b.deco('metal:#c3c7cb', xa + 0.2, pf + 0.72, z - 0.035, xb - 0.2, pf + 0.76, z + 0.035);
+    // Glazing bars every ~1.2 m.
+    const bars = Math.max(1, Math.round((xb - xa - 0.4) / 1.2));
+    for (let k = 1; k < bars; k++) {
+      const xm = xa + 0.2 + ((xb - xa - 0.4) * k) / bars;
+      b.deco('metal:#c3c7cb', xm - 0.02, pf + 0.72, z - 0.035, xm + 0.02, pf + 1.16, z + 0.035);
+    }
+    b.deco(`paint:${line.color}`, xa + 0.2, pf + 1.16, z - 0.07, xb - 0.2, pf + 1.3, z + 0.07);
+    // Gate housings at each end, with a door-status lamp on top.
+    for (const [ha, hb] of [[xa, xa + 0.2], [xb - 0.2, xb]]) {
+      b.deco('paint:#e9e8e2', ha, pf + 0.07, z - 0.1, hb, pf + 1.36, z + 0.1);
+      b.deco('flat:#3a3d41', ha, pf, z - 0.105, hb, pf + 0.07, z + 0.105);
+      b.deco('flat:#2c2f33', ha, pf + 1.36, z - 0.1, hb, pf + 1.39, z + 0.1);
+      b.deco('glow:#ffb020', (ha + hb) / 2 - 0.035, pf + 1.39, z - 0.035, (ha + hb) / 2 + 0.035, pf + 1.43, z + 0.035);
+    }
   };
   for (const xd of xs) {
     panel(from, xd - half);
     if (full) {
       // Header over the doorway carries the fascia across the opening.
-      b.deco('flat:#e9eaec', xd - half, pf + 2.12, z - 0.1, xd + half, pf + PSD_FULL_H - 0.14, z + 0.1);
-      b.deco(`flat:${line.color}`, xd - half, pf + PSD_FULL_H - 0.14, z - 0.11, xd + half, pf + PSD_FULL_H, z + 0.11);
+      b.deco('paint:#e9eaec', xd - half, pf + 2.12, z - 0.1, xd + half, pf + PSD_FULL_H - 0.14, z + 0.1);
+      b.deco(`paint:${line.color}`, xd - half, pf + PSD_FULL_H - 0.14, z - 0.11, xd + half, pf + PSD_FULL_H, z + 0.11);
       b.block(xd - half, pf + 2.12, z - 0.09, xd + half, pf + PSD_FULL_H, z + 0.09);
     }
     b.gate({
       x: xd, y: pf, z, along: [1, 0], width: half * 2, height: full ? 2.1 : 1.22, thick: 0.07,
-      mat: 'flat:#f1f0ea', window: full, line: line.id, stop: c.stop, track,
+      mat: 'paint:#f3f2ec', window: full, line: line.id, stop: c.stop, track,
     });
     from = xd + half;
   }
@@ -133,15 +145,44 @@ function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: nu
   // Tactile warning strip behind the gates.
   const t0 = zEdge + inward * 0.5, t1 = zEdge + inward * 0.8;
   b.deco('tactile', -PLATFORM_HALF, pf, Math.min(t0, t1), PLATFORM_HALF, pf + 0.008, Math.max(t0, t1));
+  // Platform edge: dark non-slip coping under the doors, and a white line behind the tactile strip.
+  const e0 = zEdge, e1 = zEdge + inward * 0.3;
+  b.deco('flat:#4a4c4f', -PLATFORM_HALF, pf, Math.min(e0, e1), PLATFORM_HALF, pf + 0.004, Math.max(e0, e1));
+  const w0 = zEdge + inward * 0.86, w1 = zEdge + inward * 0.94;
+  b.deco('paint:#f1f0ea', -PLATFORM_HALF, pf, Math.min(w0, w1), PLATFORM_HALF, pf + 0.004, Math.max(w0, w1));
+}
+
+/** Round clad column with a steel base ring and a colour band. The collider stays a square post. */
+export function pillar(b: Builder, x: number, z: number, y0: number, y1: number, half: number, mat: string, band: string, bandY: number) {
+  b.block(x - half, y0, z - half, x + half, y1, z + half);
+  const d = half * 2.2;
+  b.mesh(mat, 'cyl', x, (y0 + y1) / 2, z, d, y1 - y0, d);
+  b.mesh('metal:#9da2a8', 'cyl', x, y0 + 0.06, z, d + 0.07, 0.12, d + 0.07);
+  b.mesh('metal:#9da2a8', 'cyl', x, y1 - 0.04, z, d + 0.07, 0.08, d + 0.07);
+  b.mesh(`paint:${band}`, 'cyl', x, bandY, z, d + 0.025, 0.15, d + 0.025);
+}
+
+/** Ceiling light: a white housing with the glowing diffuser on its underside. `y` is the ceiling. */
+export function ceilingLight(b: Builder, x0: number, x1: number, z0: number, z1: number, y: number) {
+  b.deco('paint:#e6e5e0', x0 - 0.05, y - 0.045, z0 - 0.05, x1 + 0.05, y, z1 + 0.05);
+  b.deco('light', x0, y - 0.07, z0, x1, y - 0.045, z1);
 }
 
 function bench(b: Builder, x: number, y: number, z: number, color: string) {
-  b.box('flat:#3b4046', x - 0.9, y, z - 0.05, x + 0.9, y + 0.85, z + 0.05);
+  // Back-to-back seats on a steel beam, the usual island-platform bench.
+  b.block(x - 0.9, y, z - 0.5, x + 0.9, y + 0.46, z + 0.5);
+  b.deco('metal:#7f858b', x - 0.9, y + 0.3, z - 0.04, x + 0.9, y + 0.38, z + 0.04);
+  for (const lx of [-0.75, 0.75]) {
+    b.deco('metal:#7f858b', x + lx - 0.03, y, z - 0.03, x + lx + 0.03, y + 0.3, z + 0.03);
+    b.deco('metal:#7f858b', x + lx - 0.04, y, z - 0.4, x + lx + 0.04, y + 0.03, z + 0.4);
+  }
   for (const s of [-1, 1]) {
     for (let i = -1; i <= 1; i++) {
-      b.box(`flat:${color}`, x + i * 0.6 - 0.26, y + 0.38, z + s * 0.08, x + i * 0.6 + 0.26, y + 0.46, z + s * 0.5);
+      const cx = x + i * 0.6;
+      b.deco(`paint:${color}`, cx - 0.26, y + 0.38, z + s * 0.07, cx + 0.26, y + 0.44, z + s * 0.5);
+      b.deco(`paint:${color}`, cx - 0.26, y + 0.44, z + s * 0.03, cx + 0.26, y + 0.84, z + s * 0.08);
     }
-    b.deco('flat:#3b4046', x - 0.85, y, z + s * 0.25, x + 0.85, y + 0.38, z + s * 0.33);
+    b.deco('metal:#7f858b', x - 0.86, y + 0.36, z + s * 0.2, x + 0.86, y + 0.385, z + s * 0.36);
   }
 }
 
@@ -149,7 +190,7 @@ export function vending(b: Builder, x: number, y: number, z: number, face: [numb
   // Box 1.0 wide, 0.7 deep, 1.83 tall, front towards `face`.
   const [fx, fz] = face;
   const hw = fx !== 0 ? 0.35 : 0.5, hd = fx !== 0 ? 0.5 : 0.35;
-  b.box(v === 'vending' ? 'flat:#c62828' : 'flat:#1565c0', x - hw, y, z - hd, x + hw, y + 1.83, z + hd);
+  b.box(v === 'vending' ? 'paint:#c62828' : 'paint:#1565c0', x - hw, y, z - hd, x + hw, y + 1.83, z + hd);
   b.sign({ k: 'machine', v }, x + fx * 0.36, y + 0.915, z + fz * 0.36, face, 0.98, 1.8);
 }
 
@@ -215,8 +256,13 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       }
       b.box('concreteDark', -H, railY - 1, lo, H, pf - 0.2, hi);
       const zi = s * (wallZ - 0.02);
-      b.deco(`flat:${line.color}`, -H, pf + 2.62, Math.min(z0, zi), H, pf + 2.8, Math.max(z0, zi));
-      b.deco(`flat:${style.accent}`, -H, pf + 2.56, Math.min(z0, zi), H, pf + 2.62, Math.max(z0, zi));
+      b.deco(`paint:${line.color}`, -H, pf + 2.62, Math.min(z0, zi), H, pf + 2.8, Math.max(z0, zi));
+      b.deco(`paint:${style.accent}`, -H, pf + 2.56, Math.min(z0, zi), H, pf + 2.62, Math.max(z0, zi));
+      // Skirting where the wall meets a platform (side platforms only).
+      if (!island) {
+        const zk = s * (wallZ - 0.025);
+        b.deco('flat:#4b4d50', -P, pf, Math.min(z0, zk), P, pf + 0.13, Math.max(z0, zk));
+      }
     }
     // End walls with tunnel mouths.
     const mouthTop = railY + 4.65;
@@ -247,6 +293,15 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
           // Vault ribs.
           for (let x = s.x0 + 3; x < s.x1; x += 6) b.deco(`flat:${style.accent}`, x - 0.15, s.y - 0.05, -wallZ, x + 0.15, s.y + 0.12, wallZ);
         } else b.slab('ceil', s.x0, -wallZ - 0.5, s.x1, wallZ + 0.5, s.y, s.y + SLAB, o.ceilHoles ?? []);
+      } else if (!o.elevated) {
+        // Under the concourse: hang ceiling panels below its slab, except where stairs come through.
+        const cuts = o.blocks.filter(([a, c]) => c > s.x0 && a < s.x1).map(([a, c]) => [a - 0.4, -wallZ, c + 0.4, wallZ]);
+        b.slab('ceil', s.x0, -wallZ, s.x1, wallZ, s.y - 0.05, s.y, cuts, false);
+      }
+      if (!s.vault && !o.elevated) {
+        // Exposed dark soffit over the tracks, as if the panels stop at the platform edge.
+        const over: [number, number][] = island ? [[-wallZ, -pe - 0.2], [pe + 0.2, wallZ]] : [[-pe + 0.2, pe - 0.2]];
+        for (const [za, zb] of over) b.deco('flat:#26282b', s.x0, s.y - 0.07, za, s.x1, s.y - 0.05, zb);
       }
       const nx = o.ceil[i + 1];
       if (nx && Math.abs(nx.y - s.y) > 0.01) {
@@ -288,17 +343,18 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   for (const s of o.elevated ? [] : o.ceil) {
     for (let x = s.x0 + 1.5; x + 3 <= s.x1; x += 4) {
       for (const z of lightRows) {
-        const y = s.vault ? s.y + 0.9 : s.y - 0.07;
-        b.deco('light', x, y, z - 0.13, x + 3, y + 0.06, z + 0.13);
         if (s.vault) {
-          b.deco('flat:#888', x + 1.48, y + 0.06, z - 0.02, x + 1.52, s.y + 2.3, z + 0.02);
-        }
+          const y = s.y + 0.9;
+          b.deco('paint:#e6e5e0', x - 0.05, y + 0.03, z - 0.17, x + 3.05, y + 0.09, z + 0.17);
+          b.deco('light', x, y, z - 0.13, x + 3, y + 0.03, z + 0.13);
+          b.deco('metal:#8a8f94', x + 1.48, y + 0.09, z - 0.02, x + 1.52, s.y + 2.3, z + 0.02);
+        } else ceilingLight(b, x, x + 3, z - 0.13, z + 0.13, s.emit ? s.y : s.y - 0.05);
       }
     }
   }
   if (o.elevated) {
     for (let x = -P + 2; x + 3 <= P; x += 5) {
-      for (const z of lightRows) b.deco('light', x, pf + 3.22, z - 0.1, x + 3, pf + 3.28, z + 0.1);
+      for (const z of lightRows) ceilingLight(b, x, x + 3, z - 0.1, z + 0.1, pf + 3.3);
     }
   }
 
@@ -308,8 +364,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       const seg = o.ceil.find((s) => x >= s.x0 && x <= s.x1);
       if (seg?.vault || inBlocks(x, o.blocks, 0.6)) continue;
       for (const z of [-2.05, 2.05]) {
-        b.box(style.pillar, x - 0.27, pf, z - 0.27, x + 0.27, ceilAt(x), z + 0.27);
-        b.deco(`flat:${line.color}`, x - 0.29, pf + 1.9, z - 0.29, x + 0.29, pf + 2.05, z + 0.29);
+        pillar(b, x, z, pf, ceilAt(x), 0.27, style.pillar, line.color, pf + 1.98);
       }
     }
   }
@@ -370,8 +425,8 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         const z = s * (wallZ - 0.45);
         if (i % 4 === 2) vending(b, x, pf, z, [0, -s], s > 0 ? 'vending' : 'vending2');
         else {
-          b.box('flat:#3b4046', x - 0.9, pf, z - 0.3, x + 0.9, pf + 0.4, z + 0.3);
-          b.deco(`flat:${style.accent}`, x - 0.9, pf + 0.4, z - 0.3, x + 0.9, pf + 0.46, z + 0.3);
+          b.box('metal:#7f858b', x - 0.9, pf, z - 0.28, x + 0.9, pf + 0.4, z + 0.28);
+          b.deco(`paint:${style.accent}`, x - 0.92, pf + 0.4, z - 0.3, x + 0.92, pf + 0.46, z + 0.3);
         }
       }
     }
@@ -413,10 +468,10 @@ export function stairs(b: Builder, o: StairOpts) {
   b.ramp(o.x0, o.z0, o.x1, o.z1, o.yLow, o.yHigh, [1, 0]);
   for (let i = 0; i < n; i++) {
     const xa = o.x0 + i * tread, top = o.yLow + (i + 1) * riser;
-    b.deco(o.mat ?? 'flat:#b9b6ae', xa, o.yLow - 0.02, o.z0, xa + tread, top, o.z1);
-    b.deco('flat:#d9a400', xa, top - 0.02, o.z0, xa + 0.05, top + 0.004, o.z1);
+    b.deco(o.mat ?? 'flat:#a8a59d', xa, o.yLow - 0.02, o.z0, xa + tread, top, o.z1);
+    b.deco('flat:#d9a400', xa, top - 0.02, o.z0, xa + 0.03, top + 0.004, o.z1);
   }
-  balustrade(b, o, 'flat:#cfd2d6', o.rails ?? [true, true]);
+  balustrade(b, o, 'paint:#dfe1e3', o.rails ?? [true, true]);
 }
 
 function balustrade(b: Builder, o: StairOpts, mat: string, rails: [boolean, boolean]) {
@@ -426,6 +481,9 @@ function balustrade(b: Builder, o: StairOpts, mat: string, rails: [boolean, bool
     const top = o.yLow + ((o.yHigh - o.yLow) * (k + 1)) / chunks + 0.95;
     if (rails[0]) b.box(mat, xa, o.yLow, o.z0 - 0.08, xb, top, o.z0);
     if (rails[1]) b.box(mat, xa, o.yLow, o.z1, xb, top, o.z1 + 0.08);
+    // Stainless handrail cap following the slope in steps.
+    if (rails[0]) b.deco('metal:#b9bdc2', xa, top, o.z0 - 0.1, xb, top + 0.05, o.z0 + 0.02);
+    if (rails[1]) b.deco('metal:#b9bdc2', xa, top, o.z1 - 0.02, xb, top + 0.05, o.z1 + 0.1);
   }
 }
 
@@ -436,10 +494,10 @@ export function escalator(b: Builder, o: StairOpts & { dir: 1 | -1 }) {
   b.ramp(o.x0, o.z0, o.x1, o.z1, o.yLow, o.yHigh, [1, 0], 0.45 * o.dir);
   for (let i = 0; i < n; i++) {
     const xa = o.x0 + (i * run) / n, top = o.yLow + ((i + 1) * rise) / n;
-    b.deco('flat:#2b2e32', xa, o.yLow - 0.02, o.z0, xa + run / n, top, o.z1);
+    b.deco('metal:#4d5156', xa, o.yLow - 0.02, o.z0, xa + run / n, top, o.z1);
     b.deco('flat:#e2b100', xa, top - 0.01, o.z0, xa + 0.03, top + 0.004, o.z1);
   }
-  balustrade(b, o, 'flat:#aeb4ba', o.rails ?? [true, true]);
+  balustrade(b, o, 'metal:#b4b9be', o.rails ?? [true, true]);
   // Direction marker at the boarding end.
   const xb = o.dir > 0 ? o.x0 - 0.5 : o.x1 + 0.1, yb = o.dir > 0 ? o.yLow : o.yHigh;
   b.deco('flat:#1f9d55', xb, yb, o.z0, xb + 0.4, yb + 0.006, o.z1);
@@ -449,8 +507,8 @@ export function escalator(b: Builder, o: StairOpts & { dir: 1 | -1 }) {
 export function rail(b: Builder, x0: number, z0: number, x1: number, z1: number, y: number) {
   b.block(x0, y, z0, x1, y + 1.1, z1);
   b.deco('glass', x0, y + 0.08, z0, x1, y + 1.02, z1);
-  b.deco('flat:#b0b5ba', x0, y + 1.02, z0, x1, y + 1.1, z1);
-  b.deco('flat:#b0b5ba', x0, y, z0, x1, y + 0.08, z1);
+  b.deco('metal:#b0b5ba', x0, y + 1.02, z0, x1, y + 1.1, z1);
+  b.deco('metal:#b0b5ba', x0, y, z0, x1, y + 0.08, z1);
 }
 
 /**
@@ -462,15 +520,15 @@ export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear 
   const n = 7;
   for (let i = 0; i < n; i++) {
     const z = -3.15 + i * 1.05;
-    b.box('flat:#c4c8cc', -0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
+    b.box('metal:#c4c8cc', -0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
     b.deco('flat:#3a3f45', -0.8, cf + 1.0, z - 0.13, 0.8, cf + 1.03, z + 0.13);
     b.deco('glow:#29a9ff', 0.42, cf + 1.03, z - 0.1, 0.72, cf + 1.05, z + 0.1);
     b.deco('glow:#29a9ff', -0.72, cf + 1.03, z - 0.1, -0.42, cf + 1.05, z + 0.1);
     b.deco(i % 3 === 0 ? 'glow:#e53935' : 'glow:#32c86a', 0.78, cf + 0.72, z - 0.06, 0.81, cf + 0.86, z + 0.06);
   }
   // Fences either side.
-  b.box('flat:#c4c8cc', -0.05, cf, 3.27, 0.05, cf + 1.15, 5.0);
-  b.box('flat:#c4c8cc', -0.05, cf, -cw, 0.05, cf + 1.15, -3.27);
+  b.box('metal:#c4c8cc', -0.05, cf, 3.27, 0.05, cf + 1.15, 5.0);
+  b.box('metal:#c4c8cc', -0.05, cf, -cw, 0.05, cf + 1.15, -3.27);
   b.deco('glass', -0.02, cf + 1.15, -cw, 0.02, cf + 1.9, -3.27);
   // Station office.
   b.box(c.style.concWall, -3, cf, 5.0, 3, cf + CONC_CLEAR, cw);
@@ -507,16 +565,16 @@ export function exit(c: Ctx, cf: number, num: string) {
   b.box(wall, 0, cf, 0, 0.3, cf + 3.2, 0.9);
   b.box(wall, -0.3, cf + 2.7, 1.2, 0, GY + 1.0, 4.0);
   b.box('ceil', -4.3, cf + 2.7, 0, -0.3, cf + 3.2, 4.3);
-  b.deco('light', -3.2, cf + 2.67, 1.6, -1, cf + 2.7, 2.2);
+  ceilingLight(b, -3.2, -1, 1.6, 2.2, cf + 2.7);
+  b.deco('flat:#4b4d50', -4, cf, 3.975, 0, cf + 0.13, 4.0);
   // Handrails on the stair walls.
-  b.deco('flat:#9aa0a6', 0, cf + 0.9, 1.2, 0.05, cf + 0.95, 1.26);
   b.hole(0, 1.2, run, 4.0);
   // Street-level canopy.
   b.deco('flat:#eef0f2', -0.6, GY + 2.5, 0.6, run + 0.7, GY + 2.64, 4.6);
   b.deco('glass', 0, GY + 1.0, 4.12, run, GY + 2.5, 4.18);
   b.deco('glass', 0, GY + 1.0, 1.02, run, GY + 2.5, 1.08);
   for (const [px, pz] of [[0, 1.05], [0, 4.15], [run, 1.05], [run, 4.15]]) {
-    b.box('flat:#8d949b', px - 0.07, GY, pz - 0.07, px + 0.07, GY + 2.5, pz + 0.07);
+    b.box('metal:#9aa0a6', px - 0.07, GY, pz - 0.07, px + 0.07, GY + 2.5, pz + 0.07);
   }
   b.sign({ k: 'entrance', station: station.id, exit: num }, run + 0.06, GY + 2.2, 2.6, [1, 0], 2.9, 0.6);
   b.deco('flat:#22262b', run - 0.04, GY + 1.88, 1.1, run + 0.05, GY + 2.52, 4.1);
@@ -530,7 +588,7 @@ export function exit(c: Ctx, cf: number, num: string) {
 /** Wall-mounted row of ticket machines with the fare board above, along a wall facing +z. */
 export function ticketMachines(c: Ctx, cf: number, x0: number, z: number, count: number) {
   const { b, station } = c;
-  b.box('flat:#b9bdc2', x0 - 0.2, cf, z, x0 + count * 1.05 + 0.2, cf + 1.95, z + 0.6);
+  b.box('metal:#b9bdc2', x0 - 0.2, cf, z, x0 + count * 1.05 + 0.2, cf + 1.95, z + 0.6);
   for (let i = 0; i < count; i++) {
     b.sign({ k: 'machine', v: i === count - 1 ? 'charge' : 'ticket' }, x0 + 0.525 + i * 1.05, cf + 1.0, z + 0.61, [0, 1], 0.98, 1.8);
   }

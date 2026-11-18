@@ -3,15 +3,17 @@
 // so it lives outside React and is mounted once via <primitive>.
 
 import * as THREE from 'three';
+import { lineById } from '../data/network';
 import { NET } from '../sim';
 import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
-import { CAR_HALF } from '../trains/car';
-import type { BoxPart } from '../world/builder';
+import { CAR_HALF, CAR_HALF_W } from '../trains/car';
+import type { BoxPart, GatePart } from '../world/builder';
 import { halfWidth, sampleChainages, structureAt } from '../world/structure';
 import { DEFAULT_PLOT, rng } from '../world/builder';
-import { boxesToGeometry, groupBy } from './geometry';
+import { boxesToGeometry, groupBy, type EnvMode } from './geometry';
+import { withEnvMod } from './lit';
 import { getMaterial } from './materials';
 import { GateSet, makeSigns, staticGroup } from './part-view';
 import { disposeCache, redrawLive, type SignCache, type SignSet } from './sign-set';
@@ -25,28 +27,40 @@ const BASE_RADIUS = Math.hypot(DEFAULT_PLOT.x, DEFAULT_PLOT.z) + 5;
 interface StationView {
   group: THREE.Group;
   cache: SignCache;
-  gates: GateSet | null;
+  gates: GateSet[];
   dispose: () => void;
 }
+
+const STATION_ENV: EnvMode = { kind: 'station' };
+const SKY_ENV: EnvMode = { kind: 'sky' };
+/** Faces looking into this box are the saloon: always lit by the car's own lights. */
+const CAR_ENV: EnvMode = { kind: 'car', min: [-CAR_HALF + 0.02, PF_H - 0.2, -CAR_HALF_W + 0.02], max: [CAR_HALF - 0.02, 3.4, CAR_HALF_W - 0.02] };
 
 function mountStation(w: StationWorld): StationView {
   const group = new THREE.Group();
   group.position.set(w.frame.x, w.frame.y, w.frame.z);
   group.rotation.y = w.frame.yaw;
-  const st = staticGroup(w.build);
+  const st = staticGroup(w.build, STATION_ENV);
   group.add(st.group);
   const cache: SignCache = new Map();
   group.add(makeSigns(w.build, cache).group);
-  const gates = w.build.gates.length ? new GateSet(w.build.gates, false) : null;
-  if (gates) group.add(gates.mesh);
-  if (gates?.glass) group.add(gates.glass);
+  // Screen doors, one set per line so each carries its line colour. Full-height
+  // screens (gates marked `window`) are mostly glass; waist-high gates have a small pane.
+  const byLine = new Map<string, GatePart[]>();
+  for (const g of w.build.gates) byLine.set(g.line!, [...(byLine.get(g.line!) ?? []), g]);
+  const gates = [...byLine].map(([line, list]) => new GateSet(list, [
+    { mat: 'glassDark', rect: list[0].window ? [0.12, 0.14, 0.9, 0.93] : [0.14, 0.5, 0.86, 0.9], proud: 0.004 },
+    { mat: `paint:${lineById(line).color}`, rect: list[0].window ? [0, 0.96, 1, 1] : [0, 0.93, 1, 1], proud: 0.006 },
+    { mat: 'metal:#b9bdc2', rect: [0, 0, 0.05, list[0].window ? 0.96 : 0.93], proud: 0.003 },
+  ]));
+  for (const g of gates) group.add(...g.meshes);
   group.updateMatrixWorld(true);
   return {
     group, cache, gates,
     dispose: () => {
       st.dispose();
       disposeCache(cache);
-      gates?.dispose();
+      for (const g of gates) g.dispose();
     },
   };
 }
@@ -58,11 +72,13 @@ interface TrainView {
   signs: SignSet[];
   cache: SignCache;
   lamps: { low: THREE.Mesh[]; high: THREE.Mesh[] };
+  /** Per car: (sky, shade) added to the exterior's lighting as it moves between tunnel, station and open air. */
+  env: { value: THREE.Vector2 }[];
 }
 
 const lampGeo = new THREE.BoxGeometry(0.06, 0.16, 0.3);
-const white = new THREE.MeshBasicMaterial({ color: '#fff7d6' });
-const red = new THREE.MeshBasicMaterial({ color: '#ff2a1a' });
+const white = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff7d6').multiplyScalar(3) });
+const red = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a').multiplyScalar(2) });
 
 function destDir(t: TrainRuntime): 'down' | 'up' | 'none' {
   const p = t.state.phase;
@@ -75,7 +91,7 @@ function mountTrain(t: TrainRuntime): TrainView {
   const cache: SignCache = new Map();
   const line = t.sim.geom.def;
   const n = line.service.cars;
-  const view: TrainView = { group, cars: [], gates: [], signs: [], cache, lamps: { low: [], high: [] } };
+  const view: TrainView = { group, cars: [], gates: [], signs: [], cache, lamps: { low: [], high: [] }, env: [] };
   const resolve = (c: SignContent): SignContent =>
     c.k === 'lcd' ? { ...c, train: t.index } : c.k === 'dest' ? { ...c, dir: destDir(t) } : c;
   for (let c = 0; c < n; c++) {
@@ -83,12 +99,25 @@ function mountTrain(t: TrainRuntime): TrainView {
     const { build } = carBuild(line.id, kind);
     const g = new THREE.Group();
     g.rotation.order = 'YZX';
-    g.add(staticGroup(build, `car:${line.id}:${kind}`).group);
+    // Each car gets its own copies of the materials so its lighting can follow it.
+    const env = { value: new THREE.Vector2(0, 0) };
+    const own = new Map<THREE.Material, THREE.Material>();
+    const mine = (m: THREE.Material) => {
+      let c = own.get(m);
+      if (!c) own.set(m, (c = withEnvMod(m, env)));
+      return c;
+    };
+    const body = staticGroup(build, CAR_ENV, `car:${line.id}:${kind}`).group;
+    body.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh) mesh.material = mine(mesh.material as THREE.Material);
+    });
+    g.add(body);
+    view.env.push(env);
     const signs = makeSigns(build, cache, resolve);
     g.add(signs.group);
-    const gates = new GateSet(build.gates, true);
-    g.add(gates.mesh);
-    if (gates.glass) g.add(gates.glass);
+    const gates = new GateSet(build.gates, [{ mat: 'glassDark', rect: [0.2, 0.42, 0.86, 0.9], proud: 0.005 }], mine);
+    g.add(...gates.meshes);
     if (kind !== 'mid') {
       const s = kind === 'cabLow' ? -1 : 1;
       for (const z of [-0.95, 0.95]) {
@@ -146,7 +175,10 @@ function buildBackdrop(): THREE.Group {
     }
     flush();
   }
-  const ground = new THREE.Mesh(new THREE.ShapeGeometry(shape), getMaterial('ground'));
+  const groundGeo = new THREE.ShapeGeometry(shape);
+  groundGeo.setAttribute('aEnv', new THREE.BufferAttribute(new Float32Array(groundGeo.getAttribute('position').count * 2).fill(1), 2));
+  // Shape UVs are its xy in metres already.
+  const ground = new THREE.Mesh(groundGeo, getMaterial('ground'));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.03;
   group.add(ground);
@@ -171,7 +203,7 @@ function buildBackdrop(): THREE.Group {
     }
   }
   for (const [mat, list] of groupBy(boxes)) {
-    const m = new THREE.Mesh(boxesToGeometry(list), getMaterial(mat));
+    const m = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
     m.matrixAutoUpdate = false;
     group.add(m);
   }
@@ -205,8 +237,8 @@ export class WorldView {
         this.root.remove(v.group);
         v.dispose();
         this.stations.delete(w.def.id);
-      } else if (v?.gates) {
-        v.gates.update((g) => gateOpen(g.line!, g.stop!, g.track!));
+      } else if (v) {
+        for (const set of v.gates) set.update((g) => gateOpen(g.line!, g.stop!, g.track!));
       }
     }
 
@@ -228,10 +260,17 @@ export class WorldView {
         this.root.add(v.group);
       }
       v.group.visible = true;
+      const k = Math.min(1, dt * 5);
       t.cars.forEach((f, c) => {
         const g = v!.cars[c];
         g.position.set(f.x, f.y, f.z);
         g.rotation.set(0, f.yaw, f.pitch);
+        // Exterior lighting: daylight in the open, station light at a platform, near-dark in a tunnel.
+        const open = f.y > -5.4;
+        const atStation = STATION_WORLDS.some((s) => Math.hypot(s.frame.x - f.x, s.frame.z - f.z) < 64);
+        const e = v!.env[c].value;
+        e.x += ((open ? 1 : 0) - e.x) * k;
+        e.y += ((open ? 0 : atStation ? 0.12 : 0.86) - e.y) * k;
         v!.gates[c].update((gate) => (gate.side === t.doorSide ? t.state.doorOpen : 0));
       });
       const lowLeads = t.state.heading < 0;
