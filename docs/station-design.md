@@ -2,34 +2,58 @@
 
 A reference for building stylized-realistic Japanese metro stations. The aim is clean geometry and correct details with good lighting, not photorealism.
 
-## Typical underground metro layouts
+## Layouts implemented
 
-| Layout | Notes |
-|---|---|
-| **Island platform** | One platform between two tracks. The most common layout on Osaka trunk lines. |
-| **Side platforms** | Two platforms with tracks in the middle. Often there's a separate concourse for each direction. |
-| **Stacked** | Directions on different levels, under narrow streets. |
-| **Transfer complex** | Several lines at different depths, joined by long passageways. |
+| Composer | Used by | Shape |
+|---|---|---|
+| **Underground** (`buildUnderground`) | 7 stations | Street → exits → B1 concourse (gates at one or both ends) → stairs → platform hall. Works for island or side platforms. |
+| **Interchange** (`buildInterchange`) | Tsumugibashi | Shared B1 concourse over the upper line; a transfer passage beside each upper platform; stairs down to the deeper line's island platform, which crosses at 90°. |
+| **Elevated** (`buildElevated`) | Hibarino | Street-level concourse under a viaduct; stairs up through the deck to side platforms with canopies. |
 
-Usual vertical order: street exits (numbered 1, 2, 3…, sometimes 2-A or 2-B), then B1 concourse with ticket gates, then B2 or deeper for the platforms.
+Vertical order underground: street (0) → concourse floor (platform + 4.9 m) → platform (rail + 1.1 m). Platforms are 116 m long for 6-car, 18 m-car trains.
+
+## The kit (`src/stations/kit.ts`)
+
+Reusable parts, all driven by the line/station data:
+
+- `hall` — track bed, platforms, half-height **platform screen doors** aligned to the train doors, tactile strip, walls with line-colour band, ceilings (flat or faceted **vault**), pillars, lighting, benches, vending machines, name boards, posters, direction signs, live departure boards.
+- `stairs`, `escalator`, `rail` — vertical circulation.
+- `gateLine` — automatic ticket gates, fences, station office, header signs, live departures screen.
+- `ticketMachines` — machines with the fare board above (drawn from the network).
+- `exit` — passage, stair to the street, glass canopy, entrance sign with station name, numbers and exit number.
+- `surface` (`surface.ts`) — roads, kerbs, crossings, signals, guard rails, lamps, trees, utility poles, buildings with shopfronts and signs, plus features: canal + bridge, shopping arcade, park, quay, campus gate.
 
 ## Details that make it read as "Japan"
 
-- **Tactile paving** (点字ブロック): yellow guide strips (lines) and warning tiles (dots), placed along platform edges and walking routes.
-- **Platform screen doors** (full height or half height), with car numbers and door positions marked on the floor.
-- **Ticket gates** (改札): a row of automatic gates with IC card readers, and a staffed window.
-- **Signage**: line color plus a station number badge. Text is bilingual (JP large, EN smaller), with Korean and Chinese on some signs. Signs show the next and previous station and give exit directions with a yellow background.
-- **Station name board** (駅名標): the station name with kana, romaji, the number, and the neighboring stations with arrows.
-- **Other**: pillars with line-color bands, a tiled or panelled ceiling with lighting troughs, vending machines, timetable boards, LED departure displays, platform benches, and car-stop markers.
-- **Audio** (for later): departure melodies (発車メロディ), bilingual announcements, and door chimes.
+- **Tactile paving** (点字ブロック) along platform edges.
+- **Platform screen doors**, half height, with a line-colour top rail.
+- **Ticket gates** (改札) with IC readers, and a staffed window.
+- **Signage**: line colour + station number badge, bilingual (JP large, EN smaller), exits on **yellow**, platform headers on navy with the platform number in the line colour.
+- **Station name board** (駅名標): name, kana, romaji, number, and neighbouring stations with arrows that point the right way for where the sign is mounted.
+- Vending machines, lockers, posters, horizontal traffic signals, guard rails, utility poles, vertical shop signs (袖看板).
+- **Audio** (not built yet): departure melodies, bilingual announcements, door chimes.
+
+## Per-station identity (`src/stations/specs.ts`)
+
+| Station | Finish | Distinctive feature | Outside |
+|---|---|---|---|
+| Midorizaka | Warm brick | Leaf mural | Park, houses, utility poles |
+| Kita-Ōdōri | White enamel panels | Vaulted hall with hanging lights | Office towers, boulevard trees |
+| Tsumugibashi | Cream tile | Woven-stripe mural along the transfer passage | Two crossing avenues |
+| Hyōtanbori | Black + gold tile | Gourd mural | Neon signs, canal with red bridge |
+| Tsurumatsu | Green glazed tile | Pine-and-crane mural | Covered shopping arcade |
+| Kawaminato-kō | Blue-grey panels | Wave mural | Quay, cranes, ferry |
+| Aizomechō | Indigo tile | Wave (seigaiha) mural | Old wooden shophouses |
+| Daigaku-mae | Brick | Leaf mural | University gate and lawn |
+| Hibarino | Light panels, glass | Daylight, hills mural | Plaza, bus stop, convenience store, hills |
 
 ## Design rules
 
 - Each line has a **visual identity**: its color appears on pillars, signs, and screen door trim.
-- Each hero station gets **one distinctive feature**, such as a wall mural, unusual ceiling, local motif, or historic tile, so stations don't all feel the same.
+- Each station gets **one distinctive feature** so stations don't all feel the same.
 - Station designs are **invented but plausible**. Draw from real stations for patterns, never copy one exactly.
-- Build reusable parts (gate row, sign, pillar, screen door unit) so new stations can be assembled quickly.
+- Build reusable parts so new stations can be assembled quickly. A new station should be a spec, not new geometry code, unless it needs a new layout.
 
 ## Per-station plans
 
-Each station gets `Plans/stations/<station-id>/plan.md` covering layout, depth, exits, distinctive feature, and reference images before it's built.
+A station with a new layout or a hero feature gets `Plans/stations/<station-id>/plan.md` before it's built. A station that only needs a new entry in `specs.ts` doesn't.

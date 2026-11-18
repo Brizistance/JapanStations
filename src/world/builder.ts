@@ -1,0 +1,281 @@
+// Builder: collects the parts that make up a station or a train car.
+// Pure data, no three.js. The same part list feeds both the renderer and the collision
+// world, so what you see is what you bump into.
+//
+// Coordinates are frame-local metres: +x along the track (increasing chainage),
+// +y up, +z to the right of +x. Transforms are limited to translation, 90° turns
+// about y and a z-mirror, so every box stays axis-aligned inside its frame.
+
+import type { SignContent } from '../signs/content';
+
+export type V3 = [number, number, number];
+export type V2 = [number, number];
+
+export interface BoxPart {
+  mat: string;
+  min: V3;
+  max: V3;
+  solid: boolean;
+}
+
+export interface RampPart {
+  x0: number;
+  x1: number;
+  z0: number;
+  z1: number;
+  /** Unit, axis-aligned direction of ascent. */
+  up: V2;
+  yLow: number;
+  yHigh: number;
+  /** Conveyor speed along `up` (escalators), m/s. */
+  convey: number;
+}
+
+export interface SignPart {
+  content: SignContent;
+  pos: V3;
+  /** Outward normal in the xz plane, or null for a floor decal facing up. */
+  normal: V2 | null;
+  /** For floor decals: direction of the top of the image. */
+  top: V2;
+  w: number;
+  h: number;
+  dynamic: boolean;
+}
+
+/** A sliding gate pair: platform screen door or train door. */
+export interface GatePart {
+  pos: V3; // centre of the opening, at floor level
+  along: V2; // direction the leaves slide in
+  width: number;
+  height: number;
+  thick: number;
+  mat: string;
+  /** What controls it. Platform gates: line/stop/track. Car doors: side (+1 = local +z). */
+  line?: string;
+  stop?: number;
+  track?: 'down' | 'up';
+  side?: 1 | -1;
+}
+
+export interface Zone {
+  kind: 'concourse' | 'platform' | 'street' | 'passage';
+  min: V3;
+  max: V3;
+  ja: string;
+  en: string;
+}
+
+export interface MeshPart {
+  mat: string;
+  shape: 'cyl' | 'sphere' | 'cone';
+  pos: V3; // centre
+  size: V3; // full extents
+}
+
+export interface Build {
+  boxes: BoxPart[];
+  ramps: RampPart[];
+  signs: SignPart[];
+  gates: GatePart[];
+  zones: Zone[];
+  meshes: MeshPart[];
+  /** Openings in the street surface, as [x0, z0, x1, z1]. */
+  holes: [number, number, number, number][];
+  spawn: { pos: V3; yaw: number };
+}
+
+export interface Xf {
+  rot?: 0 | 1 | 2 | 3;
+  mz?: boolean;
+  t?: V3;
+}
+interface M {
+  // 2x2 integer matrix for xz plus translation.
+  a: number; b: number; c: number; d: number;
+  t: V3;
+}
+const ROT: [number, number, number, number][] = [
+  [1, 0, 0, 1],
+  [0, -1, 1, 0],
+  [-1, 0, 0, -1],
+  [0, 1, -1, 0],
+];
+function toM(x: Xf): M {
+  const r = ROT[x.rot ?? 0];
+  const s = x.mz ? -1 : 1;
+  return { a: r[0], b: r[1] * s, c: r[2], d: r[3] * s, t: x.t ?? [0, 0, 0] };
+}
+const mul = (p: M, c: M): M => ({
+  a: p.a * c.a + p.b * c.c,
+  b: p.a * c.b + p.b * c.d,
+  c: p.c * c.a + p.d * c.c,
+  d: p.c * c.b + p.d * c.d,
+  t: [p.a * c.t[0] + p.b * c.t[2] + p.t[0], c.t[1] + p.t[1], p.c * c.t[0] + p.d * c.t[2] + p.t[2]],
+});
+
+export interface SignOpts {
+  /** Direction (local xz) the sign's arrow should point; resolved to left/right/up/down for the viewer. */
+  arrow?: V2;
+  dynamic?: boolean;
+  top?: V2;
+}
+
+export class Builder {
+  readonly out: Build = {
+    boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], holes: [],
+    spawn: { pos: [0, 0, 0], yaw: 0 },
+  };
+  private m: M = toM({});
+
+  /** Run `fn` with an extra transform applied. */
+  with(x: Xf, fn: () => void) {
+    const prev = this.m;
+    this.m = mul(prev, toM(x));
+    fn();
+    this.m = prev;
+  }
+
+  pt(x: number, y: number, z: number): V3 {
+    const m = this.m;
+    return [m.a * x + m.b * z + m.t[0], y + m.t[1], m.c * x + m.d * z + m.t[2]];
+  }
+  dir(v: V2): V2 {
+    const m = this.m;
+    // `+ 0` normalises -0.
+    return [m.a * v[0] + m.b * v[1] + 0, m.c * v[0] + m.d * v[1] + 0];
+  }
+
+  box(mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, solid = true) {
+    const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
+    const min: V3 = [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])];
+    const max: V3 = [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])];
+    if (max[0] - min[0] < 1e-6 || max[1] - min[1] < 1e-6 || max[2] - min[2] < 1e-6) return;
+    this.out.boxes.push({ mat, min, max, solid: solid && mat !== 'deco' });
+  }
+  /** Visual only. */
+  deco(mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+    this.box(mat, x0, y0, z0, x1, y1, z1, false);
+  }
+  /** Invisible collider. */
+  block(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+    this.box('none', x0, y0, z0, x1, y1, z1, true);
+  }
+
+  ramp(x0: number, z0: number, x1: number, z1: number, yLow: number, yHigh: number, up: V2, convey = 0) {
+    const p = this.pt(x0, yLow, z0), q = this.pt(x1, yHigh, z1);
+    this.out.ramps.push({
+      x0: Math.min(p[0], q[0]), x1: Math.max(p[0], q[0]),
+      z0: Math.min(p[2], q[2]), z1: Math.max(p[2], q[2]),
+      up: this.dir(up), yLow: p[1], yHigh: q[1], convey,
+    });
+  }
+
+  /** A flat sign. `normal` is the direction it faces; null = floor decal. */
+  sign(content: SignContent, x: number, y: number, z: number, normal: V2 | null, w: number, h: number, o: SignOpts = {}) {
+    const n = normal ? this.dir(normal) : null;
+    let c = content;
+    if (o.arrow && n) {
+      const a = this.dir(o.arrow);
+      const right = a[0] * n[1] - a[1] * n[0];
+      const toward = a[0] * n[0] + a[1] * n[1];
+      const arrow = right > 0.5 ? 'right' : right < -0.5 ? 'left' : toward > 0.5 ? 'down' : 'up';
+      c = { ...content, arrow } as SignContent;
+    }
+    this.out.signs.push({
+      content: c, pos: this.pt(x, y, z), normal: n, top: this.dir(o.top ?? [0, -1]), w, h, dynamic: !!o.dynamic,
+    });
+  }
+
+  /** Double-sided sign hanging across the x axis (faces ±x), with a thin backing box. */
+  hang(content: SignContent, x: number, y: number, z: number, w: number, h: number, o: SignOpts & { ceil?: number; back?: SignContent; backArrow?: V2 } = {}) {
+    this.deco('flat:#22262b', x - 0.04, y - h / 2 - 0.03, z - w / 2 - 0.03, x + 0.04, y + h / 2 + 0.03, z + w / 2 + 0.03);
+    this.sign(content, x + 0.05, y, z, [1, 0], w, h, o);
+    this.sign(o.back ?? content, x - 0.05, y, z, [-1, 0], w, h, { ...o, arrow: o.backArrow ?? o.arrow });
+    if (o.ceil !== undefined) {
+      for (const dz of [-w / 2 + 0.2, w / 2 - 0.2]) {
+        this.deco('flat:#555a60', x - 0.02, y + h / 2, z + dz - 0.02, x + 0.02, o.ceil, z + dz + 0.02);
+      }
+    }
+  }
+
+  gate(g: Omit<GatePart, 'pos' | 'along'> & { x: number; y: number; z: number; along: V2 }) {
+    const { x, y, z, along, ...rest } = g;
+    this.out.gates.push({ ...rest, pos: this.pt(x, y, z), along: this.dir(along) });
+  }
+
+  zone(kind: Zone['kind'], x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ja: string, en: string) {
+    const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
+    this.out.zones.push({
+      kind, ja, en,
+      min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])],
+      max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])],
+    });
+  }
+
+  mesh(mat: string, shape: MeshPart['shape'], x: number, y: number, z: number, sx: number, sy: number, sz: number) {
+    const r = this.dir([sx, sz]);
+    this.out.meshes.push({ mat, shape, pos: this.pt(x, y, z), size: [Math.abs(r[0]), sy, Math.abs(r[1])] });
+  }
+
+  hole(x0: number, z0: number, x1: number, z1: number) {
+    const p = this.pt(x0, 0, z0), q = this.pt(x1, 0, z1);
+    this.out.holes.push([Math.min(p[0], q[0]), Math.min(p[2], q[2]), Math.max(p[0], q[0]), Math.max(p[2], q[2])]);
+  }
+
+  setSpawn(x: number, y: number, z: number, facing: V2) {
+    const f = this.dir(facing);
+    // Camera yaw: 0 looks down -z; positive turns left.
+    this.out.spawn = { pos: this.pt(x, y, z), yaw: Math.atan2(-f[0], -f[1]) };
+  }
+
+  /**
+   * A horizontal slab with rectangular holes, decomposed into boxes.
+   * Holes are [x0, z0, x1, z1] in the current local coords.
+   */
+  slab(mat: string, x0: number, z0: number, x1: number, z1: number, y0: number, y1: number, holes: number[][], solid = true) {
+    const xs = new Set<number>([x0, x1]), zs = new Set<number>([z0, z1]);
+    for (const h of holes) {
+      if (h[0] > x0 && h[0] < x1) xs.add(h[0]);
+      if (h[2] > x0 && h[2] < x1) xs.add(h[2]);
+      if (h[1] > z0 && h[1] < z1) zs.add(h[1]);
+      if (h[3] > z0 && h[3] < z1) zs.add(h[3]);
+    }
+    const X = [...xs].sort((a, b) => a - b), Z = [...zs].sort((a, b) => a - b);
+    const inHole = (cx: number, cz: number) => holes.some((h) => cx > h[0] && cx < h[2] && cz > h[1] && cz < h[3]);
+    for (let j = 0; j < Z.length - 1; j++) {
+      let start = -1;
+      for (let i = 0; i <= X.length - 1; i++) {
+        const open = i < X.length - 1 && !inHole((X[i] + X[i + 1]) / 2, (Z[j] + Z[j + 1]) / 2);
+        if (open && start < 0) start = i;
+        if (!open && start >= 0) {
+          this.box(mat, X[start], y0, Z[j], X[i], y1, Z[j + 1], solid);
+          start = -1;
+        }
+      }
+    }
+  }
+
+  /** A wall along x (thin in z) from xa to xb, skipping the given [from, to] gaps. */
+  wallX(mat: string, xa: number, xb: number, z0: number, z1: number, y0: number, y1: number, gaps: number[][] = []) {
+    const g = [...gaps].sort((p, q) => p[0] - q[0]);
+    let x = xa;
+    for (const [from, to] of g) {
+      if (from > x) this.box(mat, x, y0, z0, Math.min(from, xb), y1, z1);
+      x = Math.max(x, to);
+    }
+    if (x < xb) this.box(mat, x, y0, z0, xb, y1, z1);
+  }
+}
+
+/** Small deterministic RNG so generated streets are the same on every load. */
+export function rng(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}

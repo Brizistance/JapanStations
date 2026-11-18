@@ -8,30 +8,37 @@ A fictional transit simulator for an invented Japanese city. The city has an Osa
 
 - **Portfolio piece**: polished, runs in a browser, and is shareable.
 - **Personal creative project**: worldbuilding with no deadline.
-- **Learning R3F**: React Three Fiber, drei, and possibly rapier.
+- **Learning R3F**: React Three Fiber and three.js.
 
 ## The four pillars
 
-| Pillar | What it is |
-|---|---|
-| **Map / network** | A stylized Osaka/Tokyo Metro-style route diagram and a geographic view, driven by network data |
-| **Operations sim** | Trains running to a timetable: headways, rush hour, dwell times, and maybe delays and passenger flow |
-| **Station walk-throughs** | First-person exploration of 3D stations: concourse, ticket gates, stairs, platforms |
-| **Ride-along** | Riding between stations, with announcements, departure melodies, and a cab or window view |
+| Pillar | What it is | State |
+|---|---|---|
+| **Map / network** | A stylized route diagram driven by network data | Done for 2 lines. No geographic view yet. |
+| **Operations sim** | Trains running to a timetable: headways, dwell times | Done: fixed headway all day. No rush hour, delays or passenger flow. |
+| **Station walk-throughs** | First-person exploration of 3D stations | Done for all 9 stations, generated from kits + per-station specs. |
+| **Ride-along** | Riding between stations | Done: board, ride, look out of the cab end. No audio yet. |
 
 ## Scope
 
-- **Initial network:** a small city with 3–5 lines, all underground metro, under one metro operator.
-- **Later, maybe:** JR-style elevated or commuter lines, private railways, through-running.
-- **Undecided:** Shinkansen or a major terminal hub.
+- **Now:** 2 lines, 9 stations, one operator (Kawaminato Metro).
+- **Next, in rough order of value:** audio (door chimes, announcements, departure melodies), a third line, passenger NPCs, rush-hour service patterns, working elevators, day/night.
+- **Later, maybe:** JR-style elevated or commuter lines, private railways, through-running, express services.
 - **Out of scope:** real-world data, real station names, and exact replicas of real stations.
 
 ## Roadmap (loose)
 
-1. **Phase 1: Network data + map.** Define the city, lines, and stations as typed data, and render a route diagram.
-2. **Phase 2: Operations sim.** Trains moving along lines on the map according to a timetable.
-3. **Phase 3: First station walk-through.** One hero station that sets the visual standard.
-4. **Phase 4: Ride-along.** Connect stations together with train rides.
-5. **Later:** more stations, more line types, polish, and deployment.
+1. ~~Phase 1: Network data + map.~~ Done.
+2. ~~Phase 2: Operations sim.~~ Done (basic, reliable service).
+3. ~~Phase 3: First station walk-through.~~ Done, and extended to every station.
+4. ~~Phase 4: Ride-along.~~ Done (silent).
+5. **Phase 5: Atmosphere.** Audio, NPCs, better lighting, day/night.
+6. **Phase 6: Growth.** More lines and stations, express/local patterns, a bigger city.
 
-The order can change, but Phase 1 comes first because everything else reads from it.
+## Known limitations (deliberate, for now)
+
+- Service is the same frequency around the clock; there are no first/last trains, delays or incidents.
+- Every station on a line shares one platform type (island on Y, side on N) so the track spacing never has to flare. See network.md.
+- Elevators are scenery. Escalators carry you; ticket gates are open (no fares).
+- No audio, no passengers, always daytime.
+- The city beyond each station's plot is a low-detail backdrop you cannot walk into.
