@@ -149,7 +149,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'panel:#e3eaee', concWall: 'panel:#eef2f4', floor: 'floor:#cdd3d6', pillar: 'panel:#e3eaee',
       accent: '#0f7a8a', mural: { v: 'gulls', color: '#1d5f8a' },
     },
-    surface: { seed: 101, roadHalf: 9, cross: [-74], left: 'dome', right: 'sea', trees: true },
+    surface: { seed: 101, roadHalf: 9, cross: [-74], left: 'dome', right: 'sea', trees: true,
+      quayName: { ja: '鴎浜桟橋', en: 'Kamomehama Pier' },
+    },
   },
   // Cotton wholesalers: unbleached-cotton tile with madder-red pillars. Kikyō Line above, Akanesuji
   // Line crossing below.
@@ -317,7 +319,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'brick:#a4553e', concWall: 'tile:#f0ebe1', floor: 'floor:#cfc8bb', pillar: 'tile:#e9e1d0',
       accent: '#1f3d2e', mural: { v: 'pines', color: '#2b5a43' },
     },
-    surface: { seed: 191, roadHalf: 8, cross: [-66, 62], left: 'campus', right: 'house', trees: true, poles: true },
+    surface: { seed: 191, roadHalf: 8, cross: [-66, 62], left: 'campus', right: 'house', trees: true, poles: true,
+      campusName: { ja: '川湊第一高等学校', en: 'Kawaminato Daiichi High School' },
+    },
   },
   // Southern terminus above the container port: steel-grey panels, gulls, quay and cranes.
   nankodai: {
@@ -329,7 +333,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'panel:#d5dbe0', concWall: 'panel:#e6eaee', floor: 'floor:#c8cdd0', pillar: 'panel:#5c6b78',
       accent: '#d9822b', mural: { v: 'gulls', color: '#33546e' },
     },
-    surface: { seed: 193, roadHalf: 9, cross: [-74], left: 'warehouse', right: 'sea' },
+    surface: { seed: 193, roadHalf: 9, cross: [-74], left: 'warehouse', right: 'sea',
+      quayName: { ja: '南港ふ頭', en: 'Nankō Wharf' },
+    },
   },
   // ── Nagisa Line, west (under the bay) ──
   // Bay business district: glass-blue panels, skyline mural, towers and a promenade.
@@ -342,7 +348,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'panel:#dbe6ee', concWall: 'panel:#eaf0f4', floor: 'floor:#cdd3d8', pillar: 'panel:#9fb3c2',
       accent: '#1673c9', mural: { v: 'skyline', color: '#1673c9' },
     },
-    surface: { seed: 197, roadHalf: 11, cross: [-76], left: 'office', right: 'sea', waterfront: 'promenade', trees: true },
+    surface: { seed: 197, roadHalf: 11, cross: [-76], left: 'office', right: 'sea', waterfront: 'promenade', trees: true,
+      promenadeName: { ja: 'みなとベイウォーク', en: 'Minato Baywalk' },
+    },
   },
   // City hall on the shore: pale granite panels, navy trim, civic plaza (park) opposite.
   'umibe-shiyakusho-mae': {
@@ -401,7 +409,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'panel:#f0f3f4', concWall: 'panel:#f5f7f8', floor: 'floor:#d0d5d7', pillar: 'panel:#f0f3f4',
       accent: '#b7282e', mural: { v: 'gulls', color: '#2c6a96' },
     },
-    surface: { seed: 229, roadHalf: 9, cross: [-74], left: 'apartment', right: 'sea', waterfront: 'promenade', trees: true },
+    surface: { seed: 229, roadHalf: 9, cross: [-74], left: 'apartment', right: 'sea', waterfront: 'promenade', trees: true,
+      promenadeName: { ja: '新鴎シーサイドデッキ', en: 'Shin-Kamome Seaside Deck' },
+    },
   },
   // Seaside park: sea-green tile, wave mural, the park opposite the exit.
   'shiosai-koen': {
@@ -444,7 +454,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'panel:#e4efeb', concWall: 'panel:#eef5f2', floor: 'floor:#cfd3cf', pillar: 'panel:#e4efeb',
       accent: '#2e7d6b', mural: { v: 'pines', color: '#2e7d6b' },
     },
-    surface: { seed: 241, roadHalf: 8, cross: [-70, 66], left: 'apartment', right: 'campus', trees: true },
+    surface: { seed: 241, roadHalf: 8, cross: [-70, 66], left: 'apartment', right: 'campus', trees: true,
+      campusName: { ja: '川湊工科大学', en: 'Kawaminato Institute of Technology' },
+    },
   },
   // Ridge-top terminus below the observatory: midnight tile, star mural.
   hoshimine: {
@@ -472,7 +484,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'panel:#efe9df', concWall: 'panel:#f4f0e9', floor: 'floor:#d2ccc2', pillar: 'panel:#3d5f7a',
       accent: '#ee7b1a', mural: { v: 'waves', color: '#3d7fa8' },
     },
-    surface: { seed: 257, roadHalf: 8, cross: [-74], left: 'apartment', right: 'sea', waterfront: 'promenade', trees: true },
+    surface: { seed: 257, roadHalf: 8, cross: [-74], left: 'apartment', right: 'sea', waterfront: 'promenade', trees: true,
+      promenadeName: { ja: '潮見海浜緑道', en: 'Shiomi Seaside Greenway' },
+    },
   },
   // River-mouth apartments: dusk-rose panels and a sunset like its neighbour's, but later.
   'nishi-yunagi': {
@@ -527,6 +541,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     surface: {
       seed: 277, roadHalf: 7, cross: [-66], left: 'park', right: 'sea', waterfront: 'promenade', trees: true,
       parkName: { ja: '海の森公園', en: 'Umi-no-Mori Park' },
+      promenadeName: { ja: '海の森海岸遊歩道', en: 'Umi-no-Mori Shore Walk' },
     },
   },
 
@@ -541,7 +556,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'tile:#c9d3dc', concWall: 'tile:#e8edf1', floor: 'floor:#cbcfd2', pillar: 'tile:#7b4fa8',
       accent: '#7b4fa8', mural: { v: 'gulls', color: '#4b3a78' },
     },
-    surface: { seed: 281, roadHalf: 9, cross: [-74], left: 'warehouse', right: 'sea', trees: true },
+    surface: { seed: 281, roadHalf: 9, cross: [-74], left: 'warehouse', right: 'sea', trees: true,
+      quayName: { ja: '新潮魚市場', en: 'Shinshio Fish Market' },
+    },
   },
   // Hillside houses and a shrine wood: lilac panels, the line's own bellflower mural.
   higashigaoka: {

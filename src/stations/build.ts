@@ -14,9 +14,10 @@ import {
 import { buildHub } from './hub';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
-import type { ConcInfo } from './looks/types';
+import type { ConcInfo, ExitDoor, StairInfo } from './looks/types';
 import { themeFor } from './themes';
 import { car, surface, tree, PLOT_X, PLOT_Z } from './surface';
+import { wayfindConcourse, wayfindElevated, wayfindPassage } from './wayfinding';
 
 export type Rect = [number, number, number, number];
 const rect = (b: Builder, x0: number, z0: number, x1: number, z1: number): Rect => {
@@ -50,18 +51,29 @@ function sideUnit(b: Builder, yLow: number, yHigh: number, wallZ: number, railsA
 interface StairSet {
   holes: Rect[];
   blocks: [number, number][];
+  /** Where each opening leads, for wayfinding. */
+  info: StairInfo[];
+}
+
+/** Describe a stair opening whose top (concourse) end is at local (topX, topZ), walking down along `down`. */
+function stairInfo(b: Builder, line: LineDef, kind: StairInfo['kind'], platforms: number[], r: Rect, topX: number, topZ: number, down: [number, number]): StairInfo {
+  const t = b.pt(topX, 0, topZ);
+  return { line, kind, platforms, rect: r, top: [t[0], t[2]], down: b.dir(down) };
 }
 
 /** Platform ↔ concourse stairs for either platform type. */
 export function platformStairs(c: Ctx, units: { x: number; up: 1 | -1 }[], pf: number, cf: number, wallZ: number): StairSet {
   const { b, line, station } = c;
-  const out: StairSet = { holes: [], blocks: [] };
+  const out: StairSet = { holes: [], blocks: [], info: [] };
+  const nums = station.platforms[line.id];
   for (const u of units) {
     const xf = u.up > 0 ? { t: [u.x, 0, 0] as [number, number, number] } : { ...MIRROR_X, t: [u.x, 0, 0] as [number, number, number] };
     out.blocks.push([Math.min(u.x, u.x + u.up * STAIR_RUN), Math.max(u.x, u.x + u.up * STAIR_RUN)]);
     if (line.platformType === 'island') {
       b.with(xf, () => {
-        out.holes.push(islandUnit(b, pf, cf, STAIR_RUN, cf));
+        const r = islandUnit(b, pf, cf, STAIR_RUN, cf);
+        out.holes.push(r);
+        out.info.push(stairInfo(b, line, 'platform', [...nums], r, STAIR_RUN + 0.8, 0, [-1, 0]));
         b.hang(
           { k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', arrow: 'up' }, -1.6, pf + 2.72, 0, 3.0, 0.44,
           { ceil: cf - SLAB, back: { k: 'name', station: station.id, line: line.id, arrow: u.up > 0 ? 'left' : 'right' } },
@@ -71,7 +83,10 @@ export function platformStairs(c: Ctx, units: { x: number; up: 1 | -1 }[], pf: n
       for (const s of [1, -1]) {
         b.with({ mz: s < 0 }, () =>
           b.with(xf, () => {
-            out.holes.push(sideUnit(b, pf, cf, wallZ, cf));
+            const r = sideUnit(b, pf, cf, wallZ, cf);
+            out.holes.push(r);
+            // The −z platform is the down track's (first number), +z the up track's.
+            out.info.push(stairInfo(b, line, 'platform', [nums[s > 0 ? 1 : 0]], r, STAIR_RUN + 0.8, wallZ - 1.3, [-1, 0]));
             b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', arrow: 'up' }, -0.2, pf + 2.75, wallZ - 1.3, [-1, 0], 2.3, 0.42);
           }),
         );
@@ -114,6 +129,8 @@ interface ShellOpts {
   ext?: number;
   /** Solid things the composer puts in the concourse itself (lift shaft, kiosk). */
   solids?: Rect[];
+  /** Where each opening in `holes` leads. */
+  stairs: StairInfo[];
 }
 
 /** A station's style with its look's concourse finishes applied. */
@@ -158,9 +175,21 @@ function concourse(c0: Ctx, o: ShellOpts) {
   const paid1 = Math.min(x1, ...o.ends.filter((e) => e.hi).map((e) => e.g));
   const inHole = (x: number, z: number) => o.holes.some((h) => x > h[0] - 0.8 && x < h[2] + 0.8 && z > h[1] - 0.8 && z < h[3] + 0.8);
   const pillars: [number, number][] = [];
+  // Rows beside the stairs, and in a wide hall further rows every 7 m out towards the walls,
+  // kept off the foot and head of every stair.
+  const rows = [o.pillarZ];
+  for (let z = o.pillarZ + 7; cw >= 14 && z <= cw - 3.5; z += 7) rows.push(z);
+  const inRun = (x: number, z: number) => o.holes.some((h) => x > h[0] - 3.4 && x < h[2] + 3.4 && z > h[1] - 0.9 && z < h[3] + 0.9);
   for (let x = x0 + 4; x < x1 - 2; x += 8) {
     if (o.ends.some((e) => Math.abs(x - e.g) < 4)) continue;
-    for (const s of [-1, 1]) if (!inHole(x, s * o.pillarZ)) pillars.push([x, s * o.pillarZ]);
+    for (const pz of rows) {
+      for (const s of [-1, 1]) {
+        const z = s * pz;
+        if (inHole(x, z) || (pz !== o.pillarZ && inRun(x, z))) continue;
+        if ((o.solids ?? []).some((q) => x > q[0] - 1.2 && x < q[2] + 1.2 && z > q[1] - 1.2 && z < q[3] + 1.2)) continue;
+        pillars.push([x, z]);
+      }
+    }
   }
   const tx = (paid0 + paid1) / 2 + 3;
 
@@ -177,47 +206,57 @@ function concourse(c0: Ctx, o: ShellOpts) {
   }
   let seed = 0;
   for (const ch of station.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const exits: ExitDoor[] = o.ends.flatMap((e, end) =>
+    ([-1, 1] as const).map((s): ExitDoor => ({ num: e.nums[s > 0 ? 1 : 0], s, x0: e.hi ? e.g + 9 : e.g - 13, x1: e.hi ? e.g + 13 : e.g - 9, end })));
   const info: ConcInfo = {
     b, station, line: c.line, era: themeFor(c.line.id).opened ?? 2000, style,
     wall: style.concWall, floor: style.floor, pillar: style.pillar, ceil: ceilMat,
     cf, cw, clear: CONC_CLEAR, x0, x1, ends: o.ends.map((e) => ({ g: e.g, hi: e.hi })), paid: [paid0, paid1], holes: o.holes, pillars,
+    stairs: o.stairs, exits,
     free: (a, z0, d, z1, m = 0) =>
       a - m >= x0 && d + m <= x1 && z0 - m >= -cw && z1 + m <= cw && !taken.some((q) => d + m > q[0] && a - m < q[2] && z1 + m > q[1] && z0 - m < q[3]),
     claim: (a, z0, d, z1) => void taken.push([a, z0, d, z1]),
     rand: rng(seed),
   };
 
-  if (look.lights) look.lights(info);
-  else {
-    for (let x = x0 + 2; x + 2.4 < x1; x += 4.2) {
-      for (const z of [-cw + 3, -cw / 3, cw / 3, cw - 3]) ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, cf + CONC_CLEAR);
-    }
-  }
-  for (const [x, z] of pillars) {
-    if (look.pillar) {
-      b.block(x - 0.35, cf, z - 0.35, x + 0.35, cf + CONC_CLEAR, z + 0.35);
-      look.pillar(info, x, z, cf, cf + CONC_CLEAR);
-    } else pillar(b, x, z, cf, cf + CONC_CLEAR, 0.35, style.pillar, c.line.color, cf + 2.27);
-  }
-  // Paid area: posters and the toilets.
-  let v = station.id.length;
-  for (let x = paid0 + 4; x < paid1 - 3 && look.posters !== false; x += 6) {
-    for (const s of [-1, 1] as const) {
-      if (o.ends.some((e) => Math.abs(x - e.g) < 5)) continue;
-      b.sign({ k: 'poster', v: v++ }, x, cf + 1.55, s * (cw - 0.02), [0, -s], 1.25, 1.75);
-    }
-  }
+  // The kit's own parts first, then the wayfinding signs, then the look. The look's
+  // decoration is cut back from every sign (Builder.guard), so signs stay readable.
   b.sign({ k: 'label', text: 'お手洗い', sub: 'Toilets', fg: '#fff', bg: '#14233b' }, tx, cf + 2.55, -cw + 0.03, [0, 1], 1.8, 0.5);
+  b.protect(tx - 1.0, cf + 2.25, -cw, tx + 1.0, cf + 2.85, -cw + 0.3);
   b.sign({ k: 'machine', v: 'door' }, tx - 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
   b.sign({ k: 'machine', v: 'door' }, tx + 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
-
   for (const e of o.ends) {
     b.with(e.hi ? { t: [e.g, 0, 0] } : { ...MIRROR_X, t: [e.g, 0, 0] }, () => unpaidEnd(c, cf, cw, e.nums, lines, o.ext ?? 0));
   }
   b.zone('concourse', x0, cf - 0.3, -cw, x1, cf + CONC_CLEAR, cw, '改札階コンコース', 'Concourse');
   const first = o.ends[0];
   b.setSpawn(first.g + (first.hi ? 11 : -11), cf, 0, [first.hi ? -1 : 1, 0]);
-  look.concourse?.(info);
+  wayfindConcourse(info);
+
+  b.guard(() => {
+    if (look.lights) look.lights(info);
+    else {
+      for (let x = x0 + 2; x + 2.4 < x1; x += 4.2) {
+        for (const z of [-cw + 3, -cw / 3, cw / 3, cw - 3]) ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, cf + CONC_CLEAR);
+      }
+    }
+    for (const [x, z] of pillars) {
+      if (look.pillar) {
+        b.block(x - 0.35, cf, z - 0.35, x + 0.35, cf + CONC_CLEAR, z + 0.35);
+        look.pillar(info, x, z, cf, cf + CONC_CLEAR);
+      } else pillar(b, x, z, cf, cf + CONC_CLEAR, 0.35, style.pillar, c.line.color, cf + 2.27);
+    }
+    // Paid area: posters.
+    let v = station.id.length;
+    for (let x = paid0 + 4; x < paid1 - 3 && look.posters !== false; x += 6) {
+      for (const s of [-1, 1] as const) {
+        if (o.ends.some((e) => Math.abs(x - e.g) < 5)) continue;
+        if (!info.free(x - 0.7, s > 0 ? cw - 0.3 : -cw, x + 0.7, s > 0 ? cw : -cw + 0.3)) continue;
+        b.sign({ k: 'poster', v: v++ }, x, cf + 1.55, s * (cw - 0.02), [0, -s], 1.25, 1.75);
+      }
+    }
+    look.concourse?.(info);
+  });
 }
 
 /** Half width of an ordinary station's concourse: the older the line, the smaller the station. */
@@ -265,7 +304,7 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
     nums: [String(i * 2 + 1), String(i * 2 + 2)] as [string, string],
   }));
   // The street does not move: a narrower concourse reaches the same entrances by longer corridors.
-  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: st.holes, ends, pillarZ: d.island ? Math.min(6, cw - 3.4) : 3.4, ext: STREET_CW - cw, solids });
+  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: st.holes, ends, pillarZ: d.island ? Math.min(6, cw - 3.4) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info });
   surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
 
@@ -321,6 +360,7 @@ function buildInterchange(
 
   // ── Transfer corridors, one outside each side wall, with stairs down to the deeper line ──
   const holes = [...st.holes];
+  const stairsTo: StairInfo[] = [...st.info];
 
   // ── The line beside the primary: its own hall, island stairs up into the concourse ──
   if (beside) {
@@ -335,6 +375,7 @@ function buildInterchange(
         blocks: sk.blocks,
       });
       holes.push(...sk.holes);
+      stairsTo.push(...sk.info);
     });
   }
 
@@ -358,7 +399,9 @@ function buildInterchange(
       rail(b, 3.92, zc0 + 0.02, 4.0, zc0 + 3.78, cf);
       rail(b, 4, zc0 + 3.7, 4 + STAIR_RUN - 1.4, zc0 + 3.78, cf);
       rail(b, 4, zc0 + 0.02, 4 + STAIR_RUN - 1.4, zc0 + 0.1, cf);
-      holes.push(rect(b, 4, zc0 + 0.1, 4 + STAIR_RUN, zc0 + 3.7));
+      const tr = rect(b, 4, zc0 + 0.1, 4 + STAIR_RUN, zc0 + 3.7);
+      holes.push(tr);
+      stairsTo.push(stairInfo(b, o.line, 'transfer', [...o.station.platforms[o.line.id]], tr, 4 + STAIR_RUN + 0.8, zc0 + 1.9, [-1, 0]));
       // Stairs + escalator down to the other line's island platform.
       b.with({ rot: 3, t: [0, 0, zc1 + runY] }, () => islandUnit(b, pfY, pfN, runY, null));
       const shaftTop = pfN + 2.8, shaftBase = pfY + 4.5 + SLAB;
@@ -380,7 +423,11 @@ function buildInterchange(
       }
       b.sign({ k: 'mural', ...style.mural }, -13.5, pfN + 1.35, zc1 - 0.02, [0, -1], 19, 1.9);
       b.zone('passage', -26, pfN - 0.3, zc0, 4 + STAIR_RUN, pfN + 2.8, zc1, 'のりかえ通路', 'Transfer passage');
-      lookFor(station.id).passage?.({ b, station, style: cs, wall, floor: cs.floor, pf: pfN, zc0, zc1, other: o.line });
+      const pi = { b, station, style: cs, wall, floor: cs.floor, pf: pfN, zc0, zc1, other: o.line };
+      b.protect(-1.9, pfN + 2.3, zc1 - 0.3, 1.9, pfN + 2.8, zc1);
+      b.protect(2.5, pfN + 2.2, zc0, 3.5, pfN + 2.8, zc1);
+      wayfindPassage(pi, { primary: line, doorways: atPrimary ? gapXs : [] });
+      b.guard(() => lookFor(station.id).passage?.(pi));
     });
   }
   const [zcP, zcM] = [passages[0].zc1, passages[1].zc1];
@@ -403,7 +450,7 @@ function buildInterchange(
 
   // ── Concourse ──
   concourse(c, {
-    cf, cw, x0: cx0, x1: cx1, holes, pillarZ: 3.2, solids: [[-2.4, -1.4, 2.4, 1.4]],
+    cf, cw, x0: cx0, x1: cx1, holes, pillarZ: 3.2, solids: [[-2.4, -1.4, 2.4, 1.4]], stairs: stairsTo,
     ends: [
       { g: 29, hi: true, nums: ['1', '2'] },
       { g: -29, hi: false, nums: ['3', '4'] },
@@ -549,6 +596,12 @@ function buildElevated(c: Ctx, spec: ElevatedSpec, under?: { ctx: Ctx; dir: [num
     });
   }
   b.zone('concourse', cx0, 0, -cw, cx1, deckUnder, cw, '改札階コンコース', 'Concourse (street level)');
+  wayfindElevated({
+    b, station, line, style, fl, top: deckUnder, cw, x0: cx0, x1: cx1, gateX: -4,
+    stairs: ([1, -1] as const).map((s) => ({ x: sx0, z: s * (d.wallZ - 1.3), platform: station.platforms[line.id][s > 0 ? 1 : 0], dir: s > 0 ? 'up' as const : 'down' as const })),
+    under: under && floorHole[0] ? { line: under.ctx.line, platforms: [...station.platforms[under.ctx.line.id]], hole: floorHole[0] } : undefined,
+    entrances: [{ x: -15.5, z: cw, n: [0, 1], w: 13 }, { x: cx0, z: 0, n: [-1, 0], w: 6 }],
+  });
   b.setSpawn(-17, fl, 2, [1, 0]);
 
   // ── Suburban surroundings ──

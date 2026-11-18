@@ -4,7 +4,12 @@ import { LINES, OPERATOR, STATIONS, diagramRuns, lineById, linesAt, stationById,
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
 import { nextArrivals, nextDepartures, trainStateAt } from '../sim/timetable';
-import type { Arrow, SignContent } from './content';
+import {
+  ELEVATED, KIND, PLACE, PLOT, STREET, concourseY, mezzanineY, stationExits, stationStreet,
+  type Named, type PlanRect, type StationExit, type StationStreet,
+} from '../stations/exits';
+import type { BlockStyle } from '../stations/surface';
+import type { Arrow, Picto, SignContent } from './content';
 
 export const FONT = '"Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans JP",system-ui,sans-serif';
 const NAVY = '#14233b';
@@ -1000,6 +1005,794 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
   }
 }
 
+// ───────────────────────── wayfinding ─────────────────────────
+
+const YELLOW = '#ffd100';
+
+/** Width of s at px (measured large, so the 4 px font floor does not distort it). */
+function measure(ctx: Ctx, s: string, px: number, weight = 700) {
+  font(ctx, 100, weight);
+  return (ctx.measureText(s).width * px) / 100;
+}
+
+/** Exit number in a rounded square, as on Japanese exit signs; '' is an unnumbered entrance. */
+function exitBadge(ctx: Ctx, x: number, y: number, s: number, num: string, fg = YELLOW, bg = '#111') {
+  rr(ctx, x, y, s, s, s * 0.16);
+  ctx.fillStyle = bg;
+  ctx.fill();
+  if (num) text(ctx, num, x + s / 2, y + s * 0.53, s * 0.74, { align: 'center', color: fg, weight: 800, maxW: s * 0.84 });
+  else {
+    text(ctx, '出入口', x + s / 2, y + s * 0.4, s * 0.28, { align: 'center', color: fg, weight: 800, maxW: s * 0.86 });
+    text(ctx, 'Entrance', x + s / 2, y + s * 0.73, s * 0.17, { align: 'center', color: fg, weight: 600, maxW: s * 0.86 });
+  }
+}
+
+/**
+ * Landmarks in a box, as many as stay legible: each one Japanese over English, or all of them
+ * run together on one Japanese and one English line, whichever lets the text be larger.
+ */
+function landmarks(ctx: Ctx, near: Named[], x: number, y: number, w: number, h: number, fg: string, sub: string) {
+  if (!near.length || w <= 0 || h <= 0) return;
+  // Text may be squeezed to 85 % of its width before it has to get smaller.
+  const jaFit = (s: string) => w / (measure(ctx, s, 1, 800) * 0.85);
+  const enFit = (s: string) => w / (measure(ctx, s, 1, 600) * 0.85);
+  const size = (k: number) => {
+    const list = near.slice(0, k);
+    const uS = Math.min(h / (k * 1.9), ...list.map((n) => jaFit(n.ja)));
+    const uJ = Math.min(h / 1.9, jaFit(list.map((n) => n.ja).join('・')));
+    return uJ > uS * 1.15 ? { u: uJ, joined: true } : { u: uS, joined: false };
+  };
+  // More landmarks only while the text stays above 42 % of the one-landmark size (and a fifth of
+  // the box): a low strip shows just the first, a wall board all of them.
+  const minU = Math.max(9, h * 0.2, size(1).u * 0.42);
+  let k = near.length, u = 0, joined = false;
+  for (; k >= 1; k--) {
+    ({ u, joined } = size(k));
+    if (u >= minU || k === 1) break;
+  }
+  const list = near.slice(0, k);
+  const lines = joined ? [{ ja: list.map((n) => n.ja).join('・'), en: list.map((n) => n.en).join(' · ') }] : list;
+  const top = y + (h - lines.length * 1.9 * u) / 2;
+  lines.forEach((n, i) => {
+    const y0 = top + i * 1.9 * u;
+    const e = Math.min(u * 0.56, enFit(n.en));
+    text(ctx, n.ja, x, y0 + u * 0.6, u, { color: fg, weight: 800, maxW: w });
+    text(ctx, n.en, x, y0 + u * 1.15 + u * 0.4, e, { color: sub, weight: 600, maxW: w });
+  });
+}
+
+interface RowColours {
+  fg: string;
+  sub: string;
+  badgeFg: string;
+  badgeBg: string;
+  rule: string;
+}
+
+/** Exits laid out in a grid of cells (badge + landmarks) whose shape suits the box. */
+function exitRows(ctx: Ctx, exits: StationExit[], x: number, y: number, w: number, h: number, col: RowColours) {
+  const n = exits.length;
+  if (!n) return;
+  // Columns: the count that gives the largest cell at about 3.2 : 1.
+  let cols = 1, best = -1;
+  for (let k = 1; k <= n; k++) {
+    const score = Math.min(h / Math.ceil(n / k), w / k / 3.2);
+    if (score > best + 1e-6) [cols, best] = [k, score];
+  }
+  const rows = Math.ceil(n / cols), cw = w / cols, ch = h / rows;
+  ctx.fillStyle = col.rule;
+  const t = Math.max(1, Math.min(cw, ch) * 0.012);
+  for (let r = 1; r < rows; r++) ctx.fillRect(x, y + r * ch - t / 2, w, t);
+  for (let k = 1; k < cols; k++) ctx.fillRect(x + k * cw - t / 2, y, t, h);
+  exits.forEach((e, i) => {
+    const cx = x + (i % cols) * cw, cy = y + Math.floor(i / cols) * ch;
+    const pad = Math.min(ch, cw) * 0.08;
+    const bs = Math.min(ch * 0.8, cw * 0.24);
+    exitBadge(ctx, cx + pad, cy + (ch - bs) / 2, bs, e.num, col.badgeFg, col.badgeBg);
+    const tx = cx + pad + bs * 1.22;
+    landmarks(ctx, e.near, tx, cy + pad, cx + cw - pad - tx, ch - 2 * pad, col.fg, col.sub);
+  });
+}
+
+function drawExits(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'exits' }>) {
+  ctx.fillStyle = YELLOW;
+  ctx.fillRect(0, 0, W, H);
+  const exits = stationExits(c.station).filter((e) => !c.only || c.only.includes(e.num));
+  const p = Math.min(W, H) * 0.05;
+  let x0 = p, x1 = W - p, y0 = p;
+  if (H >= W * 0.3) {
+    // A board tall enough for a header: 出口案内 Exit information, and the arrow beside it.
+    const hh = Math.min(H * 0.13, W * 0.11);
+    const w = text(ctx, '出口案内', p, p + hh * 0.48, hh * 0.62, { weight: 800, maxW: W * 0.5 });
+    text(ctx, 'Exit information', p + w + hh * 0.3, p + hh * 0.56, hh * 0.32, { weight: 600, color: '#222', maxW: Math.max(1, W - 2 * p - w - hh * (c.arrow ? 1.4 : 0.3)) });
+    if (c.arrow) arrow(ctx, W - p - hh * 0.45, p + hh * 0.48, hh * 0.8, c.arrow, '#111');
+    ctx.fillStyle = '#111';
+    ctx.fillRect(p, p + hh, W - 2 * p, Math.max(2, hh * 0.05));
+    y0 = p + hh * 1.2;
+  } else if (c.arrow) {
+    // A strip: the arrow in its own column at the end it points to (left for up and down).
+    const a = Math.min(H * 0.8, W * 0.15);
+    if (c.arrow === 'right') {
+      arrow(ctx, W - p - a / 2, H / 2, a, 'right', '#111');
+      x1 -= a + p;
+    } else {
+      arrow(ctx, p + a / 2, H / 2, a, c.arrow, '#111');
+      x0 += a + p;
+    }
+  }
+  if (!exits.length) {
+    text(ctx, '出口', (x0 + x1) / 2, y0 + (H - p - y0) * 0.4, (H - p - y0) * 0.45, { align: 'center', weight: 800, maxW: x1 - x0 });
+    text(ctx, 'Exit', (x0 + x1) / 2, y0 + (H - p - y0) * 0.8, (H - p - y0) * 0.22, { align: 'center', weight: 600, maxW: x1 - x0 });
+    return;
+  }
+  exitRows(ctx, exits, x0, y0, x1 - x0, H - p - y0, { fg: '#111', sub: '#2a2a2a', badgeFg: YELLOW, badgeBg: '#111', rule: 'rgba(0,0,0,0.35)' });
+}
+
+// ── Pictograms ──
+
+const PICTO_CAPTION: Record<Picto, Named> = {
+  toilet: { ja: 'お手洗い', en: 'Toilets' },
+  lift: { ja: 'エレベーター', en: 'Lift' },
+  locker: { ja: 'コインロッカー', en: 'Coin lockers' },
+  tickets: { ja: 'きっぷうりば', en: 'Tickets' },
+  office: { ja: '駅事務室', en: 'Station office' },
+  info: { ja: '案内所', en: 'Information' },
+  stairs: { ja: '階段', en: 'Stairs' },
+  escalator: { ja: 'エスカレーター', en: 'Escalator' },
+  bus: { ja: 'バスのりば', en: 'Buses' },
+  taxi: { ja: 'タクシーのりば', en: 'Taxis' },
+};
+
+/** A standing figure in the public-sign style: head, torso (or dress), arms, legs. */
+function figure(ctx: Ctx, cx: number, top: number, h: number, dress = false) {
+  ctx.beginPath();
+  ctx.arc(cx, top + h * 0.1, h * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  if (dress) {
+    ctx.beginPath();
+    ctx.moveTo(cx - h * 0.11, top + h * 0.24);
+    ctx.lineTo(cx + h * 0.11, top + h * 0.24);
+    ctx.lineTo(cx + h * 0.21, top + h * 0.66);
+    ctx.lineTo(cx - h * 0.21, top + h * 0.66);
+    ctx.closePath();
+    ctx.fill();
+    for (const s of [-1, 1]) ctx.fillRect(cx + s * h * 0.075 - h * 0.035, top + h * 0.64, h * 0.07, h * 0.36);
+  } else {
+    rr(ctx, cx - h * 0.13, top + h * 0.23, h * 0.26, h * 0.4, h * 0.05);
+    ctx.fill();
+    for (const s of [-1, 1]) ctx.fillRect(cx + s * h * 0.065 - h * 0.05, top + h * 0.6, h * 0.1, h * 0.4);
+  }
+  for (const s of [-1, 1]) {
+    rr(ctx, cx + s * (dress ? 0.16 : 0.19) * h - h * 0.035, top + h * 0.25, h * 0.07, h * 0.32, h * 0.03);
+    ctx.fill();
+  }
+}
+
+/** One pictogram: white symbol on a navy square at (x, y), size s. Symbols drawn on a 100-unit grid. */
+function pictogram(ctx: Ctx, v: Picto, x: number, y: number, s: number) {
+  rr(ctx, x, y, s, s, s * 0.08);
+  ctx.fillStyle = NAVY;
+  ctx.fill();
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s / 100, s / 100);
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#fff';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  const poly = (pts: number[][]) => {
+    ctx.beginPath();
+    pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+    ctx.closePath();
+    ctx.fill();
+  };
+  switch (v) {
+    case 'toilet':
+      figure(ctx, 29, 16, 70);
+      figure(ctx, 71, 16, 70, true);
+      ctx.fillRect(48.5, 14, 3, 74);
+      break;
+    case 'lift':
+      ctx.lineWidth = 5;
+      rr(ctx, 22, 30, 56, 60, 4);
+      ctx.stroke();
+      figure(ctx, 50, 40, 44);
+      poly([[36, 12], [44, 24], [28, 24]]);
+      poly([[56, 12], [72, 12], [64, 24]]);
+      break;
+    case 'locker':
+      rr(ctx, 20, 14, 60, 74, 3);
+      ctx.fill();
+      ctx.fillStyle = NAVY;
+      ctx.fillRect(48.5, 18, 3, 66);
+      for (const yy of [38, 62]) ctx.fillRect(24, yy, 52, 3);
+      for (const [kx, ky] of [[42, 28], [72, 28], [42, 52], [72, 52], [42, 76], [72, 76]]) {
+        ctx.beginPath();
+        ctx.arc(kx, ky - 2, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(kx - 1, ky - 1, 2, 5);
+      }
+      break;
+    case 'tickets':
+      ctx.save();
+      ctx.translate(50, 52);
+      ctx.rotate(-0.22);
+      rr(ctx, -34, -20, 68, 40, 4);
+      ctx.fill();
+      ctx.fillStyle = NAVY;
+      ctx.fillRect(-34, 8, 68, 4);
+      text(ctx, '¥', 0, -4, 30, { align: 'center', color: NAVY, weight: 800 });
+      ctx.restore();
+      ctx.fillStyle = '#fff';
+      poly([[18, 90], [30, 70], [44, 74], [36, 90]]); // the hand taking it
+      break;
+    case 'office':
+      // Staff member, cap on, behind the counter window.
+      ctx.lineWidth = 4;
+      ctx.strokeRect(12, 12, 76, 56);
+      figure(ctx, 50, 22, 70);
+      ctx.fillRect(38, 20, 24, 5);
+      ctx.fillRect(34, 24, 32, 3);
+      ctx.fillRect(8, 66, 84, 8);
+      ctx.fillStyle = NAVY;
+      ctx.fillRect(10, 74, 80, 26);
+      break;
+    case 'info':
+      ctx.beginPath();
+      ctx.arc(50, 24, 10, 0, Math.PI * 2);
+      ctx.fill();
+      rr(ctx, 41, 40, 18, 44, 2);
+      ctx.fill();
+      ctx.fillRect(33, 40, 12, 7);
+      ctx.fillRect(33, 79, 34, 7);
+      break;
+    case 'stairs': {
+      const pts: number[][] = [[12, 88]];
+      for (let i = 0; i < 5; i++) pts.push([12 + i * 15, 76 - i * 12], [27 + i * 15, 76 - i * 12]);
+      pts.push([88, 28], [88, 88]);
+      poly(pts);
+      figure(ctx, 52, 8, 46);
+      break;
+    }
+    case 'escalator':
+      poly([[8, 90], [30, 90], [80, 44], [94, 44], [94, 30], [72, 30], [22, 76], [8, 76]]);
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(14, 64);
+      ctx.lineTo(70, 18);
+      ctx.stroke();
+      figure(ctx, 50, 14, 42);
+      break;
+    case 'bus':
+      rr(ctx, 20, 12, 60, 70, 8);
+      ctx.fill();
+      ctx.fillRect(14, 30, 6, 14);
+      ctx.fillRect(80, 30, 6, 14);
+      for (const wx of [24, 64]) ctx.fillRect(wx, 82, 12, 10);
+      ctx.fillStyle = NAVY;
+      ctx.fillRect(28, 18, 44, 6);
+      ctx.fillRect(26, 28, 48, 26);
+      for (const hx of [31, 69]) {
+        ctx.beginPath();
+        ctx.arc(hx, 68, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    case 'taxi':
+      rr(ctx, 38, 14, 24, 10, 2);
+      ctx.fill();
+      poly([[30, 30], [70, 30], [80, 50], [20, 50]]);
+      rr(ctx, 12, 48, 76, 26, 6);
+      ctx.fill();
+      for (const wx of [18, 70]) ctx.fillRect(wx, 74, 12, 12);
+      ctx.fillStyle = NAVY;
+      poly([[34, 34], [66, 34], [72, 47], [28, 47]]);
+      for (const hx of [24, 76]) {
+        ctx.beginPath();
+        ctx.arc(hx, 60, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      text(ctx, 'TAXI', 50, 19.5, 7, { align: 'center', color: NAVY, weight: 800, maxW: 21 });
+      break;
+  }
+  ctx.restore();
+}
+
+function drawPicto(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'picto' }>) {
+  ctx.fillStyle = '#fbfbf8';
+  ctx.fillRect(0, 0, W, H);
+  const cap = PICTO_CAPTION[c.v];
+  if (H > W * 1.15) {
+    // Tall: symbol on top, then the caption, then the arrow.
+    const p = W * 0.07, s = W - 2 * p;
+    let y = p;
+    pictogram(ctx, c.v, p, y, s);
+    y += s + p;
+    const rest = H - p - y;
+    const capH = c.label ? (c.arrow ? rest * 0.55 : rest) : 0;
+    if (c.label && capH > 0) {
+      text(ctx, cap.ja, W / 2, y + capH * 0.35, Math.min(capH * 0.42, W * 0.2), { align: 'center', weight: 800, maxW: W - 2 * p });
+      text(ctx, cap.en, W / 2, y + capH * 0.78, Math.min(capH * 0.24, W * 0.12), { align: 'center', weight: 600, color: '#333', maxW: W - 2 * p });
+    }
+    if (c.arrow && rest - capH > 0) {
+      const a = Math.min(rest - capH, s) * 0.8;
+      arrow(ctx, W / 2, y + capH + (rest - capH) / 2, a, c.arrow, NAVY);
+    }
+    return;
+  }
+  // Wide or square: [arrow] symbol [caption] [arrow]. On a near-square sign with an arrow the
+  // symbol shrinks to make room for it.
+  const p = H * 0.07;
+  const s = c.arrow ? Math.min(H - 2 * p, (W - 3 * p) / 1.75) : H - 2 * p;
+  let x0 = p, x1 = W - p;
+  if (c.arrow) {
+    const a = s * 0.75;
+    if (c.arrow === 'left') {
+      arrow(ctx, x0 + a / 2, H / 2, a, 'left', NAVY);
+      x0 += a + p;
+    } else {
+      arrow(ctx, x1 - a / 2, H / 2, a, c.arrow, NAVY);
+      x1 -= a + p;
+    }
+  }
+  const caption = c.label && x1 - x0 - s > s * 0.8;
+  // Without a caption the symbol sits in the middle of the room it has.
+  const sx = caption ? x0 : (x0 + x1 - s) / 2;
+  pictogram(ctx, c.v, sx, (H - s) / 2, s);
+  if (caption) {
+    const tx = sx + s + p * 1.5, tw = x1 - tx;
+    text(ctx, cap.ja, tx, H * 0.4, Math.min(s * 0.4, tw / Math.max(1, [...cap.ja].length) / 0.85), { weight: 800, maxW: tw });
+    text(ctx, cap.en, tx, H * 0.74, s * 0.22, { weight: 600, color: '#333', maxW: tw });
+  }
+}
+
+// ── Station map (構内図) ──
+
+interface MapLevel {
+  y: number;
+  kind: 'street' | 'concourse' | 'mezz' | 'platform';
+  /** Lines sharing one set of platforms at this level (Sumire at Shiokaze's) form a group. */
+  groups: { lines: LineDef[]; platforms: number[] }[];
+}
+
+/** The station's levels from the data, top to bottom. */
+function stationLevels(st: StationDef): MapLevel[] {
+  const elevated = stationStreet(st.id).kind === 'elevated';
+  const levels: MapLevel[] = [{ y: elevated ? 0.2 : 0.15, kind: 'street', groups: [] }];
+  if (!elevated) levels.push({ y: concourseY(st.id), kind: 'concourse', groups: [] });
+  const mz = mezzanineY(st.id);
+  if (mz !== null) levels.push({ y: mz, kind: 'mezz', groups: [] });
+  for (const l of linesAt(st.id)) {
+    const y = Math.round((l.railY[l.stops.indexOf(st.id)] + 1.1) * 10) / 10;
+    let lv = levels.find((q) => q.kind === 'platform' && Math.abs(q.y - y) < 0.05);
+    if (!lv) levels.push((lv = { y, kind: 'platform', groups: [] }));
+    const pf = [...st.platforms[l.id]];
+    const g = lv.groups.find((q) => q.platforms.join() === pf.join());
+    if (g) g.lines.push(l);
+    else lv.groups.push({ lines: [l], platforms: pf });
+  }
+  return levels.sort((a, b) => b.y - a.y);
+}
+
+/** Title bar shared by the station and area maps. */
+function mapTitle(ctx: Ctx, W: number, th: number, ja: string, en: string, st: StationDef) {
+  ctx.fillStyle = '#0d3b66';
+  ctx.fillRect(0, 0, W, th);
+  const p = th * 0.2;
+  logo(ctx, p + th * 0.3, th / 2, th * 0.3, '#fff', '#0d3b66');
+  // Station numbers at the right; the title and the station name share what is left between.
+  const ls = linesAt(st.id), bs = th * 0.66;
+  let r = W - p;
+  for (const l of [...ls].reverse()) {
+    r -= bs;
+    numBadge(ctx, r, (th - bs) / 2, bs, st.numbers[l.id], l.color);
+    r -= bs * 0.12;
+  }
+  let x = p + th * 0.75;
+  const room = Math.max(1, r - p - x - th * 0.3);
+  const jaW = measure(ctx, ja, th * 0.48, 800), enW = measure(ctx, en, th * 0.26, 600);
+  const nameNat = Math.max(measure(ctx, `${st.nameJa}駅`, th * 0.4, 800), measure(ctx, `${st.nameRomaji} Sta.`, th * 0.22, 600));
+  const k = Math.min(1, room / (jaW + th * 0.2 + enW + nameNat));
+  x += text(ctx, ja, x, th * 0.5, th * 0.48, { color: '#fff', weight: 800, maxW: Math.max(1, jaW * k) }) + th * 0.2 * k;
+  text(ctx, en, x, th * 0.56, th * 0.26, { color: '#dfe8f3', weight: 600, maxW: Math.max(1, enW * k) });
+  const nameW = Math.max(1, nameNat * k);
+  text(ctx, `${st.nameJa}駅`, r - p, th * 0.38, th * 0.4, { color: '#fff', weight: 800, align: 'right', maxW: nameW });
+  text(ctx, `${st.nameRomaji} Sta.`, r - p, th * 0.76, th * 0.22, { color: '#dfe8f3', weight: 600, align: 'right', maxW: nameW });
+}
+
+/** Schematic stair between two levels: a flight of steps rising left to right. */
+function stairGlyph(ctx: Ctx, x: number, yTop: number, yBot: number, w: number) {
+  const n = 5, dx = w / n, dy = (yBot - yTop) / n;
+  ctx.strokeStyle = '#4b4f55';
+  ctx.lineWidth = Math.max(1.5, w * 0.06);
+  ctx.beginPath();
+  ctx.moveTo(x, yBot);
+  for (let i = 0; i < n; i++) {
+    ctx.lineTo(x + i * dx, yBot - (i + 1) * dy);
+    ctx.lineTo(x + (i + 1) * dx, yBot - (i + 1) * dy);
+  }
+  ctx.stroke();
+}
+
+/** Schematic escalator: a sloping band with a chevron. */
+function escalatorGlyph(ctx: Ctx, x: number, yTop: number, yBot: number, w: number) {
+  const t = Math.max(3, w * 0.16);
+  ctx.fillStyle = '#7b8189';
+  ctx.beginPath();
+  ctx.moveTo(x, yBot);
+  ctx.lineTo(x + w * 0.2, yBot);
+  ctx.lineTo(x + w, yTop + t);
+  ctx.lineTo(x + w, yTop);
+  ctx.lineTo(x + w * 0.8, yTop);
+  ctx.lineTo(x, yBot - t);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawStationMap(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'stationmap' }>) {
+  const st = stationById(c.station);
+  ctx.fillStyle = '#f7f7f2';
+  ctx.fillRect(0, 0, W, H);
+  const th = Math.min(H * 0.12, W * 0.09);
+  mapTitle(ctx, W, th, '構内図', 'Station map', st);
+  const levels = stationLevels(st);
+  const exits = stationExits(st.id);
+  const elevated = stationStreet(st.id).kind === 'elevated';
+  const p = Math.min(W, H) * 0.035;
+  const top = th + p, rowH = (H - p - top) / levels.length;
+  const lw = Math.min(W * 0.3, rowH * 3.2), dx0 = p + lw + p, dx1 = W - p, dw = dx1 - dx0;
+  const bandTop = (i: number) => top + i * rowH + rowH * 0.3, bh = rowH * 0.44;
+  const above = levels.filter((l) => l.y > 1).length;
+  let below = 0;
+  // Exits spread along the street band (its first third when the gates share it); the stairs to
+  // them drawn under each.
+  const span = elevated ? 0.34 : 1;
+  const exitX = (i: number) => dx0 + dw * span * ((i + 0.5) / exits.length);
+
+  levels.forEach((lv, i) => {
+    const by = bandTop(i), cy = by + bh / 2;
+    // Floor name.
+    let code: string, ja: string, en: string;
+    if (lv.kind === 'street') [code, ja, en] = elevated ? ['1F', '1階 改札・出入口', 'Street level'] : ['GL', '地上', 'Street level'];
+    else if (lv.y > 1) [code, ja, en] = [`${above - i + 1}F`, `${above - i + 1}階 ホーム`, 'Platforms'];
+    else {
+      below++;
+      [code, ja, en] = lv.kind === 'concourse' ? [`B${below}`, `地下${below}階 改札階`, 'Concourse']
+        : lv.kind === 'mezz' ? [`B${below}`, `地下${below}階 のりかえ通路`, 'Transfer passage'] : [`B${below}`, `地下${below}階 ホーム`, 'Platforms'];
+    }
+    const cs = Math.min(bh, lw * 0.3);
+    rr(ctx, p, cy - cs / 2, cs * 1.1, cs, cs * 0.12);
+    ctx.fillStyle = '#3b4046';
+    ctx.fill();
+    text(ctx, code, p + cs * 0.55, cy, cs * 0.5, { align: 'center', color: '#fff', weight: 800, maxW: cs });
+    const lx = p + cs * 1.3, lwText = lw - cs * 1.3;
+    text(ctx, ja, lx, cy - bh * 0.17, Math.min(bh * 0.32, rowH * 0.2), { weight: 800, maxW: lwText });
+    text(ctx, en, lx, cy + bh * 0.24, Math.min(bh * 0.2, rowH * 0.13), { weight: 600, color: '#444', maxW: lwText });
+
+    // The level itself.
+    if (lv.kind === 'platform') {
+      const gw = dw / lv.groups.length;
+      lv.groups.forEach((g, k) => {
+        const gx = dx0 + k * gw + (k ? p * 0.3 : 0), w = gw - (lv.groups.length > 1 ? p * 0.3 : 0);
+        ctx.fillStyle = g.lines[0].color;
+        ctx.fillRect(gx, by, w, bh);
+        const r = bh * 0.3;
+        let x = gx + bh * 0.2;
+        for (const l of g.lines) {
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(x + r, cy, r * 1.12, 0, Math.PI * 2);
+          ctx.fill();
+          lineBadge(ctx, x + r, cy, r, l);
+          x += r * 2.4;
+        }
+        const tw = gx + w - x - bh * 0.2;
+        const pf = `${g.platforms.join('・')}番線`;
+        if (tw < measure(ctx, pf, bh * 0.36, 800) * 0.8) {
+          // A narrow band (three lines side by side at the hub): the badge names the line, so
+          // just the platform numbers, as large as fit.
+          text(ctx, pf, x, cy, Math.min(bh * 0.42, tw / (measure(ctx, pf, 1, 800) * 0.85)), { color: '#fff', weight: 800, maxW: tw });
+        } else {
+          text(ctx, pf, x, cy - bh * 0.17, bh * 0.36, { color: '#fff', weight: 800, maxW: tw });
+          text(ctx, `${g.lines.map((l) => l.nameJa).join('・')}  ${g.lines.map((l) => l.nameEn).join(' / ')}`, x, cy + bh * 0.25, bh * 0.2, { color: '#fff', weight: 600, maxW: tw });
+        }
+      });
+    } else {
+      ctx.fillStyle = lv.kind === 'street' ? '#e2e9da' : lv.kind === 'mezz' ? '#ece8df' : '#e3eaf2';
+      ctx.fillRect(dx0, by, dw, bh);
+      ctx.strokeStyle = '#9aa0a6';
+      ctx.lineWidth = Math.max(1, bh * 0.03);
+      ctx.strokeRect(dx0, by, dw, bh);
+      if (lv.kind === 'street') {
+        const bs = Math.min(bh * 0.78, ((dw * span) / exits.length) * 0.8);
+        exits.forEach((e, k) => exitBadge(ctx, exitX(k) - bs / 2, cy - bs / 2, bs, e.num, '#111', YELLOW));
+      }
+      if (lv.kind === 'mezz') text(ctx, 'のりかえ通路  Transfer passage', dx0 + dw / 2, cy, bh * 0.3, { align: 'center', weight: 700, maxW: dw * 0.9 });
+      if (lv.kind === 'concourse' || (lv.kind === 'street' && elevated)) {
+        // Ticket gates, and You are here on the unpaid side of them.
+        const gx = dx0 + dw * (elevated ? 0.74 : 0.5);
+        ctx.fillStyle = '#3b4046';
+        for (let k = -2; k <= 2; k++) ctx.fillRect(gx + k * bh * 0.14 - bh * 0.025, by + bh * 0.15, bh * 0.05, bh * 0.4);
+        text(ctx, '改札  Gates', gx, by + bh * 0.78, bh * 0.2, { align: 'center', weight: 700, maxW: dw * 0.25 });
+        const hx = dx0 + dw * (elevated ? 0.48 : 0.16), hr = bh * 0.16;
+        ctx.fillStyle = '#e02020';
+        ctx.beginPath();
+        ctx.arc(hx, by + bh * 0.32, hr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(hx, by + bh * 0.32, hr * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        text(ctx, '現在地  You are here', hx, by + bh * 0.76, bh * 0.2, { align: 'center', color: '#e02020', weight: 800, maxW: dw * (elevated ? 0.2 : 0.3) });
+      }
+    }
+
+    // Links to the level below: exit stairs from the street, stairs (and escalators to an
+    // island platform or the mezzanine) between the others.
+    const next = levels[i + 1];
+    if (!next) return;
+    const yTop = by + bh, yBot = bandTop(i + 1), gap = yBot - yTop;
+    if (gap < 4) return;
+    const gw = Math.min(gap * 1.3, dw * 0.08);
+    if (lv.kind === 'street' && next.kind === 'concourse') {
+      exits.forEach((_, k) => stairGlyph(ctx, exitX(k) - gw / 2, yTop + gap * 0.12, yBot - gap * 0.12, gw));
+      return;
+    }
+    // Island platforms and the mezzanine are reached by stair + escalator; an elevated station's
+    // platforms by stairs only.
+    const esc = next.kind === 'mezz' || lv.kind === 'mezz' || (!elevated && next.groups.some((g) => g.lines.some((l) => l.platformType === 'island')));
+    const mx = dx0 + dw * 0.5;
+    stairGlyph(ctx, mx - gw * (esc ? 1.2 : 0.5), yTop + gap * 0.12, yBot - gap * 0.12, gw);
+    if (esc) escalatorGlyph(ctx, mx + gw * 0.2, yTop + gap * 0.12, yBot - gap * 0.12, gw);
+  });
+}
+
+// ── Area map (周辺図) ──
+
+const BLOCK_FILL: Record<BlockStyle, string> = {
+  office: '#cdd6df', mixed: '#e6dccb', neon: '#ddc9d4', apartment: '#e9e0cc', house: '#efe6d2', oldtown: '#dfcfb0',
+  godown: '#e6e3dc', warehouse: '#d9c2b4', campus: '#e2cfc0', park: '#c4e2b4', sea: '#e3dfd3', dome: '#dde9ec',
+};
+const WATER = '#a9d1ea', ROAD = '#ffffff', ROAD_EDGE = '#c4bfb2';
+
+/** Canvas rectangle [x0, y0, x1, y1] the map is drawn in. */
+type Box = [number, number, number, number];
+
+const hits = (a: Box, b: Box) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+
+/**
+ * A map label: Japanese over English on a translucent white backing, centred on (x, y), kept
+ * inside the map and nudged up or down off anything already placed. Left out if there is no
+ * room (labels go in order of importance).
+ */
+function mapLabel(ctx: Ctx, n: Named, x0: number, y0: number, px: number, maxW: number, box: Box, placed: Box[], color = '#111') {
+  const w = Math.min(maxW, box[2] - box[0] - px, Math.max(measure(ctx, n.ja, px, 800), measure(ctx, n.en, px * 0.6, 600)));
+  const x = Math.min(Math.max(x0, box[0] + w / 2 + px * 0.3), box[2] - w / 2 - px * 0.3);
+  const at = (dy: number): [number, Box] => {
+    const y = Math.min(Math.max(y0 + dy, box[1] + px * 0.8), box[3] - px * 1.05);
+    return [y, [x - w / 2 - px * 0.25, y - px * 0.75, x + w / 2 + px * 0.25, y + px]];
+  };
+  const fit = [0, -1, 1, -2, 2].map((k) => at(k * px * 1.9)).find(([, b]) => !placed.some((q) => hits(q, b)));
+  if (!fit) return;
+  const [y, b] = fit;
+  placed.push(b);
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  rr(ctx, x - w / 2 - px * 0.25, y - px * 0.75, w + px * 0.5, px * 1.75, px * 0.2);
+  ctx.fill();
+  text(ctx, n.ja, x, y - px * 0.12, px, { align: 'center', color, weight: 800, maxW: w });
+  text(ctx, n.en, x, y + px * 0.68, px * 0.6, { align: 'center', color: '#333', weight: 600, maxW: w });
+}
+
+function drawAreaMap(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'areamap' }>) {
+  const st = stationById(c.station);
+  ctx.fillStyle = '#f7f7f2';
+  ctx.fillRect(0, 0, W, H);
+  const th = Math.min(H * 0.12, W * 0.09);
+  mapTitle(ctx, W, th, '周辺図', 'Area map', st);
+  const p = Math.min(W, H) * 0.03;
+  const bx = p, by = th + p, bw = W - 2 * p, bh = H - th - 2 * p;
+  const plan = stationStreet(st.id);
+  if (plan.kind === 'hub') {
+    // The hub's street is not laid out by surface(); list its exits instead of inventing a plan.
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(bx, by, bw, bh);
+    exitRows(ctx, plan.exits, bx + p, by + p, bw - 2 * p, bh - 2 * p, { fg: '#111', sub: '#333', badgeFg: '#111', badgeBg: YELLOW, rule: 'rgba(0,0,0,0.18)' });
+    return;
+  }
+  // Station frame → canvas: x along the line to the right, +z down.
+  const X = PLOT.x, Z = PLOT.z;
+  const sc = Math.min(bw / (2 * X), bh / (2 * Z));
+  const ox = bx + bw / 2, oy = by + bh / 2;
+  const P = (x: number, z: number): [number, number] => [ox + x * sc, oy + z * sc];
+  const R = (x0: number, z0: number, x1: number, z1: number, fill: string) => {
+    ctx.fillStyle = fill;
+    ctx.fillRect(ox + Math.min(x0, x1) * sc, oy + Math.min(z0, z1) * sc, Math.abs(x1 - x0) * sc, Math.abs(z1 - z0) * sc);
+  };
+  const lp = Math.max(9, Math.min(sc * 7, H * 0.04)); // label size
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(ox - X * sc, oy - Z * sc, 2 * X * sc, 2 * Z * sc);
+  ctx.clip();
+  R(-X, -Z, X, Z, '#ebe8df');
+  const m: MapCtx = { R, P, sc, lp, box: [...P(-X, -Z), ...P(X, Z)], placed: [] };
+  if (plan.kind === 'street') areaStreet(ctx, st, plan, m);
+  else areaElevated(ctx, st, plan.exits, m);
+  ctx.restore();
+  ctx.strokeStyle = '#9aa0a6';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(ox - X * sc, oy - Z * sc, 2 * X * sc, 2 * Z * sc);
+}
+
+/** What the area-map helpers share: plan → canvas, scale, label size, the map box, and what is placed. */
+interface MapCtx {
+  R: (x0: number, z0: number, x1: number, z1: number, fill: string) => void;
+  P: (x: number, z: number) => [number, number];
+  sc: number;
+  lp: number;
+  box: Box;
+  placed: Box[];
+}
+
+/** Exit openings and their number badges, set out from the opening onto the block side. */
+function areaExits(ctx: Ctx, exits: StationExit[], m: MapCtx) {
+  const bs = Math.max(m.lp * 1.5, m.sc * 7);
+  for (const e of exits) {
+    const [x0, z0, x1, z1] = e.rect;
+    m.R(x0, z0, x1, z1, '#3b4046');
+    const [cx, cz] = m.P((x0 + x1) / 2, (z0 + z1) / 2);
+    const [dx, dz] = e.side ? [0, e.side * bs * 0.75] : [-bs * 0.75, 0];
+    const x = cx + dx - bs / 2, y = cz + dz - bs / 2;
+    exitBadge(ctx, x, y, bs, e.num, '#111', YELLOW);
+    m.placed.push([x, y, x + bs, y + bs]);
+  }
+}
+
+/** You are here: the station under the street, with the operator's mark. */
+function areaStation(ctx: Ctx, st: StationDef, box: PlanRect, m: MapCtx) {
+  const { P, lp } = m;
+  const [ax, az] = P(box[0], box[1]), [bx, bz] = P(box[2], box[3]);
+  ctx.fillStyle = 'rgba(13,59,102,0.16)';
+  ctx.fillRect(ax, az, bx - ax, bz - az);
+  ctx.strokeStyle = '#0d3b66';
+  ctx.lineWidth = Math.max(1.5, lp * 0.15);
+  ctx.setLineDash([lp * 0.5, lp * 0.35]);
+  ctx.strokeRect(ax, az, bx - ax, bz - az);
+  ctx.setLineDash([]);
+  const cx = (ax + bx) / 2, cz = (az + bz) / 2;
+  logo(ctx, cx - lp * 2.6, cz, lp * 0.8);
+  text(ctx, `${st.nameJa}駅`, cx - lp * 1.6, cz - lp * 0.2, lp, { weight: 800, color: '#0d3b66', maxW: (bx - ax) * 0.5 });
+  text(ctx, '現在地 You are here', cx - lp * 1.6, cz + lp * 0.75, lp * 0.6, { weight: 800, color: '#e02020', maxW: (bx - ax) * 0.55 });
+  m.placed.push([cx - lp * 3.5, cz - lp * 0.8, cx - lp * 1.6 + (bx - ax) * 0.55, cz + lp * 1.1]);
+}
+
+function areaStreet(ctx: Ctx, st: StationDef, plan: Extract<StationStreet, { kind: 'street' }>, m: MapCtx) {
+  const { R, P, sc, lp } = m;
+  const s = plan.surface, X = PLOT.x, Z = PLOT.z, rw = s.roadHalf, sw = plan.swOut;
+  const { crossHalf, aveHalf, seaZ, canalHalf } = STREET;
+  const canal = s.canalAt;
+  // Cross streets and building blocks, as surface() lays them out.
+  const streets = s.cross.filter((x) => x !== canal).map((x) => [x - crossHalf, x + crossHalf]);
+  if (s.avenue) streets.push([-aveHalf, aveHalf]);
+  streets.sort((a, b) => a[0] - b[0]);
+  const edges = [-X + 1, ...streets.flatMap(([a, b]) => [a - 3, b + 3]), X - 1];
+  if (canal !== undefined) edges.splice(edges.findIndex((e) => e > canal), 0, canal - 10, canal + 10);
+  const blocks: [number, number][] = [];
+  for (let i = 0; i < edges.length; i += 2) if (edges[i + 1] - edges[i] >= 6) blocks.push([edges[i], edges[i + 1]]);
+  // Plain block names are placed after the named places, so they give way when space is short.
+  const labels: { n: Named; x: number; z: number; plain?: boolean }[] = [];
+
+  for (const side of [-1, 1] as const) {
+    const style = side < 0 ? s.left : s.right;
+    const far = side * Z, near = side * sw;
+    if (style === 'sea') {
+      R(-X, near, X, side * seaZ, BLOCK_FILL.sea);
+      R(-X, side * seaZ, X, far, WATER);
+      if (s.waterfront === 'promenade') {
+        R(-X, side * (seaZ - 9), X, side * (seaZ - 0.4), '#d7c3a6');
+        labels.push({ n: s.promenadeName ?? PLACE.promenade, x: 0, z: side * (seaZ - 14) });
+        labels.push({ n: PLACE.sea, x: 60, z: side * (seaZ + Z) / 2, plain: true });
+      } else {
+        const [f0, f1] = STREET.ferry;
+        R(f0, side * (sw + 8), f1, side * (seaZ - 8), '#c9d5df');
+        labels.push({ n: s.quayName ?? PLACE.ferry, x: (f0 + f1) / 2, z: side * (sw + seaZ) / 2 });
+        labels.push({ n: KIND.sea, x: 70, z: side * (seaZ + Z) / 2, plain: true });
+      }
+      continue;
+    }
+    for (const [xa, xb] of blocks) {
+      const arcadeLot = side < 0 && s.arcadeAt !== undefined && Math.abs(xb + 3 + crossHalf - s.arcadeAt) < 1;
+      const kind: BlockStyle = arcadeLot ? 'oldtown' : style === 'park' ? 'house' : style;
+      R(xa, near, xb, far, BLOCK_FILL[kind]);
+    }
+    if (style === 'park') {
+      const [p0, p1] = STREET.park;
+      R(p0, side * (sw + 1.5), p1, side * (sw + STREET.parkDepth), BLOCK_FILL.park);
+      labels.push({ n: s.parkName ?? KIND.park, x: (p0 + p1) / 2, z: side * (sw + STREET.parkDepth / 2) });
+    } else if (style === 'dome') {
+      const { cx, dz, r } = STREET.dome;
+      R(-X, near, X, far, BLOCK_FILL.dome);
+      const [px, pz] = P(cx, side * (sw + dz));
+      ctx.fillStyle = '#b9d3dc';
+      ctx.strokeStyle = '#0f7a8a';
+      ctx.lineWidth = Math.max(1.5, sc * 0.8);
+      ctx.beginPath();
+      ctx.arc(px, pz, r * sc, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      labels.push({ n: KIND.dome, x: cx, z: side * (sw + 24) });
+    } else if (style === 'campus') {
+      labels.push({ n: s.campusName ?? KIND.campus, x: -40, z: side * (sw + 22) });
+    } else {
+      // Name the block kind on the widest block clear of the exits.
+      const clear = blocks.filter(([a, b]) => !plan.exits.some((e) => e.side === side && e.rect[2] > a && e.rect[0] < b));
+      const [a, b] = (clear.length ? clear : blocks).reduce((w, q) => (q[1] - q[0] > w[1] - w[0] ? q : w));
+      labels.push({ n: KIND[style], x: (a + b) / 2, z: side * (sw + 22), plain: true });
+    }
+  }
+  // Roads over the blocks: cross streets, the main road (over any canal: the bridge).
+  const seaSide = s.right === 'sea' ? 1 : s.left === 'sea' ? -1 : 0;
+  for (const [a, b] of streets) {
+    const z0 = seaSide < 0 ? -seaZ : -Z, z1 = seaSide > 0 ? seaZ : Z;
+    R(a, z0, b, z1, ROAD);
+  }
+  if (canal !== undefined) {
+    for (const side of [-1, 1]) R(canal - canalHalf, side * (sw + 1.5), canal + canalHalf, side * Z, WATER);
+    labels.push({ n: s.canalName ?? PLACE.canal, x: canal, z: -(rw + sw) / 2 - 1 });
+  }
+  R(-X, -rw, X, rw, ROAD);
+  for (const side of [-1, 1]) R(-X, side * rw - 0.3, X, side * rw + 0.3, ROAD_EDGE);
+  if (s.arcadeAt !== undefined) {
+    const a = s.arcadeAt, h = STREET.arcadeHalf;
+    R(a - h, -Z + 2, a + h, -sw - 1, '#e7b49b');
+    for (let z = -sw - 6; z > -Z + 2; z -= 6) R(a - h, z - 0.4, a + h, z + 0.4, '#b9482b');
+    labels.push({ n: s.arcadeName ?? PLACE.arcade, x: a, z: -(sw + Z) / 2 });
+  }
+  areaStation(ctx, st, plan.box, m);
+  areaExits(ctx, plan.exits, m);
+  for (const l of [...labels.filter((q) => !q.plain), ...labels.filter((q) => q.plain)]) {
+    const [x, y] = P(l.x, l.z);
+    mapLabel(ctx, l.n, x, y, lp, 70 * sc, m.box, m.placed);
+  }
+}
+
+function areaElevated(ctx: Ctx, st: StationDef, exits: StationExit[], m: MapCtx) {
+  const { R, P, sc, lp } = m;
+  const X = PLOT.x, Z = PLOT.z, E = ELEVATED;
+  const line = linesAt(st.id)[0];
+  R(-126, E.houses[0], 124, E.houses[1], BLOCK_FILL.house);
+  R(-126, E.apartments[0], 124, E.apartments[1], BLOCK_FILL.apartment);
+  R(-X, E.road[0], X, E.road[1], ROAD);
+  R(E.crossSt[0], E.road[1], E.crossSt[1], Z, ROAD);
+  R(-X, E.back[0], X, E.back[1], ROAD);
+  // The viaduct, in the line's colour, and the station under it.
+  R(-X, -5.2, X, 5.2, '#c3c7cc');
+  R(-X, -1, X, 1, line.color);
+  const [c0, c1, cw] = E.concourse;
+  R(c0, -cw, c1, cw, '#dfe6ef');
+  R(-26, cw, 60, E.road[0], '#f3f1ea'); // station plaza
+  R(E.store[0], E.store[1], E.store[2], E.store[3], '#0b8f6a');
+  for (const [a, b] of E.bikes) R(a, E.bikeZ[0], b, E.bikeZ[1], '#9aa0a6');
+  const icon = (v: Picto, x: number, z: number) => {
+    const [px, pz] = P(x, z), s = Math.max(lp * 1.4, sc * 6);
+    pictogram(ctx, v, px - s / 2, pz - s / 2, s);
+    m.placed.push([px - s / 2, pz - s / 2, px + s / 2, pz + s / 2]);
+  };
+  icon('bus', (E.bus[0] + E.bus[2]) / 2, (E.bus[1] + E.bus[3]) / 2);
+  icon('taxi', (E.taxi[0] + E.taxi[2]) / 2, (E.taxi[1] + E.taxi[3]) / 2);
+  const label = (n: Named, x: number, z: number) => {
+    const [px, pz] = P(x, z);
+    mapLabel(ctx, n, px, pz, lp, 70 * sc, m.box, m.placed);
+  };
+  areaStation(ctx, st, [c0, -cw, c1, cw], m);
+  areaExits(ctx, exits, m);
+  label(PLACE.mart, (E.store[0] + E.store[2]) / 2, (E.store[1] + E.store[3]) / 2);
+  label(PLACE.bikes, (E.bikes[1][0] + E.bikes[1][1]) / 2, -12);
+  label(PLACE.plaza, 20, 17);
+  label(KIND.house, -70, -45);
+  label(KIND.apartment, -40, 49);
+  label({ ja: line.nameJa, en: line.nameEn }, 95, -12);
+}
+
 function drawClock(ctx: Ctx, W: number, H: number) {
   // Plain railway clock: white face, black batons, red second hand. Reads the sim clock.
   const t = ((clock.time % 43200) + 43200) % 43200;
@@ -1191,6 +1984,10 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
       text(ctx, c.text, W / 2, c.sub ? H * 0.4 : H / 2, H * (c.sub ? 0.46 : 0.6), { align: 'center', color: c.fg, weight: 800, maxW: W * 0.92 });
       if (c.sub) text(ctx, c.sub, W / 2, H * 0.8, H * 0.22, { align: 'center', color: c.fg, weight: 600, maxW: W * 0.92 });
       return;
+    case 'exits': return drawExits(ctx, W, H, c);
+    case 'picto': return drawPicto(ctx, W, H, c);
+    case 'stationmap': return drawStationMap(ctx, W, H, c);
+    case 'areamap': return drawAreaMap(ctx, W, H, c);
     case 'clock': return drawClock(ctx, W, H);
     case 'dep': return drawDep(ctx, W, H, c);
     case 'depAll': return drawDepAll(ctx, W, H, c);

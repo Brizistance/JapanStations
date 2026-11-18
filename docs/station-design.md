@@ -105,10 +105,32 @@ A line's theme shapes the platform hall; a station's **look** shapes everything 
 | Tōmyōbori | The lantern canal at dusk | Lantern-hung transfer passages |
 | Aizomechō | The dyers' street | Hanging indigo cloth and noren gates |
 | Daigaku-mae | The campus undercroft | Brick arcade and the noticeboard court |
+| Tsumugibashi | 紬橋地下街, an underground shopping street: the 60 m wide hall cut into named streets by blocks of shops, with a weaving theme | The street plan itself, and the Tsumugi Loom at Shuttle Crossing |
 
 To add a hero: write `looks/<station-id>.ts` following [Plans/features/station-looks/hero-brief.md](../Plans/features/station-looks/hero-brief.md), register it in `looks/index.ts`, and add a row here.
 
 Not covered yet: elevated stations (their street-level concourse is built separately) and the hub.
+
+**Wide concourses.** An interchange concourse is 28 m wide or more, so it gets pillar rows about every 7 m across its width (`concourse()` in `build.ts`), and the default look places **shop islands** in the lanes between them (`shopIsland`, `vendingIsland`, `benchIsland`, `totemRow`, `waitingRoom` in `parts.ts`). Islands keep 3 m aisles and leave a 4 m route from every gate line to every stair. Where stairs fill the lanes (Kawaminato-kō) few islands fit.
+
+## Wayfinding (`src/stations/wayfinding.ts`)
+
+Passenger guidance away from the platforms. All of it is generated: nothing is typed in per station.
+
+| Sign | Where |
+|---|---|
+| Platform signs (line, platform number, "for <terminus>") | Hanging at the top of every stair; the back face points to the exits |
+| Transfer signs | At transfer stair heads, along transfer passages, opposite platform doorways |
+| Direction signs | 5.5 m inside each gate line, then about every 18 m through the paid area |
+| Exit signs (yellow, with numbers and landmarks) | Outside each gate line, pointing left and right to the two doorways; in each exit lobby |
+| Exit board (出口案内), station map (構内図), area map (周辺図) | On the walls of each unpaid hall; an exit board and station map inside the gates too |
+| Pictograms | Toilets, station office, lockers, lift, tickets |
+
+- **What the composers tell it.** `ConcInfo.stairs` says where each floor opening leads (line, platform numbers, platform or transfer stair, the point at its top and the way down); `ConcInfo.exits` lists the exit doorways. Elevated stations pass an `ElevInfo`, transfer passages a `PassageCtx`.
+- **Exit landmarks** come from `src/stations/exits.ts`, which works out from the station's spec where each numbered exit surfaces and what `surface()` builds there. `exits.test.ts` checks every exit's number, side and position against the built station. It copies a few constants from the builders (to avoid an import cycle); the test fails if they drift.
+- **New sign kinds** (`src/signs/content.ts`, drawn in `draw.ts`): `exits`, `picto`, `stationmap`, `areamap`. The station map is a level diagram from each line's rail level; the area map is a plan drawn the way `surface()` lays the street out. `boards.test.ts` checks that their text fits and that every exit and platform number appears.
+- **Signs always win.** Each sign's surroundings are registered with `Builder.protect`; a look's decoration runs inside `Builder.guard`, which trims boxes and drops meshes that intrude. A look does not need to know where the signs are, but anything it hangs in front of a stair head or over a gate line will be cut.
+- The hub keeps its own signage.
 
 ## Details that make it read as "Japan"
 

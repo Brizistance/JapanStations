@@ -31,6 +31,12 @@ export interface SurfaceSpec {
   canalLanterns?: boolean;
   /** What a 'sea' side is: the working port with cranes and the ferry (default), or a promenade. */
   waterfront?: 'port' | 'promenade';
+  /** Name on a campus gate (default Kawaminato University). */
+  campusName?: { ja: string; en: string };
+  /** Name on the building at a port quay (default Kawaminato Ferry Terminal). */
+  quayName?: { ja: string; en: string };
+  /** Name on a promenade's sign (default Yūnagi Promenade). */
+  promenadeName?: { ja: string; en: string };
   /** Name on the park gate (default Midorizaka Park). */
   parkName?: { ja: string; en: string };
   /** Canopy material for street and park trees (default 'leaf'); a flat pink makes cherries. */
@@ -383,8 +389,8 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
         } else fillLots(b, r, style, xa, xb, swOut);
       }
       if (style === 'park') park(b, r, swOut, spec.parkName ?? { ja: '緑坂公園', en: 'Midorizaka Park' }, spec.treeLeaf);
-      if (style === 'sea') b.open(() => (spec.waterfront === 'promenade' ? promenade(b, r, swOut, seaZ, spec.treeLeaf) : quay(b, r, swOut, seaZ)));
-      if (style === 'campus') campusFront(b, swOut);
+      if (style === 'sea') b.open(() => (spec.waterfront === 'promenade' ? promenade(b, r, swOut, seaZ, spec.treeLeaf, spec.promenadeName) : quay(b, r, swOut, seaZ, spec.quayName)));
+      if (style === 'campus') campusFront(b, swOut, spec.campusName);
       if (style === 'dome') dome(b, swOut);
     });
   }
@@ -430,7 +436,7 @@ function park(b: Builder, r: () => number, z0: number, name: { ja: string; en: s
   b.box('flat:#cfcabe', -21.8, GY, z0 + 1.62, -18.2, GY + 1.9, z0 + 1.8);
 }
 
-function quay(b: Builder, r: () => number, z0: number, seaZ: number) {
+function quay(b: Builder, r: () => number, z0: number, seaZ: number, name = { ja: '川湊港フェリーターミナル', en: 'Kawaminato Ferry Terminal' }) {
   // Waterfront promenade: railing, water, gantry cranes, a ferry terminal.
   const X = PLOT_X;
   b.box('water', -X, -1.6, seaZ, X, -1.2, PLOT_Z + 60, false);
@@ -449,7 +455,7 @@ function quay(b: Builder, r: () => number, z0: number, seaZ: number) {
   }
   // Ferry terminal.
   b.box('facade:office:#9fb7c9', -30, GY, z0 + 8, 10, GY + 9, seaZ - 8);
-  b.sign({ k: 'label', text: '川湊港フェリーターミナル', sub: 'Kawaminato Ferry Terminal', fg: '#fff', bg: '#0d3b66' }, -10, GY + 7.2, z0 + 7.94, [0, -1], 22, 2.4);
+  b.sign({ k: 'label', text: name.ja, sub: name.en, fg: '#fff', bg: '#0d3b66' }, -10, GY + 7.2, z0 + 7.94, [0, -1], 22, 2.4);
   b.deco('glassDark', -14, GY, z0 + 7.95, -6, GY + 3.2, z0 + 8);
   for (let i = 0; i < 10; i++) tree(b, -120 + i * 9 + r() * 2, z0 + 3, 4.5, 'leaf2');
   // Moored ferry.
@@ -459,7 +465,7 @@ function quay(b: Builder, r: () => number, z0: number, seaZ: number) {
   b.deco('flat:#d9482b', 6, 6.2, seaZ + 10.5, 10, 9, seaZ + 13.5);
 }
 
-function promenade(b: Builder, r: () => number, z0: number, seaZ: number, leaf = 'leaf2') {
+function promenade(b: Builder, r: () => number, z0: number, seaZ: number, leaf = 'leaf2', name = { ja: '夕凪プロムナード', en: 'Yūnagi Promenade' }) {
   // Sunset promenade where the Mio-gawa meets the bay: a boardwalk, benches facing the water,
   // a breakwater lighthouse.
   const X = PLOT_X;
@@ -482,7 +488,7 @@ function promenade(b: Builder, r: () => number, z0: number, seaZ: number, leaf =
   b.mesh('flat:#f4f4f0', 'cyl', 96, GY + 12.2, seaZ + 36, 2.0, 1.6, 2.0);
   b.deco('glow:#fff1c4', 95.4, GY + 11.6, seaZ + 35.4, 96.6, GY + 12.6, seaZ + 36.6);
   b.box('flat:#0d3b66', -3.6, GY, z0 + 8.6, 3.6, GY + 2.2, z0 + 8.9);
-  b.sign({ k: 'label', text: '夕凪プロムナード', sub: 'Yūnagi Promenade', fg: '#fff', bg: '#0d3b66' }, 0, GY + 1.4, z0 + 8.58, [0, -1], 7, 1.4);
+  b.sign({ k: 'label', text: name.ja, sub: name.en, fg: '#fff', bg: '#0d3b66' }, 0, GY + 1.4, z0 + 8.58, [0, -1], 7, 1.4);
   // River-mouth marker at the railing, like a river office's kilometre post.
   b.box('flat:#f4f4f0', -40.15, GY, seaZ - 1.6, -39.85, GY + 2.4, seaZ - 1.3);
   b.sign({ k: 'label', text: '澪川 河口', sub: 'Mio-gawa river mouth', fg: '#1b1f24', bg: '#f4f4f0' }, -40, GY + 1.9, seaZ - 1.62, [0, -1], 2.6, 0.8);
@@ -517,14 +523,14 @@ function dome(b: Builder, z0: number) {
   for (let x = -120; x < 120; x += 14) if (Math.abs(x - cx) > 16) tree(b, x, z0 + 3.5, 5.5, 'leaf2');
 }
 
-function campusFront(b: Builder, z0: number) {
+function campusFront(b: Builder, z0: number, name = { ja: '川湊大学', en: 'Kawaminato University' }) {
   // University gate, lawn and avenue of trees in front of the brick halls.
   b.box('grass', -124, GY, z0 + 1, 60, GY + 0.05, z0 + 5.5);
   for (const gx of [-5, 5]) {
     b.box('brick:#8a4f3b', gx - 0.9, GY, z0 + 0.6, gx + 0.9, GY + 3.6, z0 + 2.4);
     b.deco('flat:#ded6c4', gx - 1.05, GY + 3.6, z0 + 0.45, gx + 1.05, GY + 3.9, z0 + 2.55);
   }
-  b.sign({ k: 'label', text: '川湊大学', sub: 'Kawaminato University', fg: '#f6e7c8', bg: '#3d2014' }, -5, GY + 2.2, z0 + 0.58, [0, -1], 1.5, 1.6);
+  b.sign({ k: 'label', text: name.ja, sub: name.en, fg: '#f6e7c8', bg: '#3d2014' }, -5, GY + 2.2, z0 + 0.58, [0, -1], 1.5, 1.6);
   b.sign({ k: 'label', text: '正門', sub: 'Main Gate', fg: '#f6e7c8', bg: '#3d2014' }, 5, GY + 2.2, z0 + 0.58, [0, -1], 1.5, 1.6);
   for (let x = -120; x < 58; x += 9) if (Math.abs(x) > 8) tree(b, x, z0 + 3.2, 6.5, 'leaf2');
   for (let x = -100; x < 50; x += 3) if (Math.abs(x) > 6) b.box('flat:#3a3f45', x, GY, z0 + 0.9, x + 2.9, GY + 1.3, z0 + 1.0);

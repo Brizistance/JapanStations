@@ -17,6 +17,33 @@ import type { StationStyle } from '../kit';
 /** [x0, z0, x1, z1] */
 export type Rect = [number, number, number, number];
 
+/** A stair or escalator opening in the concourse floor, and where it leads. */
+export interface StairInfo {
+  /** The line it leads to. */
+  line: LineDef;
+  /** 'platform': straight down to that line's platform. 'transfer': down to a passage that leads to it. */
+  kind: 'platform' | 'transfer';
+  /** Platform numbers it serves. */
+  platforms: number[];
+  /** The opening. */
+  rect: Rect;
+  /** Where you stand at the top, just clear of the opening, and the direction you then walk down. */
+  top: [number, number];
+  down: [number, number];
+}
+
+/** An exit doorway in a long wall of the concourse. */
+export interface ExitDoor {
+  num: string;
+  /** Wall: z = s·cw. */
+  s: 1 | -1;
+  /** Doorway along the wall. */
+  x0: number;
+  x1: number;
+  /** Gate line (index into `ends`) whose unpaid hall it opens off. */
+  end: number;
+}
+
 /** Finishes a look can override in the concourse, exits and transfer passages (material keys). */
 export interface Finishes {
   wall?: string;
@@ -61,6 +88,10 @@ export interface ConcInfo {
   paid: [number, number];
   /** Stair and escalator openings in the floor. */
   holes: Rect[];
+  /** The same openings with where each leads (every hole has one). */
+  stairs: StairInfo[];
+  /** Exit doorways. */
+  exits: ExitDoor[];
   /** Centres of the concourse pillars (0.7 m square colliders). */
   pillars: [number, number][];
   /**

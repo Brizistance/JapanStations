@@ -72,8 +72,33 @@ Invented brands that appear on shop fronts in concourses (`SHOPS` in `src/statio
 | Photo Minato | フォトミナト | Photo booth |
 | Kawaminato Shinkin Bank | 川湊信用金庫 | ATM corner |
 | Kawaminato-dō Gifts | おみやげ 川湊堂 | Souvenirs |
+| Minamo Drug | ミナモドラッグ | Drugstore |
+| Omusubi Komeya | おむすび こめ屋 | Rice balls and bento |
+| Shirasagi Tea Room | 白鷺茶房 | Café |
+| Tsubaki Shobō | つばき書房 | Bookshop |
 
 The Japanese spellings in the code are the source of truth.
+
+### Named places at street level
+
+Each station's street spec names its own campus, quay and promenade (`campusName`, `quayName`, `promenadeName` in `specs.ts`, alongside `parkName`, `arcadeName`, `canalName`). The street signs, exit boards and area maps all read them. Invented 2026-11-18; before that every campus was "Kawaminato University" and so on.
+
+| Station | Place |
+|---|---|
+| Daigaku-mae | 川湊大学 Kawaminato University (the default) |
+| Kaiseichō | 川湊第一高等学校 Kawaminato Daiichi High School |
+| Seiryōdai | 川湊工科大学 Kawaminato Institute of Technology |
+| Kawaminato-kō | 川湊港フェリーターミナル Kawaminato Ferry Terminal (the default) |
+| Kamomehama | 鴎浜桟橋 Kamomehama Pier |
+| Nankōdai | 南港ふ頭 Nankō Wharf |
+| Shinshio | 新潮魚市場 Shinshio Fish Market |
+| Yūnagihama | 夕凪プロムナード Yūnagi Promenade (the default) |
+| Minato Center | みなとベイウォーク Minato Baywalk |
+| Shin-Kamome | 新鴎シーサイドデッキ Shin-Kamome Seaside Deck |
+| Shiomi | 潮見海浜緑道 Shiomi Seaside Greenway |
+| Umi-no-Mori | 海の森海岸遊歩道 Umi-no-Mori Shore Walk |
+
+Only the name changes: a quay still has the same building, cranes and moored ferry whatever it is called.
 
 ### Names at the hero stations
 
@@ -88,6 +113,7 @@ Invented with each station's look (`src/stations/looks/<station>.ts`), 2026-11-1
 | Hoshimine | 星の窓 (Hoshi no Mado, observatory shop), 三日月珈琲 (Mikazuki Coffee). The ceiling's constellations (Fox, Lantern, Kite, Crane) are invented and unlabelled |
 | Tōmyōbori | 提灯 ひより屋 (Chōchin Hiyoriya, lantern maker), 茶房 ともしび (Sabō Tomoshibi), 立呑 かわべり (Tachinomi Kawaberi); the festival **灯明堀 万灯まつり (Tōmyōbori Mantō Matsuri)** |
 | Aizomechō | 藍染処 つゆ草 (Aizome Tsuyukusa, dye works), 手ぬぐい 波千鳥 (Tenugui Namichidori), 呉服 糸よし (Gofuku Itoyoshi), 日本茶 しずく園 (Shizuku-en); the dyers' crest 三つ波丸 (Mitsunami-maru, three waves in a ring) |
+| Tsumugibashi | The streets of **紬橋地下街 (Tsumugibashi Chikagai)**: 経糸通り Tateito-dōri (Warp Street, gate to gate), 綾織通り Ayaori-dōri (Twill Street), 平織通り Hiraori-dōri (Plain-weave Street), 緯糸小路 Yokoito-kōji (Weft Lane), 綛通り Kase-dōri (Skein Street), 糸巻通り Itomaki-dōri (Bobbin Street), 杼の辻 Hi-no-tsuji (Shuttle Crossing, where the loom 紬の機 stands), 糸屋横丁 Itoya-yokochō, 筬小路 Osa-kōji (Reed Lane), 紬小路 Tsumugi-kōji. Shops: 紬織物 はたや (Hataya Tsumugi Silks), 糸屋 よりいと (Yoriito Yarn & Thread), きもの 綾衣 (Kimono Ayaginu), ふろしき 包み屋 (Tsutsumiya Furoshiki), 染め見本 そめいろ (Someiro Dye Bar) |
 | Daigaku-mae | 喫茶 れんが (Kissa Renga), 古書 文蔵 (Fumikura Old Books), めし処 はるにれ (Harunire), the university co-op 大学生協; clubs on the noticeboards: rowing, astronomy, light music, photography, rakugo, mountaineering, tea ceremony |
 
 ## Stations

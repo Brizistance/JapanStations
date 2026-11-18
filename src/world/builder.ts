@@ -146,6 +146,64 @@ export class Builder {
   };
   private m: M = toM({});
   private isOpen = false;
+  /** Volumes that decoration must stay out of (round wayfinding signs), in builder coords. */
+  private kept: { min: V3; max: V3 }[] = [];
+
+  /** Keep this volume clear of decoration added inside a later `guard`. */
+  protect(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+    const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
+    this.kept.push({
+      min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])],
+      max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])],
+    });
+  }
+
+  /**
+   * Run `fn`, then cut whatever decoration it added back from every protected volume: boxes
+   * are trimmed to the part outside, meshes that reach in are dropped. Solid parts are left
+   * alone. This is how signs stay readable whatever a station's look hangs from the ceiling.
+   */
+  guard(fn: () => void) {
+    const nb = this.out.boxes.length, nm = this.out.meshes.length;
+    fn();
+    if (!this.kept.length) return;
+    const hit = (a: V3, b: V3, k: { min: V3; max: V3 }) =>
+      a[0] < k.max[0] && b[0] > k.min[0] && a[1] < k.max[1] && b[1] > k.min[1] && a[2] < k.max[2] && b[2] > k.min[2];
+    let added = this.out.boxes.splice(nb);
+    for (const k of this.kept) {
+      const next: BoxPart[] = [];
+      for (const part of added) {
+        if (part.solid || part.mat === 'none' || !hit(part.min, part.max, k)) {
+          next.push(part);
+          continue;
+        }
+        // Slice off the pieces outside the volume, one axis at a time.
+        const lo: V3 = [...part.min], hi: V3 = [...part.max];
+        for (const ax of [0, 1, 2] as const) {
+          if (lo[ax] < k.min[ax]) {
+            const mx: V3 = [...hi];
+            mx[ax] = k.min[ax];
+            next.push({ ...part, min: [...lo], max: mx });
+            lo[ax] = k.min[ax];
+          }
+          if (hi[ax] > k.max[ax]) {
+            const mn: V3 = [...lo];
+            mn[ax] = k.max[ax];
+            next.push({ ...part, min: mn, max: [...hi] });
+            hi[ax] = k.max[ax];
+          }
+        }
+      }
+      added = next;
+    }
+    this.out.boxes.push(...added.filter((q) => q.max[0] - q.min[0] > 1e-4 && q.max[1] - q.min[1] > 1e-4 && q.max[2] - q.min[2] > 1e-4));
+    const meshes = this.out.meshes.splice(nm);
+    this.out.meshes.push(...meshes.filter((q) => {
+      const a: V3 = [q.pos[0] - q.size[0] / 2, q.pos[1] - q.size[1] / 2, q.pos[2] - q.size[2] / 2];
+      const b: V3 = [q.pos[0] + q.size[0] / 2, q.pos[1] + q.size[1] / 2, q.pos[2] + q.size[2] / 2];
+      return !this.kept.some((k) => hit(a, b, k));
+    }));
+  }
 
   /** Parts added inside `fn` are daylit even below street level. */
   open(fn: () => void) {
