@@ -9,6 +9,7 @@ import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF, CAR_HALF_W } from '../trains/car';
+import { carModel, loadCarModel } from './car-model';
 import type { BoxPart, GatePart } from '../world/builder';
 import { halfWidth, sampleChainages, structureAt } from '../world/structure';
 import { DEFAULT_PLOT, rng } from '../world/builder';
@@ -76,7 +77,9 @@ interface TrainView {
   env: { value: THREE.Vector2 }[];
 }
 
-const lampGeo = new THREE.BoxGeometry(0.06, 0.16, 0.3);
+// Head/tail lamps sit in the housings modelled on the cab front, turned to follow its curve.
+const lampGeo = new THREE.BoxGeometry(0.06, 0.1, 0.32);
+const LAMP = { x: 9.213, y: 1.72, z: 0.93, turn: 0.205 };
 const white = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff7d6').multiplyScalar(3) });
 const red = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a').multiplyScalar(2) });
 
@@ -107,7 +110,8 @@ function mountTrain(t: TrainRuntime): TrainView {
       if (!c) own.set(m, (c = withEnvMod(m, env)));
       return c;
     };
-    const body = staticGroup(build, CAR_ENV, `car:${line.id}:${kind}`).group;
+    // The Blender model if it has loaded; the collision boxes drawn as they are if not.
+    const body = carModel(line.color, kind) ?? staticGroup(build, CAR_ENV, `car:${line.id}:${kind}`).group;
     body.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (mesh.isMesh) mesh.material = mine(mesh.material as THREE.Material);
@@ -120,9 +124,10 @@ function mountTrain(t: TrainRuntime): TrainView {
     g.add(...gates.meshes);
     if (kind !== 'mid') {
       const s = kind === 'cabLow' ? -1 : 1;
-      for (const z of [-0.95, 0.95]) {
+      for (const z of [-LAMP.z, LAMP.z]) {
         const m = new THREE.Mesh(lampGeo, white);
-        m.position.set(s * (CAR_HALF + 0.02), PF_H + 0.72, z);
+        m.position.set(s * LAMP.x, LAMP.y, z);
+        m.rotation.y = -s * Math.sign(z) * LAMP.turn;
         g.add(m);
         (kind === 'cabLow' ? view.lamps.low : view.lamps.high).push(m);
       }
@@ -219,6 +224,17 @@ export class WorldView {
   constructor() {
     this.root.add(buildBackdrop());
     for (const sim of NET) this.root.add(buildTrack(sim));
+    // Trains mounted before the model arrived are remounted with it.
+    loadCarModel().then(() => this.resetTrains(), (e) => console.warn('train model not loaded, using boxes:', e));
+  }
+
+  private resetTrains() {
+    for (const v of this.trainViews.values()) {
+      this.root.remove(v.group);
+      for (const g of v.gates) g.dispose();
+      disposeCache(v.cache);
+    }
+    this.trainViews.clear();
   }
 
   /** Mount/unmount stations by distance and move the trains. Call after the sim tick. */

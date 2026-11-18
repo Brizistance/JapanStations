@@ -21,7 +21,7 @@ src/
   stations/   kit (reusable parts), surface (street generator), build (composers),
               hub (the central station's composer), specs (per-station design),
               index (registry + collision frames)
-  trains/     car (rolling stock as parts), system (live train state)
+  trains/     car (rolling stock as parts: collision, doors, signs), system (live train state)
   render/     materials, textures (procedural PBR sets), lit (the shader patch),
               lighting (environments, sun, sky), post (AO + bloom), geometry,
               part-view, sign-set, track, world-view, Scene.tsx
@@ -44,6 +44,7 @@ data/network.ts ──► sim (geometry + timetable) ──► trains/system (pe
 - **Sim is pure TS.** `trainStateAt(timetable, train, time)` returns where a train is. Nothing integrates over time, so there is no drift and the sim can be tested without a browser.
 - **Rendering reads state.** It never owns network or sim truth.
 - **One part list, two consumers.** Stations and train cars are built with `Builder` into plain data (boxes, ramps, signs, gates). The renderer merges the boxes into one mesh per material; the collision world uses the same boxes. What you see is what you bump into.
+- **Trains are the one exception.** The car's part list (`trains/car.ts`) is still its collision, its sliding doors and its live signs, but what you see is a Blender model (`public/models/metro-car.glb`, loaded by `render/car-model.ts`) built to the same dimensions. The model's materials are named with our material keys, so it goes through `getMaterial()` and the lit shader like everything else. If the file fails to load, the boxes are drawn instead.
 
 ## The frame tick (`render/Scene.tsx`)
 

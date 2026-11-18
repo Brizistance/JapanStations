@@ -1,5 +1,7 @@
-// Rolling stock: one car as a part list (same Builder as stations), so the body you see
-// is the body you collide with. Car-local coords: +x towards increasing chainage,
+// Rolling stock: one car as a part list (same Builder as stations). These boxes are the
+// collision, the doors and the live signs. What you see is the Blender model loaded by
+// render/car-model.ts, which is built to these dimensions; the boxes are only drawn if
+// that model fails to load. Car-local coords: +x towards increasing chainage,
 // y = 0 at rail level, +z to the right of +x.
 
 import type { LineDef } from '../data/types';
@@ -13,6 +15,11 @@ export const CAR_HALF_W = 1.4;
 export const DOOR_W = 1.3;
 export const DOOR_H = 1.85;
 export const CAR_INSIDE = { min: [-9.3, PF_H - 0.3, -1.42] as [number, number, number], max: [9.3, 3.45, 1.42] as [number, number, number] };
+
+// Where the live destination displays sit on the model (render/car-model.ts). The cab car
+// model is one mesh turned round for the low end, so the side display swaps ends with it.
+const SIDE_SIGN_X = 2.9;
+const FRONT_SIGN_X = 9.232;
 
 const BODY = 'flat:#d4d8db';
 const INNER = 'flat:#ece9e0';
@@ -81,8 +88,9 @@ export function buildCar(line: LineDef, kind: CarKind): Build {
       b.deco('flat:#f4f4f0', x - 0.06, 2.7, s * 0.74 - 0.015, x + 0.06, 2.78, s * 0.74 + 0.015);
     }
     // Side destination display.
-    b.sign({ k: 'dest', line: line.id, dir: 'none' }, 2.9, F + 2.03, s * (W + 0.012), [0, s], 1.5, 0.3, { dynamic: true });
-    b.deco('flat:#101010', 2.1, F + 1.86, Math.min(s * W, s * (W + 0.008)), 3.7, F + 2.2, Math.max(s * W, s * (W + 0.008)));
+    // Side destination display, in the surround modelled over the window bay.
+    b.sign({ k: 'dest', line: line.id, dir: 'none' }, SIDE_SIGN_X * (cabLow ? -1 : 1), 3.075, s * (W + 0.012), [0, s], 1.5, 0.24, { dynamic: true });
+    b.deco('flat:#101010', SIDE_SIGN_X * (cabLow ? -1 : 1) - 0.8, 2.95, Math.min(s * W, s * (W + 0.008)), SIDE_SIGN_X * (cabLow ? -1 : 1) + 0.8, 3.2, Math.max(s * W, s * (W + 0.008)));
   }
 
   // Roof, ceiling lights, air-con pods.
@@ -111,7 +119,9 @@ export function buildCar(line: LineDef, kind: CarKind): Build {
     b.deco('glassTint', lo + 0.03, F + 0.95, -W + 0.12, hi - 0.03, F + 1.95, W - 0.12);
     b.deco('flat:#16181b', lo, F + 1.95, -W, hi, 3.35, W);
     b.deco(`flat:${line.color}`, Math.min(x1, x1 + s * 0.01), F + 0.2, -W, Math.max(x1, x1 + s * 0.01), F + 0.5, W);
-    b.sign({ k: 'dest', line: line.id, dir: 'none' }, x1 + s * 0.012, F + 2.12, 0, [s, 0], 1.7, 0.3, { dynamic: true });
+    // Front destination display, on the housing modelled on the (bulged) cab front.
+    b.sign({ k: 'dest', line: line.id, dir: 'none' }, s * FRONT_SIGN_X, 3.08, 0, [s, 0], 1.5, 0.24, { dynamic: true });
+    b.deco('flat:#16181b', Math.min(x1, s * (FRONT_SIGN_X - 0.007)), 2.955, -0.8, Math.max(x1, s * (FRONT_SIGN_X - 0.007)), 3.205, 0.8);
     // Cab partition with a window you can look through.
     const p0 = s * (CAR_HALF - 1.75), p1 = s * (CAR_HALF - 1.67);
     const pl = Math.min(p0, p1), ph = Math.max(p0, p1);
