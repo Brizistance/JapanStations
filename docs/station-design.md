@@ -6,9 +6,9 @@ A reference for building stylized-realistic Japanese metro stations. The aim is 
 
 | Composer | Used by | Shape |
 |---|---|---|
-| **Underground** (`buildUnderground`) | 11 stations | Street → exits → B1 concourse (gates at one or both ends) → stairs → platform hall. Works for island or side platforms. |
-| **Interchange** (`buildInterchange`) | Tsumugibashi, Aizomechō | Shared B1 concourse over the upper line; a transfer passage beside each upper platform; stairs down to the deeper line's island platform, which crosses at 90°. The upper line must have side platforms and the lower one an island. |
-| **Hub** (`buildHub`, `hub.ts`) | Kita-Ōdōri | Two island-platform lines crossing at 90° under a glass-roofed atrium, with a shopping street, a plaza and shells for future railways. See below. |
+| **Underground** (`buildUnderground`) | 13 stations | Street → exits → B1 concourse (gates at one or both ends) → stairs → platform hall. Works for island or side platforms. |
+| **Interchange** (`buildInterchange`) | Tsumugibashi, Aizomechō, Daigaku-mae | Shared B1 concourse over the upper line; a transfer passage beside each upper platform; stairs down to the deeper line's island platform, which crosses at 90°. The upper line must have side platforms and the lower one an island. |
+| **Hub** (`buildHub`, `hub.ts`) | Kita-Ōdōri | Two island-platform lines crossing at 90°, and a third alongside the deeper one, under a glass-roofed atrium, with a shopping street, a plaza and shells for future railways. See below. |
 | **Elevated** (`buildElevated`) | Hibarino | Street-level concourse under a viaduct; stairs up through the deck to side platforms with canopies. |
 
 Vertical order underground: street (0) → concourse floor (platform + 4.9 m) → platform (rail + 1.1 m). Platforms are 116 m long for 6-car, 18 m-car trains.
@@ -70,13 +70,17 @@ Station identity comes from the spec's wall, floor and pillar keys; everything e
 | Tsurumatsu | Green glazed tile | Pine-and-crane mural | Covered shopping arcade |
 | Kawaminato-kō | Blue-grey panels | Wave mural | Quay, cranes, ferry |
 | Aizomechō | Indigo tile | Wave (seigaiha) mural along the transfer passage | Old wooden shophouses, Akane-suji crossing |
-| Daigaku-mae | Brick | Leaf mural | University gate and lawn |
+| Daigaku-mae | Brick | Leaf mural; Shiokaze island below the Nagisa platforms | University gate and lawn |
 | Hibarino | Light panels, glass | Daylight, hills mural | Plaza, bus stop, convenience store, hills |
 | Kamomehama | Pale sea-grey panels | Gull mural, two gate lines for match days | Kawaminato Dome, the quay |
 | Watayamachi | Unbleached-cotton tile, madder-red pillars | Hanging-thread mural | Old shophouses |
 | Suzukakedōri | Pale stone panels | Plane-leaf mural | Offices, tree-lined avenue |
 | Tsukimizaka | Night-blue tile | Moon-over-the-slope mural | Houses and apartments |
 | Yamabukidai | Cream panels, kerria-yellow trim | Kerria flower mural | New-town apartments |
+| Yūnagihama | Warm sand panels | Sunset-over-the-bay mural | Sunset promenade at the Mio-gawa mouth: boardwalk, benches, breakwater lighthouse (`waterfront: 'promenade'`) |
+| Kurayashiki | White plaster tile, charcoal pillars | Namako-wall mural | Storehouse street (`godown` block style): white kura on namako bases, some now cafés |
+| Tōmyōbori | Dark brown tile, persimmon pillars | Lantern mural | Canal with lantern strings on both banks and Tōmyō-bashi (`canalLanterns`, `canalName`) |
+| Sakurazutsumi | Blush panels | Cherry-embankment mural | Sakurazutsumi Park; cherry trees in the park and street (`treeLeaf`, `parkName`) |
 
 ## The hub (Kita-Ōdōri / Kawaminato Station)
 
@@ -89,15 +93,16 @@ Built by `buildHub` in `src/stations/hub.ts`. The station frame follows the Akan
 | 1F | 0 | Atrium ring, station doors, plaza with bus terminal and taxi rank, Kita-Ōdōri avenue | Built |
 | B1 | −7 m | Concourse: a paid "T" (a bar under the avenue over the Akanesuji platforms, a stem over the Yanagisuji platforms), three gate lines, Yanagi Mall, exits 1–8, the atrium floor with Kin no Yanagi | Built |
 | B2 | −12 m | Yanagisuji island platform | Built |
-| B4 | −19 m | Akanesuji island platform; beside it an empty box for a future metro line | Platform built; box is a shell |
+| B4 | −19 m | Akanesuji island platform; beside it, 15.9 m south, the Shiokaze island platform | Both built |
 
 - **The atrium** is one void from the B1 floor to the glass roof at +26 m. Zones can be flagged `sky` so the atrium floor keeps daylight instead of the underground fog.
 - **The deep escalators** rise 12.4 m from the Akanesuji platform through an open shaft into the middle of the concourse.
+- **The Shiokaze hall** (`sHall`) fills what was the B4 shell. It shares three windows with the Akanesuji hall, so you see one line's trains from the other's platform. A stair and escalator climb west through an enclosed shaft into the stub passage south of the paid concourse, so A/Y ↔ S transfers stay inside the gates. The line beside the primary is named by `beside` in the hub spec; without one, `buildHub` still draws the shell.
 - **The Yanagisuji hall** keeps its vault over the southern 47 m. The northern part now has the concourse above it, so the vault is shorter than it was.
 - **Shells** are real geometry you can see but not enter: closed by glass or hoardings, signed 将来線予定地 with the kind of railway, with the future gate position marked on the floor. They have no departure boards and are absent from the map. The unfinished viaducts simply stop at a hoarded end.
 - **The clock** on the facade and on the willow is a live sign (`{ k: 'clock' }`) reading the sim clock.
 
-To open a shell later: add the line to the network data, replace the hoarding with a gate line, and remove its `keepOut`. The private-railway bays would also need a turnback inside the station, which the timetable code does not have yet (it reverses in a siding beyond the terminus).
+To open a shell later: add the line to the network data, replace the hoarding with a gate line, and remove its `keepOut` (as was done for the Shiokaze Line's box and passage). The private-railway bays would also need a turnback inside the station, which the timetable code does not have yet (it reverses in a siding beyond the terminus).
 
 ## Design rules
 

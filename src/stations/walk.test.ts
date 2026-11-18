@@ -21,9 +21,13 @@ function flood(w: (typeof STATION_WORLDS)[number], limitX: number, limitZ: numbe
   const reached: V3[] = [];
   const queue: V3[] = [start];
   const l: V3 = [0, 0, 0];
+  // The epsilon keeps rounding consistent at cell edges: without it a point clamped against a
+  // wall (29.7 → 49.5 → 50) and the next step through a doorway (30.3 → 50.4999… → 50) share
+  // a cell, and the flood stops at the doorway.
+  const cell = (v: number) => Math.round(v + 1e-6);
   const key = (p: V3) => {
     toLocal(f, p, l);
-    return `${Math.round(l[0] / STEP)},${Math.round(l[2] / STEP)},${Math.round(l[1] / 1.2)}`;
+    return `${cell(l[0] / STEP)},${cell(l[2] / STEP)},${cell(l[1] / 1.2)}`;
   };
   seen.add(key(start));
   const c = Math.cos(f.yaw), s = Math.sin(f.yaw);

@@ -27,7 +27,7 @@ Then open http://localhost:5173.
 
 ## What's in it
 
-- **3 lines, 14 stations**: the Yanagisuji Line (Y, green, north–south), the Nagisa Line (N, blue, bay to hills) and the Akanesuji Line (A, red, a deep diagonal with full-height platform doors).
+- **4 lines, 18 stations**: the Yanagisuji Line (Y, green, north–south), the Nagisa Line (N, blue, bay to hills), the Akanesuji Line (A, red, a deep diagonal with full-height platform doors) and the Shiokaze Line (S, orange, from the river mouth through the hub, running beside the Akanesuji Line, to the south-east canals).
 - **A central station**: Kita-Ōdōri, where two lines meet under the glass-roofed atrium of Kawaminato Station, with an underground shopping street, a plaza with bus and taxi ranks, and space already built for future railways.
 - **Distinct stations**: a stadium terminus, a neon nightlife district with a canal, a brick university stop, a port terminus, an elevated suburban terminus, and more.
 - **Trains that run themselves** to a timetable, with dwell times, platform screen doors, and turnbacks in sidings beyond each terminus.

@@ -39,6 +39,14 @@ const along = (o: [number, number], d: [number, number], t: number): [number, nu
   o[1] + d[1] * t,
 ];
 const pos = (p: [number, number]) => ({ x: p[0], y: p[1] });
+// Shiokaze Line. At the hub it runs beside the Akanesuji Line, in the box built for it:
+// 15.9 m south of A's centreline (A's hall wall 7.7 + 0.5 structure + half the 15.4 m box).
+export const S_BESIDE_A = 15.9;
+const S_ODORI_Z = A_ODORI_Z + S_BESIDE_A;
+const DAIGAKU: [number, number] = along(N_BEND, N_EAST_DIR, 370);
+// South of the hub it crosses the Nagisa Line at right angles at Daigaku-mae.
+const S_SOUTH_DIR: [number, number] = [-N_EAST_DIR[1], N_EAST_DIR[0]]; // 25° east of south
+const S_BEND: [number, number] = along(DAIGAKU, S_SOUTH_DIR, (S_ODORI_Z - DAIGAKU[1]) / S_SOUTH_DIR[1]);
 
 export const LINES: LineDef[] = [
   {
@@ -87,6 +95,24 @@ export const LINES: LineDef[] = [
     alignment: { vertices: [[100, 1400], [A_SUJI_X, 1400], [A_SUJI_X, A_ODORI_Z], [A_HILL_X, A_ODORI_Z], [A_HILL_X, -2320]], radius: 400 },
     service: { ...baseService, headwayS: 300 },
   },
+  {
+    // Fourth line. West along the river's north bank from the bay, through the hub's B4 box
+    // beside the Akanesuji Line, then south-east across the Nagisa Line to the canals.
+    // Passes over the Akanesuji Line once, between Kurayashiki and Kita-Ōdōri.
+    id: 'S',
+    nameEn: 'Shiokaze Line',
+    nameJa: '汐風線',
+    nameKana: 'しおかぜせん',
+    color: '#ee7b1a',
+    type: 'metro',
+    stops: ['yunagihama', 'kurayashiki', 'kita-odori', 'daigaku-mae', 'tomyobori', 'sakurazutsumi'],
+    railY: [-10, -11, -20.5, -18.5, -14, -12],
+    platformType: 'island',
+    platformDoors: 'full',
+    trackOffset: 5.5,
+    alignment: { vertices: [[100, S_ODORI_Z], S_BEND, along(DAIGAKU, S_SOUTH_DIR, 1760)], radius: 400 },
+    service: { ...baseService, headwayS: 300 },
+  },
 ];
 
 export const STATIONS: StationDef[] = [
@@ -109,12 +135,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '北大通',
     nameKana: 'きたおおどおり',
     nameRomaji: 'Kita-Ōdōri',
-    numbers: { Y: 'Y-12', A: 'A-14' },
+    numbers: { Y: 'Y-12', A: 'A-14', S: 'S-13' },
     position: { x: 1870, y: A_ODORI_Z },
+    at: { S: { x: 1870, y: S_ODORI_Z } },
     diagram: { x: 560, y: 170, badges: 'ne' },
     district: 'Kita (north hub)',
     districtJa: 'キタ',
-    platforms: { Y: [1, 2], A: [3, 4] },
+    platforms: { Y: [1, 2], A: [3, 4], S: [5, 6] },
     blurb: 'The city’s central station. Metro hub beneath Kawaminato Station’s glass atrium.',
   },
   {
@@ -188,13 +215,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '川湊大学前',
     nameKana: 'かわみなとだいがくまえ',
     nameRomaji: 'Kawaminato-daigaku-mae',
-    numbers: { N: 'N-14' },
-    position: pos(along(N_BEND, N_EAST_DIR, 370)),
-    diagram: { x: 780, y: 290 },
+    numbers: { N: 'N-14', S: 'S-14' },
+    position: pos(DAIGAKU),
+    diagram: { x: 780, y: 290, badges: 'nw' },
     district: 'University',
     districtJa: '文教地区',
-    platforms: { N: [1, 2] },
-    blurb: 'Brick-lined station at the gates of Kawaminato University.',
+    platforms: { N: [1, 2], S: [3, 4] },
+    blurb: 'Brick-lined station at the gates of Kawaminato University. Nagisa and Shiokaze lines cross here.',
   },
   {
     id: 'hibarino',
@@ -274,6 +301,59 @@ export const STATIONS: StationDef[] = [
     districtJa: '北東丘',
     platforms: { A: [1, 2] },
     blurb: 'New-town terminus with a bus rotary, in the north-eastern hills.',
+  },
+  // ── Shiokaze Line ──
+  {
+    id: 'yunagihama',
+    nameJa: '夕凪浜',
+    nameKana: 'ゆうなぎはま',
+    nameRomaji: 'Yūnagihama',
+    numbers: { S: 'S-11' },
+    position: { x: 420, y: S_ODORI_Z },
+    diagram: { x: 150, y: 170 },
+    district: 'North-west waterfront',
+    districtJa: '北西ウォーターフロント',
+    platforms: { S: [1, 2] },
+    blurb: 'Waterfront terminus at the river mouth, with a sunset promenade over the bay.',
+  },
+  {
+    id: 'kurayashiki',
+    nameJa: '蔵屋敷',
+    nameKana: 'くらやしき',
+    nameRomaji: 'Kurayashiki',
+    numbers: { S: 'S-12' },
+    position: { x: 1100, y: S_ODORI_Z },
+    diagram: { x: 360, y: 170 },
+    district: 'Riverside',
+    districtJa: '川沿い',
+    platforms: { S: [1, 2] },
+    blurb: 'Old rice-storehouse quarter on the river’s north bank, its white godowns now cafés.',
+  },
+  {
+    id: 'tomyobori',
+    nameJa: '灯明堀',
+    nameKana: 'とうみょうぼり',
+    nameRomaji: 'Tōmyōbori',
+    numbers: { S: 'S-15' },
+    position: pos(along(DAIGAKU, S_SOUTH_DIR, 750)),
+    diagram: { x: 720, y: 390 },
+    district: 'South-east canals',
+    districtJa: '南東運河',
+    platforms: { S: [1, 2] },
+    blurb: 'Lantern-lit canal quarter of small temples and teahouses.',
+  },
+  {
+    id: 'sakurazutsumi',
+    nameJa: '桜堤',
+    nameKana: 'さくらづつみ',
+    nameRomaji: 'Sakurazutsumi',
+    numbers: { S: 'S-16' },
+    position: pos(along(DAIGAKU, S_SOUTH_DIR, 1450)),
+    diagram: { x: 720, y: 500 },
+    district: 'South-east',
+    districtJa: '南東',
+    platforms: { S: [1, 2] },
+    blurb: 'Terminus beside a cherry-lined river embankment and park.',
   },
 ];
 

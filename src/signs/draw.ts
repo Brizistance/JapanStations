@@ -570,6 +570,128 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
       ctx.fill();
     }
+  } else if (c.v === 'sunset') {
+    // Yūnagi: the evening calm. A low sun over a flat bay, its path broken into ripples.
+    const g = ctx.createLinearGradient(0, 0, 0, H * 0.62);
+    g.addColorStop(0, '#f7d9a8');
+    g.addColorStop(1, '#f2a25c');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const sx = W * 0.62, hz = H * 0.62;
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(sx, hz, H * 0.2, Math.PI, 0);
+    ctx.fill();
+    const sea = ctx.createLinearGradient(0, hz, 0, H);
+    sea.addColorStop(0, '#5e7f99');
+    sea.addColorStop(1, '#2c4660');
+    ctx.fillStyle = sea;
+    ctx.fillRect(0, hz, W, H - hz);
+    ctx.fillStyle = '#f8c27a';
+    for (let i = 0; i < 16; i++) {
+      const y = hz + H * 0.03 + i * H * 0.022, w = H * (0.34 - i * 0.016) * (0.7 + 0.3 * ((i * 7) % 3) / 2);
+      ctx.globalAlpha = 0.85 - i * 0.045;
+      ctx.fillRect(sx - w / 2 + Math.sin(i * 2.3) * H * 0.02, y, w, H * 0.009);
+    }
+    ctx.globalAlpha = 1;
+    // A distant breakwater and lighthouse.
+    ctx.fillStyle = '#2a3442';
+    ctx.fillRect(W * 0.06, hz - H * 0.012, W * 0.3, H * 0.014);
+    ctx.fillRect(W * 0.33, hz - H * 0.13, H * 0.035, H * 0.13);
+  } else if (c.v === 'namako') {
+    // Namako-kabe: square dark tiles set on the diagonal, with raised white plaster joints.
+    ctx.fillStyle = '#f3f0e8';
+    ctx.fillRect(0, 0, W, H);
+    const s = H / 4.2;
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(Math.PI / 4);
+    const n = Math.ceil(Math.hypot(W, H) / s / 2) + 1;
+    for (let i = -n; i <= n; i++) {
+      for (let j = -n; j <= n; j++) {
+        ctx.fillStyle = col;
+        ctx.fillRect(i * s + s * 0.09, j * s + s * 0.09, s * 0.82, s * 0.82);
+      }
+    }
+    ctx.restore();
+    // Top band of white plaster, as on a storehouse wall.
+    ctx.fillStyle = '#f3f0e8';
+    ctx.fillRect(0, 0, W, H * 0.12);
+    ctx.fillStyle = '#c9c3b5';
+    ctx.fillRect(0, H * 0.12, W, H * 0.012);
+  } else if (c.v === 'lanterns') {
+    // Paper lanterns strung along a canal at dusk, doubled in the water.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#241a2e');
+    g.addColorStop(0.55, '#3b2a3a');
+    g.addColorStop(0.56, '#1b2230');
+    g.addColorStop(1, '#10151f');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const lantern = (x: number, y: number, r: number, a: number) => {
+      ctx.globalAlpha = a;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r * 0.75, r, 0, 0, Math.PI * 2);
+      ctx.fill();
+      if (a < 1) return; // reflections: just the glow
+      ctx.fillStyle = '#2a1c18';
+      ctx.fillRect(x - r * 0.45, y - r * 1.08, r * 0.9, r * 0.16);
+      ctx.fillRect(x - r * 0.45, y + r * 0.92, r * 0.9, r * 0.16);
+    };
+    // Two strings of lanterns, sagging between posts; the water line is at 56 % of the height.
+    const water = H * 0.56, r = H * 0.075, n = Math.max(6, Math.round(W / (H * 0.42)));
+    for (let row = 0; row < 2; row++) {
+      const top = H * (0.08 + row * 0.2);
+      const sag = (x: number) => top + Math.abs(Math.sin((x / W) * Math.PI * (n / 3))) * H * 0.05;
+      ctx.strokeStyle = '#6b5a50';
+      ctx.lineWidth = H * 0.008;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += W / 120) (x ? ctx.lineTo(x, sag(x)) : ctx.moveTo(x, sag(x)));
+      ctx.stroke();
+      for (let i = 0; i < n; i++) {
+        const x = ((i + 0.25 + row * 0.5) / n) * W, y = sag(x) + r * 1.15;
+        lantern(x, y, r, 1);
+        // Reflection: mirrored about the water line, squashed, faint and a little wobbly.
+        const ry = water + (water - y) * 0.55;
+        ctx.save();
+        ctx.translate(x + Math.sin(i * 1.7) * H * 0.012, ry);
+        ctx.scale(1, 0.5);
+        lantern(0, 0, r, 0.42);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
+  } else if (c.v === 'sakura') {
+    // Cherry trees along an embankment: a pink canopy, petals falling on the water.
+    ctx.fillStyle = '#eef3f6';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#9fc4d6';
+    ctx.fillRect(0, H * 0.78, W, H * 0.22);
+    ctx.fillStyle = '#7fa36a';
+    ctx.beginPath();
+    ctx.moveTo(0, H * 0.8);
+    ctx.lineTo(0, H * 0.66);
+    ctx.lineTo(W, H * 0.6);
+    ctx.lineTo(W, H * 0.8);
+    ctx.fill();
+    for (let i = 0; i < 10; i++) {
+      const x = (i + 0.4) * (W / 10), base = H * (0.66 - 0.06 * (x / W));
+      ctx.fillStyle = '#4a3a33';
+      ctx.fillRect(x - H * 0.015, base - H * 0.24, H * 0.03, H * 0.24);
+      for (let k = 0; k < 7; k++) {
+        const a = k * 0.9 + i;
+        ctx.fillStyle = k % 2 ? col : '#f7d6df';
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * H * 0.09, base - H * 0.3 + Math.sin(a) * H * 0.07, H * (0.08 + 0.02 * (k % 3)), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = '#f7d6df';
+    for (let i = 0; i < 70; i++) {
+      const x = ((i * 0.618) % 1) * W, y = H * (0.45 + 0.5 * ((i * 0.377) % 1));
+      ctx.fillRect(x, y, H * 0.012, H * 0.008);
+    }
   } else if (c.v === 'willow') {
     // Gilded willow: long gold fronds on deep green, for the hub.
     ctx.fillStyle = '#12382c';

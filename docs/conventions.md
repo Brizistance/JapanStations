@@ -44,8 +44,9 @@ Signs, the map, departure boards and the timetable pick it up automatically.
 ## Adding a line
 
 1. Add a `LineDef` to `LINES` with an alignment, stops, rail levels and a service pattern. Leave 290 m of track beyond each terminus for the turnback siding.
-2. Add its stations as above. A station shared with another line needs the lines to cross at right angles there, 7.5 m apart in depth, and uses `kind: 'interchange'` with `primary` set to the upper line. That composer needs side platforms above and an island below; any other pairing needs its own composer, as the hub has.
-3. Give the map positions (`diagram`) for the new stations.
+2. Add its stations as above. A station shared with another line needs the lines to cross at right angles there, 7.5 m apart in depth, and uses `kind: 'interchange'` with `primary` set to the upper line. That composer needs side platforms above and an island below; any other pairing needs its own composer, as the hub has. A line that runs **beside** another at a station (the Shiokaze Line at Kita-Ōdōri) gets its own platform centre in `StationDef.at` and needs a composer that builds both halls.
+3. Lines crossing **between** stations need at least 7 m between rail levels there; `npm test` finds every such crossing.
+4. Give the map positions (`diagram`) for the new stations, then look at the map: interchange badges (`badges`) and labels can land on another line.
 
 ## Text
 

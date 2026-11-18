@@ -14,16 +14,16 @@ A fictional transit simulator for an invented Japanese city. The city has an Osa
 
 | Pillar | What it is | State |
 |---|---|---|
-| **Map / network** | A stylized route diagram driven by network data | Done for 3 lines. No geographic view yet. |
+| **Map / network** | A stylized route diagram driven by network data | Done for 4 lines. No geographic view yet. |
 | **Operations sim** | Trains running to a timetable: headways, dwell times | Done: fixed headway all day. No rush hour, delays or passenger flow. |
-| **Station walk-throughs** | First-person exploration of 3D stations | Done for all 14 stations, generated from kits + per-station specs, plus one hand-composed hub. |
-| **Ride-along** | Riding between stations | Done: board, ride, look out of the cab end. No audio yet. |
+| **Station walk-throughs** | First-person exploration of 3D stations | Done for all 18 stations, generated from kits + per-station specs, plus one hand-composed hub. |
+| **Ride-along** | Riding between stations | Done: board, ride, look out of the cab end, in a modelled (Blender) metro car. No audio yet. |
 
 ## Scope
 
-- **Now:** 3 lines, 14 stations, one operator (Kawaminato Metro), and a central station (Kita-Ōdōri / Kawaminato Station) with space reserved for four more railways.
+- **Now:** 4 lines, 18 stations, one operator (Kawaminato Metro), and a central station (Kita-Ōdōri / Kawaminato Station) with space reserved for three more railways.
 - **Next, in rough order of value:** audio (door chimes, announcements, departure melodies), passenger NPCs, rush-hour service patterns, working elevators, day/night.
-- **Later, maybe:** the railways the hub is waiting for (a fourth metro line, a JR-style main line, a private-railway terminal, a high-speed line), through-running, express services.
+- **Later, maybe:** the railways the hub is still waiting for (a JR-style main line, a private-railway terminal, a high-speed line), through-running, express services.
 - **Out of scope:** real-world data, real station names, and exact replicas of real stations.
 
 ## Roadmap (loose)
@@ -32,8 +32,8 @@ A fictional transit simulator for an invented Japanese city. The city has an Osa
 2. ~~Phase 2: Operations sim.~~ Done (basic, reliable service).
 3. ~~Phase 3: First station walk-through.~~ Done, and extended to every station.
 4. ~~Phase 4: Ride-along.~~ Done (silent).
-5. **Phase 5: Atmosphere.** ~~Better lighting and materials~~ (done, see Plans/features/visual-realism). Still to do: audio, NPCs, day/night.
-6. **Phase 6: Growth.** Started: the Akanesuji Line and the hub. Still to come: more lines, express/local patterns, a bigger city.
+5. **Phase 5: Atmosphere.** ~~Better lighting and materials~~ (done, see Plans/features/visual-realism). ~~Modelled rolling stock~~ (done, see Plans/features/train-model). Still to do: audio, NPCs, day/night.
+6. **Phase 6: Growth.** Started: the Akanesuji Line and the hub, then the Shiokaze Line (see Plans/features/shiokaze-line). Still to come: the non-metro railways, express/local patterns, a bigger city.
 
 ## Known limitations (deliberate, for now)
 

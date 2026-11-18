@@ -162,10 +162,11 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
   return (
     <svg className="map" viewBox="40 20 1040 560" role="img" aria-label="Route map">
       <rect x="40" y="20" width="1040" height="560" fill="#f7f6f1" rx="10" />
-      {/* River and bay, purely decorative. */}
+      {/* The Mio-gawa and the bay, purely decorative. The Shiokaze Line follows the river's north bank. */}
       <path d="M40 215 C 260 190, 420 240, 620 205 S 900 120, 1080 150" stroke="#d3e6f1" strokeWidth="26" fill="none" />
       <path d="M40 150 L 40 470 C 70 440, 95 390, 92 320 S 70 190, 40 150 Z" fill="#d3e6f1" />
       <text x="56" y="330" className="map-geo" transform="rotate(-90 56 330)">川湊湾 Kawaminato Bay</text>
+      <text x="255" y="212" textAnchor="middle" className="map-geo">澪川 Mio-gawa</text>
       {LINES.map((l) => (
         <polyline
           key={l.id}

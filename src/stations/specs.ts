@@ -34,6 +34,8 @@ export interface HubSpec {
   kind: 'hub';
   /** Line whose direction the station frame follows (the deeper, east–west one). */
   primary: string;
+  /** Line running alongside the primary, in the box south of its platforms (network `at`). */
+  beside?: string;
   style: StationStyle;
   seed: number;
 }
@@ -57,6 +59,7 @@ export const SPECS: Record<StationId, StationSpec> = {
   'kita-odori': {
     kind: 'hub',
     primary: 'A',
+    beside: 'S',
     style: {
       wall: 'panel:#f1efe8', concWall: 'panel:#f4f2ec', floor: 'floor:#d9d7d0', pillar: 'panel:#f1efe8',
       accent: '#b08d3c', mural: { v: 'willow', color: '#d9b43a' }, vault: true,
@@ -122,12 +125,10 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 73, roadHalf: 9, cross: [-88, 88], left: 'oldtown', right: 'mixed', poles: true, avenue: true },
   },
-  // University: brick walls, campus gate outside.
+  // University: brick walls, campus gate outside. Nagisa Line above, Shiokaze Line crossing below.
   'daigaku-mae': {
-    kind: 'underground',
-    concourse: [-22, 34],
-    gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    kind: 'interchange',
+    primary: 'N',
     style: {
       wall: 'brick:#9a5a43', concWall: 'tile:#efe9dc', floor: 'floor:#d2ccbf', pillar: 'brick:#9a5a43',
       accent: '#3d2014', mural: { v: 'leaves', color: '#c9a227' },
@@ -194,6 +195,61 @@ export const SPECS: Record<StationId, StationSpec> = {
       accent: '#e2a400', mural: { v: 'kerria', color: '#e8b200' },
     },
     surface: { seed: 137, roadHalf: 8, cross: [-70, 62], left: 'apartment', right: 'house', trees: true },
+  },
+  // ── Shiokaze Line ──
+  // Waterfront terminus at the river mouth: warm sand panels, sunset mural, promenade outside.
+  yunagihama: {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#f2e6d8', concWall: 'panel:#f5eee4', floor: 'floor:#d4ccc0', pillar: 'panel:#f2e6d8',
+      accent: '#2c4660', mural: { v: 'sunset', color: '#e2552a' },
+    },
+    surface: { seed: 151, roadHalf: 8, cross: [-74], left: 'apartment', right: 'sea', waterfront: 'promenade', trees: true, treeLeaf: 'leaf2' },
+  },
+  // Riverside storehouse quarter: white plaster walls, charcoal pillars, namako-wall mural.
+  kurayashiki: {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'tile:#f3f1ea', concWall: 'tile:#f5f3ee', floor: 'floor:#cfccc4', pillar: 'tile:#3a3d42',
+      accent: '#3a3d42', mural: { v: 'namako', color: '#2f3338' },
+    },
+    surface: { seed: 157, roadHalf: 7.5, cross: [-62, 66], left: 'godown', right: 'godown', poles: true },
+  },
+  // Lantern canal quarter: dark wood-brown tile, persimmon pillars, lantern mural.
+  tomyobori: {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'tile:#3b2a24', concWall: 'tile:#efe7da', floor: 'floor:#c9c2b4', pillar: 'tile:#c4561c',
+      accent: '#f0b44a', mural: { v: 'lanterns', color: '#ffb05a' },
+    },
+    surface: {
+      seed: 163, roadHalf: 7, cross: [-64, 78], canalAt: 78, left: 'oldtown', right: 'oldtown', poles: true,
+      canalName: { ja: '灯明橋', en: 'Tōmyō-bashi' }, canalLanterns: true,
+    },
+  },
+  // Cherry-embankment terminus: blush panels, cherry mural, cherry trees in the park and street.
+  sakurazutsumi: {
+    kind: 'underground',
+    concourse: [-34, 20],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'panel:#f6ecee', concWall: 'panel:#f7f2f2', floor: 'floor:#d6d0cc', pillar: 'panel:#f6ecee',
+      accent: '#d77a8e', mural: { v: 'sakura', color: '#eaa2b6' },
+    },
+    surface: {
+      seed: 167, roadHalf: 7, cross: [-66, 62], left: 'park', right: 'house', trees: true, poles: true,
+      parkName: { ja: '桜堤公園', en: 'Sakurazutsumi Park' }, treeLeaf: 'flat:#f2bfcd',
+    },
   },
   // Elevated suburban terminus.
   hibarino: {

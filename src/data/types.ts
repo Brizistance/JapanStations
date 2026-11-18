@@ -55,8 +55,16 @@ export interface StationDef {
   nameKana: string; // hiragana
   nameRomaji: string; // display, with macrons
   numbers: Record<LineId, string>; // { Y: "Y-13", N: "N-13" }
-  /** World position in metres (x = east, y = south). Must lie on every serving line's alignment. */
+  /**
+   * World position in metres (x = east, y = south). Must lie on the alignment of every
+   * serving line, except a line listed in `at`.
+   */
   position: { x: number; y: number };
+  /**
+   * Per-line platform centre, for a line that runs alongside another rather than across it
+   * (the Shiokaze Line beside the Akanesuji Line at Kita-Ōdōri). Defaults to `position`.
+   */
+  at?: Partial<Record<LineId, { x: number; y: number }>>;
   /**
    * Schematic route-diagram coords. `label` = where the name goes (default below);
    * `badges` = which corner an interchange's number badges sit in (default left).

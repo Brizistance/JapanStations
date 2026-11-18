@@ -5,7 +5,7 @@
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
 import { GROUND_Y, vending } from './kit';
 
-export type BlockStyle = 'office' | 'mixed' | 'neon' | 'apartment' | 'house' | 'oldtown' | 'warehouse' | 'campus' | 'park' | 'sea' | 'dome';
+export type BlockStyle = 'office' | 'mixed' | 'neon' | 'apartment' | 'house' | 'oldtown' | 'godown' | 'warehouse' | 'campus' | 'park' | 'sea' | 'dome';
 
 export interface SurfaceSpec {
   seed: number;
@@ -25,6 +25,16 @@ export interface SurfaceSpec {
   /** Covered shopping arcade over the cross street at this x, on the -z side. */
   arcadeAt?: number;
   arcadeName?: { ja: string; en: string };
+  /** Name plate on the canal bridge (default Hyōtan-bashi). */
+  canalName?: { ja: string; en: string };
+  /** Strings of paper lanterns along both canal banks. */
+  canalLanterns?: boolean;
+  /** What a 'sea' side is: the working port with cranes and the ferry (default), or a promenade. */
+  waterfront?: 'port' | 'promenade';
+  /** Name on the park gate (default Midorizaka Park). */
+  parkName?: { ja: string; en: string };
+  /** Canopy material for street and park trees (default 'leaf'); a flat pink makes cherries. */
+  treeLeaf?: string;
 }
 
 export const PLOT_X = DEFAULT_PLOT.x;
@@ -73,6 +83,8 @@ const STYLE: Record<string, { w: [number, number]; d: [number, number]; floors: 
   apartment: { w: [14, 24], d: [14, 20], floors: [5, 11], mat: ['facade:apt:#e4dfd3', 'facade:apt:#d5cbb8', 'facade:apt:#c9d0d4'], shop: 0.25 },
   house: { w: [8, 11], d: [9, 12], floors: [2, 2], mat: ['facade:house:#e9e2d2', 'facade:house:#d9cdb8', 'facade:house:#cfd6d2', 'facade:house:#e6d9c9'], shop: 0.1 },
   oldtown: { w: [5.5, 9], d: [10, 15], floors: [2, 3], mat: ['wood:#5a4636', 'wood:#6b5440', 'facade:house:#d9cdb8', 'wood:#4a3a2e'], shop: 1 },
+  // Kura: white-plastered storehouses with namako-tile bases, some turned into cafés.
+  godown: { w: [8, 13], d: [12, 16], floors: [2, 3], mat: ['flat:#f1eee6', 'flat:#ece7dc', 'flat:#f4f2ec'], shop: 0.45 },
   warehouse: { w: [22, 34], d: [20, 26], floors: [3, 4], mat: ['brick:#8e4a35', 'brick:#7d4030', 'brick:#99573f'], shop: 0.35 },
   campus: { w: [26, 40], d: [16, 20], floors: [4, 6], mat: ['brick:#9a5a43', 'brick:#8a4f3b'], shop: 0 },
 };
@@ -95,7 +107,8 @@ export function tree(b: Builder, x: number, z: number, h = 5.2, leaf = 'leaf') {
   const seed = Math.abs(Math.round(x * 13 + z * 7));
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2 + (seed % 7), k = 0.72 + ((seed >> i) % 3) * 0.1;
-    b.mesh(i % 2 ? leaf : leaf === 'leaf' ? 'leaf2' : 'leaf', 'sphere', x + Math.cos(a) * w * 0.38, GY + h * (0.68 + (i % 3) * 0.07), z + Math.sin(a) * w * 0.38, w * k, h * 0.36 * k, w * k);
+    const alt = leaf === 'leaf' ? 'leaf2' : leaf === 'leaf2' ? 'leaf' : leaf;
+    b.mesh(i % 2 ? leaf : alt, 'sphere', x + Math.cos(a) * w * 0.38, GY + h * (0.68 + (i % 3) * 0.07), z + Math.sin(a) * w * 0.38, w * k, h * 0.36 * k, w * k);
   }
   b.block(x - 0.2, GY, z - 0.2, x + 0.2, GY + 2.5, z + 0.2);
 }
@@ -147,6 +160,25 @@ function building(b: Builder, r: () => number, style: BlockStyle, x0: number, x1
     b.box('flat:#cfcabe', xa, GY, z0 + 0.1, xb - 3, GY + 1.2, z0 + 0.3);
     if (r() < 0.5) car(b, xb - 1.4, z0 + 1.2, pick(['#e8e8e8', '#30343a', '#7a1f1f', '#c9c2a8']), false);
     b.deco('flat:#3d2f24', xa + 1.2, GY, zf - 0.04, xa + 2.2, GY + 2.1, zf);
+    return;
+  }
+  if (style === 'godown') {
+    // Namako base, black roof with a ridge, small iron-shuttered windows; a café in some.
+    const base = Math.min(1.6, h * 0.25);
+    b.sign({ k: 'mural', v: 'namako', color: '#2f3338' }, xa + w / 2, GY + base / 2, zf - 0.03, [0, -1], w - 0.1, base);
+    b.deco('roof', xa - 0.35, GY + h, zf - 0.5, xb + 0.35, GY + h + 0.3, zf + depth + 0.5);
+    b.deco('roof', xa + 0.6, GY + h + 0.3, zf + 1.4, xb - 0.6, GY + h + 1.2, zf + depth - 1.4);
+    b.deco('flat:#2a2d31', xa - 0.4, GY + h + 1.2, zf + depth / 2 - 0.25, xb + 0.4, GY + h + 1.45, zf + depth / 2 + 0.25);
+    for (let fx = xa + 1.6; fx < xb - 1.2; fx += 3.2) b.deco('flat:#30343a', fx, GY + h - 2.2, zf - 0.08, fx + 0.9, GY + h - 1.3, zf);
+    if (r() < st.shop) {
+      const s = pick(SHOPS.filter((q) => /カフェ|喫茶|珈琲|和菓子|おみやげ|そば/.test(q.ja)));
+      b.deco('wood:#5a4636', xa + w / 2 - 1.8, GY, zf - 0.06, xa + w / 2 + 1.8, GY + 2.6, zf);
+      b.deco('glow:#fff1d0', xa + w / 2 - 1.4, GY + 0.2, zf - 0.08, xa + w / 2 + 1.4, GY + 2.3, zf - 0.06);
+      b.deco(`flat:${s.bg}`, xa + w / 2 - 1.2, GY + 1.75, zf - 0.11, xa + w / 2 + 1.2, GY + 2.5, zf - 0.09);
+      b.sign({ k: 'shop', ...s }, xa + w / 2, GY + 3.25, zf - 0.08, [0, -1], Math.min(w - 1.2, 5.5), 0.75);
+    } else {
+      b.deco('flat:#30343a', xa + w / 2 - 1.3, GY, zf - 0.06, xa + w / 2 + 1.3, GY + 2.6, zf);
+    }
     return;
   }
   if (style === 'campus') {
@@ -215,7 +247,7 @@ export function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: num
     x += w;
   }
   // Back row: bigger blocks that close off the view.
-  const back = style === 'house' || style === 'oldtown' ? 'apartment' : style === 'campus' ? 'campus' : style === 'warehouse' ? 'warehouse' : 'mixed';
+  const back = style === 'house' || style === 'oldtown' || style === 'godown' ? 'apartment' : style === 'campus' ? 'campus' : style === 'warehouse' ? 'warehouse' : 'mixed';
   const bs = STYLE[back];
   const zb = z0 + st.d[1] + (style === 'campus' ? 22 : 5);
   x = xa;
@@ -312,7 +344,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
       x = to;
     }
     for (let xl = -X + 12; xl < X; xl += 32) if (!nearStreet(xl, 9)) lamp(b, xl, s * (rw + 0.9), -s);
-    if (spec.trees) for (let xt = -X + 5; xt < X; xt += 16) if (!nearStreet(xt, 10)) tree(b, xt, s * (rw + 1.6), 5.5 + r() * 1.5);
+    if (spec.trees) for (let xt = -X + 5; xt < X; xt += 16) if (!nearStreet(xt, 10)) tree(b, xt, s * (rw + 1.6), 5.5 + r() * 1.5, spec.treeLeaf);
     if (spec.poles) {
       for (let xp = -X + 8; xp < X; xp += 30) if (!nearStreet(xp, 6)) utilityPole(b, xp, s * (swOut - 0.5));
       b.deco('flat:#222', -X, GY + 8.25, s * (swOut - 0.5) - 0.02, X, GY + 8.28, s * (swOut - 0.5) + 0.02);
@@ -350,8 +382,8 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           if (xb > 28) fillLots(b, r, 'house', Math.max(xa, 24), xb, swOut);
         } else fillLots(b, r, style, xa, xb, swOut);
       }
-      if (style === 'park') park(b, r, swOut);
-      if (style === 'sea') b.open(() => quay(b, r, swOut, seaZ));
+      if (style === 'park') park(b, r, swOut, spec.parkName ?? { ja: '緑坂公園', en: 'Midorizaka Park' }, spec.treeLeaf);
+      if (style === 'sea') b.open(() => (spec.waterfront === 'promenade' ? promenade(b, r, swOut, seaZ, spec.treeLeaf) : quay(b, r, swOut, seaZ)));
       if (style === 'campus') campusFront(b, swOut);
       if (style === 'dome') dome(b, swOut);
     });
@@ -369,7 +401,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     }
   }
 
-  if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z));
+  if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' }, !!spec.canalLanterns));
   if (spec.arcadeAt !== undefined) arcade(b, spec.arcadeAt, swOut, spec.arcadeName ?? { ja: '商店街', en: 'Shopping Arcade' });
   if (spec.avenue) {
     // The crossing avenue gets its own lane lines and trees.
@@ -383,10 +415,10 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   }
 }
 
-function park(b: Builder, r: () => number, z0: number) {
+function park(b: Builder, r: () => number, z0: number, name: { ja: string; en: string }, leaf = 'leaf') {
   // Canonical side (+z): a small neighbourhood park between x = -60 and 20.
   b.box('grass', -62, GY, z0 + 1.5, 22, GY + 0.06, z0 + 40);
-  for (let i = 0; i < 16; i++) tree(b, -58 + r() * 76, z0 + 5 + r() * 32, 5 + r() * 3, r() < 0.3 ? 'leaf2' : 'leaf');
+  for (let i = 0; i < 16; i++) tree(b, -58 + r() * 76, z0 + 5 + r() * 32, 5 + r() * 3, leaf !== 'leaf' ? leaf : r() < 0.3 ? 'leaf2' : 'leaf');
   b.box('wood:#6b5440', -22, GY, z0 + 12, -19.5, GY + 0.45, z0 + 12.5);
   b.box('wood:#6b5440', -12, GY, z0 + 12, -9.5, GY + 0.45, z0 + 12.5);
   // Slide + swings, stylised.
@@ -394,7 +426,7 @@ function park(b: Builder, r: () => number, z0: number) {
   b.deco('flat:#1e88e5', 3.2, GY + 0.2, z0 + 18.2, 6.5, GY + 0.5, z0 + 19);
   b.box('flat:#fdd835', -40, GY, z0 + 20, -39.85, GY + 2.4, z0 + 24);
   b.deco('flat:#fdd835', -40, GY + 2.3, z0 + 20, -37, GY + 2.4, z0 + 20.15);
-  b.sign({ k: 'label', text: '緑坂公園', sub: 'Midorizaka Park', fg: '#fff', bg: '#2e7d32' }, -20, GY + 1.3, z0 + 1.6, [0, -1], 3, 0.9);
+  b.sign({ k: 'label', text: name.ja, sub: name.en, fg: '#fff', bg: '#2e7d32' }, -20, GY + 1.3, z0 + 1.6, [0, -1], 3, 0.9);
   b.box('flat:#cfcabe', -21.8, GY, z0 + 1.62, -18.2, GY + 1.9, z0 + 1.8);
 }
 
@@ -425,6 +457,35 @@ function quay(b: Builder, r: () => number, z0: number, seaZ: number) {
   b.deco('flat:#0d3b66', -20, 0.2, seaZ + 5.95, 36, 0.9, seaZ + 18.05);
   b.deco('flat:#f4f4f0', -8, 3.2, seaZ + 8, 22, 6.2, seaZ + 16);
   b.deco('flat:#d9482b', 6, 6.2, seaZ + 10.5, 10, 9, seaZ + 13.5);
+}
+
+function promenade(b: Builder, r: () => number, z0: number, seaZ: number, leaf = 'leaf2') {
+  // Sunset promenade where the Mio-gawa meets the bay: a boardwalk, benches facing the water,
+  // a breakwater lighthouse.
+  const X = PLOT_X;
+  b.box('water', -X, -1.6, seaZ, X, -1.2, PLOT_Z + 60, false);
+  b.box('concrete', -X, -2, seaZ - 0.4, X, GY, seaZ);
+  b.deco('wood:#8a6a4c', -X, GY, seaZ - 9, X, GY + 0.04, seaZ - 0.4);
+  for (let x = -X; x < X; x += 3) {
+    b.block(x, GY, seaZ - 0.5, x + 3, GY + 1.1, seaZ - 0.4);
+    b.deco('wood:#6b5440', x, GY + 0.95, seaZ - 0.52, x + 3, GY + 1.1, seaZ - 0.4);
+    b.deco('flat:#3a3f45', x, GY, seaZ - 0.5, x + 0.08, GY + 1.0, seaZ - 0.42);
+  }
+  for (let x = -X + 10; x < X - 6; x += 14) {
+    b.box('wood:#6b5440', x - 1.2, GY, seaZ - 3.2, x + 1.2, GY + 0.45, seaZ - 2.7);
+    b.deco('wood:#6b5440', x - 1.2, GY + 0.45, seaZ - 3.25, x + 1.2, GY + 0.95, seaZ - 3.15);
+  }
+  for (let i = 0; i < 14; i++) tree(b, -X + 6 + i * 18 + r() * 3, z0 + 4, 4.8 + r(), leaf);
+  // Breakwater with a red lighthouse, out in the water.
+  b.deco('concrete', 20, -1.6, seaZ + 34, X, GY + 0.6, seaZ + 38);
+  b.mesh('flat:#d9482b', 'cyl', 96, GY + 6, seaZ + 36, 2.4, 11, 2.4);
+  b.mesh('flat:#f4f4f0', 'cyl', 96, GY + 12.2, seaZ + 36, 2.0, 1.6, 2.0);
+  b.deco('glow:#fff1c4', 95.4, GY + 11.6, seaZ + 35.4, 96.6, GY + 12.6, seaZ + 36.6);
+  b.box('flat:#0d3b66', -3.6, GY, z0 + 8.6, 3.6, GY + 2.2, z0 + 8.9);
+  b.sign({ k: 'label', text: '夕凪プロムナード', sub: 'Yūnagi Promenade', fg: '#fff', bg: '#0d3b66' }, 0, GY + 1.4, z0 + 8.58, [0, -1], 7, 1.4);
+  // River-mouth marker at the railing, like a river office's kilometre post.
+  b.box('flat:#f4f4f0', -40.15, GY, seaZ - 1.6, -39.85, GY + 2.4, seaZ - 1.3);
+  b.sign({ k: 'label', text: '澪川 河口', sub: 'Mio-gawa river mouth', fg: '#1b1f24', bg: '#f4f4f0' }, -40, GY + 1.9, seaZ - 1.62, [0, -1], 2.6, 0.8);
 }
 
 function dome(b: Builder, z0: number) {
@@ -469,7 +530,7 @@ function campusFront(b: Builder, z0: number) {
   for (let x = -100; x < 50; x += 3) if (Math.abs(x) > 6) b.box('flat:#3a3f45', x, GY, z0 + 0.9, x + 2.9, GY + 1.3, z0 + 1.0);
 }
 
-function canalFeature(b: Builder, cx: number, swOut: number, Z: number) {
+function canalFeature(b: Builder, cx: number, swOut: number, Z: number, name: { ja: string; en: string }, lanterns: boolean) {
   for (const s of [-1, 1]) {
     const za = s * (swOut + 1.5), zb = s * Z;
     const lo = Math.min(za, zb), hi = Math.max(za, zb);
@@ -486,11 +547,21 @@ function canalFeature(b: Builder, cx: number, swOut: number, Z: number) {
     b.deco('flat:#7a1f1f', cx - 7.2, GY + 0.2, za - 0.12, cx + 7.2, GY + 1.1, za + 0.12);
     // Lanterns on the bridge parapet.
     for (let x = cx - 6; x <= cx + 6; x += 4) b.deco('glow:#ffb74d', x - 0.18, GY + 1.1, za - 0.18, x + 0.18, GY + 1.6, za + 0.18);
+    // Lantern strings along both banks, on poles every 8 m.
+    if (lanterns) {
+      for (const ex of [cx - 8.2, cx + 8.2]) {
+        for (let z = lo + 3; z < hi - 2; z += 8) {
+          b.box('wood:#4a3a2e', ex - 0.07, GY, z - 0.07, ex + 0.07, GY + 3.4, z + 0.07);
+          for (let k = 1; k < 4; k++) b.deco('glow:#ffb05a', ex - 0.2, GY + 2.55, z + k * 2 - 0.2, ex + 0.2, GY + 3.05, z + k * 2 + 0.2);
+          b.deco('flat:#3a2f28', ex - 0.015, GY + 3.2, z, ex + 0.015, GY + 3.23, Math.min(z + 8, hi));
+        }
+      }
+    }
     // Pleasure boat.
     b.deco('wood:#6b5440', cx - 1.6, -2.9, s * (swOut + 14) - 4, cx + 1.6, -2.3, s * (swOut + 14) + 4);
     b.deco('glow:#ff7043', cx - 1.4, -2.3, s * (swOut + 14) - 3, cx + 1.4, -0.9, s * (swOut + 14) + 3);
   }
-  b.sign({ k: 'label', text: '瓢箪橋', sub: 'Hyōtan-bashi', fg: '#fff', bg: '#7a1f1f' }, cx, GY + 0.65, swOut + 1.37, [0, -1], 2.4, 0.7);
+  b.sign({ k: 'label', text: name.ja, sub: name.en, fg: '#fff', bg: '#7a1f1f' }, cx, GY + 0.65, swOut + 1.37, [0, -1], 2.4, 0.7);
 }
 
 function arcade(b: Builder, cx: number, swOut: number, name: { ja: string; en: string }) {

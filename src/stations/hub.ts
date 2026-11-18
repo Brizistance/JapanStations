@@ -58,6 +58,8 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 interface H {
   c: Ctx;
   o: Ctx;
+  /** The line beside the primary, in the B4 box (absent: the box is still a shell). */
+  s?: Ctx;
   b: Builder;
   /** B1 floor, and the two platform levels. */
   cf: number;
@@ -150,8 +152,13 @@ function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
     });
   });
 
-  // ── Future metro line: a bare platform box south of the Akanesuji platforms ──
   const z0 = dA.wallZ + 0.5, z1 = z0 + 15.4, ry = c.railY;
+  if (h.s) {
+    sHall(h, (z0 + z1) / 2, windows);
+    return holes;
+  }
+
+  // ── Future metro line: a bare platform box south of the Akanesuji platforms ──
   b.deco('concreteDark', -HALL_HALF, ry - 1, z0, HALL_HALF, ry - 0.2, z1);
   b.deco('concrete', -PLATFORM_HALF, ry - 0.2, z0 + 3.7, PLATFORM_HALF, pfA, z1 - 3.7);
   b.deco('concreteDark', -HALL_HALF, pfA + 4.5, z0, HALL_HALF, pfA + 4.5 + SLAB, z1 + 0.5);
@@ -164,6 +171,45 @@ function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
   for (const x of [-46, 0, 46]) b.sign(reserved('地下鉄新線', 'new metro line'), x, pfA + 2.2, z1 - 0.02, [0, -1], 11, 1.7);
   b.keepOut(-HALL_HALF, ry - 1.5, z0, HALL_HALF, pfA + 4.5, z1, 'future metro platform box');
   return holes;
+}
+
+/** Where the beside line's escalator shaft reaches B1: the east wall of the stub passage. */
+const STUB: [number, number] = [22, 30];
+
+/**
+ * The line beside the primary, in what used to be the B4 shell: an island-platform hall
+ * centred `zc` south of the primary, sharing its windows, with a stair and escalator in an
+ * enclosed shaft climbing west into the stub passage off the paid concourse.
+ */
+function sHall(h: H, zc: number, windows: [number, number][]) {
+  const { b, c, cf, pfA, wall } = h;
+  const s = h.s!;
+  const run = r2((cf - pfA) * 1.7);
+  const foot = STUB[1] + run;
+  const base = pfA + 4.5 + SLAB, top = cf + H1;
+  b.with({ t: [0, 0, zc] }, () => {
+    hall(s, {
+      ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pfA + 4.5, emit: true }],
+      blocks: [[STUB[1], foot]],
+      ceilHoles: [[STUB[1], -1.86, foot, 1.86]],
+      gaps: windows.map(([x0, x1]) => ({ s: -1 as const, x0, x1 })),
+    });
+    b.with({ ...MIRROR_X, t: [foot, 0, 0] }, () => {
+      islandUnit(b, pfA, cf, run, cf);
+      for (const sz of [-1, 1]) {
+        b.box(wall, 0, base, Math.min(sz * 1.86, sz * 2.16), run, top, Math.max(sz * 1.86, sz * 2.16));
+        b.deco('light', 0.5, top - 0.3, Math.min(sz * 1.8, sz * 1.86), run - 0.5, top - 0.18, Math.max(sz * 1.8, sz * 1.86));
+        b.deco(`flat:${s.line.color}`, 0, top - 0.6, Math.min(sz * 1.84, sz * 1.86), run, top - 0.45, Math.max(sz * 1.84, sz * 1.86));
+      }
+      b.box(wall, -0.3, base, -2.16, 0, top, 2.16);
+      b.box('ceil', -0.3, top, -2.16, run, top + 0.5, 2.16);
+      b.hang(
+        { k: 'guide', ja: `${c.line.nameJa}・${h.o.line.nameJa} のりかえ・出口`, en: 'Transfer / Exit', bg: 'white', badges: [c.line.id, h.o.line.id], arrow: 'up' },
+        -1.6, pfA + 2.72, 0, 3.0, 0.44,
+        { ceil: pfA + 4.5, back: { k: 'name', station: s.station.id, line: s.line.id, arrow: 'left' } },
+      );
+    });
+  });
 }
 
 // ───────────────────────── B1 ─────────────────────────
@@ -203,7 +249,7 @@ function concourseLevel(h: H, holes: Rect[]) {
 
   // ── Walls ──
   const exitGaps = EXITS.flatMap((x) => [[x - 4, x], [-x, -x + 4]]);
-  const stub = [22, 30];
+  const stub = STUB;
   b.wallX(wall, -MALL_X - 0.4, MALL_X + 0.4, -BAR - 0.4, -BAR, cf, top, [[-BAR, BAR], [LINK0, LINK1], [-LINK1, -LINK0], ...exitGaps]);
   b.wallX(wall, -MALL_X - 0.4, MALL_X + 0.4, BAR, BAR + 0.4, cf, top, [...exitGaps, stub]);
   for (const [a, e] of exitGaps) {
@@ -315,16 +361,26 @@ function concourseLevel(h: H, holes: Rect[]) {
     });
   }
 
-  // ── Stub passage for the future metro line, closed by a hoarding ──
+  // ── Stub passage south of the paid concourse: to the beside line, or closed by a hoarding ──
+  const sl = h.s?.line;
+  const zc = hallDims(c.line, c.railY).wallZ + 0.5 + 7.7;
   b.box(floor, stub[0], cf - SLAB, BAR, stub[1], cf, BAR + 6);
   b.box('ceil', stub[0] - 0.4, top, BAR, stub[1] + 0.4, top + 0.5, BAR + 6.4);
   wallZ(b, wall, stub[0] - 0.4, stub[0], BAR + 0.4, BAR + 6.4, cf, top);
-  wallZ(b, wall, stub[1], stub[1] + 0.4, BAR + 0.4, BAR + 6.4, cf, top);
+  wallZ(b, wall, stub[1], stub[1] + 0.4, BAR + 0.4, BAR + 6.4, cf, top, sl ? [[zc - 1.86, zc + 1.86]] : []);
   b.box(wall, stub[0], cf, BAR + 6, stub[1], top, BAR + 6.4);
-  hoardingX(b, stub[0], stub[1], cf, BAR + 5.4, -1);
-  b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), (stub[0] + stub[1]) / 2, cf + 1.15, BAR + 5.26, [0, -1], 6.4, 1.0);
   ceilingLight(b, stub[0] + 2.8, stub[1] - 2.8, BAR + 2, BAR + 4, top);
-  b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, BAR + 5.4, '新線連絡通路（予定地）', 'Future metro line passage (reserved)');
+  if (sl) {
+    const toS: SignContent = { k: 'guide', ja: `${sl.nameJa} のりば ${st.platforms[sl.id].join('・')}`, en: `${sl.nameEn} platforms`, bg: 'navy', badges: [sl.id], arrow: 'up' };
+    b.sign({ k: 'mural', ...c.style.mural }, (stub[0] + stub[1]) / 2, cf + 1.6, BAR + 5.98, [0, -1], 7, 2.2);
+    b.sign(toS, stub[1] - 0.02, cf + 2.75, zc, [-1, 0], 3.6, 0.44);
+    b.hang(toS, (stub[0] + stub[1]) / 2, cf + 2.75, BAR - 2.5, 5.2, 0.5, { ceil: top });
+    b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, BAR + 6, `${sl.nameJa} 連絡通路`, `${sl.nameEn} passage`);
+  } else {
+    hoardingX(b, stub[0], stub[1], cf, BAR + 5.4, -1);
+    b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), (stub[0] + stub[1]) / 2, cf + 1.15, BAR + 5.26, [0, -1], 6.4, 1.0);
+    b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, BAR + 5.4, '新線連絡通路（予定地）', 'Future metro line passage (reserved)');
+  }
 
   // ── Zones and spawn ──
   b.zone('concourse', -PAID_X, cf - 0.3, GATE_N, PAID_X, top, BAR, '改札内コンコース', 'Concourse (inside the gates)');
@@ -672,12 +728,13 @@ function street(h: H, seed: number) {
   b.box('facade:apt:#d5cbb8', -X + 4, GY, -106, -BLDG - 8, 31, -68);
 }
 
-export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }) {
+export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, beside?: Ctx) {
   const { b, style } = c;
   const o = other.ctx;
   const pfY = hallDims(o.line, o.railY).pf;
+  if (beside && beside.railY !== c.railY) throw new Error('the line beside the primary must be at its depth');
   const h: H = {
-    c, o, b, cf: pfY + CONC_RISE, pfA: hallDims(c.line, c.railY).pf, pfY,
+    c, o, s: beside, b, cf: pfY + CONC_RISE, pfA: hallDims(c.line, c.railY).pf, pfY,
     wall: style.concWall, floor: style.floor, lines: linesAt(c.station.id).map((l) => l.id),
   };
   b.out.plot = { ...HUB_PLOT };

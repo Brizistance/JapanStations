@@ -4,13 +4,14 @@
 
 - **Name:** **Kawaminato (川湊, かわみなと)** — "river harbour". Chosen from the candidate list; the others (Asahiura, Shiokaze, Yodomachi) are free for future use as wards or lines.
 - **Feel:** an Osaka-like second city. It has a commercial "Kita" (north) hub and a nightlife and shopping "Minami" (south) hub, joined by a main north–south boulevard, Yanagi-suji (柳筋, "willow street"), and its trunk line. A river and canals, a bay to the west, residential hills to the north and east.
+- **The river:** **Mio-gawa (澪川, みおがわ)**. A *mio* is the navigable channel through shallow water, which suits a city called "river harbour". It flows west between Kita and Central (about z = −450), passing over the Yanagisuji and Akanesuji lines, and meets the bay at Yūnagihama. The Shiokaze Line follows its north bank. On the route map it is the pale band; in 3D it shows only as the river mouth at Yūnagihama. Web-searched 2026-11-18: no real river or station found.
 - **Character:** proud, a bit louder and scrappier than the capital, with merchant-city roots and good street food.
 
 ## Operators
 
 | Operator | Type | Status |
 |---|---|---|
-| **Kawaminato Metro (川湊メトロ)** | Underground metro, 3 lines so far | Built |
+| **Kawaminato Metro (川湊メトロ)** | Underground metro, 4 lines so far | Built |
 | _TBD_ JR-style main line | Through platforms on the viaduct at Kawaminato Station | Space reserved, not named |
 | _TBD_ private railway | Dead-end terminal in the Kawaminato Station Building | Space reserved, not named |
 | _TBD_ high-speed line | Top deck at Kawaminato Station | Space reserved, not named |
@@ -26,25 +27,30 @@ Brand: navy `#0d3b66` roundel with three flowing white strokes (a stylised 川).
 | **Y** | Yanagisuji Line | 柳筋線 (やなぎすじせん) | green `#1f9d55` | North–south trunk under Yanagi-suji. Osaka-style street name. |
 | **N** | Nagisa Line | 渚線 (なぎさせん) | blue `#1673c9` | East–west, from the bay to the eastern hills. Nagisa = "water's edge". |
 | **A** | Akanesuji Line | 茜筋線 (あかねすじせん) | madder red `#b7282e` | The newest, deepest line: a diagonal from the south bay to the north-east hills, under Akane-suji and then Kita-Ōdōri avenue. Akane = madder dye, in keeping with Tsumugibashi (silk) and Aizomechō (indigo). |
+| **S** | Shiokaze Line | 汐風線 (しおかぜせん) | sunset orange `#ee7b1a` | The fourth line: from the river mouth along the Mio-gawa's north bank, through the box at Kita-Ōdōri that was built for it, then south-east to the canals. Shiokaze = "sea breeze"; a place-style name, the first line not named after a street. |
 
 ## Stations
 
 | No. | Kanji | Kana | Romaji | District | Character |
 |---|---|---|---|---|---|
 | Y-11 | 緑坂 | みどりざか | Midorizaka | North hills | Quiet residential terminus, park |
-| Y-12 / A-14 | 北大通 | きたおおどおり | Kita-Ōdōri | Kita | **The central station.** Metro hub under Kawaminato Station |
+| Y-12 / A-14 / S-13 | 北大通 | きたおおどおり | Kita-Ōdōri | Kita | **The central station.** Metro hub under Kawaminato Station |
 | Y-13 / N-13 | 紬橋 | つむぎばし | Tsumugibashi | Central | Interchange. Tsumugi = pongee silk: merchant-city roots |
 | Y-14 | 瓢箪堀 | ひょうたんぼり | Hyōtanbori | Minami | Nightlife, "gourd canal" |
 | Y-15 | 鶴松 | つるまつ | Tsurumatsu | Old town | Shōtengai arcade terminus |
 | N-11 | 川湊港 | かわみなとこう | Kawaminato-kō | Bay area | Port, ferry terminal |
 | N-12 / A-13 | 藍染町 | あいぞめちょう | Aizomechō | Merchant quarter | Interchange. Old indigo dyers' quarter |
-| N-14 | 川湊大学前 | かわみなとだいがくまえ | Kawaminato-daigaku-mae | University | Brick, campus gate |
+| N-14 / S-14 | 川湊大学前 | かわみなとだいがくまえ | Kawaminato-daigaku-mae | University | Brick, campus gate. Interchange |
 | N-15 | 雲雀野 | ひばりの | Hibarino | East hills | Elevated suburban terminus. Hibari = skylark |
 | A-11 | 鴎浜 | かもめはま | Kamomehama | South bay | Stadium terminus beside Kawaminato Dome. Kamome = gull |
 | A-12 | 綿屋町 | わたやまち | Watayamachi | Merchant quarter (south) | Cotton wholesalers' street |
 | A-15 | 鈴懸通 | すずかけどおり | Suzukakedōri | Kita (east) | Plane-tree avenue, civic and theatre district |
 | A-16 | 月見坂 | つきみざか | Tsukimizaka | North-east slope | "Moon-viewing slope", quiet hillside |
 | A-17 | 山吹台 | やまぶきだい | Yamabukidai | North-east hills | New-town terminus. Yamabuki = kerria |
+| S-11 | 夕凪浜 | ゆうなぎはま | Yūnagihama | North-west waterfront | Terminus at the river mouth; sunset promenade. Yūnagi = the evening calm |
+| S-12 | 蔵屋敷 | くらやしき | Kurayashiki | Riverside | Old rice-storehouse quarter; white kura turned into cafés. Named for the Edo-period domain warehouses |
+| S-15 | 灯明堀 | とうみょうぼり | Tōmyōbori | South-east canals | Lantern-lit canal, small temples; Hyōtanbori's quieter cousin |
+| S-16 | 桜堤 | さくらづつみ | Sakurazutsumi | South-east | Terminus by a cherry-lined embankment and park |
 
 Numbers start at 11 on each line (an Osaka habit), which leaves 01–10 free for extensions beyond the current first stop.
 
@@ -55,7 +61,7 @@ Numbers start at 11 on each line (an Osaka habit), which leaves 01–10 free for
   - a district plus a direction or feature: 〜本町 (honmachi), 〜橋 (bashi), 〜前 (mae, "in front of"), 〜口 (guchi), 〜筋 (suji), 〜丁目 (chōme)
   - landmarks: 〜城 (castle), 〜公園 (park), 〜港 (port), 〜大学前 (university)
   - nature: 〜川, 〜森, 〜坂, 〜谷
-- **Don't use real station names.** Plausible and invented is the goal. A name that happens to match a tiny real place is fine, but a famous station is not. Names rejected so far for being too close to real ones: Tenjin, Kitahama, Ōgimachi, Hommachi, Minato-Motomachi, Asashiobashi, Hoshikawa, Shiomi. The Akanesuji names were web-searched on 2026-11-18 with no real station or line found; the nearest is Suzukakedōri, which shares its tree with the real Suzukakedai (すずかけ台). Spare if it ever needs replacing: Enjudōri (槐通).
+- **Don't use real station names.** Plausible and invented is the goal. A name that happens to match a tiny real place is fine, but a famous station is not. Names rejected so far for being too close to real ones: Tenjin, Kitahama, Ōgimachi, Hommachi, Minato-Motomachi, Asashiobashi, Hoshikawa, Shiomi. The Akanesuji names were web-searched on 2026-11-18 with no real station or line found; the nearest is Suzukakedōri, which shares its tree with the real Suzukakedai (すずかけ台). Spare if it ever needs replacing: Enjudōri (槐通). The Shiokaze names (汐風線, 夕凪浜, 蔵屋敷, 灯明堀, 桜堤) and the river 澪川 were web-searched on 2026-11-18, also with nothing found. 蔵屋敷 is a historical term (Osaka's Edo-period domain warehouses), not a place name. Avoid Yodomachi (淀町) from the old candidate list: 淀 is too close to Osaka's real Yodo river.
 - **Lines** have a kanji name (often 〜線), an English name, a letter code, and a color. The Osaka style names lines after streets (〜筋線), while the Tokyo style names them after places.
 - **Station numbers** use the line letter plus a two-digit number: `Y-13`. Numbers increase from the "down" origin.
 
@@ -82,8 +88,10 @@ Shops and posters use invented names only, defined in `src/stations/surface.ts` 
 - **Central**: offices, the crossing of the two main streets — Tsumugibashi
 - **Minami** (south hub): nightlife, arcades, canals — Hyōtanbori, Tsurumatsu
 - **Bay**: warehouses being redeveloped, ferry pier, aquarium — Kawaminato-kō, Aizomechō on the way in
+- **North-west waterfront and riverside**: the Mio-gawa's mouth and north bank, storehouses and a promenade — Yūnagihama, Kurayashiki
+- **South-east**: canals, temples, a cherry embankment — Tōmyōbori, Sakurazutsumi
 - **South bay**: reclaimed land, the dome — Kamomehama
 - **Merchant quarter**: dyers and cotton wholesalers along Akane-suji — Aizomechō, Watayamachi
-- **East hills**: university and suburbs — Kawaminato-daigaku-mae, Hibarino
+- **East hills**: university and suburbs — Kawaminato-daigaku-mae (also on the Shiokaze Line), Hibarino
 - **North hills**: residential — Midorizaka
 - **North-east hills**: hillside housing and a new town — Tsukimizaka, Yamabukidai

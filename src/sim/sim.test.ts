@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LINES, STATIONS, linesAt } from '../data/network';
+import { LINES, STATIONS, S_BESIDE_A, linesAt } from '../data/network';
+import { hallDims } from '../stations/kit';
 import { NET, carPose, lineSim, type CarPose } from './index';
 import { CAR_PITCH, FLAT_M, HALL_HALF, TAIL_END } from './geometry';
 import { nextDepartures, platformDoorOpen, trainStateAt } from './timetable';
@@ -27,19 +28,65 @@ describe('network data', () => {
       for (let i = 1; i < g.stopS.length; i++) expect(g.stopS[i] - g.stopS[i - 1]).toBeGreaterThan(2 * FLAT_M + 100);
     }
   });
-  it('every interchange has its lines at the same point, at right angles and different depths', () => {
+  it('every interchange has its lines crossing at right angles and different depths, or side by side', () => {
     const shared = STATIONS.filter((s) => linesAt(s.id).length > 1);
-    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'kita-odori', 'tsumugibashi']);
+    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'daigaku-mae', 'kita-odori', 'tsumugibashi']);
     for (const s of shared) {
       const at = linesAt(s.id).map((l) => {
         const g = lineSim(l.id).geom, ss = g.stopS[l.stops.indexOf(s.id)];
-        return { p: g.point(ss, 0), t: g.path.pointAt(ss) };
+        return { id: l.id, p: g.point(ss, 0), t: g.path.pointAt(ss) };
       });
       for (let i = 0; i < at.length; i++) {
         for (let j = i + 1; j < at.length; j++) {
-          expect(Math.hypot(at[i].p.x - at[j].p.x, at[i].p.z - at[j].p.z)).toBeLessThan(0.5);
-          expect(Math.abs(at[i].p.y - at[j].p.y)).toBeGreaterThan(6);
-          expect(Math.abs(at[i].t.tx * at[j].t.tx + at[i].t.tz * at[j].t.tz)).toBeLessThan(1e-6);
+          const a = at[i], b = at[j];
+          const dot = a.t.tx * b.t.tx + a.t.tz * b.t.tz;
+          const beside = (s.at?.[a.id] || s.at?.[b.id]) && Math.abs(dot) > 0.5;
+          if (s.at?.[a.id] || s.at?.[b.id]) {
+            // A line placed beside another still crosses the third at right angles, on its centreline.
+            const [m, n] = s.at?.[a.id] ? [b, a] : [a, b];
+            if (!beside) {
+              const g = lineSim(m.id).geom;
+              expect(g.path.project(n.p.x, n.p.z).dist).toBeLessThan(0.5);
+              expect(Math.abs(a.p.y - b.p.y)).toBeGreaterThan(6);
+              expect(Math.abs(dot)).toBeLessThan(1e-6);
+              continue;
+            }
+          }
+          if (beside) {
+            // Side by side, in the hub's B4 box: parallel, same direction, same depth, 15.9 m apart.
+            expect(dot).toBeGreaterThan(1 - 1e-6);
+            expect(Math.abs(a.p.y - b.p.y)).toBeLessThan(1e-6);
+            expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeCloseTo(S_BESIDE_A, 3);
+          } else {
+            expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeLessThan(0.5);
+            expect(Math.abs(a.p.y - b.p.y)).toBeGreaterThan(6);
+            expect(Math.abs(dot)).toBeLessThan(1e-6);
+          }
+        }
+      }
+    }
+  });
+  it('the hub box fits the line beside the Akanesuji Line', () => {
+    // hub.ts places the box at A's wall + 0.5 m structure + half its 15.4 m width.
+    const a = lineSim('A').geom.def, s = lineSim('S').geom.def;
+    expect(hallDims(a, -20).wallZ + 0.5 + 15.4 / 2).toBeCloseTo(S_BESIDE_A, 6);
+    expect(hallDims(s, -20).wallZ * 2).toBeCloseTo(15.4, 6);
+  });
+  it('lines that cross between stations are far enough apart in depth', () => {
+    // Running tunnels are about 6 m tall; keep 7 m between rail levels wherever two lines cross
+    // outside a station (inside one, the interchange test above applies).
+    const step = 2;
+    for (let i = 0; i < NET.length; i++) {
+      for (let j = i + 1; j < NET.length; j++) {
+        const ga = NET[i].geom, gb = NET[j].geom;
+        for (let sa = 0; sa < ga.path.length; sa += step) {
+          const p = ga.path.pointAt(sa);
+          const q = gb.path.project(p.x, p.z);
+          // Only where the centrelines actually meet (within a twin-tunnel width), not near misses.
+          if (q.dist > 1.5 || q.s <= 0 || q.s >= gb.path.length) continue;
+          const atStation = ga.stopS.some((s) => Math.abs(s - sa) < HALL_HALF) || gb.stopS.some((s) => Math.abs(s - q.s) < HALL_HALF);
+          if (atStation) continue;
+          expect(Math.abs(ga.railY(sa) - gb.railY(q.s)), `${ga.def.id}/${gb.def.id} at ${Math.round(p.x)},${Math.round(p.z)}`).toBeGreaterThan(7);
         }
       }
     }
@@ -118,6 +165,6 @@ describe('timetable', () => {
       const deps = nextDepartures(tt, 1, 'down', 0, 5);
       for (let i = 1; i < deps.length; i++) expect(deps[i].dep - deps[i - 1].dep).toBe(tt.headway);
     }
-    expect(LINES.length).toBe(3);
+    expect(LINES.length).toBe(4);
   });
 });

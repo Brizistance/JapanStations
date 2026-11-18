@@ -479,10 +479,12 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
   const style: StationStyle = spec.style;
   const mk = (l: StationBuildInput['lines'][number]): Ctx => ({ b, line: l.line, station, stop: l.stop, railY: l.railY, style });
   if (spec.kind === 'interchange' || spec.kind === 'hub') {
+    const beside = spec.kind === 'hub' ? spec.beside : undefined;
     const p = input.lines.find((l) => l.line.id === spec.primary)!;
-    const o = input.lines.find((l) => l.line.id !== spec.primary)!;
+    const o = input.lines.find((l) => l.line.id !== spec.primary && l.line.id !== beside)!;
     const other = { ctx: mk(o), dir: o.dir, primaryDir: p.dir };
-    if (spec.kind === 'hub') buildHub(mk(p), spec, other);
+    const bl = input.lines.find((l) => l.line.id === beside);
+    if (spec.kind === 'hub') buildHub(mk(p), spec, other, bl && mk(bl));
     else buildInterchange(mk(p), spec, other);
     return { build: b.out, primary: p.line.id };
   }

@@ -52,7 +52,8 @@ export class LineGeom {
     this.stopError = [];
     for (const id of def.stops) {
       const st = stationById(id);
-      const p = this.path.project(st.position.x, st.position.y);
+      const at = st.at?.[def.id] ?? st.position;
+      const p = this.path.project(at.x, at.y);
       this.stopS.push(p.s);
       this.stopError.push(p.dist);
     }
