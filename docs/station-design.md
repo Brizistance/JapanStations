@@ -65,6 +65,49 @@ A hall takes the theme of the line it is built for, so interchanges and the hub 
 
 To add a theme for a new line: write `themes/<id>.ts`, register it in `themes/index.ts`, and add a row here and an opening year in worldbuilding.md.
 
+A theme can also set `lowCeil`: the hung ceiling under a concourse drops to that height. Yanagisuji (3.4 m) and Nagisa (3.45 m) use it, with pipes, cable trays and ducts under it, so the old lines' platforms are low and busy where the newer ones keep 4.05 m.
+
+## Size by era
+
+The older the line, the smaller the station. An ordinary station's concourse width follows its line's opening year (`concourseHalf` in `build.ts`; a spec can override it with `width`).
+
+| Line | Concourse width | Gates per line | Exit corridor |
+|---|---|---|---|
+| Yanagisuji (1933) | 16 m | 5 | 4 m, 2.5 m high |
+| Nagisa (1961), Akanesuji (1994), Shiokaze (2004) | 20 m | 7 | 2 m |
+| Kikyō (2015), Sumire (2023) | 24 m | 7 | none |
+
+- The street entrances do not move: a narrower concourse reaches them by a longer, lower exit corridor (`exit(…, ext)`).
+- Nagisa cannot go below 20 m because its side-platform stairs come up 8.6 m from the centre.
+- Interchange concourses (28 m or more) are fixed by their transfer passages, and elevated stations' street-level concourses are already small. The hub is untouched.
+
+## Station looks (`src/stations/looks/`)
+
+A line's theme shapes the platform hall; a station's **look** shapes everything else: the concourse, the exits and the transfer passages. A `StationLook` is a set of optional hooks (`finishes`, `concourse`, `lights`, `pillar`, `exit`, `canopy`, `passage`) called by `concourse()`, `exit()` and the passage loop in `buildInterchange()`. The contract is `looks/types.ts`.
+
+- Unlike a line theme, a look may add solid things (a kiosk is solid). It may only build where `ConcInfo.free()` is true: that keeps it off the stair openings and their landings, the gate lines, machines, lockers, exit doorways, toilets, murals, pillars and lifts. The walk test then proves every zone is still reachable.
+- `looks/parts.ts` is the shared library: shop fronts and presets (convenience store, kiosk, soba stand, bakery, café, flower stall, lockers, photo booth, vending row, ATM corner), beams, ducts, pipes, cable trays, lanterns, noren, banners, dados, poster rows, and exit and passage helpers. It also holds `SHOPS`, the catalogue of invented brands.
+- **The default look** (`looks/default.ts`) is what every station without its own gets. It follows the primary line's era and a per-station seed:
+  - *old* (Y, N): tiled dado in the platform wall's colour, downstand beams every 4 m, a duct, cable tray and pipes, bare battens, square tiled pillars with adverts, small counters and kiosks, posters on every free wall;
+  - *mid* (A, S): enamel dado, shallow coffers with light panels, a convenience store plus a bakery, café or ATM corner, benches;
+  - *new* (K, M): pale panels, continuous light slots, fewer and larger glazed fronts, digital advert panels, benches and planters.
+- **Hero stations** have a look of their own, registered in `looks/index.ts`:
+
+| Station | Look | Centrepiece |
+|---|---|---|
+| Hyōtanbori | A yokochō carried underground: black tile, gold, neon | Alley of tiny bars under lanterns and projecting signs |
+| Tsurumatsu | The shōtengai continues underground | Arcade arch and awning-fronted stalls |
+| Kurayashiki | Inside a kura: plaster, namako tile, dark timber | Kura front and a timber post-and-beam frame |
+| Kamomehama | Stadium station on match day | Pennant ceiling, dome wall, queue lanes |
+| Hoshimine | Under the night sky | Star-field ceiling and an orrery |
+| Tōmyōbori | The lantern canal at dusk | Lantern-hung transfer passages |
+| Aizomechō | The dyers' street | Hanging indigo cloth and noren gates |
+| Daigaku-mae | The campus undercroft | Brick arcade and the noticeboard court |
+
+To add a hero: write `looks/<station-id>.ts` following [Plans/features/station-looks/hero-brief.md](../Plans/features/station-looks/hero-brief.md), register it in `looks/index.ts`, and add a row here.
+
+Not covered yet: elevated stations (their street-level concourse is built separately) and the hub.
+
 ## Details that make it read as "Japan"
 
 - **Tactile paving** (点字ブロック) along platform edges.

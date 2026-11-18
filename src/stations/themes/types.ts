@@ -48,6 +48,12 @@ export interface LineTheme {
   vaultMat?: string;
   /** Soffit over the tracks beside a flat ceiling (default 'flat:#26282b'); null for none. */
   soffitMat?: string | null;
+  /**
+   * Height above the platform of the hung ceiling under a concourse (the slab is at 4.1 m). Old
+   * lines set about 3.4 for a low, busy platform; hanging signs need 3.15. Hooks get the
+   * dropped height as `y`, and `ceilAt` follows it.
+   */
+  lowCeil?: number;
   /** Half width of the island-platform pillar collider (default 0.27, at most 0.42). */
   pillarHalf?: number;
 

@@ -44,6 +44,52 @@ The opening year decides a line's architecture (see "Line themes" in [station-de
 | Kikyō | 2015 | The crosstown link the south had waited decades for |
 | Sumire | 2023 | The newest line, sharing the Shiokaze Line's track |
 
+## Shops and brands
+
+Invented brands that appear on shop fronts in concourses (`SHOPS` in `src/stations/looks/parts.ts`). None is a real chain. Added 2026-11-18 with the station looks.
+
+| Brand | Japanese | Kind |
+|---|---|---|
+| Maruhoshi Kiosk / Maruhoshi Mart | マルホシ キオスク / マルホシマート | Station kiosk, convenience store |
+| Port Mart | ポートマート | Convenience store |
+| Tsubameya Store | ツバメ屋ストア | Convenience store |
+| Soba Kita | そば処 きた | Standing soba |
+| Tachisoba Mio | 立ちそば 澪 | Standing soba |
+| Udon Kawanami | うどん 川波 | Udon counter |
+| Bakery Komugi | ベーカリー こむぎ | Bakery |
+| Hinata Bakery | ひなたベーカリー | Bakery |
+| Yanagi Flowers | フラワー やなぎ | Flower stall |
+| Hana no Minato | 花の湊 | Flower stall |
+| Akane Coffee | 茜珈琲 | Café |
+| Nagi Café | なぎカフェ | Café |
+| Kajitsudō Juice Stand | ジューススタンド 果実堂 | Juice stand |
+| Taiyaki Namima | たい焼き なみま | Taiyaki counter |
+| Wagashi Tsumugi-an | 和菓子 つむぎ庵 | Japanese sweets |
+| Bento Minatoya | お弁当 みなと屋 | Bento counter |
+| Hibari Pharmacy | ひばり薬局 | Pharmacy |
+| Ryūbundō Books | 柳文堂書店 | Bookshop |
+| Sorano Zakka | そらの雑貨店 | Gift shop |
+| Photo Minato | フォトミナト | Photo booth |
+| Kawaminato Shinkin Bank | 川湊信用金庫 | ATM corner |
+| Kawaminato-dō Gifts | おみやげ 川湊堂 | Souvenirs |
+
+The Japanese spellings in the code are the source of truth.
+
+### Names at the hero stations
+
+Invented with each station's look (`src/stations/looks/<station>.ts`), 2026-11-18.
+
+| Station | Names |
+|---|---|
+| Hyōtanbori | Bars and eateries of the alley: 焼鳥 ひさご (Yakitori Hisago), スナック 月見草 (Snack Tsukimisō), 串カツ 金瓢 (Kushikatsu Kinpyō), おでん 小雪 (Oden Koyuki), 立呑み 堀端 (Tachinomi Horibata), バー 灯籠 (Bar Tōrō), もつ焼 ろく (Motsuyaki Roku), ラーメン 夜鳴軒 (Ramen Yonaki-ken), スナック ゆらり (Snack Yurari), 酒場 瓢六 (Sakaba Hyōroku), バー 澪標 (Bar Miotsukushi), てんぷら 小舟 (Tempura Kobune), ホルモン 堀の家 (Horumon Hori-no-ya), 小料理 ふじ乃 (Koryōri Fujino); plus 居酒屋 ひょうたん and たこ焼き 丸八 from the street above |
+| Tsurumatsu | Stalls of 鶴松商店街: 青果 八百辰 (Yaotatsu), 鮮魚 魚吉 (Uokichi), コロッケ 丸鶴 (Marutsuru), 茶舗 松葉園 (Matsubaen), とうふ 白菊屋 (Shiragikuya), 駄菓子 まめや (Mameya), 靴・合鍵 つるや (Tsuruya), and the shuttered 洋品 つばき and 時計・眼鏡 ほしの. Old enamel adverts: 湊印醤油, 清酒 千鶴松, みなと石鹸, ヒバリ目薬 |
+| Kurayashiki | 蔵カフェ 白壁 (Kura Café Shirakabe), 酒・醤油 かわくら屋 (Kawakuraya), 工芸 しろつち (Kōgei Shirotsuchi); sake labels 川湊 and 湊誉 (Minato-homare) |
+| Kamomehama | The home team at Kawaminato Dome: **川湊ガルズ (Kawaminato Gulls)**, baseball, gull orange `#f47a20` and navy `#14284b`. ガルズ オフィシャルショップ (Gulls Official Shop), スタジアムめし かもめ亭 (Kamome-tei) |
+| Hoshimine | 星の窓 (Hoshi no Mado, observatory shop), 三日月珈琲 (Mikazuki Coffee). The ceiling's constellations (Fox, Lantern, Kite, Crane) are invented and unlabelled |
+| Tōmyōbori | 提灯 ひより屋 (Chōchin Hiyoriya, lantern maker), 茶房 ともしび (Sabō Tomoshibi), 立呑 かわべり (Tachinomi Kawaberi); the festival **灯明堀 万灯まつり (Tōmyōbori Mantō Matsuri)** |
+| Aizomechō | 藍染処 つゆ草 (Aizome Tsuyukusa, dye works), 手ぬぐい 波千鳥 (Tenugui Namichidori), 呉服 糸よし (Gofuku Itoyoshi), 日本茶 しずく園 (Shizuku-en); the dyers' crest 三つ波丸 (Mitsunami-maru, three waves in a ring) |
+| Daigaku-mae | 喫茶 れんが (Kissa Renga), 古書 文蔵 (Fumikura Old Books), めし処 はるにれ (Harunire), the university co-op 大学生協; clubs on the noticeboards: rowing, astronomy, light music, photography, rakugo, mountaineering, tea ceremony |
+
 ## Stations
 
 | No. | Kanji | Kana | Romaji | District | Character |

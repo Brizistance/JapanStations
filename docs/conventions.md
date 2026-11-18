@@ -47,6 +47,7 @@ Signs, the map, departure boards and the timetable pick it up automatically.
 2. Add its stations as above. A station shared with another line needs the lines to cross at right angles there, 7.5 m apart in depth, and uses `kind: 'interchange'` with `primary` set to the upper line. That composer needs side platforms above and an island below; any other pairing needs its own composer, as the hub has. A line that runs **beside** another at a station (the Shiokaze Line at Kita-Ōdōri) gets its own platform centre in `StationDef.at` and needs a composer that builds both halls.
 3. Lines crossing **between** stations need at least 7 m between rail levels there; `npm test` finds every such crossing.
 4. Give the map positions (`diagram`) for the new stations, then look at the map: interchange badges (`badges`) and labels can land on another line.
+5. **Give it an era and a theme of its own** (standing rule, user, 2026-11-18). Every new line gets an invented opening year and a platform architecture no other line has: its own ceiling, pillars, lighting, wall motif (drawn from the line's name) and benches. Propose the era and theme in the line's plan, then write `src/stations/themes/<id>.ts`, register it in `themes/index.ts`, and add the row to "Line themes" in station-design.md and the opening year to worldbuilding.md.
 
 ## Text
 

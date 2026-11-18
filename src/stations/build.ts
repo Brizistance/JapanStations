@@ -4,7 +4,7 @@
 import { linesAt, lineById } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
 import { HALL_HALF } from '../sim/geometry';
-import { Builder, type Build } from '../world/builder';
+import { Builder, rng, type Build } from '../world/builder';
 import type { SignContent } from '../signs/content';
 import {
   CONC_CLEAR, CONC_RISE, GROUND_Y, SLAB, STAIR_RUN,
@@ -13,6 +13,8 @@ import {
 } from './kit';
 import { buildHub } from './hub';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
+import { lookFor } from './looks';
+import type { ConcInfo } from './looks/types';
 import { themeFor } from './themes';
 import { car, surface, tree, PLOT_X, PLOT_Z } from './surface';
 
@@ -86,7 +88,7 @@ interface GateEnd {
 }
 
 /** Unpaid end of a concourse. Canonical: gate line at x = 0, unpaid area x ∈ [0, 16]. */
-function unpaidEnd(c: Ctx, cf: number, cw: number, nums: [string, string], lines: string[]) {
+function unpaidEnd(c: Ctx, cf: number, cw: number, nums: [string, string], lines: string[], ext: number) {
   const { b, style } = c;
   gateLine(c, cf, cw, lines);
   ticketMachines(c, cf, 3, -cw, 5);
@@ -95,8 +97,8 @@ function unpaidEnd(c: Ctx, cf: number, cw: number, nums: [string, string], lines
   vending(b, 7.5, cf, cw - 0.36, [0, -1], 'vending2');
   b.sign({ k: 'mural', ...style.mural }, 15.98, cf + 1.55, 0, [-1, 0], Math.min(2 * cw - 6, 16), 2.1);
   b.box('flat:#3b4046', 15.4, cf, -3, 15.9, cf + 0.42, 3);
-  b.with({ t: [13, 0, cw] }, () => exit(c, cf, nums[1]));
-  b.with({ mz: true, t: [13, 0, -cw] }, () => exit(c, cf, nums[0]));
+  b.with({ t: [13, 0, cw] }, () => exit(c, cf, nums[1], ext));
+  b.with({ mz: true, t: [13, 0, -cw] }, () => exit(c, cf, nums[0], ext));
 }
 
 interface ShellOpts {
@@ -108,66 +110,130 @@ interface ShellOpts {
   ends: GateEnd[];
   pillarZ: number;
   floorY?: number;
+  /** Length of the corridor between the concourse and each exit lobby (narrow concourses). */
+  ext?: number;
+  /** Solid things the composer puts in the concourse itself (lift shaft, kiosk). */
+  solids?: Rect[];
+}
+
+/** A station's style with its look's concourse finishes applied. */
+export function concStyle(c: Ctx): StationStyle {
+  const f = lookFor(c.station.id).finishes ?? {};
+  return { ...c.style, concWall: f.wall ?? c.style.concWall, floor: f.floor ?? c.style.floor, pillar: f.pillar ?? c.style.pillar };
 }
 
 /** Concourse level: slab, walls, ceiling, lighting, gate ends and exits. */
-function concourse(c: Ctx, o: ShellOpts) {
+function concourse(c0: Ctx, o: ShellOpts) {
+  const look = lookFor(c0.station.id);
+  const c: Ctx = { ...c0, style: concStyle(c0) };
   const { b, style, station } = c;
   const { cf, cw, x0, x1 } = o;
+  const ceilMat = look.finishes?.ceil ?? 'ceil';
   const lines = linesAt(station.id).map((l) => l.id);
   b.slab(style.floor, x0, -cw, x1, cw, cf - SLAB, cf, o.holes);
-  b.box('ceil', x0 - 0.4, cf + CONC_CLEAR, -cw - 0.4, x1 + 0.4, cf + CONC_CLEAR + 0.5, cw + 0.4);
+  b.box(ceilMat, x0 - 0.4, cf + CONC_CLEAR, -cw - 0.4, x1 + 0.4, cf + CONC_CLEAR + 0.5, cw + 0.4);
   const gaps = o.ends.map((e) => (e.hi ? [e.g + 9, e.g + 13] : [e.g - 13, e.g - 9]));
   b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, cw, cw + 0.4, cf, cf + CONC_CLEAR, gaps);
   b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, -cw - 0.4, -cw, cf, cf + CONC_CLEAR, gaps);
   b.box(style.concWall, x0 - 0.4, cf, -cw, x0, cf + CONC_CLEAR, cw);
   b.box(style.concWall, x1, cf, -cw, x1 + 0.4, cf + CONC_CLEAR, cw);
   // Accent skirting.
-  for (const s of [-1, 1]) {
-    b.deco(`paint:${style.accent}`, x0, cf + 0.9, s * cw - 0.015, x1, cf + 1.0, s * cw + 0.015);
-    b.deco('flat:#4b4d50', x0, cf, s * cw - 0.02, x1, cf + 0.13, s * cw + 0.02);
+  if (look.skirting !== false) {
+    const runs: number[][] = [];
+    let from = x0;
+    for (const [ga, gb] of [...gaps].sort((p, q) => p[0] - q[0])) {
+      runs.push([from, ga]);
+      from = gb;
+    }
+    runs.push([from, x1]);
+    for (const s of [-1, 1]) {
+      for (const [ra, rb] of runs) {
+        b.deco(`paint:${style.accent}`, ra, cf + 0.9, s * cw - 0.015, rb, cf + 1.0, s * cw + 0.015);
+        b.deco('flat:#4b4d50', ra, cf, s * cw - 0.02, rb, cf + 0.13, s * cw + 0.02);
+      }
+    }
   }
 
-  for (let x = x0 + 2; x + 2.4 < x1; x += 4.2) {
-    for (const z of [-cw + 3, -cw / 3, cw / 3, cw - 3]) ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, cf + CONC_CLEAR);
-  }
   const paid0 = Math.max(x0, ...o.ends.filter((e) => !e.hi).map((e) => e.g));
   const paid1 = Math.min(x1, ...o.ends.filter((e) => e.hi).map((e) => e.g));
   const inHole = (x: number, z: number) => o.holes.some((h) => x > h[0] - 0.8 && x < h[2] + 0.8 && z > h[1] - 0.8 && z < h[3] + 0.8);
+  const pillars: [number, number][] = [];
   for (let x = x0 + 4; x < x1 - 2; x += 8) {
     if (o.ends.some((e) => Math.abs(x - e.g) < 4)) continue;
-    for (const s of [-1, 1]) {
-      const z = s * o.pillarZ;
-      if (inHole(x, z)) continue;
-      pillar(b, x, z, cf, cf + CONC_CLEAR, 0.35, style.pillar, c.line.color, cf + 2.27);
+    for (const s of [-1, 1]) if (!inHole(x, s * o.pillarZ)) pillars.push([x, s * o.pillarZ]);
+  }
+  const tx = (paid0 + paid1) / 2 + 3;
+
+  // What a look may not build on: everything the kit puts in the concourse, with room to use it.
+  const taken: Rect[] = [...(o.solids ?? []).map((q): Rect => [q[0] - 0.9, q[1] - 0.9, q[2] + 0.9, q[3] + 0.9])];
+  for (const h of o.holes) taken.push([h[0] - 3, h[1] - 0.9, h[2] + 3, h[3] + 0.9]);
+  for (const [x, z] of pillars) taken.push([x - 0.6, z - 0.6, x + 0.6, z + 0.6]);
+  taken.push([tx - 1.6, -cw, tx + 1.6, -cw + 1.6]);
+  for (const e of o.ends) {
+    const m = (a: number, z0: number, d: number, z1: number): Rect => (e.hi ? [e.g + a, z0, e.g + d, z1] : [e.g - d, z0, e.g - a, z1]);
+    taken.push(m(-3.6, -cw, 3.8, cw)); // gates, fences, office, departures screen
+    taken.push(m(3.8, -cw, 16.4, -cw + 2.2), m(3.8, cw - 2.2, 16.4, cw)); // machines, lockers, exit doorways
+    taken.push(m(14.6, -cw, 16.4, cw)); // mural and its bench
+  }
+  let seed = 0;
+  for (const ch of station.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const info: ConcInfo = {
+    b, station, line: c.line, era: themeFor(c.line.id).opened ?? 2000, style,
+    wall: style.concWall, floor: style.floor, pillar: style.pillar, ceil: ceilMat,
+    cf, cw, clear: CONC_CLEAR, x0, x1, ends: o.ends.map((e) => ({ g: e.g, hi: e.hi })), paid: [paid0, paid1], holes: o.holes, pillars,
+    free: (a, z0, d, z1, m = 0) =>
+      a - m >= x0 && d + m <= x1 && z0 - m >= -cw && z1 + m <= cw && !taken.some((q) => d + m > q[0] && a - m < q[2] && z1 + m > q[1] && z0 - m < q[3]),
+    claim: (a, z0, d, z1) => void taken.push([a, z0, d, z1]),
+    rand: rng(seed),
+  };
+
+  if (look.lights) look.lights(info);
+  else {
+    for (let x = x0 + 2; x + 2.4 < x1; x += 4.2) {
+      for (const z of [-cw + 3, -cw / 3, cw / 3, cw - 3]) ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, cf + CONC_CLEAR);
     }
+  }
+  for (const [x, z] of pillars) {
+    if (look.pillar) {
+      b.block(x - 0.35, cf, z - 0.35, x + 0.35, cf + CONC_CLEAR, z + 0.35);
+      look.pillar(info, x, z, cf, cf + CONC_CLEAR);
+    } else pillar(b, x, z, cf, cf + CONC_CLEAR, 0.35, style.pillar, c.line.color, cf + 2.27);
   }
   // Paid area: posters and the toilets.
   let v = station.id.length;
-  for (let x = paid0 + 4; x < paid1 - 3; x += 6) {
+  for (let x = paid0 + 4; x < paid1 - 3 && look.posters !== false; x += 6) {
     for (const s of [-1, 1] as const) {
       if (o.ends.some((e) => Math.abs(x - e.g) < 5)) continue;
       b.sign({ k: 'poster', v: v++ }, x, cf + 1.55, s * (cw - 0.02), [0, -s], 1.25, 1.75);
     }
   }
-  const tx = (paid0 + paid1) / 2 + 3;
   b.sign({ k: 'label', text: 'お手洗い', sub: 'Toilets', fg: '#fff', bg: '#14233b' }, tx, cf + 2.55, -cw + 0.03, [0, 1], 1.8, 0.5);
   b.sign({ k: 'machine', v: 'door' }, tx - 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
   b.sign({ k: 'machine', v: 'door' }, tx + 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
 
   for (const e of o.ends) {
-    b.with(e.hi ? { t: [e.g, 0, 0] } : { ...MIRROR_X, t: [e.g, 0, 0] }, () => unpaidEnd(c, cf, cw, e.nums, lines));
+    b.with(e.hi ? { t: [e.g, 0, 0] } : { ...MIRROR_X, t: [e.g, 0, 0] }, () => unpaidEnd(c, cf, cw, e.nums, lines, o.ext ?? 0));
   }
   b.zone('concourse', x0, cf - 0.3, -cw, x1, cf + CONC_CLEAR, cw, '改札階コンコース', 'Concourse');
   const first = o.ends[0];
   b.setSpawn(first.g + (first.hi ? 11 : -11), cf, 0, [first.hi ? -1 : 1, 0]);
+  look.concourse?.(info);
+}
+
+/** Half width of an ordinary station's concourse: the older the line, the smaller the station. */
+const STREET_CW = 12;
+function concourseHalf(line: LineDef): number {
+  const opened = themeFor(line.id).opened ?? 2000;
+  // Side platforms bring their stairs up 8.6 m out, so they cannot go below 10.
+  if (opened < 1950 && line.platformType === 'island') return 8;
+  return opened < 2010 ? 10 : STREET_CW;
 }
 
 function buildUnderground(c: Ctx, spec: UndergroundSpec) {
   const { b, line, station, railY, style } = c;
   const d = hallDims(line, railY);
   const cf = d.pf + CONC_RISE;
-  const cw = 12;
+  const cw = spec.width ?? concourseHalf(line);
   const [cx0, cx1] = spec.concourse;
   // A station can ask for a tall vault; a line's theme (Yanagisuji) gives every station a lower one.
   const vault = style.vault || themeFor(line.id).vault;
@@ -178,6 +244,7 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
   if (cx1 < HALL_HALF) ceil.push({ x0: cx1, x1: HALL_HALF, y: open, emit: true, vault });
 
   const st = platformStairs(c, spec.stairs, d.pf, cf, d.wallZ);
+  const solids: Rect[] = [];
   if (d.island) {
     // Lift shaft (not operable) beside the stairs.
     const ex = Math.max(...st.blocks.map((q) => q[1])) + 3;
@@ -187,6 +254,7 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
         b.sign({ k: 'machine', v: 'elevator' }, ex + 2.22, y + 1.15, 0, [1, 0], 1.8, 2.3);
       }
       st.blocks.push([ex, ex + 2.2]);
+      solids.push([ex, -1.1, ex + 2.2, 1.1]);
     }
   }
   hall(c, { ceil, blocks: st.blocks });
@@ -196,8 +264,9 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
     hi: g === 'hi',
     nums: [String(i * 2 + 1), String(i * 2 + 2)] as [string, string],
   }));
-  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: st.holes, ends, pillarZ: d.island ? 6 : 3.4 });
-  surface(b, spec.surface, cw, { ja: station.nameJa, en: station.nameRomaji });
+  // The street does not move: a narrower concourse reaches the same entrances by longer corridors.
+  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: st.holes, ends, pillarZ: d.island ? Math.min(6, cw - 3.4) : 3.4, ext: STREET_CW - cw, solids });
+  surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
 
 /** Quarter turns from the frame's +x to another line's direction. */
@@ -271,8 +340,8 @@ function buildInterchange(
 
   for (const { s, zc0, zc1, atPrimary } of passages) {
     b.with({ mz: s < 0 }, () => {
-      const wall = style.concWall;
-      b.box(style.floor, -26, pfN - SLAB, zc0, 4, pfN, zc1);
+      const cs = concStyle(c), wall = cs.concWall;
+      b.box(cs.floor, -26, pfN - SLAB, zc0, 4, pfN, zc1);
       b.box(wall, -26.3, pfN, zc0, -26, pfN + 2.8, zc1 + 0.3);
       b.wallX(wall, -26, 4, zc1, zc1 + 0.3, pfN, pfN + 2.8, [[-1.86, 1.86]]);
       b.box(wall, -1.86, pfN + 2.3, zc1, 1.86, pfN + 2.8, zc1 + 0.3);
@@ -311,6 +380,7 @@ function buildInterchange(
       }
       b.sign({ k: 'mural', ...style.mural }, -13.5, pfN + 1.35, zc1 - 0.02, [0, -1], 19, 1.9);
       b.zone('passage', -26, pfN - 0.3, zc0, 4 + STAIR_RUN, pfN + 2.8, zc1, 'のりかえ通路', 'Transfer passage');
+      lookFor(station.id).passage?.({ b, station, style: cs, wall, floor: cs.floor, pf: pfN, zc0, zc1, other: o.line });
     });
   }
   const [zcP, zcM] = [passages[0].zc1, passages[1].zc1];
@@ -333,7 +403,7 @@ function buildInterchange(
 
   // ── Concourse ──
   concourse(c, {
-    cf, cw, x0: cx0, x1: cx1, holes, pillarZ: 3.2,
+    cf, cw, x0: cx0, x1: cx1, holes, pillarZ: 3.2, solids: [[-2.4, -1.4, 2.4, 1.4]],
     ends: [
       { g: 29, hi: true, nums: ['1', '2'] },
       { g: -29, hi: false, nums: ['3', '4'] },

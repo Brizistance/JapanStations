@@ -5,6 +5,8 @@
 import type { LineDef, StationDef } from '../data/types';
 import { CAR_PITCH, HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
 import type { Builder } from '../world/builder';
+import { lookFor } from './looks';
+import type { ExitInfo } from './looks/types';
 import { themeFor } from './themes';
 import type { HallInfo } from './themes/types';
 
@@ -206,11 +208,18 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   const L = line.trackOffset;
   const H = HALL_HALF, P = PLATFORM_HALF;
   const bedY = railY - BED;
-  const ceilAt = (x: number) => (o.ceil.find((s) => x >= s.x0 && x <= s.x1) ?? o.ceil[0]).y;
+  const th = themeFor(line.id);
+  // Visible ceiling underside of a segment. Under a concourse it is a hung ceiling, which an
+  // old line's theme can drop well below the slab.
+  const vis = (s: CeilSeg) => (s.emit || o.elevated ? s.y : Math.min(s.y - 0.05, th.lowCeil ? pf + th.lowCeil : Infinity));
+  const dropped = (s: CeilSeg) => !s.emit && !o.elevated && vis(s) < s.y - 0.06;
+  const ceilAt = (x: number) => {
+    const s = o.ceil.find((q) => x >= q.x0 && x <= q.x1) ?? o.ceil[0];
+    return s.emit || o.elevated ? s.y : vis(s) + 0.05;
+  };
   const maxCeil = o.elevated ? pf + 3.6 : Math.max(...o.ceil.map((s) => s.y + (s.vault ? 1.6 : 0)));
   const holes = o.platHoles ?? [];
   const nums = station.platforms[line.id];
-  const th = themeFor(line.id);
   const info: HallInfo = {
     b, line, station, style, o, pf, pe, wallZ, island, P, H, ceilAt,
     blocked: (x0, x1, m = 0.4) =>
@@ -319,15 +328,20 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       } else if (!o.elevated) {
         // Under the concourse: hang ceiling panels below its slab, except where stairs come through.
         const cuts = o.blocks.filter(([a, c]) => c > s.x0 && a < s.x1).map(([a, c]) => [a - 0.4, -wallZ, c + 0.4, wallZ]);
-        b.slab(th.ceilMat ?? 'ceil', s.x0, -wallZ, s.x1, wallZ, s.y - 0.05, s.y, cuts, false);
+        b.slab(th.ceilMat ?? 'ceil', s.x0, -wallZ, s.x1, wallZ, vis(s), vis(s) + 0.05, cuts, false);
+        if (dropped(s)) {
+          // Bulkheads closing the void above a dropped ceiling, at its ends and round the stairs.
+          const xs = [s.x0, s.x1 - 0.06, ...cuts.flatMap((q) => [q[0] - 0.06, q[2]])];
+          for (const x of xs) b.deco('flat:#dcdad3', x, vis(s), -wallZ, x + 0.06, s.y, wallZ);
+        }
       }
       const soffit = th.soffitMat === undefined ? 'flat:#26282b' : th.soffitMat;
       if (!s.vault && !o.elevated && soffit) {
         // Exposed dark soffit over the tracks, as if the panels stop at the platform edge.
         const over: [number, number][] = island ? [[-wallZ, -pe - 0.2], [pe + 0.2, wallZ]] : [[-pe + 0.2, pe - 0.2]];
-        for (const [za, zb] of over) b.deco(soffit, s.x0, s.y - 0.07, za, s.x1, s.y - 0.05, zb);
+        for (const [za, zb] of over) b.deco(soffit, s.x0, vis(s) - 0.02, za, s.x1, vis(s), zb);
       }
-      if (!o.elevated) th.ceiling?.(info, s, s.emit ? s.y : s.y - 0.05);
+      if (!o.elevated) th.ceiling?.(info, s, vis(s));
       const nx = o.ceil[i + 1];
       if (nx && Math.abs(nx.y - s.y) > 0.01) {
         const lo = Math.min(s.y, nx.y), hi = Math.max(s.y, nx.y) + (s.vault || nx.vault ? 1.6 : 0) + SLAB;
@@ -371,7 +385,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   const lightRows = island ? [-2.6, 2.6] : [-(pe + 2.2), pe + 2.2];
   for (const s of o.elevated ? [] : o.ceil) {
     if (th.lights) {
-      th.lights(info, s, s.emit ? s.y : s.y - 0.05);
+      th.lights(info, s, vis(s));
       continue;
     }
     for (let x = s.x0 + 1.5; x + 3 <= s.x1; x += 4) {
@@ -381,7 +395,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
           b.deco('paint:#e6e5e0', x - 0.05, y + 0.03, z - 0.17, x + 3.05, y + 0.09, z + 0.17);
           b.deco('light', x, y, z - 0.13, x + 3, y + 0.03, z + 0.13);
           b.deco('metal:#8a8f94', x + 1.48, y + 0.09, z - 0.02, x + 1.52, s.y + 2.3, z + 0.02);
-        } else ceilingLight(b, x, x + 3, z - 0.13, z + 0.13, s.emit ? s.y : s.y - 0.05);
+        } else ceilingLight(b, x, x + 3, z - 0.13, z + 0.13, vis(s));
       }
     }
   }
@@ -561,9 +575,13 @@ export function rail(b: Builder, x0: number, z0: number, x1: number, z1: number,
  */
 export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear = CONC_CLEAR) {
   const { b, station } = c;
-  const n = 7;
+  // A narrow (old) concourse has five gates and a shallower office.
+  const narrow = cw < 9;
+  const n = narrow ? 5 : 7;
+  const first = (-(n - 1) / 2) * 1.05, edge = -first + 0.12;
+  const oz = narrow ? 3.7 : 5.0;
   for (let i = 0; i < n; i++) {
-    const z = -3.15 + i * 1.05;
+    const z = first + i * 1.05;
     b.box('metal:#c4c8cc', -0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
     b.deco('flat:#3a3f45', -0.8, cf + 1.0, z - 0.13, 0.8, cf + 1.03, z + 0.13);
     b.deco('glow:#29a9ff', 0.42, cf + 1.03, z - 0.1, 0.72, cf + 1.05, z + 0.1);
@@ -571,62 +589,87 @@ export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear 
     b.deco(i % 3 === 0 ? 'glow:#e53935' : 'glow:#32c86a', 0.78, cf + 0.72, z - 0.06, 0.81, cf + 0.86, z + 0.06);
   }
   // Fences either side.
-  b.box('metal:#c4c8cc', -0.05, cf, 3.27, 0.05, cf + 1.15, 5.0);
-  b.box('metal:#c4c8cc', -0.05, cf, -cw, 0.05, cf + 1.15, -3.27);
-  b.deco('glass', -0.02, cf + 1.15, -cw, 0.02, cf + 1.9, -3.27);
+  b.box('metal:#c4c8cc', -0.05, cf, edge, 0.05, cf + 1.15, oz);
+  b.box('metal:#c4c8cc', -0.05, cf, -cw, 0.05, cf + 1.15, -edge);
+  b.deco('glass', -0.02, cf + 1.15, -cw, 0.02, cf + 1.9, -edge);
   // Station office.
-  b.box(c.style.concWall, -3, cf, 5.0, 3, cf + CONC_CLEAR, cw);
-  b.sign({ k: 'machine', v: 'window' }, 0, cf + 1.5, 4.97, [0, -1], 5.2, 2.2);
-  b.sign({ k: 'machine', v: 'door' }, 3.02, cf + 1.05, 8, [1, 0], 1.0, 2.1);
+  b.box(c.style.concWall, -3, cf, oz, 3, cf + CONC_CLEAR, cw);
+  b.sign({ k: 'machine', v: 'window' }, 0, cf + 1.5, oz - 0.03, [0, -1], 5.2, 2.2);
+  b.sign({ k: 'machine', v: 'door' }, 3.02, cf + 1.05, narrow ? (oz + cw) / 2 : 8, [1, 0], 1.0, 2.1);
   // Header signs: platforms (seen from the unpaid side) / exit (seen from the paid side).
   b.hang(
     { k: 'guide', ja: 'のりば', en: 'To trains', bg: 'navy', badges: lines, arrow: 'up' },
-    0, cf + 2.6, 0, 5.6, 0.5,
+    0, cf + 2.6, 0, narrow ? 4.4 : 5.6, 0.5,
     { ceil: cf + clear, back: { k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', arrow: 'up' } },
   );
   // Live departures screen facing the unpaid side.
-  b.deco('flat:#15181c', 1.2, cf + 1.72, -8.6, 1.3, cf + 2.9, -5.9);
-  b.sign({ k: 'depAll', station: station.id }, 1.31, cf + 2.3, -7.25, [1, 0], 2.6, 1.12, { dynamic: true });
-  b.deco('flat:#555a60', 1.23, cf + 2.9, -7.27, 1.27, cf + CONC_CLEAR, -7.23);
+  const sz = narrow ? -(edge + cw) / 2 : -7.25;
+  b.deco('flat:#15181c', 1.2, cf + 1.72, sz - 1.35, 1.3, cf + 2.9, sz + 1.35);
+  b.sign({ k: 'depAll', station: station.id }, 1.31, cf + 2.3, sz, [1, 0], 2.6, 1.12, { dynamic: true });
+  b.deco('flat:#555a60', 1.23, cf + 2.9, sz - 0.02, 1.27, cf + CONC_CLEAR, sz + 0.02);
 }
 
 /**
- * An exit: short passage off the concourse, stair up to the street, canopy and signs.
+ * An exit: passage off the concourse, stair up to the street, canopy and signs.
  * Canonical coords: the concourse wall line is z = 0 (concourse at z < 0), the
- * passage is x ∈ [-4, 0], and the stair climbs along +x from x = 0.
+ * passage is x ∈ [-4, 0], and the stair climbs along +x from x = 0. `ext` puts a low corridor
+ * of that length between the concourse and the lobby, so a narrower concourse still comes up
+ * at the same place in the street.
  */
-export function exit(c: Ctx, cf: number, num: string) {
+export function exit(c: Ctx, cf: number, num: string, ext = 0) {
   const { b, station, style } = c;
+  const look = lookFor(station.id);
   const GY = GROUND_Y;
   const rise = GY - cf, run = Math.round(rise * 1.72 * 100) / 100;
-  const wall = style.concWall;
-  b.box(style.floor, -4, cf - 0.5, 0, 0, cf, 4.0);
-  stairs(b, { x0: 0, x1: run, z0: 1.2, z1: 4.0, yLow: cf, yHigh: GY, rails: [false, false], mat: 'flat:#aaa79f' });
-  b.box(wall, -4.3, cf, 4.0, 0, cf + 3.2, 4.3);
-  b.box(wall, 0, cf - 0.5, 4.0, run, GY + 1.0, 4.3);
-  b.box(wall, -4.3, cf, 0, -4, cf + 3.2, 4.0);
-  b.box(wall, 0, cf - 0.5, 0.9, run, GY + 1.0, 1.2);
-  b.box(wall, 0, cf, 0, 0.3, cf + 3.2, 0.9);
-  b.box(wall, -0.3, cf + 2.7, 1.2, 0, GY + 1.0, 4.0);
-  b.box('ceil', -4.3, cf + 2.7, 0, -0.3, cf + 3.2, 4.3);
-  ceilingLight(b, -3.2, -1, 1.6, 2.2, cf + 2.7);
-  b.deco('flat:#4b4d50', -4, cf, 3.975, 0, cf + 0.13, 4.0);
-  // Handrails on the stair walls.
-  b.hole(0, 1.2, run, 4.0);
-  // Street-level canopy.
-  b.deco('flat:#eef0f2', -0.6, GY + 2.5, 0.6, run + 0.7, GY + 2.64, 4.6);
-  b.deco('glass', 0, GY + 1.0, 4.12, run, GY + 2.5, 4.18);
-  b.deco('glass', 0, GY + 1.0, 1.02, run, GY + 2.5, 1.08);
-  for (const [px, pz] of [[0, 1.05], [0, 4.15], [run, 1.05], [run, 4.15]]) {
-    b.box('metal:#9aa0a6', px - 0.07, GY, pz - 0.07, px + 0.07, GY + 2.5, pz + 0.07);
+  const wall = style.concWall, ceil = look.finishes?.ceil ?? 'ceil';
+  if (ext > 0) {
+    b.box(style.floor, -4, cf - 0.5, 0, 0, cf, ext);
+    b.box(wall, -4.3, cf, 0, -4, cf + 3.2, ext);
+    b.box(wall, 0, cf, 0, 0.3, cf + 3.2, ext);
+    b.box(ceil, -4.3, cf + 2.5, 0, 0.3, cf + 3.2, ext);
+    ceilingLight(b, -2.25, -1.75, 0.5, ext - 0.3, cf + 2.5);
+    b.deco('flat:#4b4d50', -4, cf, 0, -3.975, cf + 0.13, ext);
+    b.deco('flat:#4b4d50', -0.025, cf, 0, 0, cf + 0.13, ext);
+    let v = num.charCodeAt(0) + station.id.length + 3;
+    for (let z = 1.2; z + 0.8 <= ext; z += 2) {
+      b.sign({ k: 'poster', v: v++ }, -3.98, cf + 1.45, z, [1, 0], 1.2, 1.7);
+      b.sign({ k: 'poster', v: v++ }, -0.02, cf + 1.45, z, [-1, 0], 1.2, 1.7);
+    }
+    b.zone('passage', -4, cf - 0.2, 0, 0, cf + 2.5, ext, `${num}番出口 通路`, `Exit ${num} passage`);
   }
-  b.sign({ k: 'entrance', station: station.id, exit: num }, run + 0.06, GY + 2.2, 2.6, [1, 0], 2.9, 0.6);
-  b.deco('flat:#22262b', run - 0.04, GY + 1.88, 1.1, run + 0.05, GY + 2.52, 4.1);
-  // Signs inside.
-  b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num }, -2, cf + 2.72, -0.02, [0, -1], 2.6, 0.5);
-  b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num, arrow: 'up' }, -0.31, cf + 2.95, 2.6, [-1, 0], 2.4, 0.42);
-  b.sign({ k: 'poster', v: num.charCodeAt(0) + station.id.length }, -2, cf + 1.5, 3.98, [0, -1], 1.2, 1.7);
-  b.zone('passage', -4, cf - 0.2, 0, run, GY + 2.4, 4.0, `${num}番出口`, `Exit ${num}`);
+  b.with({ t: [0, 0, ext] }, () => {
+    b.box(style.floor, -4, cf - 0.5, 0, 0, cf, 4.0);
+    stairs(b, { x0: 0, x1: run, z0: 1.2, z1: 4.0, yLow: cf, yHigh: GY, rails: [false, false], mat: 'flat:#aaa79f' });
+    b.box(wall, -4.3, cf, 4.0, 0, cf + 3.2, 4.3);
+    b.box(wall, 0, cf - 0.5, 4.0, run, GY + 1.0, 4.3);
+    b.box(wall, -4.3, cf, 0, -4, cf + 3.2, 4.0);
+    b.box(wall, 0, cf - 0.5, 0.9, run, GY + 1.0, 1.2);
+    b.box(wall, 0, cf, 0, 0.3, cf + 3.2, 0.9);
+    b.box(wall, -0.3, cf + 2.7, 1.2, 0, GY + 1.0, 4.0);
+    b.box(ceil, -4.3, cf + 2.7, 0, -0.3, cf + 3.2, 4.3);
+    ceilingLight(b, -3.2, -1, 1.6, 2.2, cf + 2.7);
+    b.deco('flat:#4b4d50', -4, cf, 3.975, 0, cf + 0.13, 4.0);
+    b.hole(0, 1.2, run, 4.0);
+    if (!look.canopy) {
+      // Street-level canopy.
+      b.deco('flat:#eef0f2', -0.6, GY + 2.5, 0.6, run + 0.7, GY + 2.64, 4.6);
+      b.deco('glass', 0, GY + 1.0, 4.12, run, GY + 2.5, 4.18);
+      b.deco('glass', 0, GY + 1.0, 1.02, run, GY + 2.5, 1.08);
+      for (const [px, pz] of [[0, 1.05], [0, 4.15], [run, 1.05], [run, 4.15]]) {
+        b.box('metal:#9aa0a6', px - 0.07, GY, pz - 0.07, px + 0.07, GY + 2.5, pz + 0.07);
+      }
+      b.deco('flat:#22262b', run - 0.04, GY + 1.88, 1.1, run + 0.05, GY + 2.52, 4.1);
+    }
+    b.sign({ k: 'entrance', station: station.id, exit: num }, run + 0.06, GY + 2.2, 2.6, [1, 0], 2.9, 0.6);
+    // Signs inside.
+    b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num, arrow: 'up' }, -0.31, cf + 2.95, 2.6, [-1, 0], 2.4, 0.42);
+    b.sign({ k: 'poster', v: num.charCodeAt(0) + station.id.length }, -2, cf + 1.5, 3.98, [0, -1], 1.2, 1.7);
+    b.zone('passage', -4, cf - 0.2, 0, run, GY + 2.4, 4.0, `${num}番出口`, `Exit ${num}`);
+  });
+  b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num }, -2, cf + (ext > 0 ? 2.25 : 2.72), -0.02, [0, -1], 2.6, 0.5);
+  const info: ExitInfo = { b, station, style, wall, floor: style.floor, cf, gy: GY, num, ext, run };
+  look.canopy?.(info);
+  look.exit?.(info);
 }
 
 /** Wall-mounted row of ticket machines with the fare board above, along a wall facing +z. */

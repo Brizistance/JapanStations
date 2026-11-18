@@ -1,0 +1,834 @@
+// Shared parts for station looks: shop fronts, kiosks, lockers, beams, ducts and the like.
+//
+// Conventions (read these first):
+// - Every function takes the info object first. Concourse parts take a `ConcInfo`; service runs,
+//   hanging things and rails only need `{ b }`, so a ConcInfo, ExitInfo or PassageInfo will do.
+// - Long walls: `s` = ±1 is the concourse wall at z = s·cw. A depth `d` is measured in from
+//   that wall's face, so a part at depth d sits at z = s·(cw − d) and faces −s (into the hall).
+// - Runs (pipes, ducts, trays, battens, noren, handrails) go along `axis` ('x' or 'z') at the
+//   cross position `at`, from `from` to `to`, hung under a ceiling whose underside is `top`.
+// - Anything standing on the floor (shops, kiosks, lockers, benches, bins, planters) checks
+//   `i.free()` first: if its footprint is taken it builds nothing and returns false. Otherwise
+//   it builds solid parts, claims its footprint (plus room in front to use it) and returns true.
+//   Everything overhead and on walls is decoration only.
+// - Wall finishes stack at small insets so nothing is coplanar: dado 0.008, trims 0.014, the
+//   kit's posters and fare board 0.02, our posters 0.03.
+
+import type { StationDef } from '../../data/types';
+import { linesAt } from '../../data/network';
+import type { Builder } from '../../world/builder';
+import { vending } from '../kit';
+import { SPECS } from '../specs';
+import { themeFor } from '../themes';
+import { hash, shade } from '../themes/types';
+import type { ConcInfo, ExitInfo, PassageInfo } from './types';
+
+type Has = { b: Builder };
+export type Wall = 1 | -1;
+export type Axis = 'x' | 'z';
+export type Span = [number, number];
+
+// ── Era ──────────────────────────────────────────────────────────────────────────────────────
+
+/** 'old' before 1970 (low, busy), 'mid' up to 2010, 'new' after. */
+export type EraClass = 'old' | 'mid' | 'new';
+export const eraClass = (era: number): EraClass => (era < 1970 ? 'old' : era < 2010 ? 'mid' : 'new');
+
+/** Opening year of a station's primary line (exits and passages are not told it). */
+export function eraOf(station: StationDef): number {
+  const spec = SPECS[station.id];
+  const id = spec && 'primary' in spec ? spec.primary : linesAt(station.id)[0]?.id;
+  return (id && themeFor(id).opened) || 2000;
+}
+
+// ── Brands ───────────────────────────────────────────────────────────────────────────────────
+
+export type ShopKind =
+  | 'conbini' | 'kiosk' | 'soba' | 'bakery' | 'flowers' | 'cafe' | 'sweets' | 'drugstore' | 'books' | 'bento' | 'bank' | 'photo' | 'goods';
+
+export interface Brand {
+  ja: string;
+  en: string;
+  bg: string;
+  fg: string;
+  kind: ShopKind;
+}
+
+/**
+ * Invented shop brands for station concourses (never real chains). Some are shared with the
+ * street (`SHOPS` in ../surface.ts); record new ones in docs/worldbuilding.md.
+ */
+export const SHOPS = {
+  maruhoshiKiosk: { ja: 'マルホシ キオスク', en: 'Maruhoshi Kiosk', bg: '#0b8f6a', fg: '#fff', kind: 'kiosk' },
+  maruhoshiMart: { ja: 'マルホシマート', en: 'Maruhoshi Mart', bg: '#0b8f6a', fg: '#fff', kind: 'conbini' },
+  portMart: { ja: 'ポートマート', en: 'Port Mart', bg: '#f4f2ec', fg: '#c8401e', kind: 'conbini' },
+  tsubameya: { ja: 'ツバメ屋ストア', en: 'Tsubameya Store', bg: '#1d4f91', fg: '#fff', kind: 'conbini' },
+  sobaKita: { ja: 'そば処 きた', en: 'Soba Kita', bg: '#2f3a2c', fg: '#f4f1e6', kind: 'soba' },
+  sobaMio: { ja: '立ちそば 澪', en: 'Tachisoba Mio', bg: '#1f2a44', fg: '#f4efe2', kind: 'soba' },
+  udonKawanami: { ja: 'うどん 川波', en: 'Udon Kawanami', bg: '#f6efe0', fg: '#7a2a12', kind: 'soba' },
+  bakeryKomugi: { ja: 'ベーカリー こむぎ', en: 'Bakery Komugi', bg: '#f3e2c0', fg: '#6d3b12', kind: 'bakery' },
+  hinataBakery: { ja: 'ひなたベーカリー', en: 'Hinata Bakery', bg: '#e9a23b', fg: '#3b1f0b', kind: 'bakery' },
+  yanagiFlowers: { ja: 'フラワー やなぎ', en: 'Yanagi Flowers', bg: '#e8f3e4', fg: '#2e6b35', kind: 'flowers' },
+  hanaNoMinato: { ja: '花の湊', en: 'Hana no Minato', bg: '#c2185b', fg: '#fff', kind: 'flowers' },
+  akaneCoffee: { ja: '茜珈琲', en: 'Akane Coffee', bg: '#3a1f1a', fg: '#f0b8a0', kind: 'cafe' },
+  nagiCafe: { ja: 'なぎカフェ', en: 'Nagi Café', bg: '#2f6f73', fg: '#fff', kind: 'cafe' },
+  kajitsudo: { ja: 'ジューススタンド 果実堂', en: 'Kajitsudō Juice Stand', bg: '#ff8f1f', fg: '#fff', kind: 'cafe' },
+  tsumugian: { ja: '和菓子 つむぎ庵', en: 'Wagashi Tsumugi-an', bg: '#6a1b3a', fg: '#fbe9d0', kind: 'sweets' },
+  namima: { ja: 'たい焼き なみま', en: 'Taiyaki Namima', bg: '#f2d16b', fg: '#7a2e0e', kind: 'sweets' },
+  hibariPharmacy: { ja: 'ひばり薬局', en: 'Hibari Pharmacy', bg: '#ffffff', fg: '#1976d2', kind: 'drugstore' },
+  ryubundo: { ja: '柳文堂書店', en: 'Ryubundo Books', bg: '#1b3a5c', fg: '#fff', kind: 'books' },
+  minatoya: { ja: 'お弁当 みなと屋', en: 'Bento Minatoya', bg: '#f6efe0', fg: '#8a2b18', kind: 'bento' },
+  shinkin: { ja: '川湊信用金庫', en: 'Kawaminato Shinkin Bank', bg: '#f4f4f0', fg: '#0d3b66', kind: 'bank' },
+  photoMinato: { ja: 'フォトミナト', en: 'Photo Minato', bg: '#ffd23f', fg: '#1b1b1b', kind: 'photo' },
+  kawaminatodo: { ja: 'おみやげ 川湊堂', en: 'Kawaminato-dō Gifts', bg: '#0d3b66', fg: '#fff', kind: 'goods' },
+  sorano: { ja: 'そらの雑貨店', en: 'Sorano Zakka', bg: '#f7f4ee', fg: '#3a6ea5', kind: 'goods' },
+} satisfies Record<string, Brand>;
+
+/** All brands of one kind. */
+export const brandsOf = (kind: ShopKind): Brand[] => Object.values(SHOPS).filter((s) => s.kind === kind);
+
+// Goods on shelves: a small fixed palette per kind, so materials stay few.
+const GOODS = ['#d94f3d', '#f2c14e', '#3c7dc4', '#6aa84f', '#e8e2d0', '#8e5ea2'];
+const BREAD = ['#c98a4b', '#a8662f', '#e2b778', '#8a5a2b'];
+const BLOOMS = ['#e84a6f', '#f6d743', '#f08a24', '#b05cc8', '#f4f4f4'];
+const SWEETS = ['#f2d16b', '#e9b7c4', '#8bbf7a', '#f4efe2'];
+const BOOKS = ['#1b3a5c', '#b23a3a', '#e8e2d0', '#3f6f4a', '#d9a400'];
+export const PALETTES: Record<ShopKind, string[]> = {
+  conbini: GOODS, kiosk: GOODS, soba: ['#e8e2d0', '#3a2a20', '#c9a46a'], bakery: BREAD, flowers: BLOOMS, cafe: ['#5b3a29', '#e8e2d0', '#a8662f'],
+  sweets: SWEETS, drugstore: ['#ffffff', '#3c7dc4', '#6aa84f', '#e84a6f'], books: BOOKS, bento: ['#e8e2d0', '#b23a3a', '#6aa84f'],
+  bank: ['#d6d9dc'], photo: GOODS, goods: SWEETS,
+};
+
+// ── Geometry helpers ─────────────────────────────────────────────────────────────────────────
+
+/** Sorted [z0, z1] of the band between depths d0 and d1 in from long wall `s`. */
+export function band(i: { cw: number }, s: Wall, d0: number, d1: number): Span {
+  const a = s * (i.cw - d0), c = s * (i.cw - d1);
+  return a < c ? [a, c] : [c, a];
+}
+
+/** A box against long wall `s`, x0 … x1 by depths d0 … d1. Decoration unless `solid`. */
+export function wbox(i: ConcInfo, s: Wall, mat: string, x0: number, x1: number, y0: number, y1: number, d0: number, d1: number, solid = false) {
+  const [za, zb] = band(i, s, d0, d1);
+  i.b.box(mat, x0, y0, za, x1, y1, zb, solid);
+}
+
+/** A box along a run: `along` from p to q, across from at + c0 to at + c1. */
+function abox(b: Builder, mat: string, axis: Axis, at: number, p: number, q: number, y0: number, y1: number, c0: number, c1: number) {
+  if (axis === 'x') b.deco(mat, p, y0, at + c0, q, y1, at + c1);
+  else b.deco(mat, at + c0, y0, p, at + c1, y1, q);
+}
+
+/** `span` minus the `gaps`, as sorted pieces. */
+export function cut(span: Span, gaps: Span[] = []): Span[] {
+  let out: Span[] = [[Math.min(...span), Math.max(...span)]];
+  for (const [g0, g1] of gaps) {
+    out = out.flatMap(([a, c]): Span[] => (g1 <= a || g0 >= c ? [[a, c]] : [...(g0 > a ? [[a, g0] as Span] : []), ...(g1 < c ? [[g1, c] as Span] : [])]));
+  }
+  return out.filter(([a, c]) => c - a > 0.05);
+}
+
+/** Exit doorways in the long walls, as x-ranges (both walls; see ConcInfo.ends). */
+export const doorways = (i: ConcInfo): Span[] => i.ends.map((e): Span => (e.hi ? [e.g + 9, e.g + 13] : [e.g - 13, e.g - 9]));
+
+/** Where the kit puts the toilets: centred on x on the −z wall. */
+export const toiletX = (i: ConcInfo) => (i.paid[0] + i.paid[1]) / 2 + 3;
+
+/**
+ * Try `tryAt(s, x0)` along the walls until it returns true: both walls (the first chosen by
+ * seed), each range (default: the paid area) scanned in 0.5 m steps from a seeded start.
+ * `w` is the item's length. Returns false if nothing fitted.
+ */
+export function placeAlong(i: ConcInfo, w: number, tryAt: (s: Wall, x0: number) => boolean, ranges: Span[] = [i.paid], walls?: Wall[]): boolean {
+  const s0: Wall = i.rand() < 0.5 ? 1 : -1;
+  for (const s of walls ?? [s0, -s0 as Wall]) {
+    for (const [a, c] of ranges) {
+      const n = Math.floor((c - a - w - 0.4) / 0.5);
+      if (n < 0) continue;
+      const k0 = Math.floor(i.rand() * (n + 1));
+      for (let k = 0; k <= n; k++) if (tryAt(s, a + 0.2 + ((k0 + k) % (n + 1)) * 0.5)) return true;
+    }
+  }
+  return false;
+}
+
+// ── Shop fronts ──────────────────────────────────────────────────────────────────────────────
+
+/** Height of a shop fascia's underside above the floor (the fascia runs up to the ceiling). */
+export const FASCIA = 2.35;
+
+export interface ShopOpts {
+  s: Wall;
+  x0: number;
+  x1: number;
+  brand: Brand;
+  /** How far the shop stands out from the wall: 0.3 flush glazed … 1.6 counter or stall. */
+  depth?: number;
+  /** 'glazed': shop window and door. 'counter': open counter, staff behind. 'stall': goods on a stepped stand. */
+  front?: 'glazed' | 'counter' | 'stall';
+  /** Glazed: x of the door's centre (default near x1), or false for none. */
+  door?: number | false;
+  /** Striped awning under the fascia (colour, or true for the brand colour). */
+  awning?: string | boolean;
+  /** Warm light inside (default true). */
+  glow?: boolean;
+  /** Counter fronts: a noren under the fascia, colour + text. */
+  noren?: { color: string; text?: string; fg?: string };
+  /** Shell finish (default pale enamel). */
+  body?: string;
+  /** Goods colours (default by brand kind). */
+  goods?: string[];
+  /** Room kept free in front, checked and claimed (default 1.2). */
+  clear?: number;
+}
+
+/** Fascia sign widths come from a few sizes, so sign textures are shared. */
+const fasciaW = (len: number) => Math.max(1, Math.min(6, Math.floor((len - 0.3) * 2) / 2));
+
+/** Shelves of goods against the wall: boards at heights `ys`, coloured blocks on each. */
+function shelves(i: ConcInfo, s: Wall, x0: number, x1: number, ys: number[], d0: number, d1: number, cols: string[], h = 0.3) {
+  const n = Math.max(1, Math.round((x1 - x0) / 0.9));
+  const w = (x1 - x0) / n;
+  ys.forEach((y, r) => {
+    wbox(i, s, 'flat:#d9d4c7', x0, x1, y - 0.025, y, d0, d1);
+    for (let k = 0; k < n; k++) {
+      const col = cols[(k + r * 2) % cols.length];
+      wbox(i, s, `flat:${col}`, x0 + k * w + 0.04, x0 + (k + 1) * w - 0.04, y, y + h * (0.75 + 0.25 * hash(k + r * 7, x0)), d0 + 0.02, d1 - 0.03);
+    }
+  });
+}
+
+/**
+ * A shop against long wall `s`, from x0 to x1, standing `depth` out from the wall: fascia with
+ * the brand's sign (cf + 2.35 … ceiling), pilasters, and a glazed front with a door, an open
+ * counter, or a stall of goods. Solid over its whole footprint. Checks and claims
+ * x0 … x1 × depth + clear; returns false (building nothing) if that is not free.
+ */
+export function shopFront(i: ConcInfo, o: ShopOpts): boolean {
+  const { b, cf } = i;
+  const { s, x0, x1, brand } = o;
+  const d = o.depth ?? 0.3, clear = o.clear ?? 1.2, front = o.front ?? 'glazed';
+  const [za, zb] = band(i, s, 0, d + clear);
+  if (x1 - x0 < 1.2 || !i.free(x0, za, x1, zb)) return false;
+  i.claim(x0, za, x1, zb);
+  const top = cf + i.clear, fy = cf + FASCIA;
+  const body = o.body ?? 'flat:#ebe8e0';
+  const goods = o.goods ?? PALETTES[brand.kind];
+  const xa = x0 + 0.12, xb = x1 - 0.12;
+
+  // Fascia and sign, a brand-colour stripe under it, pilasters at both ends.
+  wbox(i, s, body, x0, x1, fy, top, 0, d);
+  wbox(i, s, `flat:${brand.bg}`, x0, x1, fy, fy + 0.06, d, d + 0.01);
+  b.sign({ k: 'shop', ja: brand.ja, en: brand.en, bg: brand.bg, fg: brand.fg }, (x0 + x1) / 2, fy + 0.34, s * (i.cw - d - 0.015), [0, -s], fasciaW(x1 - x0), 0.5);
+  wbox(i, s, body, x0, xa, cf, fy, 0, d, true);
+  wbox(i, s, body, xb, x1, cf, fy, 0, d, true);
+  // The back wall inside, and a warm strip light under the fascia.
+  wbox(i, s, 'flat:#f1ebdd', xa, xb, cf, fy, 0, 0.02);
+  if (o.glow !== false) wbox(i, s, 'glow:#fff1d6', xa + 0.1, xb - 0.1, fy - 0.06, fy - 0.02, 0.02, Math.min(0.3, d - 0.06));
+
+  if (front === 'glazed') {
+    wbox(i, s, 'none', xa, xb, cf, fy, 0, d, true);
+    shelves(i, s, xa + 0.1, xb - 0.1, [cf + 0.55, cf + 1.1, cf + 1.65], 0.02, Math.min(0.45, d - 0.06), goods);
+    const door = o.door === false ? null : (o.door ?? xb - 0.7);
+    const gaps: Span[] = door === null ? [] : [[door - 0.5, door + 0.5]];
+    for (const [p, q] of cut([xa, xb], gaps)) {
+      wbox(i, s, 'flat:#3a3d41', p, q, cf, cf + 0.3, d - 0.05, d);
+      wbox(i, s, 'glass', p, q, cf + 0.3, fy, d - 0.025, d - 0.012);
+      // Mullions about every 1.6 m.
+      const m = Math.round((q - p) / 1.6);
+      for (let k = 1; k < m; k++) {
+        const x = p + ((q - p) * k) / m;
+        wbox(i, s, 'metal:#b9bdc2', x - 0.025, x + 0.025, cf + 0.3, fy, d - 0.04, d);
+      }
+    }
+    if (door !== null) {
+      wbox(i, s, 'metal:#b9bdc2', door - 0.5, door + 0.5, cf + 2.1, fy, d - 0.05, d);
+      wbox(i, s, 'glassTint', door - 0.47, door + 0.47, cf, cf + 2.1, d - 0.03, d - 0.015);
+      wbox(i, s, 'metal:#b9bdc2', door - 0.05, door + 0.05, cf + 0.9, cf + 1.2, d - 0.015, d + 0.03);
+    }
+  } else {
+    // Staff space behind a counter or stall: nobody walks in there.
+    const back = front === 'counter' ? 0.55 : 0.75;
+    wbox(i, s, 'none', xa, xb, cf, fy, 0, d - back, true);
+    shelves(i, s, xa + 0.1, xb - 0.1, [cf + 1.15, cf + 1.65], 0.02, Math.min(0.35, d - back - 0.05), goods);
+    if (front === 'counter') {
+      wbox(i, s, o.body ?? 'flat:#d8d2c4', xa, xb, cf + 0.12, cf + 0.95, d - 0.5, d, true);
+      wbox(i, s, 'flat:#3a3d41', xa, xb, cf, cf + 0.12, d - 0.5, d - 0.03, true);
+      wbox(i, s, 'wood:#9a7650', xa, xb, cf + 0.95, cf + 1.0, d - 0.55, d + 0.05);
+      // Goods on the counter's front (papers, snacks).
+      if (brand.kind === 'kiosk') shelves(i, s, xa + 0.05, xb - 0.05, [cf + 0.35, cf + 0.65], d - 0.02, d + 0.12, goods, 0.22);
+    } else {
+      // Two-step stand, goods on both steps (a flower stall puts buckets on the lower one).
+      wbox(i, s, 'flat:#6b5a48', xa, xb, cf, cf + 0.5, d - 0.7, d, true);
+      wbox(i, s, 'flat:#6b5a48', xa, xb, cf + 0.5, cf + 0.85, d - 0.7, d - 0.35, true);
+      if (brand.kind !== 'flowers') shelves(i, s, xa + 0.05, xb - 0.05, [cf + 0.5], d - 0.33, d - 0.02, goods, 0.25);
+      shelves(i, s, xa + 0.05, xb - 0.05, [cf + 0.85], d - 0.68, d - 0.37, goods, 0.3);
+    }
+    if (o.noren) noren(i, 'x', s * (i.cw - d + 0.03), xa, xb, fy, { color: o.noren.color, text: o.noren.text, fg: o.noren.fg, face: -s as Wall });
+  }
+
+  if (o.awning) {
+    const col = o.awning === true ? brand.bg : o.awning;
+    // Canopy at cf + 2.36 … 2.4 and a striped valance down to cf + 2.3 (white stripes in front).
+    wbox(i, s, `flat:${col}`, x0, x1, cf + 2.36, cf + 2.4, d, d + 0.55);
+    wbox(i, s, `flat:${col}`, x0, x1, cf + 2.3, cf + 2.4, d + 0.55, d + 0.555);
+    const n = Math.max(2, Math.round((x1 - x0) / 0.5));
+    for (let k = 0; k < n; k += 2) {
+      const p = x0 + ((x1 - x0) * k) / n, q = x0 + ((x1 - x0) * (k + 1)) / n;
+      wbox(i, s, 'flat:#f4f1e6', p, q, cf + 2.3, cf + 2.4, d + 0.555, d + 0.565);
+    }
+  }
+  return true;
+}
+
+// ── Shop presets (all against long wall `s`, starting at x0; return false if not free) ────────
+
+/** Convenience store: a glazed front `w` long (default 6), 0.6 deep, door near x1. */
+export const conbini = (i: ConcInfo, s: Wall, x0: number, brand: Brand = SHOPS.maruhoshiMart, w = 6) =>
+  shopFront(i, { s, x0, x1: x0 + w, brand, depth: 0.6, front: 'glazed', door: x0 + w - 1.0 });
+
+/** Station kiosk against the wall: open counter with papers and snacks, 2.4 long, 1.0 deep. */
+export const kioskStall = (i: ConcInfo, s: Wall, x0: number, brand: Brand = SHOPS.maruhoshiKiosk, w = 2.4) =>
+  shopFront(i, { s, x0, x1: x0 + w, brand, depth: 1.0, front: 'counter' });
+
+/** Standing soba/udon counter (立ち食い): deep counter with a noren, 3.6 long, 1.4 deep. */
+export const sobaStand = (i: ConcInfo, s: Wall, x0: number, brand: Brand = SHOPS.sobaMio, w = 3.6) =>
+  shopFront(i, {
+    s, x0, x1: x0 + w, brand, depth: 1.4, front: 'counter', body: 'wood:#7a5a3a',
+    noren: { color: brand.bg === '#f6efe0' ? '#7a2a12' : brand.bg, text: /うどん/.test(brand.ja) ? 'うどん' : 'そば', fg: '#fff' },
+  });
+
+/** Bakery: glazed front with an awning and a warm glow, 4 long, 0.8 deep. */
+export const bakery = (i: ConcInfo, s: Wall, x0: number, brand: Brand = SHOPS.bakeryKomugi, w = 4) =>
+  shopFront(i, { s, x0, x1: x0 + w, brand, depth: 0.8, front: 'glazed', awning: true, door: x0 + 0.9 });
+
+/** Café or juice stand: glazed (w ≥ 4) or a counter (shorter). */
+export const cafe = (i: ConcInfo, s: Wall, x0: number, brand: Brand = SHOPS.akaneCoffee, w = 4.5) =>
+  w >= 4
+    ? shopFront(i, { s, x0, x1: x0 + w, brand, depth: 0.8, front: 'glazed', body: 'wood:#6b4a32', door: x0 + 0.9 })
+    : shopFront(i, { s, x0, x1: x0 + w, brand, depth: 1.0, front: 'counter' });
+
+/** Flower stall: buckets on a stepped stand, 3 long, 1.4 deep, with an awning. */
+export function flowerStall(i: ConcInfo, s: Wall, x0: number, brand: Brand = SHOPS.yanagiFlowers, w = 3): boolean {
+  if (!shopFront(i, { s, x0, x1: x0 + w, brand, depth: 1.4, front: 'stall', awning: '#2e6b35' })) return false;
+  // Buckets of cut flowers on the stand's lower step (depth 1.05 … 1.4, top cf + 0.5).
+  const n = Math.floor((w - 0.4) / 0.45);
+  for (let k = 0; k < n; k++) {
+    const x = x0 + 0.42 + k * 0.45;
+    const z = s * (i.cw - 1.22);
+    i.b.mesh('metal:#9da2a8', 'cyl', x, i.cf + 0.62, z, 0.3, 0.24, 0.3);
+    i.b.mesh(`flat:${BLOOMS[k % BLOOMS.length]}`, 'sphere', x, i.cf + 0.84, z, 0.36, 0.3, 0.36);
+  }
+  return true;
+}
+
+/** Coin lockers: `n` banks 1.6 long, 0.6 deep, 1.9 high, with a label above. */
+export function lockers(i: ConcInfo, s: Wall, x0: number, n = 2): boolean {
+  const w = n * 1.6, [za, zb] = band(i, s, 0, 1.6);
+  if (!i.free(x0, za, x0 + w, zb)) return false;
+  i.claim(x0, za, x0 + w, zb);
+  const { b, cf } = i;
+  wbox(i, s, 'flat:#e9e4d8', x0, x0 + w, cf, cf + 1.9, 0, 0.6, true);
+  wbox(i, s, 'flat:#c9c3b4', x0 - 0.02, x0 + w + 0.02, cf + 1.9, cf + 1.96, 0, 0.62);
+  for (let k = 0; k < n; k++) b.sign({ k: 'machine', v: 'locker' }, x0 + 0.8 + k * 1.6, cf + 0.95, s * (i.cw - 0.61), [0, -s], 1.58, 1.88);
+  b.sign({ k: 'label', text: 'コインロッカー', sub: 'Coin lockers', fg: '#fff', bg: '#2b4c7e' }, x0 + w / 2, cf + 2.15, s * (i.cw - 0.03), [0, -s], 1.6, 0.3);
+  return true;
+}
+
+/** Photo booth: 1.0 long, 1.5 deep, curtain on its +x side. */
+export function photoBooth(i: ConcInfo, s: Wall, x0: number, brand: Brand = SHOPS.photoMinato): boolean {
+  const [za, zb] = band(i, s, 0, 2.5);
+  if (!i.free(x0, za, x0 + 1.7, zb)) return false;
+  i.claim(x0, za, x0 + 1.7, zb);
+  const { b, cf } = i;
+  wbox(i, s, 'paint:#e3e6ea', x0, x0 + 1.0, cf, cf + 2.05, 0, 1.5, true);
+  wbox(i, s, `flat:${brand.bg}`, x0 - 0.01, x0 + 1.01, cf + 1.75, cf + 2.05, 0, 1.51);
+  wbox(i, s, 'flat:#2d4f8e', x0 + 1.0, x0 + 1.02, cf + 0.35, cf + 1.75, 0.2, 1.4);
+  b.sign({ k: 'shop', ja: brand.ja, bg: brand.bg, fg: brand.fg }, x0 + 0.5, cf + 1.9, s * (i.cw - 1.52), [0, -s], 0.9, 0.26);
+  b.sign({ k: 'shop', ja: '証明写真', bg: '#ffffff', fg: '#1b1b1b', vertical: true }, x0 + 0.5, cf + 1.05, s * (i.cw - 1.512), [0, -s], 0.42, 1.3);
+  return true;
+}
+
+/** `n` drink machines (kit `vending`) with recycling bins beside them. */
+export function vendingRow(i: ConcInfo, s: Wall, x0: number, n = 2, bins = true): boolean {
+  const w = n * 1.05 + (bins ? 1.4 : 0), [za, zb] = band(i, s, 0, 1.9);
+  if (!i.free(x0, za, x0 + w, zb)) return false;
+  i.claim(x0, za, x0 + w, zb);
+  for (let k = 0; k < n; k++) vending(i.b, x0 + 0.525 + k * 1.05, i.cf, s * (i.cw - 0.36), [0, -s], (k + Math.round(x0)) % 2 ? 'vending2' : 'vending');
+  if (bins) binSet(i.b, i.cf, x0 + n * 1.05 + 0.75, s * (i.cw - 0.3), 'x');
+  return true;
+}
+
+/** ATM corner: `n` cash machines between partitions, the bank's sign above. */
+export function atmCorner(i: ConcInfo, s: Wall, x0: number, n = 2, brand: Brand = SHOPS.shinkin): boolean {
+  const w = n * 0.9 + 0.3, [za, zb] = band(i, s, 0, 2.2);
+  if (!i.free(x0, za, x0 + w, zb)) return false;
+  i.claim(x0, za, x0 + w, zb);
+  const { b, cf } = i;
+  wbox(i, s, 'flat:#f1f1ee', x0, x0 + w, cf + FASCIA, cf + i.clear, 0, 1.0);
+  b.sign({ k: 'shop', ja: brand.ja, en: brand.en, bg: brand.bg, fg: brand.fg }, x0 + w / 2, cf + FASCIA + 0.34, s * (i.cw - 1.015), [0, -s], fasciaW(w), 0.5);
+  wbox(i, s, 'flat:#d6d9dc', x0, x0 + 0.15, cf, cf + FASCIA, 0, 1.0, true);
+  wbox(i, s, 'flat:#d6d9dc', x0 + w - 0.15, x0 + w, cf, cf + FASCIA, 0, 1.0, true);
+  wbox(i, s, 'flat:#e7e2d6', x0 + 0.15, x0 + w - 0.15, cf, cf + FASCIA, 0, 0.02);
+  for (let k = 0; k < n; k++) {
+    const p = x0 + 0.15 + k * 0.9 + 0.05, q = p + 0.8;
+    wbox(i, s, 'paint:#c9ccd0', p, q, cf, cf + 1.0, 0, 0.7, true);
+    wbox(i, s, 'paint:#c9ccd0', p, q, cf + 1.0, cf + 1.65, 0, 0.42);
+    wbox(i, s, 'glow:#bfe4ff', p + 0.12, q - 0.12, cf + 1.1, cf + 1.45, 0.42, 0.43);
+    wbox(i, s, 'flat:#3a3d41', p + 0.2, q - 0.2, cf + 0.98, cf + 1.0, 0.45, 0.65);
+  }
+  return true;
+}
+
+/** Lost-property (or information) window: a counter window in the wall with a label, 2.4 long. */
+export function infoWindow(i: ConcInfo, s: Wall, x0: number, label = { text: '忘れ物取扱所', sub: 'Lost property' }): boolean {
+  const [za, zb] = band(i, s, 0, 1.5);
+  if (!i.free(x0, za, x0 + 2.4, zb)) return false;
+  i.claim(x0, za, x0 + 2.4, zb);
+  const { b, cf } = i;
+  wbox(i, s, 'flat:#c9ccd0', x0, x0 + 2.4, cf, cf + 2.3, 0, 0.3, true);
+  wbox(i, s, 'flat:#e8eaec', x0 + 0.2, x0 + 2.2, cf + 0.95, cf + 1.9, 0.3, 0.31);
+  wbox(i, s, 'flat:#7d9fb3', x0 + 0.3, x0 + 2.1, cf + 1.2, cf + 1.85, 0.31, 0.315);
+  wbox(i, s, 'glass', x0 + 0.3, x0 + 2.1, cf + 1.2, cf + 1.85, 0.33, 0.335);
+  wbox(i, s, 'flat:#b9bdc2', x0 + 0.2, x0 + 2.2, cf + 1.0, cf + 1.05, 0.3, 0.55);
+  b.sign({ k: 'label', text: label.text, sub: label.sub, fg: '#fff', bg: '#14233b' }, x0 + 1.2, cf + 2.1, s * (i.cw - 0.32), [0, -s], 2.0, 0.36);
+  return true;
+}
+
+// ── Free-standing things (centred on x, z) ───────────────────────────────────────────────────
+
+/**
+ * Island kiosk, w × d (long side along x), 2.4 high, counters and signs on both long sides.
+ * Needs `margin` (default 1.4) clear all round; claims footprint + 1 m.
+ */
+export function kiosk(i: ConcInfo, x: number, z: number, o: { w?: number; d?: number; brand?: Brand; margin?: number } = {}): boolean {
+  const w = o.w ?? 3, d = o.d ?? 1.6, m = o.margin ?? 1.4, brand = o.brand ?? SHOPS.maruhoshiKiosk;
+  const x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
+  if (!i.free(x0, z0, x1, z1, m)) return false;
+  i.claim(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
+  const { b, cf } = i;
+  b.box('flat:#f4f1e6', x0, cf, z0 + 0.15, x1, cf + 2.4, z1 - 0.15);
+  b.deco('flat:#3a3d41', x0 - 0.02, cf, z0 + 0.13, x1 + 0.02, cf + 0.1, z1 - 0.13);
+  b.deco(`flat:${brand.bg}`, x0 - 0.05, cf + 1.95, z0 - 0.05, x1 + 0.05, cf + 2.45, z1 + 0.05);
+  for (const sd of [-1, 1] as const) {
+    const zf = sd > 0 ? z1 : z0;
+    // Counter ledge and the goods racks under it.
+    b.box('wood:#9a7650', x0, cf + 0.95, Math.min(zf, zf - sd * 0.15), x1, cf + 1.0, Math.max(zf, zf - sd * 0.15));
+    for (let k = 0; k < 4; k++) {
+      const p = x0 + 0.1 + (k * (w - 0.2)) / 4;
+      b.deco(`flat:${GOODS[(k + (sd > 0 ? 2 : 0)) % GOODS.length]}`, p + 0.03, cf + 0.3, Math.min(zf - sd * 0.15, zf - sd * 0.13), p + (w - 0.2) / 4 - 0.03, cf + 0.85, Math.max(zf - sd * 0.15, zf - sd * 0.13));
+    }
+    b.deco('glassDark', x0 + 0.15, cf + 1.05, Math.min(zf - sd * 0.15, zf - sd * 0.14), x1 - 0.15, cf + 1.9, Math.max(zf - sd * 0.15, zf - sd * 0.14));
+    b.sign({ k: 'shop', ja: brand.ja, en: brand.en, bg: brand.bg, fg: brand.fg }, x, cf + 2.2, zf + sd * 0.06, [0, sd], fasciaW(w), 0.45);
+  }
+  return true;
+}
+
+/**
+ * Free-standing advert column, 2·half square, floor to cf + 2.25, posters on all four faces.
+ * Needs `margin` (default 1.6) clear all round.
+ */
+export function adColumn(i: ConcInfo, x: number, z: number, o: { half?: number; margin?: number; mat?: string; trim?: string; v?: number } = {}): boolean {
+  const h = o.half ?? 0.4, m = o.margin ?? 1.6;
+  if (!i.free(x - h, z - h, x + h, z + h, m)) return false;
+  i.claim(x - h - 0.6, z - h - 0.6, x + h + 0.6, z + h + 0.6);
+  i.b.block(x - h, i.cf, z - h, x + h, i.cf + 2.25, z + h);
+  adPillar(i, x, z, i.cf, i.cf + 2.25, { half: h, mat: o.mat, trim: o.trim, v: o.v, cap: true });
+  return true;
+}
+
+/** Bench `len` long (along `axis`), seat 0.45 high, solid. Needs `margin` (default 0.9) clear. */
+export function bench(i: ConcInfo, x: number, z: number, o: { axis?: Axis; len?: number; color?: string; margin?: number } = {}): boolean {
+  const len = o.len ?? 1.8, ax = o.axis ?? 'x', m = o.margin ?? 0.9;
+  const hx = ax === 'x' ? len / 2 : 0.25, hz = ax === 'x' ? 0.25 : len / 2;
+  if (!i.free(x - hx, z - hz, x + hx, z + hz, m)) return false;
+  i.claim(x - hx - 0.5, z - hz - 0.5, x + hx + 0.5, z + hz + 0.5);
+  const { b, cf } = i, col = o.color ?? '#7f858b';
+  b.block(x - hx, cf, z - hz, x + hx, cf + 0.45, z + hz);
+  b.deco(`paint:${col}`, x - hx, cf + 0.4, z - hz, x + hx, cf + 0.46, z + hz);
+  for (const k of [-1, 1]) {
+    const lx = ax === 'x' ? x + k * (hx - 0.15) : x, lz = ax === 'x' ? z : z + k * (hz - 0.15);
+    b.deco('metal:#7f858b', lx - (ax === 'x' ? 0.03 : hx - 0.02), cf, lz - (ax === 'x' ? hz - 0.02 : 0.03), lx + (ax === 'x' ? 0.03 : hx - 0.02), cf + 0.4, lz + (ax === 'x' ? hz - 0.02 : 0.03));
+  }
+  return true;
+}
+
+/** Three recycling bins in a row (cans, bottles, other), no checks. */
+function binSet(b: Builder, cf: number, x: number, z: number, axis: Axis) {
+  const lids = ['#1565c0', '#2e7d32', '#c62828'];
+  for (let k = 0; k < 3; k++) {
+    const o = (k - 1) * 0.42;
+    const [cx, cz] = axis === 'x' ? [x + o, z] : [x, z + o];
+    b.box('flat:#9aa0a6', cx - 0.19, cf, cz - 0.19, cx + 0.19, cf + 0.9, cz + 0.19);
+    b.deco(`paint:${lids[k]}`, cx - 0.2, cf + 0.9, cz - 0.2, cx + 0.2, cf + 0.96, cz + 0.2);
+  }
+}
+
+/** Recycling bins (three in a row along `axis`, 1.3 × 0.4), solid. Needs 0.6 m clear. */
+export function bin(i: ConcInfo, x: number, z: number, axis: Axis = 'x'): boolean {
+  const hx = axis === 'x' ? 0.65 : 0.2, hz = axis === 'x' ? 0.2 : 0.65;
+  if (!i.free(x - hx, z - hz, x + hx, z + hz, 0.6)) return false;
+  i.claim(x - hx - 0.4, z - hz - 0.4, x + hx + 0.4, z + hz + 0.4);
+  binSet(i.b, i.cf, x, z, axis);
+  return true;
+}
+
+/** Planter box w × d, 0.55 high, with shrubs. Needs `margin` (default 0.9) clear. */
+export function planter(i: ConcInfo, x: number, z: number, o: { w?: number; d?: number; mat?: string; margin?: number } = {}): boolean {
+  const w = o.w ?? 1.2, d = o.d ?? 0.6, m = o.margin ?? 0.9;
+  if (!i.free(x - w / 2, z - d / 2, x + w / 2, z + d / 2, m)) return false;
+  i.claim(x - w / 2 - 0.4, z - d / 2 - 0.4, x + w / 2 + 0.4, z + d / 2 + 0.4);
+  const { b, cf } = i;
+  b.box(o.mat ?? 'flat:#5b5f63', x - w / 2, cf, z - d / 2, x + w / 2, cf + 0.55, z + d / 2);
+  b.deco('flat:#3b2e24', x - w / 2 + 0.05, cf + 0.55, z - d / 2 + 0.05, x + w / 2 - 0.05, cf + 0.56, z + d / 2 - 0.05);
+  const n = Math.max(1, Math.round(w / 0.5));
+  for (let k = 0; k < n; k++) {
+    const px = x - w / 2 + (k + 0.5) * (w / n);
+    b.mesh(k % 2 ? 'flat:#3d6b2f' : 'flat:#4f7d3a', 'sphere', px, cf + 0.75, z, w / n + 0.1, 0.55, d + 0.05);
+  }
+  return true;
+}
+
+// ── Pillars ──────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Square cladding round a pillar (or an advert column) from y0 to y1, 2·half square (default
+ * 0.45), a dark base, a trim band at y0 + 2.2, and a 0.62 × 0.88 poster on each face. Decoration.
+ */
+export function adPillar(
+  i: Has, x: number, z: number, y0: number, y1: number,
+  o: { half?: number; mat?: string; trim?: string; v?: number; faces?: 2 | 4; cap?: boolean } = {},
+) {
+  const { b } = i, h = o.half ?? 0.45;
+  b.deco(o.mat ?? 'tile:#e9e4d8', x - h, y0, z - h, x + h, y1, z + h);
+  b.deco('flat:#4b4d50', x - h - 0.012, y0, z - h - 0.012, x + h + 0.012, y0 + 0.13, z + h + 0.012);
+  if (o.trim) b.deco(`paint:${o.trim}`, x - h - 0.01, y0 + 2.2, z - h - 0.01, x + h + 0.01, y0 + 2.25, z + h + 0.01);
+  if (o.cap) b.deco('flat:#3a3d41', x - h - 0.02, y1 - 0.05, z - h - 0.02, x + h + 0.02, y1, z + h + 0.02);
+  let v = o.v ?? Math.floor(hash(Math.round(x * 3 + z * 7)) * 8);
+  const faces: [number, number][] = o.faces === 2 ? [[1, 0], [-1, 0]] : [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (const [nx, nz] of faces) {
+    // Frame 0.005 … 0.02 proud, poster 0.03 proud.
+    const px = x + nx * (h + 0.0125), pz = z + nz * (h + 0.0125);
+    b.deco('flat:#c9c9c4', px - (nx ? 0.0075 : 0.35), y0 + 0.95, pz - (nz ? 0.0075 : 0.35), px + (nx ? 0.0075 : 0.35), y0 + 1.95, pz + (nz ? 0.0075 : 0.35));
+    b.sign({ k: 'poster', v: v++ % 8 }, x + nx * (h + 0.03), y0 + 1.45, z + nz * (h + 0.03), [nx, nz], 0.62, 0.88);
+  }
+}
+
+/** Round clad pillar like the kit's: cylinder, steel rings top and bottom, a colour band. Decoration. */
+export function roundPillar(i: Has, x: number, z: number, y0: number, y1: number, o: { mat: string; band: string; bandY?: number; half?: number }) {
+  const d = (o.half ?? 0.35) * 2.2;
+  i.b.mesh(o.mat, 'cyl', x, (y0 + y1) / 2, z, d, y1 - y0, d);
+  i.b.mesh('metal:#9da2a8', 'cyl', x, y0 + 0.06, z, d + 0.07, 0.12, d + 0.07);
+  i.b.mesh('metal:#9da2a8', 'cyl', x, y1 - 0.04, z, d + 0.07, 0.08, d + 0.07);
+  i.b.mesh(`paint:${o.band}`, 'cyl', x, o.bandY ?? y0 + 2.27, z, d + 0.025, 0.15, d + 0.025);
+}
+
+// ── Ceiling: beams and service runs ──────────────────────────────────────────────────────────
+
+/** Downstand beam across the concourse at x, `depth` below the ceiling (default 0.45), 0.4 wide. */
+export function beam(i: ConcInfo, x: number, depth = 0.45, o: { w?: number; mat?: string; z0?: number; z1?: number } = {}) {
+  const w = o.w ?? 0.4, top = i.cf + i.clear;
+  i.b.deco(o.mat ?? 'flat:#dcd8cc', x - w / 2, top - depth, o.z0 ?? -i.cw, x + w / 2, top, o.z1 ?? i.cw);
+}
+
+export interface RunOpts {
+  /** Pieces of the run left out (the run turns up into the ceiling either side). */
+  gaps?: Span[];
+  /** Turn up into the ceiling at the run's start / end (default true; false where it meets a wall). */
+  rise?: [boolean, boolean];
+}
+
+/** Ends of the pieces of a run, and whether each end turns up. */
+function pieces(from: number, to: number, o: RunOpts): { p: number; q: number; up0: boolean; up1: boolean }[] {
+  const a = Math.min(from, to), c = Math.max(from, to);
+  const [r0, r1] = o.rise ?? [true, true];
+  return cut([a, c], o.gaps).map(([p, q]) => ({ p, q, up0: p > a + 0.01 || r0, up1: q < c - 0.01 || r1 }));
+}
+
+/**
+ * Bundle of `n` square pipes (default 2, 0.1 m) along a run, `drop` (0.12) under the ceiling,
+ * with hangers every 3 m and risers into the ceiling where the run stops.
+ */
+export function pipeRun(
+  t: Has, axis: Axis, at: number, from: number, to: number, top: number,
+  o: RunOpts & { n?: number; size?: number; drop?: number; mats?: string[] } = {},
+) {
+  const { b } = t;
+  const n = o.n ?? 2, sz = o.size ?? 0.1, gap = 0.05, drop = o.drop ?? 0.12;
+  const mats = o.mats ?? ['paint:#8c949b', 'paint:#b8b2a3'];
+  const y1 = top - drop, y0 = y1 - sz;
+  const span = n * sz + (n - 1) * gap;
+  for (const { p, q, up0, up1 } of pieces(from, to, o)) {
+    for (let k = 0; k < n; k++) {
+      const c0 = -span / 2 + k * (sz + gap);
+      abox(b, mats[k % mats.length], axis, at, p, q, y0, y1, c0, c0 + sz);
+      if (up0) abox(b, mats[k % mats.length], axis, at, p, p + sz, y1, top, c0, c0 + sz);
+      if (up1) abox(b, mats[k % mats.length], axis, at, q - sz, q, y1, top, c0, c0 + sz);
+    }
+    for (let x = p + 2; x < q - 0.5; x += 4) {
+      abox(b, 'metal:#7f858b', axis, at, x - 0.02, x + 0.02, y0 - 0.03, y0, -span / 2 - 0.03, span / 2 + 0.03);
+      abox(b, 'metal:#7f858b', axis, at, x - 0.015, x + 0.015, y0 - 0.03, top, span / 2 + 0.01, span / 2 + 0.03);
+    }
+  }
+}
+
+/** Rectangular ventilation duct (w 0.7 × h 0.35) 0.05 under the ceiling, flanged every 3.6 m. */
+export function ductRun(t: Has, axis: Axis, at: number, from: number, to: number, top: number, o: RunOpts & { w?: number; h?: number; mat?: string } = {}) {
+  const { b } = t;
+  const w = o.w ?? 0.7, h = o.h ?? 0.35, mat = o.mat ?? 'metal:#aeb3b8';
+  const y1 = top - 0.05, y0 = y1 - h;
+  for (const { p, q, up0, up1 } of pieces(from, to, o)) {
+    abox(b, mat, axis, at, p, q, y0, y1, -w / 2, w / 2);
+    if (up0) abox(b, mat, axis, at, p, p + w, y1, top, -w / 2, w / 2);
+    if (up1) abox(b, mat, axis, at, q - w, q, y1, top, -w / 2, w / 2);
+    for (let x = p + 1.8; x < q - 0.3; x += 3.6) abox(b, 'metal:#959aa0', axis, at, x - 0.025, x + 0.025, y0 - 0.025, y1, -w / 2 - 0.025, w / 2 + 0.025);
+  }
+}
+
+/** Cable tray (w 0.4) `drop` (0.25) under the ceiling, with cables in it and hangers every 4 m. */
+export function cableTray(t: Has, axis: Axis, at: number, from: number, to: number, top: number, o: RunOpts & { w?: number; drop?: number } = {}) {
+  const { b } = t;
+  const w = o.w ?? 0.4, y0 = top - (o.drop ?? 0.25);
+  for (const { p, q } of pieces(from, to, o)) {
+    abox(b, 'metal:#a7acb1', axis, at, p, q, y0, y0 + 0.02, -w / 2, w / 2);
+    abox(b, 'metal:#a7acb1', axis, at, p, q, y0, y0 + 0.08, -w / 2, -w / 2 + 0.015);
+    abox(b, 'metal:#a7acb1', axis, at, p, q, y0, y0 + 0.08, w / 2 - 0.015, w / 2);
+    abox(b, 'flat:#2b2d30', axis, at, p, q, y0 + 0.02, y0 + 0.06, -w / 2 + 0.04, w / 2 - 0.04);
+    for (let x = p + 2; x < q - 0.5; x += 4) {
+      abox(b, 'metal:#7f858b', axis, at, x - 0.02, x + 0.02, y0 - 0.04, y0, -w / 2 - 0.05, w / 2 + 0.05);
+      abox(b, 'metal:#7f858b', axis, at, x - 0.012, x + 0.012, y0 - 0.04, top, w / 2 + 0.03, w / 2 + 0.05);
+    }
+  }
+}
+
+/** Bare fluorescent batten on the ceiling: a white channel and a lit tube under it. */
+export function batten(t: Has, axis: Axis, at: number, from: number, to: number, top: number, o: { drop?: number } = {}) {
+  const { b } = t, y = top - (o.drop ?? 0);
+  abox(b, 'paint:#e6e5e0', axis, at, from, to, y - 0.06, y, -0.06, 0.06);
+  abox(b, 'light', axis, at, from + 0.05, to - 0.05, y - 0.095, y - 0.06, -0.025, 0.025);
+  if (o.drop) for (const x of [from + 0.3, to - 0.3]) abox(b, 'metal:#8a8f94', axis, at, x - 0.01, x + 0.01, y, top, -0.01, 0.01);
+}
+
+/** Recessed light panel (w × d, along x) in a white frame, flush with the ceiling at `top`. */
+export function lightPanel(t: Has, x: number, z: number, top: number, w = 1.2, d = 0.6) {
+  t.b.deco('paint:#e6e5e0', x - w / 2 - 0.05, top - 0.02, z - d / 2 - 0.05, x + w / 2 + 0.05, top, z + d / 2 + 0.05);
+  t.b.deco('light', x - w / 2, top - 0.03, z - d / 2, x + w / 2, top - 0.02, z + d / 2);
+}
+
+// ── Hanging things ───────────────────────────────────────────────────────────────────────────
+
+/** Paper lantern, bottom at y: glowing body d × h, black caps, a cord up to `top`. */
+export function lantern(t: Has, x: number, y: number, z: number, o: { color?: string; d?: number; h?: number; top?: number } = {}) {
+  const { b } = t, d = o.d ?? 0.4, h = o.h ?? 0.6;
+  b.mesh(`glow:${o.color ?? '#e5533d'}`, 'cyl', x, y + h / 2, z, d, h * 0.86, d);
+  b.mesh('flat:#1b1b1b', 'cyl', x, y + 0.035, z, d * 0.7, 0.07, d * 0.7);
+  b.mesh('flat:#1b1b1b', 'cyl', x, y + h - 0.035, z, d * 0.7, 0.07, d * 0.7);
+  if (o.top !== undefined) b.deco('flat:#2b2d30', x - 0.01, y + h, z - 0.01, x + 0.01, o.top, z + 0.01);
+}
+
+/**
+ * Noren: a short split curtain along a run from `from` to `to`, hanging `h` (0.55) from a rod at
+ * y = `top`. `face` is the side (±1 across the run) its text faces.
+ */
+export function noren(t: Has, axis: Axis, at: number, from: number, to: number, top: number, o: { color: string; text?: string; fg?: string; h?: number; face?: Wall }) {
+  const { b } = t, h = o.h ?? 0.55, face = o.face ?? 1;
+  const a = Math.min(from, to), c = Math.max(from, to);
+  abox(b, 'wood:#5a4636', axis, at, a - 0.05, c + 0.05, top - 0.04, top, -0.02, 0.02);
+  const n = Math.max(2, Math.round((c - a) / 0.45)), w = (c - a) / n;
+  for (let k = 0; k < n; k++) abox(b, `flat:${o.color}`, axis, at, a + k * w + 0.015, a + (k + 1) * w - 0.015, top - 0.04 - h, top - 0.04, -0.01, 0.01);
+  if (o.text) {
+    const mid = (a + c) / 2, sw = Math.min(1.6, (c - a) * 0.6);
+    const [x, z] = axis === 'x' ? [mid, at + face * 0.016] : [at + face * 0.016, mid];
+    b.sign({ k: 'shop', ja: o.text, bg: o.color, fg: o.fg ?? '#fff' }, x, top - 0.04 - h * 0.45, z, axis === 'x' ? [0, face] : [face, 0], sw, h * 0.5);
+  }
+}
+
+/**
+ * Hanging cloth banner `w` × `h` centred on `c` along a run at `at`, from a rod at `top`, vertical
+ * text on both faces. Over walking areas keep top − h ≥ cf + 2.3.
+ */
+export function banner(t: Has, axis: Axis, at: number, c: number, top: number, o: { w?: number; h?: number; color: string; fg?: string; text?: string; ceil?: number }) {
+  const { b } = t, w = o.w ?? 0.6, h = o.h ?? 0.6;
+  abox(b, 'wood:#5a4636', axis, at, c - w / 2 - 0.05, c + w / 2 + 0.05, top - 0.03, top, -0.015, 0.015);
+  abox(b, `flat:${o.color}`, axis, at, c - w / 2, c + w / 2, top - 0.03 - h, top - 0.03, -0.008, 0.008);
+  if (o.ceil !== undefined) for (const k of [-1, 1]) abox(b, 'flat:#2b2d30', axis, at, c + k * w * 0.45 - 0.008, c + k * w * 0.45 + 0.008, top, o.ceil, -0.008, 0.008);
+  if (o.text) {
+    for (const f of [-1, 1]) {
+      const [x, z] = axis === 'x' ? [c, at + f * 0.012] : [at + f * 0.012, c];
+      b.sign({ k: 'shop', ja: o.text, bg: o.color, fg: o.fg ?? '#fff', vertical: true }, x, top - 0.03 - h / 2, z, axis === 'x' ? [0, f] : [f, 0], w * 0.9, h * 0.94);
+    }
+  }
+}
+
+// ── Walls ────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A band on long wall `s` from y0 to y1 above the floor (0.008 proud, or `inset`), along the
+ * paid and unpaid walls alike but skipping the exit doorways. `from`/`to` limit it in x.
+ */
+export function wallBand(i: ConcInfo, s: Wall, y0: number, y1: number, mat: string, o: { from?: number; to?: number; inset?: number } = {}) {
+  for (const [p, q] of cut([o.from ?? i.x0, o.to ?? i.x1], doorways(i))) wbox(i, s, mat, p, q, i.cf + y0, i.cf + y1, 0, o.inset ?? 0.008);
+}
+
+export interface DadoOpts {
+  /** Dado finish, e.g. a tile key. */
+  mat: string;
+  /** Height of the dado (default 1.0). */
+  top?: number;
+  /** Cap rail on top of the dado (0.05 high). */
+  cap?: string;
+  /** Skirting (default dark grey). */
+  skirting?: string;
+  /** A frieze band higher up, [y0, y1] above the floor (default 2.48 … 2.56). */
+  frieze?: string;
+  friezeY?: Span;
+  from?: number;
+  to?: number;
+}
+
+/** Skirting, dado, cap rail and an optional frieze along long wall `s`, skipping exit doorways. */
+export function wallDado(i: ConcInfo, s: Wall, o: DadoOpts) {
+  const top = o.top ?? 1.0, r = { from: o.from, to: o.to };
+  wallBand(i, s, 0, 0.13, o.skirting ?? 'flat:#4b4d50', { ...r, inset: 0.018 });
+  wallBand(i, s, 0.13, top, o.mat, r);
+  if (o.cap) wallBand(i, s, top, top + 0.05, o.cap, { ...r, inset: 0.014 });
+  if (o.frieze) wallBand(i, s, o.friezeY?.[0] ?? 2.48, o.friezeY?.[1] ?? 2.56, o.frieze, { ...r, inset: 0.012 });
+}
+
+/** The same dado across an end wall at x (i.x0 or i.x1), whole width. Use on paid ends only (the unpaid ends carry the mural). */
+export function endDado(i: ConcInfo, x: number, o: DadoOpts) {
+  const n = x <= i.x0 + 0.01 ? 1 : -1, top = o.top ?? 1.0;
+  const slab = (mat: string, y0: number, y1: number, t: number) =>
+    i.b.deco(mat, Math.min(x, x + n * t), i.cf + y0, -i.cw, Math.max(x, x + n * t), i.cf + y1, i.cw);
+  slab(o.skirting ?? 'flat:#4b4d50', 0, 0.13, 0.018);
+  slab(o.mat, 0.13, top, 0.008);
+  if (o.cap) slab(o.cap, top, top + 0.05, 0.014);
+  if (o.frieze) slab(o.frieze, o.friezeY?.[0] ?? 2.48, o.friezeY?.[1] ?? 2.56, 0.012);
+}
+
+/**
+ * Posters along long wall `s` from x0 to x1 every `pitch` m, framed, wherever the wall is free
+ * (not behind shops, machines or doorways). `digital`: dark bezel and a lit edge, for new lines.
+ */
+export function posterRow(i: ConcInfo, s: Wall, x0: number, x1: number, o: { pitch?: number; v0?: number; w?: number; h?: number; y?: number; digital?: boolean } = {}) {
+  const pitch = o.pitch ?? 3, w = o.w ?? 1.25, h = o.h ?? 1.75, y = i.cf + (o.y ?? 1.55);
+  const doors = doorways(i);
+  let v = o.v0 ?? 0;
+  for (let x = x0 + pitch / 2; x + w / 2 <= x1; x += pitch) {
+    const [za, zb] = band(i, s, 0, 0.35);
+    if (doors.some(([p, q]) => x + w / 2 > p - 0.3 && x - w / 2 < q + 0.3)) continue;
+    if (!i.free(x - w / 2 - 0.1, za, x + w / 2 + 0.1, zb)) continue;
+    // Claim only the wall strip: the floor in front stays free for walking.
+    const [ca, cb] = band(i, s, 0, 0.05);
+    i.claim(x - w / 2 - 0.1, ca, x + w / 2 + 0.1, cb);
+    if (o.digital) {
+      wbox(i, s, 'flat:#16181b', x - w / 2 - 0.07, x + w / 2 + 0.07, y - h / 2 - 0.07, y + h / 2 + 0.12, 0.008, 0.045);
+      wbox(i, s, 'glow:#9fd3ff', x - w / 2, x + w / 2, y + h / 2 + 0.05, y + h / 2 + 0.08, 0.045, 0.05);
+      i.b.sign({ k: 'poster', v: v++ % 8 }, x, y, s * (i.cw - 0.05), [0, -s], w, h);
+    } else {
+      wbox(i, s, 'flat:#c9c9c4', x - w / 2 - 0.04, x + w / 2 + 0.04, y - h / 2 - 0.04, y + h / 2 + 0.04, 0.008, 0.022);
+      i.b.sign({ k: 'poster', v: v++ % 8 }, x, y, s * (i.cw - 0.03), [0, -s], w, h);
+    }
+  }
+}
+
+// ── Exits (ExitInfo frame: corridor x −4 … 0, z 0 … ext; lobby z ext … ext + 4) ────────────────
+
+/** Floor height on an exit's stair at x (0 … run). */
+const stairY = (e: ExitInfo, x: number) => e.cf + ((e.gy - e.cf) * Math.max(0, Math.min(e.run, x))) / e.run;
+
+/**
+ * Dado (and cap) on an exit's corridor and lobby walls, and stepped along both stair walls.
+ * Stays under the kit's posters (which sit 0.02 proud) and above its skirting.
+ */
+export function exitDado(e: ExitInfo, o: { mat: string; top?: number; cap?: string; steps?: number }) {
+  const { b, cf, ext, run } = e, top = o.top ?? 1.0, L = ext + 4;
+  const flat = (y0: number, y1: number, mat: string, t: number) => {
+    b.deco(mat, -4, cf + y0, 0, -4 + t, cf + y1, L); // x = −4 wall, corridor and lobby
+    if (ext > 0) b.deco(mat, -t, cf + y0, 0, 0, cf + y1, ext); // x = 0 corridor wall
+    b.deco(mat, -t, cf + y0, ext, 0, cf + y1, ext + 0.9); // short lobby wall beside the stair
+    b.deco(mat, -4, cf + y0, L - t, 0, cf + y1, L); // lobby back wall
+  };
+  flat(0.13, top, o.mat, 0.008);
+  if (o.cap) flat(top, top + 0.05, o.cap, 0.014);
+  // Stair walls, stepped up the slope: near wall (face at ext + 1.2, facing +z) and far wall
+  // (face at L, facing −z). No cap here: a stepped cap reads as a staircase on the wall.
+  const n = o.steps ?? Math.max(4, Math.round(run / 1.4));
+  for (let k = 0; k < n; k++) {
+    const xa = (run * k) / n, xb = (run * (k + 1)) / n;
+    const y0 = stairY(e, xa) - 0.05, y1 = stairY(e, xb) + top;
+    b.deco(o.mat, xa, y0, ext + 1.2, xb, y1, ext + 1.208);
+    b.deco(o.mat, xa, y0, L - 0.008, xb, y1, L);
+  }
+}
+
+/** Handrails along an exit's stair walls (`walls`: which; default both), stepped up the slope. */
+export function exitHandrails(e: ExitInfo, walls: ('near' | 'far')[] = ['near', 'far']) {
+  const { b, ext, run } = e, n = Math.max(6, Math.round(run / 0.8));
+  for (const w of walls) {
+    const z = w === 'near' ? ext + 1.2 : ext + 4, f = w === 'near' ? 1 : -1;
+    for (let k = 0; k < n; k++) {
+      const xa = (run * k) / n, xb = (run * (k + 1)) / n, y = stairY(e, (xa + xb) / 2) + 0.85;
+      b.deco('metal:#b9bdc2', xa, y, Math.min(z + f * 0.05, z + f * 0.1), xb, y + 0.05, Math.max(z + f * 0.05, z + f * 0.1));
+    }
+    for (let k = 1; k < 4; k++) {
+      const x = (run * k) / 4, y = stairY(e, x) + 0.85;
+      b.deco('metal:#9da2a8', x - 0.02, y - 0.04, Math.min(z, z + f * 0.08), x + 0.02, y, Math.max(z, z + f * 0.08));
+    }
+  }
+}
+
+/** Pipes under an exit's corridor and lobby ceilings, along the x = −4 wall. */
+export function exitPipes(e: ExitInfo, o: { n?: number; mats?: string[] } = {}) {
+  const { cf, ext } = e, at = -3.72;
+  // The corridor ceiling is at cf + 2.5 and the lobby's at cf + 2.7: one run at corridor
+  // height, hung from whichever ceiling is above.
+  if (ext > 0) pipeRun(e, 'z', at, 0.05, ext, cf + 2.5, { ...o, drop: 0.03, rise: [true, false] });
+  pipeRun(e, 'z', at, ext, ext + 3.99, cf + 2.7, { ...o, drop: 0.23, rise: [ext <= 0, false] });
+}
+
+// ── Transfer passages (PassageInfo frame: x −26 … 4, z zc0 … zc1) ──────────────────────────────
+
+/** Stretches of a passage's walls free of the mural, the stair opening and (zc0) possible doorways. */
+export function passageWalls(p: PassageInfo): { z: number; f: Wall; runs: Span[] }[] {
+  return [
+    { z: p.zc0, f: 1, runs: cut([-26, 4], [[-24.3, -19.7], [-3.3, 1.3]]) },
+    { z: p.zc1, f: -1, runs: cut([-26, 4], [[-23.1, -3.9], [-1.96, 1.96]]) },
+  ];
+}
+
+/** Dado (and cap) along a transfer passage's walls and its x = −26 end wall. */
+export function passageDado(p: PassageInfo, o: { mat: string; top?: number; cap?: string }) {
+  const { b, pf } = p, top = o.top ?? 1.0;
+  for (const w of passageWalls(p)) {
+    const z = (t: number): Span => (w.f > 0 ? [w.z, w.z + t] : [w.z - t, w.z]);
+    for (const [a, c] of w.runs) {
+      b.deco('flat:#4b4d50', a, pf, z(0.018)[0], c, pf + 0.13, z(0.018)[1]);
+      b.deco(o.mat, a, pf + 0.13, z(0.008)[0], c, pf + top, z(0.008)[1]);
+      if (o.cap) b.deco(o.cap, a, pf + top, z(0.014)[0], c, pf + top + 0.05, z(0.014)[1]);
+    }
+  }
+  b.deco('flat:#4b4d50', -26, pf, p.zc0, -25.982, pf + 0.13, p.zc1);
+  b.deco(o.mat, -26, pf + 0.13, p.zc0, -25.992, pf + top, p.zc1);
+  if (o.cap) b.deco(o.cap, -26, pf + top, p.zc0, -25.986, pf + top + 0.05, p.zc1);
+}
+
+/** Wall handrail along a run at height y, `face` = which way it stands off the wall (±1 across). */
+export function handrail(t: Has, axis: Axis, at: number, from: number, to: number, y: number, face: Wall) {
+  const a = Math.min(from, to), c = Math.max(from, to);
+  const o0 = face > 0 ? 0.05 : -0.1, o1 = face > 0 ? 0.1 : -0.05;
+  abox(t.b, 'metal:#b9bdc2', axis, at, a, c, y, y + 0.045, o0, o1);
+  for (let x = a + 0.3; x < c; x += 1.8) abox(t.b, 'metal:#9da2a8', axis, at, x - 0.02, x + 0.02, y - 0.04, y, Math.min(0, face * 0.08), Math.max(0, face * 0.08));
+}
+
+/** Handrails along both walls of a transfer passage, at pf + 0.85. */
+export function passageRails(p: PassageInfo) {
+  for (const w of passageWalls(p)) for (const [a, c] of w.runs) if (c - a > 1) handrail(p, 'x', w.z, a + 0.15, c - 0.15, p.pf + 0.85, w.f);
+}
+
+/** Pipes under a transfer passage's ceiling along the zc1 wall, clear of its signs. */
+export function passagePipes(p: PassageInfo, o: { n?: number; mats?: string[] } = {}) {
+  pipeRun(p, 'x', p.zc1 - 0.45, -25.99, -2.4, p.pf + 2.8, { ...o, rise: [false, true] });
+}
+
+export { hash, shade };

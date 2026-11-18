@@ -6,7 +6,7 @@ Goals: portfolio piece, personal worldbuilding project, and a vehicle for learni
 
 ## Status
 
-Playable foundation. Six lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**, Sumire **M**), 44 stations, ten interchanges. Sumire trains through-run on the Shiokaze Line's track as an express (see [Plans/features/network-expansion](Plans/features/network-expansion/plan.md)). Kita-Ōdōri is the central hub: the metro under the glass atrium of Kawaminato Station (A and S side by side), with closed-off shells for future railways. Each line has its own platform architecture (line themes, `src/stations/themes/`). Main menu with a zoomable interactive route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. See [docs/vision.md](docs/vision.md) for what is and isn't done.
+Playable foundation. Six lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**, Sumire **M**), 44 stations, ten interchanges. Sumire trains through-run on the Shiokaze Line's track as an express (see [Plans/features/network-expansion](Plans/features/network-expansion/plan.md)). Kita-Ōdōri is the central hub: the metro under the glass atrium of Kawaminato Station (A and S side by side), with closed-off shells for future railways. Each line has its own platform architecture (line themes, `src/stations/themes/`). Stations are sized by their line's age and have a look of their own away from the platforms (`src/stations/looks/`; eight hero stations, a default for the rest). Main menu with a zoomable interactive route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. See [docs/vision.md](docs/vision.md) for what is and isn't done.
 
 ## Stack
 
@@ -46,3 +46,4 @@ npm run build
 5. **Keep it loose.** Prefer iterating on something working over big upfront design.
 6. **Keep this file short.** Put details in `docs/`, and update the relevant doc when a decision is made.
 7. **No fake information.** Departure boards, in-car displays, the HUD and the map must read the timetable; never show invented times.
+8. **Every new line gets its own era and theme.** An invented opening year and a platform architecture unlike any other line's. See "Adding a line" in docs/conventions.md.

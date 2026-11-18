@@ -14,6 +14,8 @@ export interface UndergroundSpec {
   gates: ('lo' | 'hi')[];
   /** Platform ↔ concourse stairs: x of the foot, and direction of ascent. */
   stairs: { x: number; up: 1 | -1 }[];
+  /** Half width of the concourse; by default it follows the line's age (build.ts). */
+  width?: number;
   style: StationStyle;
   surface: SurfaceSpec;
 }
