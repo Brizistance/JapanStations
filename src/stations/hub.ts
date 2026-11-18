@@ -60,6 +60,8 @@ interface H {
   o: Ctx;
   /** The line beside the primary, in the B4 box (absent: the box is still a shell). */
   s?: Ctx;
+  /** A second line beside that one, in its own hall further south (Sumire beside Shiokaze). */
+  m?: Ctx;
   b: Builder;
   /** B1 floor, and the two platform levels. */
   cf: number;
@@ -154,7 +156,9 @@ function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
 
   const z0 = dA.wallZ + 0.5, z1 = z0 + 15.4, ry = c.railY;
   if (h.s) {
-    sHall(h, (z0 + z1) / 2, windows);
+    const zc = (z0 + z1) / 2;
+    sHall(h, h.s, zc, windows, h.m ? [-1, 1] : [-1]);
+    if (h.m) sHall(h, h.m, zc + BESIDE_GAP, windows, [-1]);
     return holes;
   }
 
@@ -173,17 +177,23 @@ function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
   return holes;
 }
 
-/** Where the beside line's escalator shaft reaches B1: the east wall of the stub passage. */
+/** Where the beside lines' escalator shafts reach B1: the east wall of the stub passage. */
 const STUB: [number, number] = [22, 30];
+/** Centre-to-centre spacing of halls side by side at B4 (wall + 0.5 m structure + wall). */
+const BESIDE_GAP = 15.9;
+/** z of each beside hall's centre, and so of its shaft into the stub passage. */
+const besideZ = (h: H) => {
+  const zS = hallDims(h.c.line, h.c.railY).wallZ + 0.5 + 7.7;
+  return h.m ? [zS, zS + BESIDE_GAP] : [zS];
+};
 
 /**
  * The line beside the primary, in what used to be the B4 shell: an island-platform hall
  * centred `zc` south of the primary, sharing its windows, with a stair and escalator in an
  * enclosed shaft climbing west into the stub passage off the paid concourse.
  */
-function sHall(h: H, zc: number, windows: [number, number][]) {
+function sHall(h: H, s: Ctx, zc: number, windows: [number, number][], sides: (1 | -1)[]) {
   const { b, c, cf, pfA, wall } = h;
-  const s = h.s!;
   const run = r2((cf - pfA) * 1.7);
   const foot = STUB[1] + run;
   const base = pfA + 4.5 + SLAB, top = cf + H1;
@@ -192,7 +202,7 @@ function sHall(h: H, zc: number, windows: [number, number][]) {
       ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pfA + 4.5, emit: true }],
       blocks: [[STUB[1], foot]],
       ceilHoles: [[STUB[1], -1.86, foot, 1.86]],
-      gaps: windows.map(([x0, x1]) => ({ s: -1 as const, x0, x1 })),
+      gaps: sides.flatMap((side) => windows.map(([x0, x1]) => ({ s: side, x0, x1 }))),
     });
     b.with({ ...MIRROR_X, t: [foot, 0, 0] }, () => {
       islandUnit(b, pfA, cf, run, cf);
@@ -363,19 +373,24 @@ function concourseLevel(h: H, holes: Rect[]) {
 
   // ── Stub passage south of the paid concourse: to the beside line, or closed by a hoarding ──
   const sl = h.s?.line;
-  const zc = hallDims(c.line, c.railY).wallZ + 0.5 + 7.7;
-  b.box(floor, stub[0], cf - SLAB, BAR, stub[1], cf, BAR + 6);
-  b.box('ceil', stub[0] - 0.4, top, BAR, stub[1] + 0.4, top + 0.5, BAR + 6.4);
-  wallZ(b, wall, stub[0] - 0.4, stub[0], BAR + 0.4, BAR + 6.4, cf, top);
-  wallZ(b, wall, stub[1], stub[1] + 0.4, BAR + 0.4, BAR + 6.4, cf, top, sl ? [[zc - 1.86, zc + 1.86]] : []);
-  b.box(wall, stub[0], cf, BAR + 6, stub[1], top, BAR + 6.4);
-  ceilingLight(b, stub[0] + 2.8, stub[1] - 2.8, BAR + 2, BAR + 4, top);
+  const zs = besideZ(h);
+  const beside = [h.s, h.m].filter((x): x is Ctx => !!x).map((x) => x.line);
+  const end = BAR + (h.m ? zs[1] + 2.4 - BAR : 6); // the passage runs south past the last shaft
+  b.box(floor, stub[0], cf - SLAB, BAR, stub[1], cf, end);
+  b.box('ceil', stub[0] - 0.4, top, BAR, stub[1] + 0.4, top + 0.5, end + 0.4);
+  wallZ(b, wall, stub[0] - 0.4, stub[0], BAR + 0.4, end + 0.4, cf, top);
+  wallZ(b, wall, stub[1], stub[1] + 0.4, BAR + 0.4, end + 0.4, cf, top, sl ? zs.map((z) => [z - 1.86, z + 1.86]) : []);
+  b.box(wall, stub[0], cf, end, stub[1], top, end + 0.4);
+  for (let z = BAR + 2; z + 2 < end; z += 5) ceilingLight(b, stub[0] + 2.8, stub[1] - 2.8, z, z + 2, top);
   if (sl) {
-    const toS: SignContent = { k: 'guide', ja: `${sl.nameJa} のりば ${st.platforms[sl.id].join('・')}`, en: `${sl.nameEn} platforms`, bg: 'navy', badges: [sl.id], arrow: 'up' };
-    b.sign({ k: 'mural', ...c.style.mural }, (stub[0] + stub[1]) / 2, cf + 1.6, BAR + 5.98, [0, -1], 7, 2.2);
-    b.sign(toS, stub[1] - 0.02, cf + 2.75, zc, [-1, 0], 3.6, 0.44);
-    b.hang(toS, (stub[0] + stub[1]) / 2, cf + 2.75, BAR - 2.5, 5.2, 0.5, { ceil: top });
-    b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, BAR + 6, `${sl.nameJa} 連絡通路`, `${sl.nameEn} passage`);
+    const to = (l: (typeof beside)[number]): SignContent =>
+      ({ k: 'guide', ja: `${l.nameJa} のりば ${st.platforms[l.id].join('・')}`, en: `${l.nameEn} platforms`, bg: 'navy', badges: [l.id], arrow: 'up' });
+    b.sign({ k: 'mural', ...c.style.mural }, (stub[0] + stub[1]) / 2, cf + 1.6, end - 0.02, [0, -1], 7, 2.2);
+    beside.forEach((l, i) => b.sign(to(l), stub[1] - 0.02, cf + 2.75, zs[i], [-1, 0], 3.6, 0.44));
+    b.hang(beside.length > 1
+      ? { k: 'guide', ja: beside.map((l) => l.nameJa).join('・'), en: beside.map((l) => l.nameEn).join(' / '), bg: 'navy', badges: beside.map((l) => l.id), arrow: 'up' }
+      : to(sl), (stub[0] + stub[1]) / 2, cf + 2.75, BAR - 2.5, 5.2, 0.5, { ceil: top });
+    b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, end, `${beside.map((l) => l.nameJa).join('・')} 連絡通路`, `${beside.map((l) => l.nameEn).join(' / ')} passage`);
   } else {
     hoardingX(b, stub[0], stub[1], cf, BAR + 5.4, -1);
     b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), (stub[0] + stub[1]) / 2, cf + 1.15, BAR + 5.26, [0, -1], 6.4, 1.0);
@@ -728,13 +743,14 @@ function street(h: H, seed: number) {
   b.box('facade:apt:#d5cbb8', -X + 4, GY, -106, -BLDG - 8, 31, -68);
 }
 
-export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, beside?: Ctx) {
+export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, beside?: Ctx, outer?: Ctx) {
   const { b, style } = c;
   const o = other.ctx;
   const pfY = hallDims(o.line, o.railY).pf;
   if (beside && beside.railY !== c.railY) throw new Error('the line beside the primary must be at its depth');
+  if (outer && (!beside || outer.railY !== c.railY)) throw new Error('the outer line needs a line beside the primary, at the same depth');
   const h: H = {
-    c, o, s: beside, b, cf: pfY + CONC_RISE, pfA: hallDims(c.line, c.railY).pf, pfY,
+    c, o, s: beside, m: outer, b, cf: pfY + CONC_RISE, pfA: hallDims(c.line, c.railY).pf, pfY,
     wall: style.concWall, floor: style.floor, lines: linesAt(c.station.id).map((l) => l.id),
   };
   b.out.plot = { ...HUB_PLOT };

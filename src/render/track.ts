@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { LineSim } from '../sim';
 import { BED } from '../stations/kit';
 import { XOVER_FAR, XOVER_NEAR, type LineGeom, type Track } from '../sim/geometry';
-import { halfWidth, isSiding, sampleChainages, structureAt, trackRange, type Structure } from '../world/structure';
+import { halfWidth, isSiding, onHostTrack, sampleChainages, structureAt, trackRange, type Structure } from '../world/structure';
 import { meshesToGeometry } from './geometry';
 import { getMaterial } from './materials';
 import type { MeshPart } from '../world/builder';
@@ -72,7 +72,7 @@ const TUNNEL_H = 4.65;
 
 function profiles(geom: LineGeom, type: Structure, siding: boolean, m: Sample): { p: Profile; closed: boolean }[] {
   const L = geom.def.trackOffset, W = halfWidth(geom);
-  const rect = (c: number, w: number): Profile => [[c - w, -BED], [c + w, -BED], [c + w, TUNNEL_H], [c - w, TUNNEL_H]];
+  const rect =(c: number, w: number): Profile => [[c - w, -BED], [c + w, -BED], [c + w, TUNNEL_H], [c - w, TUNNEL_H]];
   if (type === 'tunnel') {
     if (geom.def.platformType === 'island' && !siding) return [{ p: rect(-L, 2.2), closed: true }, { p: rect(L, 2.2), closed: true }];
     return [{ p: rect(0, W), closed: true }];
@@ -110,6 +110,8 @@ export function buildTrack(sim: LineSim): THREE.Group {
     m.shade = 0.5;
   }
   const L = geom.def.trackOffset, W = halfWidth(geom);
+  // Spans where this line runs on another line's track: that line draws them.
+  const hosted = samples.slice(0, -1).map((m, i) => onHostTrack(geom, (m.s + samples[i + 1].s) / 2));
   const tunnel = new Sweep(), open = new Sweep(), sleepers = new Sweep(), rails = new Sweep();
   const piers: MeshPart[] = [];
   const lights: THREE.Matrix4[] = [];
@@ -120,7 +122,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
     const a = samples[i], b = samples[i + 1];
     const mid = (a.s + b.s) / 2;
     const type = structureAt(geom, mid);
-    if (type === 'station') continue;
+    if (type === 'station' || hosted[i]) continue;
     const siding = isSiding(geom, mid);
     const pa = profiles(geom, type, siding, a), pb = profiles(geom, type, siding, b);
     const target = type === 'tunnel' ? tunnel : open;
@@ -160,7 +162,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
   for (const t of tracks) {
     for (let i = 0; i < samples.length - 1; i++) {
       const a = samples[i], b = samples[i + 1];
-      if (a.s < t.s0 || b.s > t.s1) continue;
+      if (a.s < t.s0 || b.s > t.s1 || hosted[i]) continue;
       const ca = geom.lateral(t.track, a.s), cb = geom.lateral(t.track, b.s);
       sleepers.quad(a, b, [ca - 1.25, yS], [ca + 1.25, yS], [cb - 1.25, yS], [cb + 1.25, yS], 0, 2.6);
       for (const g of [-G, G]) {

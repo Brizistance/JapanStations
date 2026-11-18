@@ -10,10 +10,33 @@ export interface LineSim {
   tt: Timetable;
 }
 
-export const NET: LineSim[] = LINES.map((def) => {
+const mod = (a: number, m: number) => ((a % m) + m) % m;
+
+/**
+ * Timetable for a line that runs on another line's track (`shares`): phased so that, in both
+ * directions, it enters the shared section half a host headway after a host train. Its headway
+ * must be a whole number of host headways, so the gap is the same for every train.
+ */
+function sharedTimetable(geom: LineGeom, host: LineSim): Timetable {
+  const sh = geom.def.shares!;
+  const hS = host.tt.headway;
+  if (geom.def.service.headwayS % hS !== 0) throw new Error(`${geom.def.id}: headway must be a multiple of ${sh.line}'s`);
+  const at = (l: LineGeom, id: string) => l.def.stops.indexOf(id);
+  const dep = (tt: Timetable, stop: number, dir: 'down' | 'up') => tt.departures.get(`${stop}:${dir}`)!.dep + tt.offset;
+  // Down times don't depend on the layover split; up times move one-for-one with padEnd.
+  const base = buildTimetable(geom, { padEnd: { mod: hS, residue: 0 } });
+  const offset = mod(dep(host.tt, at(host.geom, sh.from), 'down') + hS / 2 - dep(base, at(geom, sh.from), 'down'), hS);
+  const residue = dep(host.tt, at(host.geom, sh.to), 'up') + hS / 2 - offset - dep(base, at(geom, sh.to), 'up');
+  return buildTimetable(geom, { offset, padEnd: { mod: hS, residue } });
+}
+
+export const NET: LineSim[] = [];
+for (const def of LINES) {
   const geom = new LineGeom(def);
-  return { geom, tt: buildTimetable(geom) };
-});
+  const host = def.shares && NET.find((l) => l.geom.def.id === def.shares!.line);
+  if (def.shares && !host) throw new Error(`${def.id} shares ${def.shares.line}, which must be defined before it`);
+  NET.push({ geom, tt: host ? sharedTimetable(geom, host) : buildTimetable(geom) });
+}
 
 export const lineSim = (id: LineId): LineSim => {
   const l = NET.find((x) => x.geom.def.id === id);

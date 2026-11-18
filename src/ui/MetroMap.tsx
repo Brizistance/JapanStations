@@ -2,7 +2,7 @@
 // the live train markers, which come from the same timetable the 3D trains follow.
 
 import { useEffect, useRef, useState } from 'react';
-import { LINES, STATIONS, alongPolyline, diagramPath, diagramSegment, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, STATIONS, alongPolyline, diagramRuns, diagramSegment, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { NET, clock, formatClock, lineSim } from '../sim';
 import { nextDepartures, trainStateAt } from '../sim/timetable';
@@ -63,7 +63,7 @@ function badgePos(s: StationDef, i: number, inter: boolean): [number, number] {
 }
 
 /** The whole diagram, in SVG units. */
-const MAP_W = 1640, MAP_H = 940;
+const MAP_W = 1640, MAP_H = 1000;
 const MIN_ZOOM = 1, MAX_ZOOM = 4;
 type View = { x: number; y: number; w: number };
 
@@ -243,17 +243,19 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
       <rect x="0" y="0" width={MAP_W} height={MAP_H} fill="#f7f6f1" rx="10" />
       {/* The Mio-gawa and the bay, purely decorative. The Shiokaze Line follows the river's north bank;
           the western ends of the lines run out under the bay to reclaimed land. */}
-      <path d="M0 50 L 0 940 L 120 940 C 70 860, 40 760, 60 640 S 120 420, 70 300 S 40 120, 0 50 Z" fill="#d3e6f1" />
+      <path d="M0 50 L 0 1000 L 120 1000 C 70 900, 40 760, 60 640 S 120 420, 70 300 S 40 120, 0 50 Z" fill="#d3e6f1" />
       <path d="M60 372 C 300 350, 520 395, 700 368 S 1000 300, 1180 330 S 1460 300, 1640 250" stroke="#d3e6f1" strokeWidth="24" fill="none" />
       <text x="30" y="700" className="map-geo" transform="rotate(-90 30 700)">川湊湾 Kawaminato Bay</text>
       <text x="300" y="376" textAnchor="middle" className="map-geo">澪川 Mio-gawa</text>
-      {LINES.map((l) => (
+      {/* Lines in data order, so a line that runs on another's track draws its stripe on top. */}
+      {LINES.flatMap((l) => diagramRuns(l).map((r, k) => (
         <polyline
-          key={l.id}
-          points={diagramPath(l).map(([x, y]) => `${x},${y}`).join(' ')}
-          fill="none" stroke={l.color} strokeWidth={13} strokeLinecap="round" strokeLinejoin="round"
+          key={`${l.id}${k}`}
+          points={r.pts.map(([x, y]) => `${x},${y}`).join(' ')}
+          fill="none" stroke={l.color} strokeWidth={r.shared ? 5 : 13} strokeLinecap="round" strokeLinejoin="round"
+          data-shared={r.shared || undefined}
         />
-      ))}
+      )))}
       <TrainDots />
       {STATIONS.map((s) => {
         const ls = linesAt(s.id);

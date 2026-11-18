@@ -11,8 +11,9 @@ The single source of truth for lines and stations is [`src/data/network.ts`](../
 | A | Akanesuji Line | 茜筋線 | madder red `#b7282e` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 9 trains |
 | S | Shiokaze Line | 汐風線 | sunset orange `#ee7b1a` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 8 trains |
 | K | Kikyō Line | 桔梗線 | bellflower purple `#7b4fa8` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 7 trains |
+| M | Sumire Line | すみれ線 | violet `#c2368f` | island, **full-height doors** (S's own, where it shares S's track) | ±5.5 m | 10 min, 4 trains |
 
-After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/features/network-expansion/plan.md)) every line has 10–12 stations, mostly 650–900 m apart (the inner sections keep their old 580–1310 m spacing). End to end, Y is 6.5 km (32-minute round trip), N 7.1 km (35 min), A 9.6 km (45 min) and S 7.6 km (40 min). The Kikyō Line (stage 2) is 8.8 km with 8 stations (35 min). The timetable code works out each cycle and train count from the headway: 39 trains in all.
+After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/features/network-expansion/plan.md)) every line has 10–12 stations, mostly 650–900 m apart (the inner sections keep their old 580–1310 m spacing). End to end, Y is 6.5 km (32-minute round trip), N 7.1 km (35 min), A 9.6 km (45 min) and S 7.6 km (40 min). The Kikyō Line (stage 2) is 8.8 km with 8 stations (35 min). The Sumire Line (stage 3) is 7.9 km with 7 stops (40 min) and runs on the Shiokaze Line's track for part of the way (see below). The timetable code works out each cycle and train count from the headway: 43 trains in all.
 
 ### Stations in order
 
@@ -21,6 +22,7 @@ After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/fe
 - **A** (south-west → north-east, "down"): Shin-Kamome A-09 · Shiosai-kōen A-10 · Kamomehama A-11 · Watayamachi A-12 · **Aizomechō A-13** · **Kita-Ōdōri A-14** · Suzukakedōri A-15 · Tsukimizaka A-16 · Yamabukidai A-17 · Momijigaoka A-18 · Seiryōdai A-19 · Hoshimine A-20
 - **S** (west → south-east, "down"): Shiomi S-09 · Nishi-Yūnagi S-10 · Yūnagihama S-11 · Kurayashiki S-12 · **Kita-Ōdōri S-13** · **Kawaminato-daigaku-mae S-14** · Tōmyōbori S-15 · Sakurazutsumi S-16 · Hanamizuki S-17 · Shin-Sakuragawa S-18 · Uminomori S-19
 - **K** (west → east, "down"): Shinshio K-11 · **Kawaminato-kō K-12** · **Watayamachi K-13** · **Tsumugibashi K-14** · **Tōmyōbori K-15** · **Hibarino K-16** · Higashigaoka K-17 · Shin-Hibarino K-18
+- **M** (north-east → south-east, "down"): Seiran M-11 · **Midorizaka M-12** · **Kita-Ōdōri M-13** · **Kawaminato-daigaku-mae M-14** · (passes Tōmyōbori, Sakurazutsumi) · **Hanamizuki M-15** · Minami-Sakuragawa M-16 · Harunodai M-17
 
 Rail level (metres below street), in station order:
 
@@ -31,6 +33,7 @@ Rail level (metres below street), in station order:
 | A | −14, −16, −15, −17, −19.5, −20.5, −18, −16, −14, −12, −11, −10 | Bored tunnel end to end, and exactly 7.5 m below the line it crosses at each interchange (the same gap Tsumugibashi uses). |
 | S | −10, −11, −10, −11, −20.5, −18.5, −14, −12, −13, −12, −10 | At A's depth at the hub, and 7.5 m below N at Daigaku-mae. |
 | K | −10, −18.5, −10, −11.5, −21.5, −12, −12, −10 | 7.5 m below N at Kawaminato-kō, 7 m **above** A at Watayamachi, level with N (beside it) at Tsumugibashi, 7.5 m below S at Tōmyōbori, and under N's viaduct at Hibarino. |
+| M | −12, −17.5, −20.5, −18.5, −13, −12, −10 | 7.5 m below Y at Midorizaka. Dives to **−27.5** at (1325, −653), 7.5 m under A and well under S where it crosses them west of the hub (a `profile` point), then rises into its hall beside S. On S's track it takes S's levels, including at the two stations it passes (`passes`). |
 
 The Akanesuji Line follows streets in a stair-step:
 - east along z = 1400 from the reclaimed islands to Kamomehama;
@@ -62,7 +65,7 @@ It crosses nothing between stations. See [stage2.md](../Plans/features/network-e
 
 - `<LineLetter>-<NN>`, for example `Y-13`. Numbers start at **11** and increase in the "down" direction, leaving 01–10 for extensions at the low end.
 - A transfer station has **one number per line** it serves.
-- **Platform numbers**: `[down, up]` per line, stored on the station. At an interchange the first line keeps 1/2 and each later one takes the next pair (Tsumugibashi: Y 1/2, N 3/4, K 5/6; Aizomechō: N 1/2, A 3/4; Daigaku-mae: N 1/2, S 3/4; Kita-Ōdōri: Y 1/2, A 3/4, S 5/6; Kawaminato-kō: N 1/2, K 3/4; Watayamachi: A 1/2, K 3/4; Tōmyōbori: S 1/2, K 3/4; Hibarino: N 1/2, K 3/4).
+- **Platform numbers**: `[down, up]` per line, stored on the station. At an interchange the first line keeps 1/2 and each later one takes the next pair (Tsumugibashi: Y 1/2, N 3/4, K 5/6; Aizomechō: N 1/2, A 3/4; Daigaku-mae: N 1/2, S 3/4; Kita-Ōdōri: Y 1/2, A 3/4, S 5/6; Kawaminato-kō: N 1/2, K 3/4; Watayamachi: A 1/2, K 3/4; Tōmyōbori: S 1/2, K 3/4; Hibarino: N 1/2, K 3/4; Midorizaka: Y 1/2, M 3/4; Kita-Ōdōri M 7/8). A line on another's track uses that line's platform numbers (M at Daigaku-mae: 3/4, at Hanamizuki: 1/2).
 
 ## Transfers
 
@@ -75,6 +78,9 @@ It crosses nothing between stations. See [stage2.md](../Plans/features/network-e
 | Watayamachi | K ↔ A | Same pattern with an **island** line on top (K). An island hall has track along its walls, so the transfer passages are reached from the concourse, not through doorways off the platform. |
 | Tōmyōbori | S ↔ K | As Watayamachi: S's island on top, K's island below. |
 | Tsumugibashi | Y ↔ N ↔ K | K runs **beside** N in its own hall on the south side; its stairs rise into the shared concourse, which is widened over both halls. Y is reached by the north transfer passage beside N, or the south one beyond K's hall. |
+| Midorizaka | Y ↔ M | Y (island) on top, M's island below; passages reached from the concourse, as at Watayamachi. |
+| Kita-Ōdōri (M) | + M | M has its own hall **south of S's**, 15.9 m from it (A \| S \| M side by side at B4), with windows into S's hall. Its stair and escalator climb a shaft into the stub passage south of the paid concourse, which now runs on to serve both S and M. |
+| Daigaku-mae, Hanamizuki | S ↔ M | **Same platform**: M trains stop at the Shiokaze platforms, and the screen doors open for either line's trains. |
 | Hibarino | N ↔ K | N on the viaduct, K's island platform under the street. From mid-K-platform a stair and escalator climb to a small paid mezzanine (B1), and a second flight rises into the paid side of the street-level concourse. One gate line serves both. |
 | Kita-Ōdōri | Y ↔ A ↔ S | The hub. Up from the Y platform to the B1 concourse, across it inside the gates, and down a long open escalator bank to the A platform. S runs **beside** A, in its own hall south of A's; its stair and escalator climb an enclosed shaft into a passage off the paid concourse. See [station-design.md](station-design.md). |
 
@@ -84,7 +90,17 @@ It crosses nothing between stations. See [stage2.md](../Plans/features/network-e
 - A line's `alignment` is a polyline of `[x, z]` vertices; corners are rounded with circular arcs of `radius` (`src/sim/alignment.ts`). Y and N have one 400 m-radius bend each, A has four right-angle ones, and S has two 65° ones.
 - A station's `position` must lie on the alignment of every line serving it. Its chainage is found by projection, so every interchange is consistent by construction. `npm test` checks this, and that lines sharing a station cross at right angles and at different depths.
 - **Exception: a line beside another.** `StationDef.at` gives a line its own platform centre at a station (Kita-Ōdōri: `at: { S: … }`; Tsumugibashi: `at: { K: … }`). The test then requires that pair to be parallel, at the same depth, and exactly one hall wall + 0.5 m of structure + the other hall wall apart (`hallDims`). That gives 15.9 m for A/S (`S_BESIDE_A`, which must match the hub's box) and 16.78 m for N/K (`K_BESIDE_N`). Any third line must still cross both at right angles.
-- **Map corners.** `LineDef.diagramBends` adds route-map corners that are not stations (K has three).
+- **Map corners.** `LineDef.diagramBends` adds route-map corners that are not stations (K has three). `diagramOffset` draws a segment alongside another line (M beside Y and S); `diagramShared` draws it as a thin stripe inside the line whose track it uses.
+
+## Shared track (through-running)
+
+The Sumire Line runs on the Shiokaze Line's track from just before Daigaku-mae to just past Hanamizuki (`LineDef.shares`).
+- **Geometry.** East of the hub, M's 384.1 m curve is concentric with S's 400 m one, 15.9 m inside it, so the two tunnels never cross. M then eases onto S's straight over 200 m, well before Daigaku-mae. From there M's alignment lies exactly on S's (tested to 5 cm), until M carries straight on where S turns east past Hanamizuki.
+- **Profile.** M passes Tōmyōbori and Sakurazutsumi (`passes`). They are points in M's profile at S's levels, so the rail is the same metre for metre, but M has no dwell, number or departure there.
+- **Timetable.** M runs every 10 minutes, a whole multiple of S's 5. `sim/index.ts` shifts M's whole timetable (`offset`) so M enters the shared section half an S headway after an S train going down. It then splits M's layover between its two termini (`padEnd`) so the same holds going up.
+  - M skips two stops and gains about 90 s, so it arrives about 35 s after the S train ahead has left.
+  - A test checks every second of the combined cycle: no M train comes within a train length of an S train on the same track.
+- **Drawing.** The track renderer skips spans where M is on S's track (`onHostTrack`). The screen doors at a shared platform open for either line's trains (`gateOpen`).
 - **Crossings between stations** need at least 7 m between rail levels. `npm test` sweeps every pair of lines for this.
 - Stations must sit on straight, level track. The profile is level for 150 m either side of a station and eases between rail levels in between.
 - Trains keep left. The "down" track is on the left of increasing chainage.

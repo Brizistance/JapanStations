@@ -52,6 +52,23 @@ export interface LineDef {
    * stops[i + 1]). Without one, the map draws a segment as a straight line.
    */
   diagramBends?: Record<number, [number, number][]>;
+  /** Route-map offset (px, + = left of travel) for segments drawn alongside another line. */
+  diagramOffset?: Record<number, number>;
+  /** Route-map segments where this line runs on another line's track: drawn as a stripe inside it. */
+  diagramShared?: number[];
+  /**
+   * Through-running: this line runs on another line's track between two stations it serves
+   * (Sumire on the Shiokaze Line). Over that section the two alignments coincide, and the
+   * timetable is phased so the two lines' trains never meet.
+   */
+  shares?: { line: LineId; from: StationId; to: StationId };
+  /**
+   * Stations the line runs through without stopping (on a shared line's track). They shape the
+   * vertical profile, so the rail matches the other line's, but get no dwell, number or departures.
+   */
+  passes?: StationId[];
+  /** Extra rail levels between stations, at points on the alignment (e.g. to dive under other lines). */
+  profile?: { at: [number, number]; y: number }[];
 }
 
 export interface StationDef {

@@ -594,7 +594,8 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     const o = input.lines.find((l) => l.line.id !== spec.primary && l.line.id !== beside && !station.at?.[l.line.id])!;
     const other = { ctx: mk(o), dir: o.dir, primaryDir: p.dir };
     const bl = input.lines.find((l) => l.line.id === beside);
-    if (spec.kind === 'hub') buildHub(mk(p), spec, other, bl && mk(bl));
+    const ol = spec.kind === 'hub' ? input.lines.find((l) => l.line.id === spec.outer) : undefined;
+    if (spec.kind === 'hub') buildHub(mk(p), spec, other, bl && mk(bl), ol && mk(ol));
     else {
       // A line beside the primary is the one whose platforms sit off the station point (StationDef.at).
       const side = input.lines.find((l) => l !== p && l !== o && station.at?.[l.line.id]);

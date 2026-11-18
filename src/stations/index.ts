@@ -32,6 +32,13 @@ export function gateOpen(line: string, stop: number, track: 'down' | 'up'): numb
   let v = gateCache.get(k);
   if (v === undefined) {
     v = platformDoorOpen(lineSim(line).tt, stop, track, clock.time);
+    // Through-running lines stop at this line's platforms too (Sumire at Shiokaze platforms).
+    const station = lineSim(line).geom.def.stops[stop];
+    for (const l of LINES) {
+      if (l.shares?.line !== line) continue;
+      const i = l.stops.indexOf(station);
+      if (i >= 0) v = Math.max(v, platformDoorOpen(lineSim(l.id).tt, i, track, clock.time));
+    }
     gateCache.set(k, v);
   }
   return v;

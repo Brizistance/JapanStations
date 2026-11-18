@@ -6,7 +6,7 @@ Goals: portfolio piece, personal worldbuilding project, and a vehicle for learni
 
 ## Status
 
-Playable foundation. Five lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**), 41 stations, eight interchanges. One more line (Sumire **M**) is planned; see [Plans/features/network-expansion](Plans/features/network-expansion/plan.md). Kita-Ōdōri is the central hub: the metro under the glass atrium of Kawaminato Station (A and S side by side), with closed-off shells for future railways. Main menu with a zoomable interactive route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. See [docs/vision.md](docs/vision.md) for what is and isn't done.
+Playable foundation. Six lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**, Sumire **M**), 44 stations, ten interchanges. Sumire trains through-run on the Shiokaze Line's track as an express (see [Plans/features/network-expansion](Plans/features/network-expansion/plan.md)). Kita-Ōdōri is the central hub: the metro under the glass atrium of Kawaminato Station (A and S side by side), with closed-off shells for future railways. Main menu with a zoomable interactive route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. See [docs/vision.md](docs/vision.md) for what is and isn't done.
 
 ## Stack
 

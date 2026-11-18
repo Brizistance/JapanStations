@@ -5,6 +5,29 @@ import { NET, carPose, lineSim, type CarPose } from './index';
 import { CAR_PITCH, FLAT_M, HALL_HALF, TAIL_END } from './geometry';
 import { nextDepartures, platformDoorOpen, trainStateAt } from './timetable';
 
+/** Do these two lines run on the same track somewhere (through-running)? */
+const sharesTrack = (a: string, b: string) => lineById(a).shares?.line === b || lineById(b).shares?.line === a;
+
+/**
+ * Is chainage s on a through-running line's shared section, including the approaches where its
+ * track merges into (and leaves) the host's? The host's own chainage is mapped by projection.
+ */
+function onSharedSection(g: (typeof NET)[number]['geom'], s: number): boolean {
+  const APPROACH = 450;
+  for (const m of NET) {
+    const sh = m.geom.def.shares;
+    if (!sh) continue;
+    const s0 = m.geom.stopS[m.geom.def.stops.indexOf(sh.from)] - APPROACH;
+    const s1 = m.geom.stopS[m.geom.def.stops.indexOf(sh.to)] + APPROACH;
+    if (g === m.geom) return s >= s0 && s <= s1;
+    if (g.def.id === sh.line) {
+      const p = g.path.pointAt(s), q = m.geom.path.project(p.x, p.z);
+      if (q.dist < 20 && q.s >= s0 && q.s <= s1) return true;
+    }
+  }
+  return false;
+}
+
 describe('network data', () => {
   it('every station lies on the alignment of each line that serves it', () => {
     for (const l of NET) l.geom.stopError.forEach((e) => expect(e).toBeLessThan(0.5));
@@ -30,7 +53,7 @@ describe('network data', () => {
   });
   it('every interchange has its lines crossing at right angles and different depths, or side by side', () => {
     const shared = STATIONS.filter((s) => linesAt(s.id).length > 1);
-    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'daigaku-mae', 'hibarino', 'kawaminato-ko', 'kita-odori', 'tomyobori', 'tsumugibashi', 'watayamachi']);
+    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'daigaku-mae', 'hanamizuki', 'hibarino', 'kawaminato-ko', 'kita-odori', 'midorizaka', 'tomyobori', 'tsumugibashi', 'watayamachi']);
     for (const s of shared) {
       const at = linesAt(s.id).map((l) => {
         const g = lineSim(l.id).geom, ss = g.stopS[l.stops.indexOf(s.id)];
@@ -40,6 +63,13 @@ describe('network data', () => {
         for (let j = i + 1; j < at.length; j++) {
           const a = at[i], b = at[j];
           const dot = a.t.tx * b.t.tx + a.t.tz * b.t.tz;
+          if (sharesTrack(a.id, b.id) && !s.at?.[a.id] && !s.at?.[b.id]) {
+            // Through-running: the same platform, so the same point, direction and depth.
+            expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeLessThan(0.05);
+            expect(dot).toBeGreaterThan(1 - 1e-6);
+            expect(Math.abs(a.p.y - b.p.y)).toBeLessThan(1e-6);
+            continue;
+          }
           const beside = (s.at?.[a.id] || s.at?.[b.id]) && Math.abs(dot) > 0.5;
           if (s.at?.[a.id] || s.at?.[b.id]) {
             // A line placed beside another still crosses the third at right angles, on its centreline.
@@ -56,8 +86,12 @@ describe('network data', () => {
             // Side by side: parallel, same direction, same depth, one hall wall + 0.5 m + the other's apart.
             expect(dot).toBeGreaterThan(1 - 1e-6);
             expect(Math.abs(a.p.y - b.p.y)).toBeLessThan(1e-6);
-            const gap = hallDims(lineById(a.id), a.p.y).wallZ + 0.5 + hallDims(lineById(b.id), b.p.y).wallZ;
-            expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeCloseTo(gap, 3);
+            // Halls next to each other, or with a third parallel hall between them (A | S | M at the hub).
+            const gap = (x: typeof a, y: typeof a) => hallDims(lineById(x.id), x.p.y).wallZ + 0.5 + hallDims(lineById(y.id), y.p.y).wallZ;
+            const d = Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z);
+            const between = at.find((c) => c !== a && c !== b && Math.abs(c.t.tx * a.t.tx + c.t.tz * a.t.tz) > 0.5
+              && Math.hypot(a.p.x - c.p.x, a.p.z - c.p.z) > 1 && Math.hypot(b.p.x - c.p.x, b.p.z - c.p.z) > 1 && Math.abs(Math.hypot(a.p.x - c.p.x, a.p.z - c.p.z) + Math.hypot(c.p.x - b.p.x, c.p.z - b.p.z) - d) < 1e-3);
+            expect(d).toBeCloseTo(between ? gap(a, between) + gap(between, b) : gap(a, b), 3);
           } else {
             expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeLessThan(0.5);
             expect(Math.abs(a.p.y - b.p.y)).toBeGreaterThan(6);
@@ -86,6 +120,8 @@ describe('network data', () => {
         for (let sa = 0; sa < ga.path.length; sa += step) {
           const p = ga.path.pointAt(sa);
           const q = gb.path.project(p.x, p.z);
+          // A through-running line merges into its host's track: skip the shared section and its approaches.
+          if (onSharedSection(ga, sa) || onSharedSection(gb, q.s)) continue;
           // Only where the centrelines actually meet (within a twin-tunnel width), not near misses.
           if (q.dist > 1.5 || q.s <= 0 || q.s >= gb.path.length) continue;
           const atStation = ga.stopS.some((s) => Math.abs(s - sa) < HALL_HALF) || gb.stopS.some((s) => Math.abs(s - q.s) < HALL_HALF);
@@ -93,6 +129,21 @@ describe('network data', () => {
           expect(Math.abs(ga.railY(sa) - gb.railY(q.s)), `${ga.def.id}/${gb.def.id} at ${Math.round(p.x)},${Math.round(p.z)}`).toBeGreaterThan(7);
         }
       }
+    }
+  });
+  it('a through-running line lies exactly on the host line track over the shared section', () => {
+    for (const { geom: g } of NET) {
+      const sh = g.def.shares;
+      if (!sh) continue;
+      const h = lineSim(sh.line).geom;
+      const s0 = g.stopS[g.def.stops.indexOf(sh.from)], s1 = g.stopS[g.def.stops.indexOf(sh.to)];
+      for (let s = s0; s <= s1; s += 5) {
+        const p = g.path.pointAt(s), q = h.path.project(p.x, p.z);
+        expect(q.dist, `${g.def.id} off ${h.def.id} at ${Math.round(s)}`).toBeLessThan(0.05);
+        expect(Math.abs(g.railY(s) - h.railY(q.s)), `${g.def.id} rail level at ${Math.round(s)}`).toBeLessThan(0.02);
+      }
+      // It passes the host's stations in between without stopping, and stops at both ends.
+      for (const id of g.def.passes ?? []) expect(g.def.stops).not.toContain(id);
     }
   });
   it('the Akanesuji Line stays in bored tunnel end to end', () => {
@@ -164,11 +215,41 @@ describe('timetable', () => {
       }
     }
   });
+  it('through-running trains never meet the host line trains on the shared track', () => {
+    for (const m of NET) {
+      const sh = m.geom.def.shares;
+      if (!sh) continue;
+      const host = lineSim(sh.line);
+      const gcd = (x: number, y: number): number => (y ? gcd(y, x % y) : x);
+      const span = (m.tt.cycle * host.tt.cycle) / gcd(m.tt.cycle, host.tt.cycle);
+      const len = m.geom.def.service.cars * CAR_PITCH;
+      const mid = Math.floor((m.geom.def.service.cars - 1) / 2);
+      const p: CarPose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 }, q = { ...p };
+      let closest = Infinity;
+      for (let t = 0; t < span; t += 1) {
+        for (let i = 0; i < m.tt.trainCount; i++) {
+          const a = trainStateAt(m.tt, i, t);
+          if (!onSharedSection(m.geom, a.s) || a.track === 'xoverStart' || a.track === 'xoverEnd') continue;
+          carPose(m.geom, a, mid, p);
+          for (let j = 0; j < host.tt.trainCount; j++) {
+            const b = trainStateAt(host.tt, j, t);
+            // Same direction on the shared section means the same track (both lines run "down" the same way).
+            if (b.track !== a.track) continue;
+            carPose(host.geom, b, mid, q);
+            const d = Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
+            closest = Math.min(closest, d);
+            expect(d, `${m.geom.def.id} train ${i} and ${sh.line} train ${j} at t=${t}`).toBeGreaterThan(len + 20);
+          }
+        }
+      }
+      expect(closest).toBeLessThan(Infinity);
+    }
+  });
   it('headways are regular', () => {
     for (const { tt } of NET) {
       const deps = nextDepartures(tt, 1, 'down', 0, 5);
       for (let i = 1; i < deps.length; i++) expect(deps[i].dep - deps[i - 1].dep).toBe(tt.headway);
     }
-    expect(LINES.length).toBe(5);
+    expect(LINES.length).toBe(6);
   });
 });

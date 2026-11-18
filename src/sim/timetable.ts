@@ -56,6 +56,18 @@ export interface Timetable {
   departures: Map<string, StopTimes>;
   /** Terminating arrivals keyed by `${stopIndex}:${dir}` (dir = direction of arrival). */
   arrivals: Map<string, StopTimes>;
+  /** The whole timetable runs this many seconds later than its cycle times (phasing against a shared line). */
+  offset: number;
+}
+
+export interface TimetableOptions {
+  /** Shift the whole timetable later by this many seconds. */
+  offset?: number;
+  /**
+   * Choose how much of the layover padding goes to the far terminus (which shifts every "up"
+   * time against every "down" time): the smallest pad ≥ 0 with pad ≡ residue (mod mod).
+   */
+  padEnd?: { mod: number; residue: number };
 }
 
 const DOOR_OPEN_DELAY = 1.5;
@@ -91,7 +103,7 @@ export function runProfile(
 
 const round5 = (t: number) => Math.ceil(t / 5) * 5;
 
-export function buildTimetable(geom: LineGeom): Timetable {
+export function buildTimetable(geom: LineGeom, opts: TimetableOptions = {}): Timetable {
   const sv = geom.def.service;
   const S = geom.stopS;
   const n = S.length;
@@ -148,10 +160,17 @@ export function buildTimetable(geom: LineGeom): Timetable {
   const layStart = dwell(S[0], 'down', 0, 'departure', 'down', sv.minLayoverS);
 
   // Pad the two layovers so the cycle is a whole number of headways.
-  const trainCount = Math.ceil(t / sv.headwayS);
+  let padEnd: number, trainCount: number;
+  if (opts.padEnd) {
+    const { mod: m, residue } = opts.padEnd;
+    padEnd = ((residue % m) + m) % m;
+    trainCount = Math.ceil((t + padEnd) / sv.headwayS);
+  } else {
+    trainCount = Math.ceil(t / sv.headwayS);
+    padEnd = Math.floor((trainCount * sv.headwayS - t) / 2);
+  }
   const cycle = trainCount * sv.headwayS;
-  const pad = cycle - t;
-  const padEnd = Math.floor(pad / 2), padStart = pad - padEnd;
+  const padStart = cycle - t - padEnd;
   const iEnd = phases.indexOf(layEnd);
   layEnd.t1 += padEnd;
   for (let i = iEnd + 1; i < phases.length; i++) {
@@ -167,7 +186,7 @@ export function buildTimetable(geom: LineGeom): Timetable {
   departures.set(`${n - 1}:up`, { arr: layEnd.t0, dep: layEnd.t1 });
   departures.set(`0:down`, { arr: layStart.t0, dep: layStart.t1 });
 
-  return { geom, phases, cycle, headway: sv.headwayS, trainCount, departures, arrivals };
+  return { geom, phases, cycle, headway: sv.headwayS, trainCount, departures, arrivals, offset: opts.offset ?? 0 };
 }
 
 const mod = (a: number, m: number) => ((a % m) + m) % m;
@@ -209,7 +228,7 @@ export function doorFraction(p: DwellPhase, tau: number): number {
 
 export function trainStateAt(tt: Timetable, index: number, time: number): TrainState {
   const sv = tt.geom.def.service;
-  const tau = mod(time - index * tt.headway, tt.cycle);
+  const tau = mod(time - tt.offset - index * tt.headway, tt.cycle);
   const phaseIndex = phaseAt(tt, tau);
   const phase = tt.phases[phaseIndex];
   const base = { line: tt.geom.def.id, index, phase, phaseIndex, tau, track: phase.track };
@@ -233,12 +252,13 @@ export interface Departure {
 function upcoming(tt: Timetable, st: StopTimes | undefined, time: number, count: number): Departure[] {
   if (!st) return [];
   const out: Departure[] = [];
-  // Train k departs at st.dep + k·headway (+ whole cycles).
-  let j = Math.ceil((time - st.dep) / tt.headway);
+  // Train k departs at st.dep + k·headway (+ whole cycles), all shifted by the offset.
+  const arr0 = st.arr + tt.offset, dep0 = st.dep + tt.offset;
+  let j = Math.ceil((time - dep0) / tt.headway);
   for (let i = 0; i < count; i++, j++) {
     out.push({
-      arr: st.arr + j * tt.headway,
-      dep: st.dep + j * tt.headway,
+      arr: arr0 + j * tt.headway,
+      dep: dep0 + j * tt.headway,
       train: mod(j, tt.trainCount),
     });
   }
@@ -262,7 +282,7 @@ export function nextArrivals(tt: Timetable, stop: number, dir: Dir, time: number
 export function platformDoorOpen(tt: Timetable, stop: number, track: 'down' | 'up', time: number): number {
   let best = 0;
   for (let k = 0; k < tt.trainCount; k++) {
-    const tau = mod(time - k * tt.headway, tt.cycle);
+    const tau = mod(time - tt.offset - k * tt.headway, tt.cycle);
     const p = tt.phases[phaseAt(tt, tau)];
     if (p.kind === 'dwell' && p.stop === stop && p.track === track) best = Math.max(best, doorFraction(p, tau));
   }

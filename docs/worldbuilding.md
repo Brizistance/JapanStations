@@ -11,7 +11,7 @@
 
 | Operator | Type | Status |
 |---|---|---|
-| **Kawaminato Metro (川湊メトロ)** | Underground metro, 5 lines so far (1 more planned) | Built |
+| **Kawaminato Metro (川湊メトロ)** | Underground metro, 6 lines | Built |
 | _TBD_ JR-style main line | Through platforms on the viaduct at Kawaminato Station | Space reserved, not named |
 | _TBD_ private railway | Dead-end terminal in the Kawaminato Station Building | Space reserved, not named |
 | _TBD_ high-speed line | Top deck at Kawaminato Station | Space reserved, not named |
@@ -28,6 +28,7 @@ Brand: navy `#0d3b66` roundel with three flowing white strokes (a stylised 川).
 | **N** | Nagisa Line | 渚線 (なぎさせん) | blue `#1673c9` | East–west, from the bay to the eastern hills. Nagisa = "water's edge". |
 | **A** | Akanesuji Line | 茜筋線 (あかねすじせん) | madder red `#b7282e` | The newest, deepest line: a diagonal from the south bay to the north-east hills, under Akane-suji and then Kita-Ōdōri avenue. Akane = madder dye, in keeping with Tsumugibashi (silk) and Aizomechō (indigo). |
 | **S** | Shiokaze Line | 汐風線 (しおかぜせん) | sunset orange `#ee7b1a` | The fourth line: from the river mouth along the Mio-gawa's north bank, through the box at Kita-Ōdōri that was built for it, then south-east to the canals. Shiokaze = "sea breeze"; a place-style name, the first line not named after a street. |
+| **M** | Sumire Line | すみれ線 (すみれせん) | violet `#c2368f` | The sixth line, and the first to through-run: from the north-east hills via Midorizaka and the hub, then on the Shiokaze Line's track as an express (passing Tōmyōbori and Sakurazutsumi) to Hanamizuki, and on to the southern heights. Sumire = violet; its mural is at Seiran. Name from the user's draft map. |
 | **K** | Kikyō Line | 桔梗線 (ききょうせん) | bellflower purple `#7b4fa8` | The fifth line: a crosstown line through the south that meets every other line once, from the bay front at Shinshio to the eastern hills. Kikyō = Chinese bellflower, one of the seven autumn flowers; its mural is at Higashigaoka. Name and colour from the user's draft map. |
 
 ## Stations
@@ -91,7 +92,17 @@ Brand: navy `#0d3b66` roundel with three flowing white strokes (a stylised 川).
 | K-17 | 東ヶ丘 | ひがしがおか | Higashigaoka | East hills | Houses and a shrine wood above the N valley |
 | K-18 | 新雲雀野 | しんひばりの | Shin-Hibarino | East new town | Terminus of the newest estate, around a skylark meadow park |
 
-Planned for stage 3, not built yet: **Sumire Line M (すみれ線)**. See [the expansion plan](../Plans/features/network-expansion/plan.md).
+**Sumire Line** (stage 3, 2026-11-18; Seiran, Midorizaka, Kita-Ōdōri, Daigaku-mae and Hanamizuki from the user's draft map, Seiran moved to the north-east hills):
+
+| No. | Kanji | Kana | Romaji | District | Character |
+|---|---|---|---|---|---|
+| M-11 | 清嵐 | せいらん | Seiran | North-east hills | Hillside terminus: temple wood, old tea house, hiking trailhead. Seiran = clear mountain air |
+| M-12 | 緑坂 | | Midorizaka | | Interchange with Y |
+| M-13 | 北大通 | | Kita-Ōdōri | | The hub; M's own hall south of S's |
+| M-14 | 川湊大学前 | | Kawaminato-daigaku-mae | | Shares the Shiokaze platforms |
+| M-15 | 花みずき | | Hanamizuki | | Shares the Shiokaze platforms |
+| M-16 | 南桜川 | みなみさくらがわ | Minami-Sakuragawa | South-east canals | The lower Sakura-gawa: boathouses, rowing club, riverside market |
+| M-17 | 春野台 | はるのだい | Harunodai | Southern heights | Terminus among new houses and spring meadows |
 
 Numbers start at 11 on each line (an Osaka habit), which leaves 01–10 free for extensions beyond the current first stop.
 

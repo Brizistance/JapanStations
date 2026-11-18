@@ -8,7 +8,7 @@ A reference for building stylized-realistic Japanese metro stations. The aim is 
 |---|---|---|
 | **Underground** (`buildUnderground`) | 30 stations | Street → exits → B1 concourse (gates at one or both ends) → stairs → platform hall. Works for island or side platforms. |
 | **Interchange** (`buildInterchange`) | Tsumugibashi, Aizomechō, Daigaku-mae, Kawaminato-kō, Watayamachi, Tōmyōbori | Shared B1 concourse over the upper line; a transfer passage outside each side wall of the upper hall; stairs down to the deeper line's island platform, which crosses at 90°. The lower line must have an island platform.<br>- Side-platform upper line: doorways lead straight into the passages.<br>- Island upper line: the passages are reached from the concourse.<br>- With a line **beside** the upper one (Tsumugibashi's K): that line gets its own hall on the +z side, with island stairs into a concourse widened over both halls. The +z passage moves out past its far wall. |
-| **Hub** (`buildHub`, `hub.ts`) | Kita-Ōdōri | Two island-platform lines crossing at 90°, and a third alongside the deeper one, under a glass-roofed atrium, with a shopping street, a plaza and shells for future railways. See below. |
+| **Hub** (`buildHub`, `hub.ts`) | Kita-Ōdōri | Two island-platform lines crossing at 90°, and two more alongside the deeper one (S, then M further south), under a glass-roofed atrium, with a shopping street, a plaza and shells for future railways. See below. |
 | **Elevated** (`buildElevated`) | Hibarino, Asahino, Takanodai, Izumigaoka | Street-level concourse under a viaduct; stairs up through the deck to side platforms with canopies. With a second line (Hibarino's K), that line crosses underneath: its island hall, a stair to a paid B1 mezzanine, and a flight up into the paid concourse (`underLine`). |
 
 Vertical order underground: street (0) → concourse floor (platform + 4.9 m) → platform (rail + 1.1 m). Platforms are 116 m long for 6-car, 18 m-car trains.
@@ -93,10 +93,11 @@ Built by `buildHub` in `src/stations/hub.ts`. The station frame follows the Akan
 | 1F | 0 | Atrium ring, station doors, plaza with bus terminal and taxi rank, Kita-Ōdōri avenue | Built |
 | B1 | −7 m | Concourse: a paid "T" (a bar under the avenue over the Akanesuji platforms, a stem over the Yanagisuji platforms), three gate lines, Yanagi Mall, exits 1–8, the atrium floor with Kin no Yanagi | Built |
 | B2 | −12 m | Yanagisuji island platform | Built |
-| B4 | −19 m | Akanesuji island platform; beside it, 15.9 m south, the Shiokaze island platform | Both built |
+| B4 | −19 m | Akanesuji island platform; 15.9 m south, the Shiokaze island platform; 15.9 m further, the Sumire island platform | All built |
 
 - **The atrium** is one void from the B1 floor to the glass roof at +26 m. Zones can be flagged `sky` so the atrium floor keeps daylight instead of the underground fog.
 - **The deep escalators** rise 12.4 m from the Akanesuji platform through an open shaft into the middle of the concourse.
+- **The Sumire hall** is a second `sHall`, 15.9 m south of the Shiokaze hall, with windows into it on the same three bays. Its shaft climbs into the same stub passage, which runs on south past both shafts. The hub spec names it `outer: 'M'`.
 - **The Shiokaze hall** (`sHall`) fills what was the B4 shell. It shares three windows with the Akanesuji hall, so you see one line's trains from the other's platform. A stair and escalator climb west through an enclosed shaft into the stub passage south of the paid concourse, so A/Y ↔ S transfers stay inside the gates. The line beside the primary is named by `beside` in the hub spec; without one, `buildHub` still draws the shell.
 - **The Yanagisuji hall** keeps its vault over the southern 47 m. The northern part now has the concourse above it, so the vault is shorter than it was.
 - **Shells** are real geometry you can see but not enter: closed by glass or hoardings, signed 将来線予定地 with the kind of railway, with the future gate position marked on the floor. They have no departure boards and are absent from the map. The unfinished viaducts simply stop at a hoarded end.

@@ -2,7 +2,7 @@
 // Pure TS, shared by the sim, the track renderer and the station builder.
 
 import type { LineDef } from '../data/types';
-import { stationById } from '../data/network';
+import { LINES, stationById } from '../data/network';
 import { Alignment } from './alignment';
 
 /** Track is level for this far either side of a station centre. */
@@ -46,6 +46,12 @@ export class LineGeom {
   /** How far each stop's data position is from the alignment (should be ~0). */
   readonly stopError: number[];
 
+  /**
+   * Vertical profile: rail level at each point, level for `flat` metres either side. The points
+   * are the stops, the stations passed without stopping, and any extra profile points.
+   */
+  readonly profile: { s: number; y: number; flat: number }[];
+
   constructor(readonly def: LineDef) {
     this.path = new Alignment(def.alignment.vertices, def.alignment.radius);
     this.stopS = [];
@@ -57,6 +63,16 @@ export class LineGeom {
       this.stopS.push(p.s);
       this.stopError.push(p.dist);
     }
+    this.profile = this.stopS.map((s, i) => ({ s, y: def.railY[i], flat: FLAT_M }));
+    for (const id of def.passes ?? []) {
+      // Level with the line that stops there, whose track this one shares.
+      const owner = LINES.find((l) => l.id !== def.id && l.stops.includes(id));
+      if (!owner) throw new Error(`${def.id} passes ${id}, which no other line serves`);
+      const st = stationById(id);
+      this.profile.push({ s: this.path.project(st.position.x, st.position.y).s, y: owner.railY[owner.stops.indexOf(id)], flat: FLAT_M });
+    }
+    for (const q of def.profile ?? []) this.profile.push({ s: this.path.project(q.at[0], q.at[1]).s, y: q.y, flat: 40 });
+    this.profile.sort((a, b) => a.s - b.s);
   }
 
   get firstS() {
@@ -68,14 +84,14 @@ export class LineGeom {
 
   /** Rail level at chainage s. */
   railY(s: number): number {
-    const S = this.stopS, Y = this.def.railY;
-    if (s <= S[0]) return Y[0];
-    const n = S.length;
-    if (s >= S[n - 1]) return Y[n - 1];
+    const P = this.profile, n = P.length;
+    if (s <= P[0].s) return P[0].y;
+    if (s >= P[n - 1].s) return P[n - 1].y;
     let i = 0;
-    while (i < n - 2 && s > S[i + 1]) i++;
-    const a = S[i] + FLAT_M, b = S[i + 1] - FLAT_M;
-    return Y[i] + (Y[i + 1] - Y[i]) * smooth((s - a) / (b - a));
+    while (i < n - 2 && s > P[i + 1].s) i++;
+    const a = P[i].s + P[i].flat, b = P[i + 1].s - P[i + 1].flat;
+    if (b <= a) return s < (a + b) / 2 ? P[i].y : P[i + 1].y;
+    return P[i].y + (P[i + 1].y - P[i].y) * smooth((s - a) / (b - a));
   }
 
   /** Signed lateral offset (+ = right of increasing chainage) of a track at chainage s. */

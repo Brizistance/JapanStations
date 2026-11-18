@@ -36,18 +36,19 @@ export interface HubSpec {
   primary: string;
   /** Line running alongside the primary, in the box south of its platforms (network `at`). */
   beside?: string;
+  /** A second line alongside that one, in its own hall further south (network `at`). */
+  outer?: string;
   style: StationStyle;
   seed: number;
 }
 export type StationSpec = UndergroundSpec | InterchangeSpec | ElevatedSpec | HubSpec;
 
 export const SPECS: Record<StationId, StationSpec> = {
-  // Quiet residential station (the old north terminus): warm brick, one small gate line, park outside.
+  // Quiet residential station: warm brick, park outside. Yanagisuji Line above, Sumire Line
+  // crossing below.
   midorizaka: {
-    kind: 'underground',
-    concourse: [-20, 34],
-    gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    kind: 'interchange',
+    primary: 'Y',
     style: {
       wall: 'brick:#b98a66', concWall: 'tile:#efe7d6', floor: 'floor:#cfc8b8', pillar: 'tile:#e9dfc9',
       accent: '#7a9a4a', mural: { v: 'leaves', color: '#3f8f4f' },
@@ -60,6 +61,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     kind: 'hub',
     primary: 'A',
     beside: 'S',
+    outer: 'M',
     style: {
       wall: 'panel:#f1efe8', concWall: 'panel:#f4f2ec', floor: 'floor:#d9d7d0', pillar: 'panel:#f1efe8',
       accent: '#b08d3c', mural: { v: 'willow', color: '#d9b43a' }, vault: true,
@@ -565,5 +567,49 @@ export const SPECS: Record<StationId, StationSpec> = {
       seed: 293, roadHalf: 7, cross: [-66, 62], left: 'apartment', right: 'park', trees: true,
       parkName: { ja: 'ひばり原っぱ公園', en: 'Hibari Meadow Park' },
     },
+  },
+
+  // ══ Network expansion, stage 3: the Sumire Line ══
+  // Hillside terminus: pale violet panels, the line's own violet mural, a temple wood opposite.
+  seiran: {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'panel:#efe6ef', concWall: 'panel:#f5f0f5', floor: 'floor:#d2cdd2', pillar: 'tile:#8a2a66',
+      accent: '#c2368f', mural: { v: 'violet', color: '#8a3fa0' },
+    },
+    surface: {
+      seed: 307, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'park', trees: true, poles: true,
+      parkName: { ja: '清嵐寺の森', en: 'Seiran-ji Temple Wood' },
+    },
+  },
+  // Lower Sakura-gawa: river-blue tile, waves, a canal bridge and the rowing club's bank.
+  'minami-sakuragawa': {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'tile:#d6e2ea', concWall: 'tile:#edf2f5', floor: 'floor:#cdd0d2', pillar: 'tile:#c2368f',
+      accent: '#c2368f', mural: { v: 'sakura', color: '#d97aa6' },
+    },
+    surface: {
+      seed: 311, roadHalf: 7, cross: [-64, 78], canalAt: 78, left: 'oldtown', right: 'mixed', trees: true,
+      canalName: { ja: '南桜橋', en: 'Minami-Sakura-bashi' }, treeLeaf: 'flat:#f2bfcd',
+    },
+  },
+  // Sunny southern heights: butter-yellow panels, spring hills, new houses.
+  harunodai: {
+    kind: 'underground',
+    concourse: [-34, 20],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'panel:#f6f0d9', concWall: 'panel:#f8f5e8', floor: 'floor:#d6d2c3', pillar: 'panel:#f6f0d9',
+      accent: '#c2368f', mural: { v: 'hills', color: '#9cbf4a' },
+    },
+    surface: { seed: 313, roadHalf: 7, cross: [-66, 62], left: 'house', right: 'apartment', trees: true, poles: true },
   },
 };

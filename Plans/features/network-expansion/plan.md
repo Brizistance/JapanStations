@@ -1,5 +1,7 @@
 # Network expansion: extensions + Kikyō and Sumire lines
 
+**Status:** all three stages built 2026-11-18: [stage1.md](stage1.md), [stage2.md](stage2.md), [stage3.md](stage3.md). Each has an "As built" note where it differs from this plan.
+
 ## Context
 The user drew a target route map: all four lines extended at both ends, plus two new Metro lines, Kikyō **K** (purple) and Sumire **M** (magenta). The network grows from 18 stations to about 55. Every new station gets a full walk-through, like the current ones. The work is staged so that each stage ships playable. Per CLAUDE.md rule 4, the first implementation step is to commit this as `Plans/features/network-expansion/plan.md`, with a short per-stage plan written before each stage starts.
 

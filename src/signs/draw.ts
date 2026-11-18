@@ -1,6 +1,6 @@
 // Canvas drawing for every sign type. All text comes from the network data.
 
-import { LINES, OPERATOR, STATIONS, diagramPath, lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, OPERATOR, STATIONS, diagramRuns, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
 import { nextArrivals, nextDepartures, trainStateAt } from '../sim/timetable';
@@ -229,14 +229,17 @@ function drawDiagram(ctx: Ctx, x: number, y: number, w: number, h: number, here?
   ctx.lineCap = 'round';
   for (const l of LINES) {
     ctx.strokeStyle = l.color;
-    ctx.lineWidth = 9 * sc;
-    ctx.beginPath();
-    diagramPath(l).forEach(([dx, dy], i) => {
-      const px = ox + dx * sc, py = oy + dy * sc;
-      if (i) ctx.lineTo(px, py);
-      else ctx.moveTo(px, py);
-    });
-    ctx.stroke();
+    for (const r of diagramRuns(l)) {
+      // A line on another's track is a narrow stripe inside it.
+      ctx.lineWidth = (r.shared ? 3.5 : 9) * sc;
+      ctx.beginPath();
+      r.pts.forEach(([dx, dy], i) => {
+        const px = ox + dx * sc, py = oy + dy * sc;
+        if (i) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
+      });
+      ctx.stroke();
+    }
   }
   const hereSt = here ? stationById(here) : null;
   for (const s of STATIONS) {
@@ -839,6 +842,51 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       }
     }
     ctx.globalAlpha = 1;
+  } else if (c.v === 'violet') {
+    // Sumire: small wild violets in clumps of heart-shaped leaves, on a pale spring green.
+    ctx.fillStyle = '#eef2e6';
+    ctx.fillRect(0, 0, W, H);
+    const hash = (n: number) => {
+      const v = Math.sin(n * 12.9898) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    const heart = (x: number, y: number, r: number, a: number) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.moveTo(0, r);
+      ctx.bezierCurveTo(-r * 1.2, r * 0.2, -r * 0.6, -r * 0.9, 0, -r * 0.35);
+      ctx.bezierCurveTo(r * 0.6, -r * 0.9, r * 1.2, r * 0.2, 0, r);
+      ctx.fill();
+      ctx.restore();
+    };
+    const clumps = Math.round(W / (H * 0.55));
+    for (let i = 0; i < clumps; i++) {
+      const cx = ((i + 0.5 + 0.4 * (hash(i + 1) - 0.5)) / clumps) * W, cy = H * (0.62 + 0.2 * hash(i + 21));
+      ctx.fillStyle = '#5f8a4a';
+      for (let k = 0; k < 6; k++) heart(cx + (hash(i * 7 + k) - 0.5) * H * 0.3, cy + hash(i * 5 + k) * H * 0.12, H * 0.07, (hash(i * 3 + k) - 0.5) * 1.6);
+      for (let k = 0; k < 4; k++) {
+        // A violet: two upper petals, two side, one lower with a pale throat; on a thin stem.
+        const fx = cx + (hash(i * 11 + k) - 0.5) * H * 0.4, fy = cy - H * (0.18 + 0.2 * hash(i * 13 + k)), r = H * 0.055;
+        ctx.strokeStyle = '#6f8f55';
+        ctx.lineWidth = H * 0.008;
+        ctx.beginPath();
+        ctx.moveTo(fx, fy + r);
+        ctx.quadraticCurveTo(fx + r, fy + H * 0.15, fx, cy);
+        ctx.stroke();
+        ctx.fillStyle = col;
+        for (const [dx, dy, rx, ry] of [[-0.5, -0.7, 0.45, 0.6], [0.5, -0.7, 0.45, 0.6], [-0.85, 0.05, 0.5, 0.38], [0.85, 0.05, 0.5, 0.38], [0, 0.6, 0.55, 0.5]]) {
+          ctx.beginPath();
+          ctx.ellipse(fx + dx * r, fy + dy * r, rx * r, ry * r, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#f5f0c8';
+        ctx.beginPath();
+        ctx.arc(fx, fy + r * 0.2, r * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   } else if (c.v === 'bellflower') {
     // Kikyō: five-pointed balloon-flower stars in violet, with buds, on pale lilac.
     ctx.fillStyle = '#f1edf6';

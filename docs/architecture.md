@@ -42,6 +42,7 @@ data/network.ts ──► sim (geometry + timetable) ──► trains/system (pe
 ```
 
 - **Sim is pure TS.** `trainStateAt(timetable, train, time)` returns where a train is. Nothing integrates over time, so there is no drift and the sim can be tested without a browser.
+- **Shared track** is handled by phasing, not signalling. A line that runs on another's track (`shares`) gets a whole-timetable `offset` and a layover split (`padEnd`), chosen in `sim/index.ts` so its trains always enter the shared section half a host headway after a host train, in both directions. The vertical profile (`LineGeom.profile`) is built from the stops, the stations passed without stopping, and extra profile points, so a guest line's rails match its host's. See network.md.
 - **Rendering reads state.** It never owns network or sim truth.
 - **One part list, two consumers.** Stations and train cars are built with `Builder` into plain data (boxes, ramps, signs, gates). The renderer merges the boxes into one mesh per material; the collision world uses the same boxes. What you see is what you bump into.
 - **Trains are the one exception.** The car's part list (`trains/car.ts`) is still its collision, its sliding doors and its live signs, but what you see is a Blender model (`public/models/metro-car.glb`, loaded by `render/car-model.ts`) built to the same dimensions. The model's materials are named with our material keys, so it goes through `getMaterial()` and the lit shader like everything else. If the file fails to load, the boxes are drawn instead.
@@ -94,7 +95,7 @@ Materials are PBR sets (colour, normal, roughness). Procedural patterns are comp
 
 ## Tests
 
-- `src/sim/sim.test.ts` — network data sanity, every interchange crossing squarely at different depths, timetable continuity, speed limits, train separation, departures match trains at platforms with doors open.
+- `src/sim/sim.test.ts` — network data sanity, every interchange crossing squarely at different depths (or side by side, or sharing a platform), timetable continuity, speed limits, train separation, departures match trains at platforms with doors open, a through-running line lying exactly on its host's track, and its trains never meeting the host's over a full combined cycle.
 - `src/stations/walk.test.ts` — flood-fills each station from its spawn with the real character controller: every platform, concourse, passage and street must be reachable, and no keep-out volume may be (the track beds of every line, and the hub's closed shells). It explores as far as each station's zones reach, so a bigger station is covered without special cases.
 
 ## Not verified automatically

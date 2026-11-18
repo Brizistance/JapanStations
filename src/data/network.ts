@@ -73,6 +73,22 @@ const K_EAST: [number, number] = (() => {
 // North of Hibarino it turns to run parallel to N, 500 m north of it, into the east hills.
 const K_HILLS: [number, number] = along(HIBARINO, NNW, 500);
 
+// Sumire Line. From Seiran in the north-east hills it runs WSW through Midorizaka (under Y),
+// turns south and then east, diving under S and A west of the hub, and rises into its own
+// hall 15.9 m south of S's (same rule as S beside A). East of the hub its curve is concentric
+// with S's, 15.9 m inside it (radius 400 − 15.9), so the two never cross; it then eases onto
+// S's track before Daigaku-mae and shares it to Hanamizuki, carrying straight on where S turns.
+export const M_BESIDE_S = 15.9;
+const M_HUB_Z = S_ODORI_Z + M_BESIDE_S;
+const M_ENE: [number, number] = [-Y_NORTH_DIR[1], Y_NORTH_DIR[0]]; // across Y's north leg
+const MIDORI: [number, number] = along(Y_BEND, Y_NORTH_DIR, 680);
+const SEIRAN: [number, number] = along(MIDORI, M_ENE, 800);
+const M_WEST: [number, number] = along(MIDORI, M_ENE, -680); // turns south here
+const S_INSIDE: [number, number] = [-S_SOUTH_DIR[1], S_SOUTH_DIR[0]]; // inside S's corner
+const M_INNER = (t: number) => along([S_BEND[0] + S_INSIDE[0] * M_BESIDE_S, S_BEND[1] + S_INSIDE[1] * M_BESIDE_S], S_SOUTH_DIR, t);
+const M_CORNER = M_INNER((M_HUB_Z - M_INNER(0)[1]) / S_SOUTH_DIR[1]);
+const M_EAST_TURN: [number, number] = along(DAIGAKU, S_SOUTH_DIR, 3300);
+
 export const LINES: LineDef[] = [
   {
     id: 'Y',
@@ -167,6 +183,37 @@ export const LINES: LineDef[] = [
     // Route-map corners between stations: below Kawaminato-kō, east of Tōmyōbori, above Hibarino.
     diagramBends: { 1: [[420, 680]], 4: [[1020, 680]], 5: [[1370, 330]] },
   },
+  {
+    // Sixth line: through-runs on the Shiokaze Line's track from just east of the hub to
+    // Hanamizuki, as an express that passes Tōmyōbori and Sakurazutsumi without stopping.
+    id: 'M',
+    nameEn: 'Sumire Line',
+    nameJa: 'すみれ線',
+    nameKana: 'すみれせん',
+    color: '#c2368f',
+    type: 'metro',
+    stops: ['seiran', 'midorizaka', 'kita-odori', 'daigaku-mae', 'hanamizuki', 'minami-sakuragawa', 'harunodai'],
+    railY: [-12, -17.5, -20.5, -18.5, -13, -12, -10],
+    platformType: 'island',
+    platformDoors: 'full',
+    trackOffset: 5.5,
+    alignment: {
+      vertices: [
+        along(SEIRAN, M_ENE, 420), M_WEST, [M_WEST[0], M_HUB_Z], M_CORNER,
+        M_INNER(270), along(S_BEND, S_SOUTH_DIR, 470), M_EAST_TURN, along(M_EAST_TURN, [1, 0], 1170),
+      ],
+      radius: 400 - M_BESIDE_S,
+    },
+    // Every other gap between Shiokaze trains (which run every 5 minutes).
+    service: { ...baseService, headwayS: 600 },
+    shares: { line: 'S', from: 'daigaku-mae', to: 'hanamizuki' },
+    passes: ['tomyobori', 'sakurazutsumi'],
+    // Under S and A where it crosses them west of the hub (at about (1325, −653)), 7.5 m below A.
+    profile: [{ at: [1325, -653], y: -27.5 }],
+    // Drawn beside Y into the hub, beside S out of it, and as a stripe inside S where it shares its track.
+    diagramOffset: { 1: -14, 2: -14 },
+    diagramShared: [3],
+  },
 ];
 
 export const STATIONS: StationDef[] = [
@@ -191,7 +238,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Aobadai',
     numbers: { Y: 'Y-10' },
     position: pos(along(Y_BEND, Y_NORTH_DIR, 1400)),
-    diagram: { x: 760, y: 110, label: 'right' },
+    diagram: { x: 760, y: 110, label: 'left' },
     district: 'North hills',
     districtJa: '北丘',
     platforms: { Y: [1, 2] },
@@ -202,26 +249,26 @@ export const STATIONS: StationDef[] = [
     nameJa: '緑坂',
     nameKana: 'みどりざか',
     nameRomaji: 'Midorizaka',
-    numbers: { Y: 'Y-11' },
+    numbers: { Y: 'Y-11', M: 'M-12' },
     position: pos(along(Y_BEND, Y_NORTH_DIR, 680)),
-    diagram: { x: 760, y: 190, label: 'right' },
+    diagram: { x: 760, y: 190, label: 'left', badges: 'nw' },
     district: 'North hills',
     districtJa: '北丘',
-    platforms: { Y: [1, 2] },
-    blurb: 'Quiet residential station on the northern slope, with a park by the exit.',
+    platforms: { Y: [1, 2], M: [3, 4] },
+    blurb: 'Quiet residential station on the northern slope, with a park by the exit. The Sumire Line crosses under the Yanagisuji Line here.',
   },
   {
     id: 'kita-odori',
     nameJa: '北大通',
     nameKana: 'きたおおどおり',
     nameRomaji: 'Kita-Ōdōri',
-    numbers: { Y: 'Y-12', A: 'A-14', S: 'S-13' },
+    numbers: { Y: 'Y-12', A: 'A-14', S: 'S-13', M: 'M-13' },
     position: { x: 1870, y: A_ODORI_Z },
-    at: { S: { x: 1870, y: S_ODORI_Z } },
+    at: { S: { x: 1870, y: S_ODORI_Z }, M: { x: 1870, y: M_HUB_Z } },
     diagram: { x: 760, y: 280, label: 'nw', badges: 'ne' },
     district: 'Kita (north hub)',
     districtJa: 'キタ',
-    platforms: { Y: [1, 2], A: [3, 4], S: [5, 6] },
+    platforms: { Y: [1, 2], A: [3, 4], S: [5, 6], M: [7, 8] },
     blurb: 'The city’s central station. Metro hub beneath Kawaminato Station’s glass atrium.',
   },
   {
@@ -361,13 +408,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '川湊大学前',
     nameKana: 'かわみなとだいがくまえ',
     nameRomaji: 'Kawaminato-daigaku-mae',
-    numbers: { N: 'N-14', S: 'S-14' },
+    numbers: { N: 'N-14', S: 'S-14', M: 'M-14' },
     position: pos(DAIGAKU),
     diagram: { x: 960, y: 480, label: 'se', badges: 'ne' },
     district: 'University',
     districtJa: '文教地区',
-    platforms: { N: [1, 2], S: [3, 4] },
-    blurb: 'Brick-lined station at the gates of Kawaminato University. Nagisa and Shiokaze lines cross here.',
+    platforms: { N: [1, 2], S: [3, 4], M: [3, 4] },
+    blurb: 'Brick-lined station at the gates of Kawaminato University. Nagisa and Shiokaze lines cross here; Sumire trains share the Shiokaze platforms.',
   },
   {
     id: 'hibarino',
@@ -481,7 +528,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Suzukakedōri',
     numbers: { A: 'A-15' },
     position: { x: 2450, y: A_ODORI_Z },
-    diagram: { x: 900, y: 280, label: 'se', badges: 'sw' },
+    diagram: { x: 930, y: 280, label: 'se', badges: 'sw' },
     district: 'Kita (east)',
     districtJa: 'キタ',
     platforms: { A: [1, 2] },
@@ -494,7 +541,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Tsukimizaka',
     numbers: { A: 'A-16' },
     position: { x: A_HILL_X, y: -1300 },
-    diagram: { x: 990, y: 190, label: 'se', badges: 'nw' },
+    diagram: { x: 1020, y: 190, label: 'se', badges: 'nw' },
     district: 'North-east slope',
     districtJa: '北東丘',
     platforms: { A: [1, 2] },
@@ -507,7 +554,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Yamabukidai',
     numbers: { A: 'A-17' },
     position: { x: A_HILL_X, y: -2000 },
-    diagram: { x: 1080, y: 100, label: 'se' },
+    diagram: { x: 1110, y: 100, label: 'se' },
     district: 'North-east hills',
     districtJa: '北東丘',
     platforms: { A: [1, 2] },
@@ -520,7 +567,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Momijigaoka',
     numbers: { A: 'A-18' },
     position: { x: 3800, y: A_RIDGE_Z },
-    diagram: { x: 1220, y: 100 },
+    diagram: { x: 1250, y: 100 },
     district: 'North-east hills',
     districtJa: '北東丘',
     platforms: { A: [1, 2] },
@@ -533,7 +580,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Seiryōdai',
     numbers: { A: 'A-19' },
     position: { x: 4600, y: A_RIDGE_Z },
-    diagram: { x: 1360, y: 100 },
+    diagram: { x: 1390, y: 100 },
     district: 'North-east plateau',
     districtJa: '北東台地',
     platforms: { A: [1, 2] },
@@ -546,7 +593,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Hoshimine',
     numbers: { A: 'A-20' },
     position: { x: 5400, y: A_RIDGE_Z },
-    diagram: { x: 1500, y: 100 },
+    diagram: { x: 1530, y: 100 },
     district: 'North-east ridge',
     districtJa: '北東尾根',
     platforms: { A: [1, 2] },
@@ -636,13 +683,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '花みずき',
     nameKana: 'はなみずき',
     nameRomaji: 'Hanamizuki',
-    numbers: { S: 'S-17' },
+    numbers: { S: 'S-17', M: 'M-15' },
     position: pos(along(DAIGAKU, S_SOUTH_DIR, 2150)),
     diagram: { x: 960, y: 850, label: 'left', badges: 'sw' },
     district: 'South-east',
     districtJa: '南東',
-    platforms: { S: [1, 2] },
-    blurb: 'Residential avenue lined with dogwood, white and pink in spring.',
+    platforms: { S: [1, 2], M: [1, 2] },
+    blurb: 'Residential avenue lined with dogwood. Shiokaze and Sumire trains share the platforms; beyond, the lines part.',
   },
   {
     id: 'shin-sakuragawa',
@@ -651,7 +698,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Shin-Sakuragawa',
     numbers: { S: 'S-18' },
     position: pos(along(S_TURN, [1, 0], 400)),
-    diagram: { x: 1100, y: 850 },
+    diagram: { x: 1100, y: 850, label: 'ne', badges: 'nw' },
     district: 'South-east canals',
     districtJa: '南東運河',
     platforms: { S: [1, 2] },
@@ -664,7 +711,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Uminomori',
     numbers: { S: 'S-19' },
     position: pos(along(S_TURN, [1, 0], 1100)),
-    diagram: { x: 1240, y: 850 },
+    diagram: { x: 1240, y: 850, badges: 'ne' },
     district: 'Bay forest',
     districtJa: '海の森',
     platforms: { S: [1, 2] },
@@ -710,6 +757,46 @@ export const STATIONS: StationDef[] = [
     platforms: { K: [1, 2] },
     blurb: 'Terminus of the newest eastern estate, laid out around a skylark meadow park.',
   },
+  // ── Sumire Line ──
+  {
+    id: 'seiran',
+    nameJa: '清嵐',
+    nameKana: 'せいらん',
+    nameRomaji: 'Seiran',
+    numbers: { M: 'M-11' },
+    position: pos(SEIRAN),
+    diagram: { x: 880, y: 70, label: 'right', badges: 'ne' },
+    district: 'North-east hills',
+    districtJa: '北東丘',
+    platforms: { M: [1, 2] },
+    blurb: 'Hillside terminus in clear mountain air: a temple wood, an old tea house and a hiking trailhead.',
+  },
+  {
+    id: 'minami-sakuragawa',
+    nameJa: '南桜川',
+    nameKana: 'みなみさくらがわ',
+    nameRomaji: 'Minami-Sakuragawa',
+    numbers: { M: 'M-16' },
+    position: pos(along(DAIGAKU, S_SOUTH_DIR, 2900)),
+    diagram: { x: 1040, y: 930, badges: 'ne' },
+    district: 'South-east canals',
+    districtJa: '南東運河',
+    platforms: { M: [1, 2] },
+    blurb: 'The lower Sakura-gawa: boathouses, a rowing club and a riverside market.',
+  },
+  {
+    id: 'harunodai',
+    nameJa: '春野台',
+    nameKana: 'はるのだい',
+    nameRomaji: 'Harunodai',
+    numbers: { M: 'M-17' },
+    position: pos(along(M_EAST_TURN, [1, 0], 750)),
+    diagram: { x: 1180, y: 930 },
+    district: 'Southern heights',
+    districtJa: '南台地',
+    platforms: { M: [1, 2] },
+    blurb: 'Terminus on the sunny southern heights, among new houses and spring meadows.',
+  },
 ];
 
 export const lineById = (id: LineId): LineDef => {
@@ -727,12 +814,29 @@ export const linesAt = (id: StationId): LineDef[] => LINES.filter((l) => l.stops
 /** Route-map polyline for segment i of a line (stops[i] → stops[i + 1]), including any corners. */
 export function diagramSegment(line: LineDef, i: number): [number, number][] {
   const a = stationById(line.stops[i]).diagram, b = stationById(line.stops[i + 1]).diagram;
-  return [[a.x, a.y], ...(line.diagramBends?.[i] ?? []), [b.x, b.y]];
+  const pts: [number, number][] = [[a.x, a.y], ...(line.diagramBends?.[i] ?? []), [b.x, b.y]];
+  const o = line.diagramOffset?.[i];
+  if (!o) return pts;
+  // Shift sideways (+ = left of travel, in screen coordinates with y down).
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+  return pts.map(([x, y]) => [x + (dy / len) * o, y - (dx / len) * o]);
 }
 
-/** Route-map polyline for a whole line. */
-export const diagramPath = (line: LineDef): [number, number][] =>
-  line.stops.slice(0, -1).flatMap((_, i) => diagramSegment(line, i).slice(i ? 1 : 0));
+/** Route-map pieces of a line: runs of ordinary segments, and segments on another line's track. */
+export function diagramRuns(line: LineDef): { pts: [number, number][]; shared: boolean }[] {
+  const runs: { pts: [number, number][]; shared: boolean }[] = [];
+  for (let i = 0; i < line.stops.length - 1; i++) {
+    const shared = !!line.diagramShared?.includes(i), seg = diagramSegment(line, i);
+    const last = runs[runs.length - 1];
+    // Joined into the previous run only if it continues it exactly (no offset jog, same kind).
+    if (last && last.shared === shared && last.pts[last.pts.length - 1].every((v, k) => v === seg[0][k])) last.pts.push(...seg.slice(1));
+    else runs.push({ pts: seg, shared });
+  }
+  return runs;
+}
+
+/** Route-map polyline for a whole line (offsets included). */
+export const diagramPath = (line: LineDef): [number, number][] => diagramRuns(line).flatMap((r) => r.pts);
 
 /** Point a fraction f (may run slightly past 0..1) along a polyline, and the direction there. */
 export function alongPolyline(pts: [number, number][], f: number): { x: number; y: number; dx: number; dy: number } {

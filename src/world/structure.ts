@@ -2,6 +2,7 @@
 // (which builds its own structure). Derived purely from the vertical profile.
 
 import { HALL_HALF, TAIL_END, type LineGeom } from '../sim/geometry';
+import { lineSim } from '../sim';
 
 export type Structure = 'station' | 'tunnel' | 'cut' | 'viaduct';
 
@@ -9,6 +10,19 @@ export function structureAt(geom: LineGeom, s: number): Structure {
   if (geom.stopS.some((ss) => Math.abs(s - ss) < HALL_HALF)) return 'station';
   const y = geom.railY(s);
   return y < -5.4 ? 'tunnel' : y < 0.35 ? 'cut' : 'viaduct';
+}
+
+/**
+ * Is a through-running line on its host's track here (Sumire on the Shiokaze Line)? The host
+ * already draws that tunnel and track, so the guest draws nothing there.
+ */
+export function onHostTrack(geom: LineGeom, s: number): boolean {
+  const sh = geom.def.shares;
+  if (!sh) return false;
+  const p = geom.path.pointAt(s);
+  const host = lineSim(sh.line).geom;
+  const q = host.path.project(p.x, p.z);
+  return q.dist < 0.3 && q.s > 0 && q.s < host.path.length;
 }
 
 /** Chainage range that has track, including the turnback sidings. */
