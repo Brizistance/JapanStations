@@ -103,12 +103,11 @@ export const SPECS: Record<StationId, StationSpec> = {
       arcadeAt: -60, arcadeName: { ja: '鶴松商店街', en: 'Tsurumatsu Shōtengai' },
     },
   },
-  // Port station (the old west terminus): cool blue-grey panels, wave mural, quay and cranes outside.
+  // Port station: cool blue-grey panels, wave mural, quay and cranes outside. Nagisa Line above,
+  // Kikyō Line crossing below.
   'kawaminato-ko': {
-    kind: 'underground',
-    concourse: [-22, 34],
-    gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    kind: 'interchange',
+    primary: 'N',
     style: {
       wall: 'panel:#cfdbe3', concWall: 'panel:#e3ebf0', floor: 'floor:#c9d0d4', pillar: 'panel:#cfdbe3',
       accent: '#0d6fa4', mural: { v: 'waves', color: '#1673c9' },
@@ -148,12 +147,11 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 101, roadHalf: 9, cross: [-74], left: 'dome', right: 'sea', trees: true },
   },
-  // Cotton wholesalers: unbleached-cotton tile with madder-red pillars.
+  // Cotton wholesalers: unbleached-cotton tile with madder-red pillars. Kikyō Line above, Akanesuji
+  // Line crossing below.
   watayamachi: {
-    kind: 'underground',
-    concourse: [-34, 22],
-    gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    kind: 'interchange',
+    primary: 'K',
     style: {
       wall: 'tile:#f1ece0', concWall: 'tile:#f4f0e6', floor: 'floor:#cfc9bb', pillar: 'tile:#9c2a30',
       accent: '#27344f', mural: { v: 'threads', color: '#b7282e' },
@@ -221,12 +219,11 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 157, roadHalf: 7.5, cross: [-62, 66], left: 'godown', right: 'godown', poles: true },
   },
-  // Lantern canal quarter: dark wood-brown tile, persimmon pillars, lantern mural.
+  // Lantern canal quarter: dark wood-brown tile, persimmon pillars, lantern mural. Shiokaze Line
+  // above, Kikyō Line crossing below.
   tomyobori: {
-    kind: 'underground',
-    concourse: [-34, 34],
-    gates: ['lo', 'hi'],
-    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    kind: 'interchange',
+    primary: 'S',
     style: {
       wall: 'tile:#3b2a24', concWall: 'tile:#efe7da', floor: 'floor:#c9c2b4', pillar: 'tile:#c4561c',
       accent: '#f0b44a', mural: { v: 'lanterns', color: '#ffb05a' },
@@ -526,6 +523,47 @@ export const SPECS: Record<StationId, StationSpec> = {
     surface: {
       seed: 277, roadHalf: 7, cross: [-66], left: 'park', right: 'sea', waterfront: 'promenade', trees: true,
       parkName: { ja: '海の森公園', en: 'Umi-no-Mori Park' },
+    },
+  },
+
+  // ══ Network expansion, stage 2: the Kikyō Line ══
+  // Bay-front terminus: slate-blue tile, gulls over the fish-market quay.
+  shinshio: {
+    kind: 'underground',
+    concourse: [-20, 34],
+    gates: ['hi'],
+    stairs: [{ x: -2, up: 1 }],
+    style: {
+      wall: 'tile:#c9d3dc', concWall: 'tile:#e8edf1', floor: 'floor:#cbcfd2', pillar: 'tile:#7b4fa8',
+      accent: '#7b4fa8', mural: { v: 'gulls', color: '#4b3a78' },
+    },
+    surface: { seed: 281, roadHalf: 9, cross: [-74], left: 'warehouse', right: 'sea', trees: true },
+  },
+  // Hillside houses and a shrine wood: lilac panels, the line's own bellflower mural.
+  higashigaoka: {
+    kind: 'underground',
+    concourse: [-34, 22],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'panel:#ece6f2', concWall: 'panel:#f3f0f6', floor: 'floor:#d1ced3', pillar: 'tile:#5a3a86',
+      accent: '#5a3a86', mural: { v: 'bellflower', color: '#7b4fa8' },
+    },
+    surface: { seed: 283, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'house', trees: true, poles: true },
+  },
+  // Newest eastern estate: pale wheat panels, rolling hills, the skylark meadow park.
+  'shin-hibarino': {
+    kind: 'underground',
+    concourse: [-34, 20],
+    gates: ['lo'],
+    stairs: [{ x: 2, up: -1 }],
+    style: {
+      wall: 'panel:#f1ecdc', concWall: 'panel:#f5f2e8', floor: 'floor:#d4d0c3', pillar: 'panel:#f1ecdc',
+      accent: '#7b4fa8', mural: { v: 'hills', color: '#8a9a3e' },
+    },
+    surface: {
+      seed: 293, roadHalf: 7, cross: [-66, 62], left: 'apartment', right: 'park', trees: true,
+      parkName: { ja: 'ひばり原っぱ公園', en: 'Hibari Meadow Park' },
     },
   },
 };

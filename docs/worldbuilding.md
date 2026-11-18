@@ -11,7 +11,7 @@
 
 | Operator | Type | Status |
 |---|---|---|
-| **Kawaminato Metro (川湊メトロ)** | Underground metro, 4 lines so far (2 more planned) | Built |
+| **Kawaminato Metro (川湊メトロ)** | Underground metro, 5 lines so far (1 more planned) | Built |
 | _TBD_ JR-style main line | Through platforms on the viaduct at Kawaminato Station | Space reserved, not named |
 | _TBD_ private railway | Dead-end terminal in the Kawaminato Station Building | Space reserved, not named |
 | _TBD_ high-speed line | Top deck at Kawaminato Station | Space reserved, not named |
@@ -28,6 +28,7 @@ Brand: navy `#0d3b66` roundel with three flowing white strokes (a stylised 川).
 | **N** | Nagisa Line | 渚線 (なぎさせん) | blue `#1673c9` | East–west, from the bay to the eastern hills. Nagisa = "water's edge". |
 | **A** | Akanesuji Line | 茜筋線 (あかねすじせん) | madder red `#b7282e` | The newest, deepest line: a diagonal from the south bay to the north-east hills, under Akane-suji and then Kita-Ōdōri avenue. Akane = madder dye, in keeping with Tsumugibashi (silk) and Aizomechō (indigo). |
 | **S** | Shiokaze Line | 汐風線 (しおかぜせん) | sunset orange `#ee7b1a` | The fourth line: from the river mouth along the Mio-gawa's north bank, through the box at Kita-Ōdōri that was built for it, then south-east to the canals. Shiokaze = "sea breeze"; a place-style name, the first line not named after a street. |
+| **K** | Kikyō Line | 桔梗線 (ききょうせん) | bellflower purple `#7b4fa8` | The fifth line: a crosstown line through the south that meets every other line once, from the bay front at Shinshio to the eastern hills. Kikyō = Chinese bellflower, one of the seven autumn flowers; its mural is at Higashigaoka. Name and colour from the user's draft map. |
 
 ## Stations
 
@@ -77,7 +78,20 @@ Brand: navy `#0d3b66` roundel with three flowing white strokes (a stylised 川).
 | S-18 | 新桜川 | しんさくらがわ | Shin-Sakuragawa | South-east canals | Newer canal quarter on the cherry-lined Sakura-gawa |
 | S-19 | 海の森 | うみのもり | Uminomori | Bay forest | Terminus by the forest park on the old landfill |
 
-Planned for stages 2 and 3, not built yet: **Kikyō Line K (桔梗線)** and **Sumire Line M (すみれ線)**. See [the expansion plan](../Plans/features/network-expansion/plan.md).
+**Kikyō Line** (stage 2, 2026-11-18; names from the user's draft route map):
+
+| No. | Kanji | Kana | Romaji | District | Character |
+|---|---|---|---|---|---|
+| K-11 | 新潮 | しんしお | Shinshio | Bay front | Terminus on the new bay front: ferry offices, fish-market hall, new flats |
+| K-12 | 川湊港 | | Kawaminato-kō | | Interchange with N |
+| K-13 | 綿屋町 | | Watayamachi | | Interchange with A |
+| K-14 | 紬橋 | | Tsumugibashi | | Interchange with Y and N (K beside N) |
+| K-15 | 灯明堀 | | Tōmyōbori | | Interchange with S |
+| K-16 | 雲雀野 | | Hibarino | | Interchange with N (K under the viaduct) |
+| K-17 | 東ヶ丘 | ひがしがおか | Higashigaoka | East hills | Houses and a shrine wood above the N valley |
+| K-18 | 新雲雀野 | しんひばりの | Shin-Hibarino | East new town | Terminus of the newest estate, around a skylark meadow park |
+
+Planned for stage 3, not built yet: **Sumire Line M (すみれ線)**. See [the expansion plan](../Plans/features/network-expansion/plan.md).
 
 Numbers start at 11 on each line (an Osaka habit), which leaves 01–10 free for extensions beyond the current first stop.
 

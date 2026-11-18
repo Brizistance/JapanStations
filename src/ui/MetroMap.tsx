@@ -2,7 +2,7 @@
 // the live train markers, which come from the same timetable the 3D trains follow.
 
 import { useEffect, useRef, useState } from 'react';
-import { LINES, STATIONS, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, STATIONS, alongPolyline, diagramPath, diagramSegment, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { NET, clock, formatClock, lineSim } from '../sim';
 import { nextDepartures, trainStateAt } from '../sim/timetable';
@@ -40,6 +40,7 @@ function labelPos(s: StationDef): { dx: number; dy: number; anchor: 'start' | 'm
     case 'right': return { dx: 26, dy: -2, anchor: 'start' };
     case 'left': return { dx: -26, dy: -2, anchor: 'end' };
     case 'se': return { dx: 22, dy: 44, anchor: 'start' };
+    case 'sw': return { dx: -22, dy: 44, anchor: 'end' };
     case 'ne': return { dx: 24, dy: -30, anchor: 'start' };
     case 'nw': return { dx: -24, dy: -38, anchor: 'end' };
     default: return { dx: 0, dy: 40, anchor: 'middle' };
@@ -133,21 +134,19 @@ function TrainDots() {
   useTick(500);
   const dots: { key: string; x: number; y: number; color: string; moving: boolean }[] = [];
   for (const { geom, tt } of NET) {
-    const stops = geom.def.stops.map(stationById);
     for (let k = 0; k < tt.trainCount; k++) {
       const st = trainStateAt(tt, k, clock.time);
       // Segment the train is on (clamped at the ends for the sidings).
       let i = 0;
       while (i < geom.stopS.length - 2 && st.s > geom.stopS[i + 1]) i++;
       const f = Math.max(-0.12, Math.min(1.12, (st.s - geom.stopS[i]) / (geom.stopS[i + 1] - geom.stopS[i])));
-      const a = stops[i].diagram, b = stops[i + 1].diagram;
-      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+      const p = alongPolyline(diagramSegment(geom.def, i), f);
       // Offset to the side of the line by direction of travel (trains keep left).
       const side = geom.lateral(st.track, st.s) < 0 ? -1 : 1;
       dots.push({
         key: `${geom.def.id}${k}`,
-        x: a.x + dx * f - (dy / len) * 9 * side,
-        y: a.y + dy * f + (dx / len) * 9 * side,
+        x: p.x - p.dy * 9 * side,
+        y: p.y + p.dx * 9 * side,
         color: geom.def.color,
         moving: st.speed > 0.1,
       });
@@ -251,7 +250,7 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
       {LINES.map((l) => (
         <polyline
           key={l.id}
-          points={l.stops.map((id) => `${stationById(id).diagram.x},${stationById(id).diagram.y}`).join(' ')}
+          points={diagramPath(l).map(([x, y]) => `${x},${y}`).join(' ')}
           fill="none" stroke={l.color} strokeWidth={13} strokeLinecap="round" strokeLinejoin="round"
         />
       ))}

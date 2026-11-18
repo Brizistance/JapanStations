@@ -10,8 +10,9 @@ The single source of truth for lines and stations is [`src/data/network.ts`](../
 | N | Nagisa Line | 渚線 | blue `#1673c9` | side | ±1.9 m (one double-track box) | 5 min, 7 trains |
 | A | Akanesuji Line | 茜筋線 | madder red `#b7282e` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 9 trains |
 | S | Shiokaze Line | 汐風線 | sunset orange `#ee7b1a` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 8 trains |
+| K | Kikyō Line | 桔梗線 | bellflower purple `#7b4fa8` | island, **full-height doors** | ±5.5 m (twin single-track tunnels) | 5 min, 7 trains |
 
-After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/features/network-expansion/plan.md)) every line has 10–12 stations, mostly 650–900 m apart (the inner sections keep their old 580–1310 m spacing). End to end, Y is 6.5 km (32-minute round trip), N 7.1 km (35 min), A 9.6 km (45 min) and S 7.6 km (40 min). The timetable code works out each cycle and train count from the headway: 32 trains in all.
+After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/features/network-expansion/plan.md)) every line has 10–12 stations, mostly 650–900 m apart (the inner sections keep their old 580–1310 m spacing). End to end, Y is 6.5 km (32-minute round trip), N 7.1 km (35 min), A 9.6 km (45 min) and S 7.6 km (40 min). The Kikyō Line (stage 2) is 8.8 km with 8 stations (35 min). The timetable code works out each cycle and train count from the headway: 39 trains in all.
 
 ### Stations in order
 
@@ -19,6 +20,7 @@ After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/fe
 - **N** (west → east, "down"): Minato Center N-09 · Umibe-shiyakusho-mae N-10 · Kawaminato-kō N-11 · **Aizomechō N-12** · **Tsumugibashi N-13** · **Kawaminato-daigaku-mae N-14** · Hibarino N-15 · Asahino N-16 · Takanodai N-17 · Izumigaoka N-18
 - **A** (south-west → north-east, "down"): Shin-Kamome A-09 · Shiosai-kōen A-10 · Kamomehama A-11 · Watayamachi A-12 · **Aizomechō A-13** · **Kita-Ōdōri A-14** · Suzukakedōri A-15 · Tsukimizaka A-16 · Yamabukidai A-17 · Momijigaoka A-18 · Seiryōdai A-19 · Hoshimine A-20
 - **S** (west → south-east, "down"): Shiomi S-09 · Nishi-Yūnagi S-10 · Yūnagihama S-11 · Kurayashiki S-12 · **Kita-Ōdōri S-13** · **Kawaminato-daigaku-mae S-14** · Tōmyōbori S-15 · Sakurazutsumi S-16 · Hanamizuki S-17 · Shin-Sakuragawa S-18 · Uminomori S-19
+- **K** (west → east, "down"): Shinshio K-11 · **Kawaminato-kō K-12** · **Watayamachi K-13** · **Tsumugibashi K-14** · **Tōmyōbori K-15** · **Hibarino K-16** · Higashigaoka K-17 · Shin-Hibarino K-18
 
 Rail level (metres below street), in station order:
 
@@ -28,6 +30,7 @@ Rail level (metres below street), in station order:
 | N | −16, −15, −11, −12, −11.5, −11, **+6.5**, +6.5, +6.5, +6.5 | The west end runs out under the bay to reclaimed land. After Daigaku-mae the line climbs through an open cut onto a viaduct, and stays on it to Izumigaoka. |
 | A | −14, −16, −15, −17, −19.5, −20.5, −18, −16, −14, −12, −11, −10 | Bored tunnel end to end, and exactly 7.5 m below the line it crosses at each interchange (the same gap Tsumugibashi uses). |
 | S | −10, −11, −10, −11, −20.5, −18.5, −14, −12, −13, −12, −10 | At A's depth at the hub, and 7.5 m below N at Daigaku-mae. |
+| K | −10, −18.5, −10, −11.5, −21.5, −12, −12, −10 | 7.5 m below N at Kawaminato-kō, 7 m **above** A at Watayamachi, level with N (beside it) at Tsumugibashi, 7.5 m below S at Tōmyōbori, and under N's viaduct at Hibarino. |
 
 The Akanesuji Line follows streets in a stair-step:
 - east along z = 1400 from the reclaimed islands to Kamomehama;
@@ -43,13 +46,23 @@ The Shiokaze Line runs west–east along the north bank of the **Mio-gawa**, 15.
 - Past Hanamizuki it turns 65° back to due east along the bay shore.
 - It crosses the Akanesuji Line once **between stations**, at about (1358, −664), where A curves south. S is 7.9 m above A there.
 
-The stage 1 extensions add **no new crossings between stations**. The route reserved for the Kikyō Line (stage 2) is in [stage1.md](../Plans/features/network-expansion/stage1.md).
+The stage 1 extensions add **no new crossings between stations**.
+
+The Kikyō Line weaves between the older lines on 250 m curves and crosses each one exactly once, at a station:
+- west from Shinshio, then south down x = 320 under Kawaminato-kō (N);
+- east along z = 800 over Watayamachi (A);
+- north-east to run 16.78 m south of N through Tsumugibashi, where it crosses Y;
+- south-east, then east-north-east under Tōmyōbori (S);
+- north-north-west under Hibarino (N's viaduct);
+- east-north-east, parallel to N and 500 m north of it, to Shin-Hibarino.
+
+It crosses nothing between stations. See [stage2.md](../Plans/features/network-expansion/stage2.md).
 
 ## Numbering
 
 - `<LineLetter>-<NN>`, for example `Y-13`. Numbers start at **11** and increase in the "down" direction, leaving 01–10 for extensions at the low end.
 - A transfer station has **one number per line** it serves.
-- **Platform numbers**: `[down, up]` per line, stored on the station. At an interchange the first line keeps 1/2 and each later one takes the next pair (Tsumugibashi: Y 1/2, N 3/4; Aizomechō: N 1/2, A 3/4; Daigaku-mae: N 1/2, S 3/4; Kita-Ōdōri: Y 1/2, A 3/4, S 5/6).
+- **Platform numbers**: `[down, up]` per line, stored on the station. At an interchange the first line keeps 1/2 and each later one takes the next pair (Tsumugibashi: Y 1/2, N 3/4, K 5/6; Aizomechō: N 1/2, A 3/4; Daigaku-mae: N 1/2, S 3/4; Kita-Ōdōri: Y 1/2, A 3/4, S 5/6; Kawaminato-kō: N 1/2, K 3/4; Watayamachi: A 1/2, K 3/4; Tōmyōbori: S 1/2, K 3/4; Hibarino: N 1/2, K 3/4).
 
 ## Transfers
 
@@ -58,6 +71,11 @@ The stage 1 extensions add **no new crossings between stations**. The route rese
 | Tsumugibashi | Y ↔ N | The lines cross at right angles, N above Y. A transfer passage beside each N platform leads down a stair/escalator to the Y island platform, and up to the shared concourse. |
 | Aizomechō | N ↔ A | Same pattern as Tsumugibashi: N above, A's island platform below. |
 | Kawaminato-daigaku-mae | N ↔ S | Same pattern again: N above, S's island platform below. |
+| Kawaminato-kō | N ↔ K | Same pattern: N above, K's island platform below. |
+| Watayamachi | K ↔ A | Same pattern with an **island** line on top (K). An island hall has track along its walls, so the transfer passages are reached from the concourse, not through doorways off the platform. |
+| Tōmyōbori | S ↔ K | As Watayamachi: S's island on top, K's island below. |
+| Tsumugibashi | Y ↔ N ↔ K | K runs **beside** N in its own hall on the south side; its stairs rise into the shared concourse, which is widened over both halls. Y is reached by the north transfer passage beside N, or the south one beyond K's hall. |
+| Hibarino | N ↔ K | N on the viaduct, K's island platform under the street. From mid-K-platform a stair and escalator climb to a small paid mezzanine (B1), and a second flight rises into the paid side of the street-level concourse. One gate line serves both. |
 | Kita-Ōdōri | Y ↔ A ↔ S | The hub. Up from the Y platform to the B1 concourse, across it inside the gates, and down a long open escalator bank to the A platform. S runs **beside** A, in its own hall south of A's; its stair and escalator climb an enclosed shaft into a passage off the paid concourse. See [station-design.md](station-design.md). |
 
 ## Geometry
@@ -65,7 +83,8 @@ The stage 1 extensions add **no new crossings between stations**. The route rese
 - World coordinates are metres: **x = east, z = south**, y up, street level = 0.
 - A line's `alignment` is a polyline of `[x, z]` vertices; corners are rounded with circular arcs of `radius` (`src/sim/alignment.ts`). Y and N have one 400 m-radius bend each, A has four right-angle ones, and S has two 65° ones.
 - A station's `position` must lie on the alignment of every line serving it. Its chainage is found by projection, so every interchange is consistent by construction. `npm test` checks this, and that lines sharing a station cross at right angles and at different depths.
-- **Exception: a line beside another.** `StationDef.at` gives a line its own platform centre at a station (Kita-Ōdōri: `at: { S: … }`). The test then requires that pair to be parallel, at the same depth and exactly 15.9 m apart (`S_BESIDE_A`, which must match the hub's box). Any third line must still cross both at right angles.
+- **Exception: a line beside another.** `StationDef.at` gives a line its own platform centre at a station (Kita-Ōdōri: `at: { S: … }`; Tsumugibashi: `at: { K: … }`). The test then requires that pair to be parallel, at the same depth, and exactly one hall wall + 0.5 m of structure + the other hall wall apart (`hallDims`). That gives 15.9 m for A/S (`S_BESIDE_A`, which must match the hub's box) and 16.78 m for N/K (`K_BESIDE_N`). Any third line must still cross both at right angles.
+- **Map corners.** `LineDef.diagramBends` adds route-map corners that are not stations (K has three).
 - **Crossings between stations** need at least 7 m between rail levels. `npm test` sweeps every pair of lines for this.
 - Stations must sit on straight, level track. The profile is level for 150 m either side of a station and eases between rail levels in between.
 - Trains keep left. The "down" track is on the left of increasing chainage.

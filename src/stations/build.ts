@@ -205,20 +205,38 @@ export function quarterTurns(from: [number, number], to: [number, number]): 0 | 
   return (((k % 4) + 4) % 4) as 0 | 1 | 2 | 3;
 }
 
-function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }) {
+/**
+ * Two lines crossing at right angles: the primary on top with the concourse over it, and an
+ * island-platform line crossing below, reached by transfer passages outside the primary's
+ * side walls. With `beside`, a third line runs alongside the primary at the same depth, in its
+ * own hall on the +z side (Tsumugibashi: K beside N). Its island stairs rise into a concourse
+ * widened to cover both halls, and the +z transfer passage moves out past its far wall.
+ */
+function buildInterchange(
+  c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, beside?: { ctx: Ctx; z: number },
+) {
   const { b, line, station, railY, style } = c;
   const dN = hallDims(line, railY);
-  const pfN = dN.pf, cf = pfN + CONC_RISE, cw = 14;
+  const pfN = dN.pf, cf = pfN + CONC_RISE;
   const cx0 = -45, cx1 = 45;
   const o = other.ctx;
   const dY = hallDims(o.line, o.railY);
   const pfY = dY.pf;
   const runY = Math.round((pfN - pfY) * 1.7 * 100) / 100;
-  const zc0 = dN.wallZ + 0.5, zc1 = zc0 + 4.3;
+  const dK = beside && hallDims(beside.ctx.line, beside.ctx.railY);
+  if (beside && beside.ctx.railY !== railY) throw new Error('the line beside the primary must be at its depth');
+  // Each side's transfer passage: against the primary's wall, or past the beside line's hall.
+  const passages = ([1, -1] as const).map((s) => {
+    const zc0 = s > 0 && beside ? beside.z + dK!.wallZ + 0.5 : dN.wallZ + 0.5;
+    return { s, zc0, zc1: zc0 + 4.3, atPrimary: !(s > 0 && beside) };
+  });
+  const cw = beside ? Math.ceil(passages[0].zc1 + 1.7) : 14;
 
   // ── Primary line hall + stairs to the concourse ──
   const st = platformStairs(c, [{ x: 6, up: 1 }, { x: -6, up: -1 }], pfN, cf, dN.wallZ);
-  const gapXs: [number, number][] = [[-24, -20], [-3, 1]];
+  // Doorways from a side platform straight into the transfer passages. An island primary has
+  // track along its walls, so there the passages are reached only from the concourse.
+  const gapXs: [number, number][] = dN.island ? [] : [[-24, -20], [-3, 1]];
   hall(c, {
     ceil: [
       { x0: -HALL_HALF, x1: cx0, y: pfN + 4.2, emit: true },
@@ -226,12 +244,29 @@ function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir:
       { x0: cx1, x1: HALL_HALF, y: pfN + 4.2, emit: true },
     ],
     blocks: [...st.blocks, ...gapXs],
-    gaps: ([1, -1] as const).flatMap((s) => gapXs.map(([x0, x1]) => ({ s, x0, x1 }))),
+    gaps: passages.filter((p) => p.atPrimary).flatMap(({ s }) => gapXs.map(([x0, x1]) => ({ s, x0, x1 }))),
   });
 
   // ── Transfer corridors, one outside each side wall, with stairs down to the deeper line ──
   const holes = [...st.holes];
-  for (const s of [1, -1] as const) {
+
+  // ── The line beside the primary: its own hall, island stairs up into the concourse ──
+  if (beside) {
+    b.with({ t: [0, 0, beside.z] }, () => {
+      const sk = platformStairs(beside.ctx, [{ x: 6, up: 1 }, { x: -6, up: -1 }], pfN, cf, dK!.wallZ);
+      hall(beside.ctx, {
+        ceil: [
+          { x0: -HALL_HALF, x1: cx0, y: pfN + 4.2, emit: true },
+          { x0: cx0, x1: cx1, y: cf - SLAB, emit: false },
+          { x0: cx1, x1: HALL_HALF, y: pfN + 4.2, emit: true },
+        ],
+        blocks: sk.blocks,
+      });
+      holes.push(...sk.holes);
+    });
+  }
+
+  for (const { s, zc0, zc1, atPrimary } of passages) {
     b.with({ mz: s < 0 }, () => {
       const wall = style.concWall;
       b.box(style.floor, -26, pfN - SLAB, zc0, 4, pfN, zc1);
@@ -267,7 +302,7 @@ function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir:
         3.0, pfN + 2.5, (zc0 + zc1) / 2, 3.8, 0.44,
         { back: { k: 'guide', ja: '出口・改札', en: 'Exit / Ticket gates', bg: 'yellow', arrow: 'up' } },
       );
-      for (const [g0, g1] of gapXs) {
+      for (const [g0, g1] of atPrimary ? gapXs : []) {
         b.sign({ k: 'guide', ja: `${o.line.nameJa} のりかえ`, en: `Transfer / Exit`, bg: 'white', badges: [o.line.id], arrow: 'up' }, (g0 + g1) / 2, pfN + 2.8, dN.wallZ - 0.03, [0, -1], 3.6, 0.44);
         b.sign({ k: 'guide', ja: `${line.nameJa} のりば`, en: `${line.nameEn} platform`, bg: 'white', badges: [line.id], arrow: 'up' }, (g0 + g1) / 2, pfN + 2.55, zc0 + 0.02, [0, 1], 3.4, 0.4);
       }
@@ -275,10 +310,11 @@ function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir:
       b.zone('passage', -26, pfN - 0.3, zc0, 4 + STAIR_RUN, pfN + 2.8, zc1, 'のりかえ通路', 'Transfer passage');
     });
   }
+  const [zcP, zcM] = [passages[0].zc1, passages[1].zc1];
 
   // ── The crossing line's hall, turned to its own direction ──
   const turns = quarterTurns(other.primaryDir, other.dir);
-  const yBlocks: [number, number][] = [[zc1, zc1 + runY], [-zc1 - runY, -zc1]];
+  const yBlocks: [number, number][] = [[zcP, zcP + runY], [-zcM - runY, -zcM]];
   b.with({ rot: turns }, () => {
     hall(o, {
       ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pfY + 4.5, emit: true }],
@@ -287,7 +323,7 @@ function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir:
     });
     const guide: SignContent = { k: 'guide', ja: `${line.nameJa} のりかえ・出口`, en: `${line.nameEn} / Exit`, bg: 'white', badges: [line.id], arrow: 'up' };
     const name = { k: 'name', station: station.id, line: o.line.id, arrow: 'right' } as const;
-    const xs = zc1 + runY + 1.6;
+    const xs = Math.max(zcP, zcM) + runY + 1.6;
     b.hang(guide, xs, pfY + 2.72, 0, 3.3, 0.44, { ceil: pfY + 4.5, back: { ...name, arrow: 'left' } });
     b.hang({ ...name, arrow: 'left' }, -xs, pfY + 2.72, 0, 3.3, 0.44, { ceil: pfY + 4.5, back: guide });
   });
@@ -309,7 +345,71 @@ function buildInterchange(c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir:
   surface(b, spec.surface, cw, { ja: station.nameJa, en: station.nameRomaji });
 }
 
-function buildElevated(c: Ctx, spec: ElevatedSpec) {
+/**
+ * A metro line crossing under an elevated station (the Kikyō Line at Hibarino). Its island
+ * hall runs across the station frame; a stair + escalator climbs from mid-platform to a small
+ * paid mezzanine (B1), and a second flight climbs from there into the paid side of the
+ * street-level concourse. Two flights, because one 11 m rise would not fit across the
+ * 18 m-deep concourse. Returns the opening it needs in the street-level floor.
+ */
+const UNDER_MEZZ_Y = -4.2;
+function underLine(c: Ctx, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, fl: number): Rect {
+  const { b, line, station, style } = c;
+  const o = other.ctx;
+  const dK = hallDims(o.line, o.railY);
+  const pfK = dK.pf, yM = UNDER_MEZZ_Y, wall = style.concWall;
+  const runK = Math.round((yM - pfK) * 1.7 * 100) / 100;
+  const runM = Math.round((fl - yM) * 1.7 * 100) / 100;
+  const top = 1, foot = top + runK; // along the crossing line, from its platform up to B1
+  const mx0 = 8; // B1 → street-level flight, climbing east into the paid concourse
+  const ceilY = -0.6; // underside of the street-level floor build-up
+
+  // ── The crossing line's hall, turned to its own direction ──
+  let holeK: Rect = [0, 0, 0, 0];
+  const turns = quarterTurns(other.primaryDir, other.dir);
+  b.with({ rot: turns }, () => {
+    hall(o, {
+      ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pfK + 4.5, emit: true }],
+      blocks: [[top, foot]],
+      ceilHoles: [[top, -1.86, foot, 1.86]],
+    });
+    b.with({ ...MIRROR_X, t: [foot, 0, 0] }, () => {
+      holeK = islandUnit(b, pfK, yM, runK, yM);
+      // Enclosed shaft from the hall ceiling up to the mezzanine floor.
+      for (const sz of [-1, 1]) b.box(wall, 0, pfK + 4.5, Math.min(sz * 1.86, sz * 2.16), runK, yM, Math.max(sz * 1.86, sz * 2.16));
+      b.box(wall, -0.3, pfK + 4.5, -2.16, 0, yM, 2.16);
+    });
+    const guide: SignContent = { k: 'guide', ja: `${line.nameJa} のりかえ・出口`, en: `${line.nameEn} / Exit`, bg: 'white', badges: [line.id], arrow: 'up' };
+    const name = { k: 'name', station: station.id, line: o.line.id, arrow: 'right' } as const;
+    b.hang(guide, foot + 1.6, pfK + 2.72, 0, 3.3, 0.44, { ceil: pfK + 4.5, back: { ...name, arrow: 'left' } });
+    b.hang({ ...name, arrow: 'left' }, top - 8, pfK + 2.72, 0, 3.3, 0.44, { ceil: pfK + 4.5, back: guide });
+  });
+
+  // ── B1 mezzanine: floor, walls, ceiling, the flight up to the street-level concourse ──
+  let holeM: Rect = [0, 0, 0, 0];
+  b.with({ t: [mx0, 0, 0] }, () => (holeM = islandUnit(b, yM, fl, runM, fl)));
+  const x0 = Math.min(holeK[0], mx0) - 4, x1 = holeM[2] + 1;
+  const z0 = Math.min(holeK[1], holeM[1]) - 4, z1 = Math.max(holeK[3], holeM[3]) + 4;
+  b.slab(style.floor, x0, z0, x1, z1, yM - SLAB, yM, [holeK]);
+  b.slab('ceil', x0, z0, x1, z1, ceilY - 0.5, ceilY, [holeM]);
+  b.box(wall, x0 - 0.3, yM, z0 - 0.3, x1 + 0.3, ceilY, z0);
+  b.box(wall, x0 - 0.3, yM, z1, x1 + 0.3, ceilY, z1 + 0.3);
+  b.box(wall, x0 - 0.3, yM, z0, x0, ceilY, z1);
+  b.box(wall, x1, yM, z0, x1 + 0.3, ceilY, z1);
+  for (let x = x0 + 1.5; x + 2.4 < x1; x += 4.5) for (const z of [z0 + 2, z1 - 2]) ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, ceilY - 0.5);
+  b.sign({ k: 'mural', ...style.mural }, (x0 + mx0) / 2 - 1, yM + 1.5, z1 - 0.02, [0, -1], 7, 1.6);
+  b.sign({ k: 'guide', ja: `${o.line.nameJa} のりば ${o.station.platforms[o.line.id].join('・')}`, en: `${o.line.nameEn} platforms`, bg: 'white', badges: [o.line.id], arrow: 'down' },
+    x0 + 0.02, yM + 2.5, (z0 + z1) / 2, [1, 0], 4, 0.44);
+  b.sign({ k: 'guide', ja: `改札・${line.nameJa} のりば`, en: `Ticket gates / ${line.nameEn}`, bg: 'yellow', arrow: 'up' },
+    x1 - 0.02, yM + 2.5, (z0 + z1) / 2, [-1, 0], 4, 0.44);
+  b.zone('passage', x0, yM - 0.3, z0, x1, ceilY, z1, 'のりかえ通路', `${o.line.nameEn} mezzanine`);
+  // Pointer in the street-level concourse.
+  b.sign({ k: 'guide', ja: `${o.line.nameJa} のりかえ`, en: `Transfer: ${o.line.nameEn}`, bg: 'white', badges: [o.line.id], arrow: 'down' },
+    holeM[2] + 0.4, fl + 3.0, 0, [1, 0], 3.4, 0.44);
+  return holeM;
+}
+
+function buildElevated(c: Ctx, spec: ElevatedSpec, under?: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }) {
   const { b, line, station, railY, style } = c;
   const d = hallDims(line, railY);
   const pf = d.pf;
@@ -318,7 +418,8 @@ function buildElevated(c: Ctx, spec: ElevatedSpec) {
   const run = Math.round((pf - fl) * 1.7 * 100) / 100;
   const sx0 = 8, sx1 = sx0 + run;
   const holeZ0 = d.wallZ - 2.62;
-  const lines = [line.id];
+  const lines = [line.id, ...(under ? [under.ctx.line.id] : [])];
+  const floorHole: Rect[] = under ? [underLine(c, under, fl)] : [];
 
   hall(c, {
     ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pf + 3.3, emit: false }],
@@ -335,7 +436,7 @@ function buildElevated(c: Ctx, spec: ElevatedSpec) {
 
   // Ground-level concourse under the viaduct.
   const cx0 = -26, cx1 = 26, cw = 9;
-  b.box(style.floor, cx0, 0.1, -cw, cx1, fl, cw);
+  b.slab(style.floor, cx0, -cw, cx1, cw, 0.1, fl, floorHole);
   const glassWall = (x0: number, x1: number, z0: number, z1: number) => {
     b.block(x0, fl, z0, x1, deckUnder, z1);
     b.deco('glass', x0, fl + 0.5, z0 + 0.04, x1, deckUnder - 0.6, z1 - 0.04);
@@ -380,9 +481,9 @@ function buildElevated(c: Ctx, spec: ElevatedSpec) {
   // ── Suburban surroundings ──
   const X = PLOT_X, Z = PLOT_Z, GY = GROUND_Y;
   const road = [-X, 26, X, 36], crossSt = [68.5, 36, 75.5, Z], back = [-X, -24, X, -18];
-  b.box('asphalt', -X, -0.6, -Z, X, 0, Z);
+  b.slab('asphalt', -X, -Z, X, Z, -0.6, 0, floorHole);
   b.slab('paver', -X, -Z, X, Z, 0, GY, [road, crossSt, back, [cx0, -cw, cx1, cw]]);
-  b.box('paver', cx0, 0, -cw, cx1, 0.1, cw);
+  b.slab('paver', cx0, -cw, cx1, cw, 0, 0.1, floorHole);
   b.zone('street', -X, -0.3, -Z, X, 80, Z, `${station.nameJa}駅前`, `${station.nameRomaji} — station plaza`);
   b.block(-X - 1, -1, -Z - 1, -X, 40, Z + 1);
   b.block(X, -1, -Z - 1, X + 1, 40, Z + 1);
@@ -473,6 +574,15 @@ export interface StationBuildInput {
   lines: { line: LineDef; stop: number; railY: number; dir: [number, number] }[];
 }
 
+/** Offset of a beside line's platform centre from the station point, in the primary's frame (+z to the right). */
+function besideOffset(station: StationDef, p: StationBuildInput['lines'][number], l: StationBuildInput['lines'][number]): number {
+  const at = station.at![l.line.id]!;
+  const dx = at.x - station.position.x, dz = at.y - station.position.y;
+  const z = -dx * p.dir[1] + dz * p.dir[0];
+  if (z <= 0) throw new Error(`${station.id}: the line beside the primary must be on its +z side`);
+  return z;
+}
+
 export function buildStation(input: StationBuildInput): { build: Build; primary: string } {
   const b = new Builder();
   const { station, spec } = input;
@@ -481,15 +591,23 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
   if (spec.kind === 'interchange' || spec.kind === 'hub') {
     const beside = spec.kind === 'hub' ? spec.beside : undefined;
     const p = input.lines.find((l) => l.line.id === spec.primary)!;
-    const o = input.lines.find((l) => l.line.id !== spec.primary && l.line.id !== beside)!;
+    const o = input.lines.find((l) => l.line.id !== spec.primary && l.line.id !== beside && !station.at?.[l.line.id])!;
     const other = { ctx: mk(o), dir: o.dir, primaryDir: p.dir };
     const bl = input.lines.find((l) => l.line.id === beside);
     if (spec.kind === 'hub') buildHub(mk(p), spec, other, bl && mk(bl));
-    else buildInterchange(mk(p), spec, other);
+    else {
+      // A line beside the primary is the one whose platforms sit off the station point (StationDef.at).
+      const side = input.lines.find((l) => l !== p && l !== o && station.at?.[l.line.id]);
+      buildInterchange(mk(p), spec, other, side && { ctx: mk(side), z: besideOffset(station, p, side) });
+    }
     return { build: b.out, primary: p.line.id };
   }
   const l = input.lines[0];
-  if (spec.kind === 'elevated') buildElevated(mk(l), spec);
+  if (spec.kind === 'elevated') {
+    // A second line here crosses underneath (Hibarino).
+    const u = input.lines[1];
+    buildElevated(mk(l), spec, u && { ctx: mk(u), dir: u.dir, primaryDir: l.dir });
+  }
   else buildUnderground(mk(l), spec);
   return { build: b.out, primary: l.line.id };
 }

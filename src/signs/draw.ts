@@ -1,6 +1,6 @@
 // Canvas drawing for every sign type. All text comes from the network data.
 
-import { LINES, OPERATOR, STATIONS, lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, OPERATOR, STATIONS, diagramPath, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
 import { nextArrivals, nextDepartures, trainStateAt } from '../sim/timetable';
@@ -231,8 +231,8 @@ function drawDiagram(ctx: Ctx, x: number, y: number, w: number, h: number, here?
     ctx.strokeStyle = l.color;
     ctx.lineWidth = 9 * sc;
     ctx.beginPath();
-    l.stops.forEach((id, i) => {
-      const [px, py] = P(stationById(id));
+    diagramPath(l).forEach(([dx, dy], i) => {
+      const px = ox + dx * sc, py = oy + dy * sc;
       if (i) ctx.lineTo(px, py);
       else ctx.moveTo(px, py);
     });
@@ -839,6 +839,52 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       }
     }
     ctx.globalAlpha = 1;
+  } else if (c.v === 'bellflower') {
+    // Kikyō: five-pointed balloon-flower stars in violet, with buds, on pale lilac.
+    ctx.fillStyle = '#f1edf6';
+    ctx.fillRect(0, 0, W, H);
+    const hash = (n: number) => {
+      const v = Math.sin(n * 12.9898) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    const n = Math.round(W / (H * 0.38));
+    for (let i = 0; i < n; i++) {
+      const x = ((i + 0.2 + 0.6 * hash(i + 1)) / n) * W, y = H * (0.25 + 0.5 * hash(i + 41));
+      const r = H * (0.12 + 0.05 * hash(i + 81)), a = hash(i + 121) * 1.2;
+      // Stem and a bud.
+      ctx.strokeStyle = '#6f8f55';
+      ctx.lineWidth = H * 0.012;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + r * 0.4, y + r * 1.4, x - r * 0.2, H);
+      ctx.stroke();
+      ctx.fillStyle = '#a98bd0';
+      ctx.beginPath();
+      ctx.ellipse(x + r * 1.1, y + r * 0.9, r * 0.22, r * 0.32, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      // The flower: a pentagonal star with rounded points and a darker vein to each tip.
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const t = a + (k / 10) * Math.PI * 2 - Math.PI / 2, rr = k % 2 ? r * 0.62 : r;
+        ctx.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#3e2466';
+      ctx.lineWidth = H * 0.006;
+      for (let k = 0; k < 5; k++) {
+        const t = a + (k / 5) * Math.PI * 2 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(t) * r * 0.85, y + Math.sin(t) * r * 0.85);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#f4f0c8';
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else if (c.v === 'willow') {
     // Gilded willow: long gold fronds on deep green, for the hub.
     ctx.fillStyle = '#12382c';

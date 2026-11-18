@@ -6,10 +6,10 @@ A reference for building stylized-realistic Japanese metro stations. The aim is 
 
 | Composer | Used by | Shape |
 |---|---|---|
-| **Underground** (`buildUnderground`) | 13 stations | Street → exits → B1 concourse (gates at one or both ends) → stairs → platform hall. Works for island or side platforms. |
-| **Interchange** (`buildInterchange`) | Tsumugibashi, Aizomechō, Daigaku-mae | Shared B1 concourse over the upper line; a transfer passage beside each upper platform; stairs down to the deeper line's island platform, which crosses at 90°. The upper line must have side platforms and the lower one an island. |
+| **Underground** (`buildUnderground`) | 30 stations | Street → exits → B1 concourse (gates at one or both ends) → stairs → platform hall. Works for island or side platforms. |
+| **Interchange** (`buildInterchange`) | Tsumugibashi, Aizomechō, Daigaku-mae, Kawaminato-kō, Watayamachi, Tōmyōbori | Shared B1 concourse over the upper line; a transfer passage outside each side wall of the upper hall; stairs down to the deeper line's island platform, which crosses at 90°. The lower line must have an island platform.<br>- Side-platform upper line: doorways lead straight into the passages.<br>- Island upper line: the passages are reached from the concourse.<br>- With a line **beside** the upper one (Tsumugibashi's K): that line gets its own hall on the +z side, with island stairs into a concourse widened over both halls. The +z passage moves out past its far wall. |
 | **Hub** (`buildHub`, `hub.ts`) | Kita-Ōdōri | Two island-platform lines crossing at 90°, and a third alongside the deeper one, under a glass-roofed atrium, with a shopping street, a plaza and shells for future railways. See below. |
-| **Elevated** (`buildElevated`) | Hibarino | Street-level concourse under a viaduct; stairs up through the deck to side platforms with canopies. |
+| **Elevated** (`buildElevated`) | Hibarino, Asahino, Takanodai, Izumigaoka | Street-level concourse under a viaduct; stairs up through the deck to side platforms with canopies. With a second line (Hibarino's K), that line crosses underneath: its island hall, a stair to a paid B1 mezzanine, and a flight up into the paid concourse (`underLine`). |
 
 Vertical order underground: street (0) → concourse floor (platform + 4.9 m) → platform (rail + 1.1 m). Platforms are 116 m long for 6-car, 18 m-car trains.
 

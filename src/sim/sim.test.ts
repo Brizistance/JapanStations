@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LINES, STATIONS, S_BESIDE_A, linesAt } from '../data/network';
+import { K_BESIDE_N, LINES, STATIONS, S_BESIDE_A, lineById, linesAt } from '../data/network';
 import { hallDims } from '../stations/kit';
 import { NET, carPose, lineSim, type CarPose } from './index';
 import { CAR_PITCH, FLAT_M, HALL_HALF, TAIL_END } from './geometry';
@@ -30,7 +30,7 @@ describe('network data', () => {
   });
   it('every interchange has its lines crossing at right angles and different depths, or side by side', () => {
     const shared = STATIONS.filter((s) => linesAt(s.id).length > 1);
-    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'daigaku-mae', 'kita-odori', 'tsumugibashi']);
+    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'daigaku-mae', 'hibarino', 'kawaminato-ko', 'kita-odori', 'tomyobori', 'tsumugibashi', 'watayamachi']);
     for (const s of shared) {
       const at = linesAt(s.id).map((l) => {
         const g = lineSim(l.id).geom, ss = g.stopS[l.stops.indexOf(s.id)];
@@ -53,10 +53,11 @@ describe('network data', () => {
             }
           }
           if (beside) {
-            // Side by side, in the hub's B4 box: parallel, same direction, same depth, 15.9 m apart.
+            // Side by side: parallel, same direction, same depth, one hall wall + 0.5 m + the other's apart.
             expect(dot).toBeGreaterThan(1 - 1e-6);
             expect(Math.abs(a.p.y - b.p.y)).toBeLessThan(1e-6);
-            expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeCloseTo(S_BESIDE_A, 3);
+            const gap = hallDims(lineById(a.id), a.p.y).wallZ + 0.5 + hallDims(lineById(b.id), b.p.y).wallZ;
+            expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeCloseTo(gap, 3);
           } else {
             expect(Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z)).toBeLessThan(0.5);
             expect(Math.abs(a.p.y - b.p.y)).toBeGreaterThan(6);
@@ -71,6 +72,9 @@ describe('network data', () => {
     const a = lineSim('A').geom.def, s = lineSim('S').geom.def;
     expect(hallDims(a, -20).wallZ + 0.5 + 15.4 / 2).toBeCloseTo(S_BESIDE_A, 6);
     expect(hallDims(s, -20).wallZ * 2).toBeCloseTo(15.4, 6);
+  });
+  it('the Kikyō Line runs beside the Nagisa Line at Tsumugibashi by the same rule', () => {
+    expect(hallDims(lineById('N'), -11.5).wallZ + 0.5 + hallDims(lineById('K'), -11.5).wallZ).toBeCloseTo(K_BESIDE_N, 6);
   });
   it('lines that cross between stations are far enough apart in depth', () => {
     // Running tunnels are about 6 m tall; keep 7 m between rail levels wherever two lines cross
@@ -165,6 +169,6 @@ describe('timetable', () => {
       const deps = nextDepartures(tt, 1, 'down', 0, 5);
       for (let i = 1; i < deps.length; i++) expect(deps[i].dep - deps[i - 1].dep).toBe(tt.headway);
     }
-    expect(LINES.length).toBe(4);
+    expect(LINES.length).toBe(5);
   });
 });

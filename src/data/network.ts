@@ -51,6 +51,28 @@ const S_BEND: [number, number] = along(DAIGAKU, S_SOUTH_DIR, (S_ODORI_Z - DAIGAK
 // Past Hanamizuki it turns due east along the bay shore.
 const S_TURN: [number, number] = along(DAIGAKU, S_SOUTH_DIR, 2550);
 
+// Kikyō Line. It weaves between the older lines on tighter (250 m) curves, crossing each
+// one at a station: N under Kawaminato-kō, A over Watayamachi, beside N through
+// Tsumugibashi (crossing Y there), S under Tōmyōbori and N again under Hibarino.
+// Beside N at Tsumugibashi: N's side-platform hall wall 8.58 + 0.5 structure + K's island
+// hall wall 7.7 (the same rule that puts S 15.9 m from A at the hub).
+export const K_BESIDE_N = 16.78;
+const K_PORT_X = 320; // north–south through Kawaminato-kō
+const K_COTTON_Z = 800; // east–west through Watayamachi
+const TOMYOBORI: [number, number] = along(DAIGAKU, S_SOUTH_DIR, 750);
+const HIBARINO: [number, number] = along(N_BEND, N_EAST_DIR, 1470);
+const NNW: [number, number] = [-S_SOUTH_DIR[0], -S_SOUTH_DIR[1]]; // across N's east leg
+// The corner between Tōmyōbori (heading along N_EAST_DIR) and Hibarino (heading NNW).
+const K_EAST: [number, number] = (() => {
+  // Solve TOMYOBORI + u·N_EAST = HIBARINO − t·NNW for u.
+  const [ax, az] = TOMYOBORI, [bx, bz] = HIBARINO, [dx, dz] = N_EAST_DIR, [ex, ez] = S_SOUTH_DIR;
+  const det = dx * -ez + ex * dz;
+  const u = ((bx - ax) * -ez + ex * (bz - az)) / det;
+  return along(TOMYOBORI, N_EAST_DIR, u);
+})();
+// North of Hibarino it turns to run parallel to N, 500 m north of it, into the east hills.
+const K_HILLS: [number, number] = along(HIBARINO, NNW, 500);
+
 export const LINES: LineDef[] = [
   {
     id: 'Y',
@@ -119,6 +141,32 @@ export const LINES: LineDef[] = [
     alignment: { vertices: [[-1380, S_ODORI_Z], S_BEND, S_TURN, along(S_TURN, [1, 0], 1500)], radius: 400 },
     service: { ...baseService, headwayS: 300 },
   },
+  {
+    // Fifth line: a crosstown line through the south of the city that meets every other
+    // line once. Same generation as A and S: island platforms behind full-height doors.
+    id: 'K',
+    nameEn: 'Kikyō Line',
+    nameJa: '桔梗線',
+    nameKana: 'ききょうせん',
+    color: '#7b4fa8',
+    type: 'metro',
+    stops: ['shinshio', 'kawaminato-ko', 'watayamachi', 'tsumugibashi', 'tomyobori', 'hibarino', 'higashigaoka', 'shin-hibarino'],
+    railY: [-10, -18.5, -10, -11.5, -21.5, -12, -12, -10],
+    platformType: 'island',
+    platformDoors: 'full',
+    trackOffset: 5.5,
+    alignment: {
+      vertices: [
+        [-700, -400], [K_PORT_X, -400], [K_PORT_X, K_COTTON_Z], [1380, K_COTTON_Z],
+        [1560, K_BESIDE_N], [2150, K_BESIDE_N], along(TOMYOBORI, N_EAST_DIR, -600),
+        K_EAST, K_HILLS, along(K_HILLS, N_EAST_DIR, 1820),
+      ],
+      radius: 250,
+    },
+    service: { ...baseService, headwayS: 300 },
+    // Route-map corners between stations: below Kawaminato-kō, east of Tōmyōbori, above Hibarino.
+    diagramBends: { 1: [[420, 680]], 4: [[1020, 680]], 5: [[1370, 330]] },
+  },
 ];
 
 export const STATIONS: StationDef[] = [
@@ -181,13 +229,14 @@ export const STATIONS: StationDef[] = [
     nameJa: '紬橋',
     nameKana: 'つむぎばし',
     nameRomaji: 'Tsumugibashi',
-    numbers: { Y: 'Y-13', N: 'N-13' },
+    numbers: { Y: 'Y-13', N: 'N-13', K: 'K-14' },
     position: { x: 1870, y: 0 },
+    at: { K: { x: 1870, y: K_BESIDE_N } },
     diagram: { x: 760, y: 480, label: 'ne', badges: 'nw' },
     district: 'Central',
     districtJa: '中央',
-    platforms: { Y: [1, 2], N: [3, 4] },
-    blurb: 'The central interchange. Yanagisuji and Nagisa lines cross here.',
+    platforms: { Y: [1, 2], N: [3, 4], K: [5, 6] },
+    blurb: 'The central interchange. The Yanagisuji Line crosses under the Nagisa and Kikyō lines, which run side by side.',
   },
   {
     id: 'hyotanbori',
@@ -196,7 +245,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Hyōtanbori',
     numbers: { Y: 'Y-14' },
     position: { x: 1870, y: 650 },
-    diagram: { x: 760, y: 580, label: 'right' },
+    diagram: { x: 760, y: 610, label: 'left' },
     district: 'Minami (south hub)',
     districtJa: 'ミナミ',
     platforms: { Y: [1, 2] },
@@ -286,13 +335,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '川湊港',
     nameKana: 'かわみなとこう',
     nameRomaji: 'Kawaminato-kō',
-    numbers: { N: 'N-11' },
+    numbers: { N: 'N-11', K: 'K-12' },
     position: { x: 320, y: 0 },
     diagram: { x: 420, y: 480, label: 'se' },
     district: 'Bay area',
     districtJa: 'ベイエリア',
-    platforms: { N: [1, 2] },
-    blurb: 'Redeveloped port: brick warehouses and the ferry pier.',
+    platforms: { N: [1, 2], K: [3, 4] },
+    blurb: 'Redeveloped port: brick warehouses and the ferry pier. Nagisa and Kikyō lines cross here.',
   },
   {
     id: 'aizomecho',
@@ -325,13 +374,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '雲雀野',
     nameKana: 'ひばりの',
     nameRomaji: 'Hibarino',
-    numbers: { N: 'N-15' },
+    numbers: { N: 'N-15', K: 'K-16' },
     position: pos(along(N_BEND, N_EAST_DIR, 1470)),
-    diagram: { x: 1160, y: 480, label: 'se' },
+    diagram: { x: 1220, y: 480, label: 'se', badges: 'nw' },
     district: 'East hills',
     districtJa: '東丘',
-    platforms: { N: [1, 2] },
-    blurb: 'Elevated suburban station where the line comes out into the eastern hills.',
+    platforms: { N: [1, 2], K: [3, 4] },
+    blurb: 'Suburban station where the Nagisa Line comes out onto its viaduct; the Kikyō Line crosses underneath.',
   },
   {
     id: 'asahino',
@@ -340,7 +389,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Asahino',
     numbers: { N: 'N-16' },
     position: pos(along(N_BEND, N_EAST_DIR, 2170)),
-    diagram: { x: 1290, y: 480 },
+    diagram: { x: 1340, y: 480 },
     district: 'East suburbs',
     districtJa: '東郊外',
     platforms: { N: [1, 2] },
@@ -353,7 +402,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Takanodai',
     numbers: { N: 'N-17' },
     position: pos(along(N_BEND, N_EAST_DIR, 2870)),
-    diagram: { x: 1420, y: 480 },
+    diagram: { x: 1460, y: 480 },
     district: 'East hills',
     districtJa: '東丘',
     platforms: { N: [1, 2] },
@@ -366,7 +415,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Izumigaoka',
     numbers: { N: 'N-18' },
     position: pos(along(N_BEND, N_EAST_DIR, 3570)),
-    diagram: { x: 1550, y: 480 },
+    diagram: { x: 1580, y: 480 },
     district: 'East new town',
     districtJa: '東部ニュータウン',
     platforms: { N: [1, 2] },
@@ -417,13 +466,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '綿屋町',
     nameKana: 'わたやまち',
     nameRomaji: 'Watayamachi',
-    numbers: { A: 'A-12' },
+    numbers: { A: 'A-12', K: 'K-13' },
     position: { x: A_SUJI_X, y: 800 },
-    diagram: { x: 560, y: 680, label: 'right', badges: 'nw' },
+    diagram: { x: 560, y: 680, label: 'se', badges: 'nw' },
     district: 'Merchant quarter (south)',
     districtJa: '問屋街',
-    platforms: { A: [1, 2] },
-    blurb: 'The cotton wholesalers’ street, all noren and shophouses.',
+    platforms: { A: [1, 2], K: [3, 4] },
+    blurb: 'The cotton wholesalers’ street, all noren and shophouses. Kikyō and Akanesuji lines cross here.',
   },
   {
     id: 'suzukakedori',
@@ -561,13 +610,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '灯明堀',
     nameKana: 'とうみょうぼり',
     nameRomaji: 'Tōmyōbori',
-    numbers: { S: 'S-15' },
+    numbers: { S: 'S-15', K: 'K-15' },
     position: pos(along(DAIGAKU, S_SOUTH_DIR, 750)),
-    diagram: { x: 960, y: 680, label: 'right' },
+    diagram: { x: 960, y: 680, label: 'se', badges: 'sw' },
     district: 'South-east canals',
     districtJa: '南東運河',
-    platforms: { S: [1, 2] },
-    blurb: 'Lantern-lit canal quarter of small temples and teahouses.',
+    platforms: { S: [1, 2], K: [3, 4] },
+    blurb: 'Lantern-lit canal quarter of small temples and teahouses. Shiokaze and Kikyō lines cross here.',
   },
   {
     id: 'sakurazutsumi',
@@ -576,7 +625,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Sakurazutsumi',
     numbers: { S: 'S-16' },
     position: pos(along(DAIGAKU, S_SOUTH_DIR, 1450)),
-    diagram: { x: 960, y: 760, label: 'right' },
+    diagram: { x: 960, y: 770, label: 'right' },
     district: 'South-east',
     districtJa: '南東',
     platforms: { S: [1, 2] },
@@ -589,7 +638,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Hanamizuki',
     numbers: { S: 'S-17' },
     position: pos(along(DAIGAKU, S_SOUTH_DIR, 2150)),
-    diagram: { x: 960, y: 840, label: 'left', badges: 'sw' },
+    diagram: { x: 960, y: 850, label: 'left', badges: 'sw' },
     district: 'South-east',
     districtJa: '南東',
     platforms: { S: [1, 2] },
@@ -602,7 +651,7 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Shin-Sakuragawa',
     numbers: { S: 'S-18' },
     position: pos(along(S_TURN, [1, 0], 400)),
-    diagram: { x: 1100, y: 840 },
+    diagram: { x: 1100, y: 850 },
     district: 'South-east canals',
     districtJa: '南東運河',
     platforms: { S: [1, 2] },
@@ -615,11 +664,51 @@ export const STATIONS: StationDef[] = [
     nameRomaji: 'Uminomori',
     numbers: { S: 'S-19' },
     position: pos(along(S_TURN, [1, 0], 1100)),
-    diagram: { x: 1240, y: 840 },
+    diagram: { x: 1240, y: 850 },
     district: 'Bay forest',
     districtJa: '海の森',
     platforms: { S: [1, 2] },
     blurb: 'Terminus beside the forest park planted on the old landfill.',
+  },
+  // ── Kikyō Line ──
+  {
+    id: 'shinshio',
+    nameJa: '新潮',
+    nameKana: 'しんしお',
+    nameRomaji: 'Shinshio',
+    numbers: { K: 'K-11' },
+    position: { x: -350, y: -400 },
+    diagram: { x: 420, y: 380, label: 'right' },
+    district: 'Bay front',
+    districtJa: 'ベイフロント',
+    platforms: { K: [1, 2] },
+    blurb: 'Terminus on the new bay front between the river mouth and the port: ferry offices, a fish market hall and new flats.',
+  },
+  {
+    id: 'higashigaoka',
+    nameJa: '東ヶ丘',
+    nameKana: 'ひがしがおか',
+    nameRomaji: 'Higashigaoka',
+    numbers: { K: 'K-17' },
+    position: pos(along(K_HILLS, N_EAST_DIR, 700)),
+    diagram: { x: 1440, y: 330 },
+    district: 'East hills',
+    districtJa: '東丘',
+    platforms: { K: [1, 2] },
+    blurb: 'Hillside streets of houses and a shrine wood, above the Nagisa Line valley.',
+  },
+  {
+    id: 'shin-hibarino',
+    nameJa: '新雲雀野',
+    nameKana: 'しんひばりの',
+    nameRomaji: 'Shin-Hibarino',
+    numbers: { K: 'K-18' },
+    position: pos(along(K_HILLS, N_EAST_DIR, 1400)),
+    diagram: { x: 1570, y: 330 },
+    district: 'East new town',
+    districtJa: '東部ニュータウン',
+    platforms: { K: [1, 2] },
+    blurb: 'Terminus of the newest eastern estate, laid out around a skylark meadow park.',
   },
 ];
 
@@ -634,6 +723,27 @@ export const stationById = (id: StationId): StationDef => {
   return s;
 };
 export const linesAt = (id: StationId): LineDef[] => LINES.filter((l) => l.stops.includes(id));
+
+/** Route-map polyline for segment i of a line (stops[i] → stops[i + 1]), including any corners. */
+export function diagramSegment(line: LineDef, i: number): [number, number][] {
+  const a = stationById(line.stops[i]).diagram, b = stationById(line.stops[i + 1]).diagram;
+  return [[a.x, a.y], ...(line.diagramBends?.[i] ?? []), [b.x, b.y]];
+}
+
+/** Route-map polyline for a whole line. */
+export const diagramPath = (line: LineDef): [number, number][] =>
+  line.stops.slice(0, -1).flatMap((_, i) => diagramSegment(line, i).slice(i ? 1 : 0));
+
+/** Point a fraction f (may run slightly past 0..1) along a polyline, and the direction there. */
+export function alongPolyline(pts: [number, number][], f: number): { x: number; y: number; dx: number; dy: number } {
+  const lens = pts.slice(1).map((p, k) => Math.hypot(p[0] - pts[k][0], p[1] - pts[k][1]));
+  const total = lens.reduce((s, l) => s + l, 0);
+  let d = f * total, k = 0;
+  while (k < lens.length - 1 && d > lens[k]) d -= lens[k++];
+  const [ax, ay] = pts[k], [bx, by] = pts[k + 1];
+  const dx = (bx - ax) / lens[k], dy = (by - ay) / lens[k];
+  return { x: ax + dx * d, y: ay + dy * d, dx, dy };
+}
 
 /** Terminus a train heading `dir` on `line` is bound for. */
 export const terminusOf = (line: LineDef, dir: 'down' | 'up'): StationDef =>

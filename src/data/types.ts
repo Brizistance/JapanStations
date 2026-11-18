@@ -47,6 +47,11 @@ export interface LineDef {
   /** Centreline in world metres (x = east, z = south). Corners are filleted with `radius`. */
   alignment: { vertices: [number, number][]; radius: number };
   service: ServicePattern;
+  /**
+   * Route-map corners that are not stations, keyed by segment (i = from stops[i] to
+   * stops[i + 1]). Without one, the map draws a segment as a straight line.
+   */
+  diagramBends?: Record<number, [number, number][]>;
 }
 
 export interface StationDef {
@@ -73,7 +78,7 @@ export interface StationDef {
   diagram: {
     x: number;
     y: number;
-    label?: 'right' | 'left' | 'below' | 'se' | 'ne' | 'nw';
+    label?: 'right' | 'left' | 'below' | 'se' | 'sw' | 'ne' | 'nw';
     badges?: 'ne' | 'nw' | 'sw';
   };
   district: string;
