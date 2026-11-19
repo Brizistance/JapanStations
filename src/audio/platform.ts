@@ -12,8 +12,9 @@ import { clock } from '../sim';
 import { input, player, where } from '../player/player';
 import { platformNo, platformTrains, statusOf, type Status } from '../signs/departures';
 import { trains } from '../trains/system';
-import { announce, hushVoice, paIdle, playAt, playStep, setAmbience, setRoom, setSpeakers, tickListener, type Ambience, type Hearing, type SoundHandle } from './engine';
-import { announcement, NOTICES, type Event } from './phrases';
+import { announce, hushVoice, paIdle, playAt, playSeqAt, playStep, setAmbience, setRoom, setSpeakers, tickListener, type Ambience, type Hearing, type SoundHandle } from './engine';
+import { announcement, NOTICES, PLATFORM_DOOR, type Event } from './phrases';
+import { tickCarAudio } from './car';
 import { approachSfx, melodySeconds, melodySfx, STEP_COUNT } from './sfx';
 
 /** The announcement a status change calls for, if any. Doors closing is timed separately. */
@@ -44,6 +45,8 @@ interface Tracked {
   braking: boolean;
   open: boolean;
   wind: boolean;
+  pdOpen: boolean;
+  pdClose: boolean;
   melody: boolean;
   closing: boolean;
   idle: SoundHandle | null;
@@ -56,6 +59,11 @@ let stepT = 0, lastStep = 0;
 type V3 = [number, number, number];
 /** Each track's row of PA speakers, world coordinates. */
 let rows: Record<Dir, V3[]> = { down: [], up: [] };
+/**
+ * PA channel per track. An island platform is one platform: both tracks share its speakers
+ * and one queue. Side platforms each have their own.
+ */
+let chan: Record<Dir, string> = { down: 'down', up: 'up' };
 
 const voice = (keys: { key: string }[]) => keys.map((c) => `voice/${c.key}`);
 
@@ -115,9 +123,11 @@ function placeRows(w: StationWorld, line: string) {
   const local = b ? speakerRows(b.min, b.max) : { down: [], up: [] };
   const world = (ps: V3[]) => ps.map((p) => toWorld(w.frame, p, [0, 0, 0]) as V3);
   rows = { down: world(local.down), up: world(local.up) };
-  setSpeakers('down', rows.down);
-  setSpeakers('up', rows.up);
-  setSpeakers('all', [...rows.down, ...rows.up].filter((_, i) => i % 2 === 0));
+  const island = lineById(line).platformType === 'island';
+  chan = island ? { down: 'shared', up: 'shared' } : { down: 'down', up: 'up' };
+  setSpeakers('shared', island ? [...rows.down, ...rows.up] : []);
+  setSpeakers('down', island ? [] : rows.down);
+  setSpeakers('up', island ? [] : rows.up);
 }
 
 /** Echo from the size of the room the player is in: big halls ring longer. */
@@ -139,6 +149,17 @@ function ambience(playing: boolean, under: boolean): Ambience {
   return z?.kind === 'platform' ? 'amb-platform' : 'amb-concourse';
 }
 
+/** The platform door nearest the player on a track's edge, at door-speaker height. */
+let listenerAt: V3 = [0, 0, 0];
+function doorPos(dir: Dir): V3 | null {
+  const r = rows[dir];
+  if (r.length < 2) return null;
+  const a = r[0], b = r[r.length - 1], p = listenerAt;
+  const ab = [b[0] - a[0], b[2] - a[2]], L2 = ab[0] ** 2 + ab[1] ** 2;
+  const k = Math.max(0, Math.min(1, ((p[0] - a[0]) * ab[0] + (p[2] - a[2]) * ab[1]) / L2));
+  return [a[0] + ab[0] * k, a[1] - 2.4, a[2] + ab[1] * k];
+}
+
 /** The end of a track's speaker row nearest a point: the tunnel mouth a train comes out of. */
 function nearEnd(dir: Dir, p: V3 | null): () => V3 | null {
   const r = rows[dir];
@@ -155,6 +176,8 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
   const under = cam.y < -1.2 && !zone?.sky;
   const h = playing ? hearing(under) : { level: 0, muffled: true, under: false };
   tickListener(cam.x, cam.y, cam.z, yaw, h);
+  listenerAt = [cam.x, cam.y, cam.z];
+  if (playing) tickCarAudio();
   const amb = ambience(playing, under);
   setAmbience(amb, amb === 'amb-outdoor' && zone?.kind === 'street' ? 0.6 : 1);
   if (playing) tickSteps(dt);
@@ -196,7 +219,7 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
       t = {
         arr: d.arr, dep: d.dep, train: d.train, line: d.line, boarding: d.boarding, status: prev,
         braking: now > d.arr - ARRIVE_LEAD, open: now >= d.arr + DOORS_OPEN_AFTER,
-        wind: now > d.arr - WIND_LEAD, melody: now >= d.dep - melodyS - CLOSING_VOICE_S, closing: now >= d.dep - DOORS_CLOSE_BEFORE,
+        wind: now > d.arr - WIND_LEAD, pdOpen: now >= d.arr + 1, pdClose: now >= d.dep - DOORS_CLOSE_BEFORE - 1, melody: now >= d.dep - melodyS - CLOSING_VOICE_S, closing: now >= d.dep - DOORS_CLOSE_BEFORE,
         idle: dwelling ? playAt('train-idle', trainPos(d.line.id, d.train), { loop: true, gain: 0.6 }) : null,
       };
       tracks.set(dir, t);
@@ -207,7 +230,8 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     t.status = status;
     if (ev) {
       const clips = voice(announcement(ev, st!, d.line, dir, track));
-      announce(dir, tag, ev === 'approach' ? [`sfx/${approachSfx(pl.id)}`, ...clips] : clips);
+      // If it has to wait behind the other track's, it plays just the Japanese line.
+      announce(chan[dir], tag, ev === 'approach' ? [`sfx/${approachSfx(pl.id)}`, ...clips] : clips, { short: clips.slice(0, 1) });
     }
     const pos = trainPos(d.line.id, d.train);
     if (!t.wind && now >= d.arr - WIND_LEAD) {
@@ -225,7 +249,18 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     }
     if (d.boarding && !t.melody && now >= d.dep - melodyS - CLOSING_VOICE_S) {
       t.melody = true;
-      announce(dir, tag, [`sfx/${melodySfx(st!.id)}`, ...voice(announcement('closing', st!, d.line, dir, track))], true);
+      announce(chan[dir], tag, [`sfx/${melodySfx(st!.id)}`, ...voice(announcement('closing', st!, d.line, dir, track))], { priority: true });
+    }
+    // The platform doors' own little speakers: a chime as they open; chime and voice as they close.
+    if (!t.pdOpen && now >= d.arr + 1) {
+      t.pdOpen = true;
+      const at = doorPos(dir);
+      if (at) playSeqAt(['sfx/pd-chime'], at, 0.7);
+    }
+    if (d.boarding && !t.pdClose && now >= d.dep - DOORS_CLOSE_BEFORE - 1) {
+      t.pdClose = true;
+      const at = doorPos(dir);
+      if (at) playSeqAt(['sfx/pd-chime', ...voice(PLATFORM_DOOR)], at, 0.8);
     }
     if (d.boarding && !t.closing && now >= d.dep - DOORS_CLOSE_BEFORE) {
       t.closing = true;
@@ -237,7 +272,8 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
   if (quiet && paIdle() && performance.now() >= nextNotice) {
     nextNotice = performance.now() + 100000 + Math.random() * 100000;
     noticeIdx = (noticeIdx + 1) % NOTICES.length;
-    announce('all', `${key}:notice`, ['sfx/chime', ...voice(NOTICES[noticeIdx])]);
+    // Same notice on every platform of this line.
+    for (const c of new Set(Object.values(chan))) announce(c, `${key}:notice`, ['sfx/chime', ...voice(NOTICES[noticeIdx])]);
   }
 }
 

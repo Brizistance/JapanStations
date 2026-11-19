@@ -1298,5 +1298,685 @@
  "M-f5ddcea2": {
   "voice": "M",
   "text": "This is Higashigaoka."
+ },
+ "C-7a0c02e2": {
+  "voice": "C",
+  "text": "優先席付近では、混雑時には、携帯電話の電源をお切りください。それ以外の場所では、マナーモードに設定のうえ、通話はご遠慮ください。"
+ },
+ "C-3623dcbc": {
+  "voice": "C",
+  "text": "Please set your mobile phone to silent mode and refrain from talking on the phone."
+ },
+ "C-38043ac4": {
+  "voice": "C",
+  "text": "電車が揺れることがありますので、つり革や手すりに、おつかまりください。"
+ },
+ "C-f2fbf776": {
+  "voice": "C",
+  "text": "Please hold on to a strap or handrail, as the train may sway."
+ },
+ "C-e1a6ebf5": {
+  "voice": "C",
+  "text": "車内で不審な物や、不審な人物を見かけましたら、お近くの係員か、非常通報装置でお知らせください。"
+ },
+ "C-5edcb663": {
+  "voice": "C",
+  "text": "If you notice any suspicious items or persons, please notify the station staff or use the emergency intercom."
+ },
+ "C-2805e472": {
+  "voice": "C",
+  "text": "リュックなどの大きな荷物は、前に抱えるか、網棚に置いて、周りのお客様のご迷惑にならないよう、ご協力ください。"
+ },
+ "C-83385a04": {
+  "voice": "C",
+  "text": "Please hold large bags in front of you or place them on the rack."
+ },
+ "F-83f24b68": {
+  "voice": "F",
+  "text": "ホームドアが閉まります。ご注意ください。"
+ },
+ "F-f36e086b": {
+  "voice": "F",
+  "text": "The platform doors are closing."
+ },
+ "C-bf696240": {
+  "voice": "C",
+  "text": "ドアが閉まります。ご注意ください。"
+ },
+ "C-77a70b88": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、やなぎすじせん、なんこうだい行きです。"
+ },
+ "C-4f81a699": {
+  "voice": "C",
+  "text": "This is the Yanagisuji Line train bound for Nankōdai."
+ },
+ "C-3c02de9c": {
+  "voice": "C",
+  "text": "あかねすじせん、しおかぜせんは、お乗り換えです。"
+ },
+ "C-2cd81223": {
+  "voice": "C",
+  "text": "Please change here for the Akanesuji Line and the Shiokaze Line."
+ },
+ "C-0bcddead": {
+  "voice": "C",
+  "text": "なぎさせん、ききょうせんは、お乗り換えです。"
+ },
+ "C-24252dae": {
+  "voice": "C",
+  "text": "Please change here for the Nagisa Line and the Kikyō Line."
+ },
+ "C-3e4e784b": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、やなぎすじせん、しんみどりがおか行きです。"
+ },
+ "C-cd23d6e8": {
+  "voice": "C",
+  "text": "This is the Yanagisuji Line train bound for Shin-Midorigaoka."
+ },
+ "C-57e19c02": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、なぎさせん、いずみがおか行きです。"
+ },
+ "C-2483afec": {
+  "voice": "C",
+  "text": "This is the Nagisa Line train bound for Izumigaoka."
+ },
+ "C-b3b28e59": {
+  "voice": "C",
+  "text": "ききょうせんは、お乗り換えです。"
+ },
+ "C-c151d83d": {
+  "voice": "C",
+  "text": "Please change here for the Kikyō Line."
+ },
+ "C-42679d95": {
+  "voice": "C",
+  "text": "あかねすじせんは、お乗り換えです。"
+ },
+ "C-dedc5b85": {
+  "voice": "C",
+  "text": "Please change here for the Akanesuji Line."
+ },
+ "C-eef3ec3b": {
+  "voice": "C",
+  "text": "やなぎすじせん、ききょうせんは、お乗り換えです。"
+ },
+ "C-c77cd2e3": {
+  "voice": "C",
+  "text": "Please change here for the Yanagisuji Line and the Kikyō Line."
+ },
+ "C-7b187ea0": {
+  "voice": "C",
+  "text": "しおかぜせんは、お乗り換えです。"
+ },
+ "C-dd8d180c": {
+  "voice": "C",
+  "text": "Please change here for the Shiokaze Line."
+ },
+ "C-7f733e48": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、なぎさせん、みなとせんたー行きです。"
+ },
+ "C-7f272618": {
+  "voice": "C",
+  "text": "This is the Nagisa Line train bound for Minato Center."
+ },
+ "C-1f265990": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、あかねすじせん、しおんだい行きです。"
+ },
+ "C-70368e76": {
+  "voice": "C",
+  "text": "This is the Akanesuji Line train bound for Shiondai."
+ },
+ "C-d67e89dd": {
+  "voice": "C",
+  "text": "なぎさせんは、お乗り換えです。"
+ },
+ "C-59e37e7b": {
+  "voice": "C",
+  "text": "Please change here for the Nagisa Line."
+ },
+ "C-aae0523e": {
+  "voice": "C",
+  "text": "やなぎすじせん、しおかぜせんは、お乗り換えです。"
+ },
+ "C-2ac66aee": {
+  "voice": "C",
+  "text": "Please change here for the Yanagisuji Line and the Shiokaze Line."
+ },
+ "C-ecbe30e8": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、あかねすじせん、しんかもめ行きです。"
+ },
+ "C-56915d0e": {
+  "voice": "C",
+  "text": "This is the Akanesuji Line train bound for Shin-Kamome."
+ },
+ "C-77dcd7a2": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、しおかぜせん、うみのもり行きです。"
+ },
+ "C-2f2e9e93": {
+  "voice": "C",
+  "text": "This is the Shiokaze Line train bound for Uminomori."
+ },
+ "C-76f04ccb": {
+  "voice": "C",
+  "text": "やなぎすじせん、あかねすじせんは、お乗り換えです。"
+ },
+ "C-c9f7c143": {
+  "voice": "C",
+  "text": "Please change here for the Yanagisuji Line and the Akanesuji Line."
+ },
+ "C-ddd0f4b1": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、しおかぜせん、しおみ行きです。"
+ },
+ "C-733f35c5": {
+  "voice": "C",
+  "text": "This is the Shiokaze Line train bound for Shiomi."
+ },
+ "C-98ae72ba": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、ききょうせん、しんひばりの行きです。"
+ },
+ "C-10589b14": {
+  "voice": "C",
+  "text": "This is the Kikyō Line train bound for Shin-Hibarino."
+ },
+ "C-1cc69803": {
+  "voice": "C",
+  "text": "やなぎすじせん、なぎさせんは、お乗り換えです。"
+ },
+ "C-a7294791": {
+  "voice": "C",
+  "text": "Please change here for the Yanagisuji Line and the Nagisa Line."
+ },
+ "C-9edff73b": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、ききょうせん、しんしお行きです。"
+ },
+ "C-2b264d52": {
+  "voice": "C",
+  "text": "This is the Kikyō Line train bound for Shinshio."
+ },
+ "C-caccbf63": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、すみれせん、はるのだい行きです。"
+ },
+ "C-b493883f": {
+  "voice": "C",
+  "text": "やなぎすじせんは、お乗り換えです。"
+ },
+ "C-ef53fc60": {
+  "voice": "C",
+  "text": "This is the Sumire Line train bound for Harunodai."
+ },
+ "C-f8e327a8": {
+  "voice": "C",
+  "text": "Please change here for the Yanagisuji Line."
+ },
+ "C-d0d57736": {
+  "voice": "C",
+  "text": "本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、すみれせん、せいらん行きです。"
+ },
+ "C-5324d901": {
+  "voice": "C",
+  "text": "This is the Sumire Line train bound for Seiran."
+ },
+ "C-6341f4ac": {
+  "voice": "C",
+  "text": "次は、あおばだい、あおばだい。お出口は、右側です。"
+ },
+ "C-9c02e393": {
+  "voice": "C",
+  "text": "The next station is Aobadai, Y-10. The doors on the right side will open."
+ },
+ "C-df439d00": {
+  "voice": "C",
+  "text": "次は、みどりざか、みどりざか。お出口は、右側です。"
+ },
+ "C-354f0926": {
+  "voice": "C",
+  "text": "The next station is Midorizaka, Y-11. The doors on the right side will open."
+ },
+ "C-9889f9a0": {
+  "voice": "C",
+  "text": "次は、きたおおどおり、きたおおどおり。お出口は、右側です。"
+ },
+ "C-231d12d0": {
+  "voice": "C",
+  "text": "The next station is Kita-Ōdōri, Y-12. The doors on the right side will open."
+ },
+ "C-adb2363c": {
+  "voice": "C",
+  "text": "次は、つむぎばし、つむぎばし。お出口は、右側です。"
+ },
+ "C-515e4114": {
+  "voice": "C",
+  "text": "The next station is Tsumugibashi, Y-13. The doors on the right side will open."
+ },
+ "C-979d76ac": {
+  "voice": "C",
+  "text": "次は、ひょうたんぼり、ひょうたんぼり。お出口は、右側です。"
+ },
+ "C-1fc86a31": {
+  "voice": "C",
+  "text": "The next station is Hyōtanbori, Y-14. The doors on the right side will open."
+ },
+ "C-5371b598": {
+  "voice": "C",
+  "text": "次は、つるまつ、つるまつ。お出口は、右側です。"
+ },
+ "C-8ac2e864": {
+  "voice": "C",
+  "text": "The next station is Tsurumatsu, Y-15. The doors on the right side will open."
+ },
+ "C-7e4dfbb4": {
+  "voice": "C",
+  "text": "次は、みなみほりえ、みなみほりえ。お出口は、右側です。"
+ },
+ "C-cc75f09c": {
+  "voice": "C",
+  "text": "The next station is Minamihorie, Y-16. The doors on the right side will open."
+ },
+ "C-d6e44f44": {
+  "voice": "C",
+  "text": "次は、かいせいちょう、かいせいちょう。お出口は、右側です。"
+ },
+ "C-ff57f863": {
+  "voice": "C",
+  "text": "The next station is Kaiseichō, Y-17. The doors on the right side will open."
+ },
+ "C-e7b89a40": {
+  "voice": "C",
+  "text": "次は、終点、なんこうだい、なんこうだい。お出口は、右側です。"
+ },
+ "C-36a9f339": {
+  "voice": "C",
+  "text": "お忘れ物のないよう、ご注意ください。"
+ },
+ "C-d2de458c": {
+  "voice": "C",
+  "text": "The next station is Nankōdai, Y-18, the last stop. The doors on the right side will open."
+ },
+ "C-686c1a84": {
+  "voice": "C",
+  "text": "Please make sure you have all your belongings."
+ },
+ "C-961b6b02": {
+  "voice": "C",
+  "text": "次は、終点、しんみどりがおか、しんみどりがおか。お出口は、右側です。"
+ },
+ "C-65851173": {
+  "voice": "C",
+  "text": "The next station is Shin-Midorigaoka, Y-09, the last stop. The doors on the right side will open."
+ },
+ "C-34a95459": {
+  "voice": "C",
+  "text": "次は、うみべしやくしょまえ、うみべしやくしょまえ。お出口は、左側です。"
+ },
+ "C-60a751ae": {
+  "voice": "C",
+  "text": "The next station is Umibe-shiyakusho-mae, N-02. The doors on the left side will open."
+ },
+ "C-8a1b06e7": {
+  "voice": "C",
+  "text": "次は、かわみなとこう、かわみなとこう。お出口は、左側です。"
+ },
+ "C-2e99ef6d": {
+  "voice": "C",
+  "text": "The next station is Kawaminato-kō, N-03. The doors on the left side will open."
+ },
+ "C-03cef49f": {
+  "voice": "C",
+  "text": "次は、あいぞめちょう、あいぞめちょう。お出口は、左側です。"
+ },
+ "C-c51858e0": {
+  "voice": "C",
+  "text": "The next station is Aizomechō, N-04. The doors on the left side will open."
+ },
+ "C-4315df5f": {
+  "voice": "C",
+  "text": "次は、つむぎばし、つむぎばし。お出口は、左側です。"
+ },
+ "C-f9c10bf9": {
+  "voice": "C",
+  "text": "The next station is Tsumugibashi, N-05. The doors on the left side will open."
+ },
+ "C-b09531e7": {
+  "voice": "C",
+  "text": "次は、かわみなとだいがくまえ、かわみなとだいがくまえ。お出口は、左側です。"
+ },
+ "C-45029e28": {
+  "voice": "C",
+  "text": "The next station is Kawaminato-daigaku-mae, N-06. The doors on the left side will open."
+ },
+ "C-ec59d3b5": {
+  "voice": "C",
+  "text": "次は、ひばりの、ひばりの。お出口は、左側です。"
+ },
+ "C-bedef232": {
+  "voice": "C",
+  "text": "The next station is Hibarino, N-07. The doors on the left side will open."
+ },
+ "C-de29da2f": {
+  "voice": "C",
+  "text": "次は、あさひの、あさひの。お出口は、左側です。"
+ },
+ "C-c3d2db6c": {
+  "voice": "C",
+  "text": "The next station is Asahino, N-08. The doors on the left side will open."
+ },
+ "C-f105b677": {
+  "voice": "C",
+  "text": "次は、たかのだい、たかのだい。お出口は、左側です。"
+ },
+ "C-b4730be6": {
+  "voice": "C",
+  "text": "The next station is Takanodai, N-09. The doors on the left side will open."
+ },
+ "C-611878c3": {
+  "voice": "C",
+  "text": "次は、終点、いずみがおか、いずみがおか。お出口は、左側です。"
+ },
+ "C-a830661e": {
+  "voice": "C",
+  "text": "The next station is Izumigaoka, N-10, the last stop. The doors on the left side will open."
+ },
+ "C-e3ab5f85": {
+  "voice": "C",
+  "text": "次は、終点、みなとせんたー、みなとせんたー。お出口は、左側です。"
+ },
+ "C-3fa253b6": {
+  "voice": "C",
+  "text": "The next station is Minato Center, N-01, the last stop. The doors on the left side will open."
+ },
+ "C-358b52ba": {
+  "voice": "C",
+  "text": "次は、しおさいこうえん、しおさいこうえん。お出口は、右側です。"
+ },
+ "C-d354819f": {
+  "voice": "C",
+  "text": "The next station is Shiosai-kōen, A-02. The doors on the right side will open."
+ },
+ "C-1af2b8b0": {
+  "voice": "C",
+  "text": "次は、かもめはま、かもめはま。お出口は、右側です。"
+ },
+ "C-c00fb3d1": {
+  "voice": "C",
+  "text": "The next station is Kamomehama, A-03. The doors on the right side will open."
+ },
+ "C-a2b57920": {
+  "voice": "C",
+  "text": "次は、わたやまち、わたやまち。お出口は、右側です。"
+ },
+ "C-de2b935c": {
+  "voice": "C",
+  "text": "The next station is Watayamachi, A-04. The doors on the right side will open."
+ },
+ "C-dfb0b47c": {
+  "voice": "C",
+  "text": "次は、あいぞめちょう、あいぞめちょう。お出口は、右側です。"
+ },
+ "C-1ffaadd7": {
+  "voice": "C",
+  "text": "The next station is Aizomechō, A-05. The doors on the right side will open."
+ },
+ "C-7510dacd": {
+  "voice": "C",
+  "text": "The next station is Kita-Ōdōri, A-06. The doors on the right side will open."
+ },
+ "C-688ac2e0": {
+  "voice": "C",
+  "text": "次は、すずかけどおり、すずかけどおり。お出口は、右側です。"
+ },
+ "C-d238a479": {
+  "voice": "C",
+  "text": "The next station is Suzukakedōri, A-07. The doors on the right side will open."
+ },
+ "C-4d28d490": {
+  "voice": "C",
+  "text": "次は、つきみざか、つきみざか。お出口は、右側です。"
+ },
+ "C-8560f8f8": {
+  "voice": "C",
+  "text": "The next station is Tsukimizaka, A-08. The doors on the right side will open."
+ },
+ "C-7c6b03d0": {
+  "voice": "C",
+  "text": "次は、やまぶきだい、やまぶきだい。お出口は、右側です。"
+ },
+ "C-dbc40885": {
+  "voice": "C",
+  "text": "The next station is Yamabukidai, A-09. The doors on the right side will open."
+ },
+ "C-348b7a62": {
+  "voice": "C",
+  "text": "次は、もみじがおか、もみじがおか。お出口は、右側です。"
+ },
+ "C-f9f094ce": {
+  "voice": "C",
+  "text": "The next station is Momijigaoka, A-10. The doors on the right side will open."
+ },
+ "C-c1bb34d4": {
+  "voice": "C",
+  "text": "次は、せいりょうだい、せいりょうだい。お出口は、右側です。"
+ },
+ "C-835b704c": {
+  "voice": "C",
+  "text": "The next station is Seiryōdai, A-11. The doors on the right side will open."
+ },
+ "C-adddfbc2": {
+  "voice": "C",
+  "text": "次は、ほしみね、ほしみね。お出口は、右側です。"
+ },
+ "C-ed4f73d2": {
+  "voice": "C",
+  "text": "The next station is Hoshimine, A-12. The doors on the right side will open."
+ },
+ "C-96d71e18": {
+  "voice": "C",
+  "text": "次は、かすみだに、かすみだに。お出口は、右側です。"
+ },
+ "C-6d44d43f": {
+  "voice": "C",
+  "text": "The next station is Kasumidani, A-13. The doors on the right side will open."
+ },
+ "C-8af1c2aa": {
+  "voice": "C",
+  "text": "次は、終点、しおんだい、しおんだい。お出口は、右側です。"
+ },
+ "C-ab06051e": {
+  "voice": "C",
+  "text": "The next station is Shiondai, A-14, the last stop. The doors on the right side will open."
+ },
+ "C-da2bb99a": {
+  "voice": "C",
+  "text": "次は、終点、しんかもめ、しんかもめ。お出口は、右側です。"
+ },
+ "C-30b0608a": {
+  "voice": "C",
+  "text": "The next station is Shin-Kamome, A-01, the last stop. The doors on the right side will open."
+ },
+ "C-89e46ada": {
+  "voice": "C",
+  "text": "次は、にしゆうなぎ、にしゆうなぎ。お出口は、右側です。"
+ },
+ "C-8e9bda95": {
+  "voice": "C",
+  "text": "The next station is Nishi-Yūnagi, S-10. The doors on the right side will open."
+ },
+ "C-7347aa78": {
+  "voice": "C",
+  "text": "次は、ゆうなぎはま、ゆうなぎはま。お出口は、右側です。"
+ },
+ "C-bd566f7b": {
+  "voice": "C",
+  "text": "The next station is Yūnagihama, S-11. The doors on the right side will open."
+ },
+ "C-cdeabd94": {
+  "voice": "C",
+  "text": "次は、くらやしき、くらやしき。お出口は、右側です。"
+ },
+ "C-cf0ad01d": {
+  "voice": "C",
+  "text": "The next station is Kurayashiki, S-12. The doors on the right side will open."
+ },
+ "C-d193946d": {
+  "voice": "C",
+  "text": "The next station is Kita-Ōdōri, S-13. The doors on the right side will open."
+ },
+ "C-3c8153a4": {
+  "voice": "C",
+  "text": "次は、かわみなとだいがくまえ、かわみなとだいがくまえ。お出口は、右側です。"
+ },
+ "C-2e733631": {
+  "voice": "C",
+  "text": "The next station is Kawaminato-daigaku-mae, S-14. The doors on the right side will open."
+ },
+ "C-d902c830": {
+  "voice": "C",
+  "text": "次は、とうみょうぼり、とうみょうぼり。お出口は、右側です。"
+ },
+ "C-10390bd9": {
+  "voice": "C",
+  "text": "The next station is Tōmyōbori, S-15. The doors on the right side will open."
+ },
+ "C-43adbf70": {
+  "voice": "C",
+  "text": "次は、さくらづつみ、さくらづつみ。お出口は、右側です。"
+ },
+ "C-98dfe7b4": {
+  "voice": "C",
+  "text": "The next station is Sakurazutsumi, S-16. The doors on the right side will open."
+ },
+ "C-d96c6d24": {
+  "voice": "C",
+  "text": "次は、はなみずき、はなみずき。お出口は、右側です。"
+ },
+ "C-2bd5fedc": {
+  "voice": "C",
+  "text": "The next station is Hanamizuki, S-17. The doors on the right side will open."
+ },
+ "C-3ed5c5d0": {
+  "voice": "C",
+  "text": "次は、しんさくらがわ、しんさくらがわ。お出口は、右側です。"
+ },
+ "C-b89e686e": {
+  "voice": "C",
+  "text": "The next station is Shin-Sakuragawa, S-18. The doors on the right side will open."
+ },
+ "C-f1cf842a": {
+  "voice": "C",
+  "text": "次は、終点、うみのもり、うみのもり。お出口は、右側です。"
+ },
+ "C-6c70fc69": {
+  "voice": "C",
+  "text": "The next station is Uminomori, S-19, the last stop. The doors on the right side will open."
+ },
+ "C-917bf922": {
+  "voice": "C",
+  "text": "次は、終点、しおみ、しおみ。お出口は、右側です。"
+ },
+ "C-61e70b40": {
+  "voice": "C",
+  "text": "The next station is Shiomi, S-09, the last stop. The doors on the right side will open."
+ },
+ "C-174964a4": {
+  "voice": "C",
+  "text": "次は、かわみなとこう、かわみなとこう。お出口は、右側です。"
+ },
+ "C-4b7aacaf": {
+  "voice": "C",
+  "text": "The next station is Kawaminato-kō, K-12. The doors on the right side will open."
+ },
+ "C-35d83baa": {
+  "voice": "C",
+  "text": "The next station is Watayamachi, K-13. The doors on the right side will open."
+ },
+ "C-8fa7d83b": {
+  "voice": "C",
+  "text": "The next station is Tsumugibashi, K-14. The doors on the right side will open."
+ },
+ "C-96d3e4e1": {
+  "voice": "C",
+  "text": "The next station is Tōmyōbori, K-15. The doors on the right side will open."
+ },
+ "C-7dced932": {
+  "voice": "C",
+  "text": "次は、ひばりの、ひばりの。お出口は、右側です。"
+ },
+ "C-73a59a42": {
+  "voice": "C",
+  "text": "The next station is Hibarino, K-16. The doors on the right side will open."
+ },
+ "C-d7b3ea82": {
+  "voice": "C",
+  "text": "次は、ひがしがおか、ひがしがおか。お出口は、右側です。"
+ },
+ "C-e1966879": {
+  "voice": "C",
+  "text": "The next station is Higashigaoka, K-17. The doors on the right side will open."
+ },
+ "C-1ae88460": {
+  "voice": "C",
+  "text": "次は、終点、しんひばりの、しんひばりの。お出口は、右側です。"
+ },
+ "C-0a15a280": {
+  "voice": "C",
+  "text": "The next station is Shin-Hibarino, K-18, the last stop. The doors on the right side will open."
+ },
+ "C-63dd7272": {
+  "voice": "C",
+  "text": "次は、終点、しんしお、しんしお。お出口は、右側です。"
+ },
+ "C-a26d1069": {
+  "voice": "C",
+  "text": "The next station is Shinshio, K-11, the last stop. The doors on the right side will open."
+ },
+ "C-33d0140f": {
+  "voice": "C",
+  "text": "The next station is Midorizaka, M-12. The doors on the right side will open."
+ },
+ "C-2e077057": {
+  "voice": "C",
+  "text": "The next station is Kita-Ōdōri, M-13. The doors on the right side will open."
+ },
+ "C-a01ec43f": {
+  "voice": "C",
+  "text": "The next station is Kawaminato-daigaku-mae, M-14. The doors on the right side will open."
+ },
+ "C-dc49cb48": {
+  "voice": "C",
+  "text": "The next station is Hanamizuki, M-15. The doors on the right side will open."
+ },
+ "C-8078f34e": {
+  "voice": "C",
+  "text": "次は、みなみさくらがわ、みなみさくらがわ。お出口は、右側です。"
+ },
+ "C-4321e541": {
+  "voice": "C",
+  "text": "The next station is Minami-Sakuragawa, M-16. The doors on the right side will open."
+ },
+ "C-7d62f0fe": {
+  "voice": "C",
+  "text": "次は、終点、はるのだい、はるのだい。お出口は、右側です。"
+ },
+ "C-1e07c9d3": {
+  "voice": "C",
+  "text": "The next station is Harunodai, M-17, the last stop. The doors on the right side will open."
+ },
+ "C-a067672a": {
+  "voice": "C",
+  "text": "次は、終点、せいらん、せいらん。お出口は、右側です。"
+ },
+ "C-2e3c7a42": {
+  "voice": "C",
+  "text": "The next station is Seiran, M-11, the last stop. The doors on the right side will open."
  }
 }

@@ -7,7 +7,8 @@
 import { LINES, STATIONS, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 
-export type Voice = 'F' | 'M';
+/** F/M: platform voices (inbound/outbound, etiquette/safety). C: the in-car voice. */
+export type Voice = 'F' | 'M' | 'C';
 export interface Clip {
   key: string;
   voice: Voice;
@@ -96,6 +97,56 @@ export const NOTICES: Clip[][] = [
   [clip('M', '駅構内で、不審な物や不審な人物を見かけましたら、お近くの駅係員までお知らせください。'), clip('M', 'If you see any suspicious items or persons, please inform a station attendant.')],
 ];
 
+/** Spoken by the platform doors themselves, from the door nearest you. */
+export const PLATFORM_DOOR: Clip[] = [clip('F', 'ホームドアが閉まります。ご注意ください。'), clip('F', 'The platform doors are closing.')];
+
+// ── In the car (Tokyo/Osaka Metro style: Japanese first, then English with the station number) ──
+
+export type CarEvent = 'next' | 'soon';
+export type DoorSide = 'left' | 'right';
+
+/**
+ * The in-car announcement for the run to `stop` (index on `line`) heading `dir`.
+ * 'next' (just after departure): greeting and where this train is bound.
+ * 'soon' (before the stop), JR/Metro style: 「次は、〇〇、〇〇。お出口は、左側です。〇〇線は、お乗り換えです。」
+ */
+export function carAnnouncement(ev: CarEvent, line: LineDef, dir: Dir, stop: number, side: DoorSide): Clip[] {
+  const st = stationById(line.stops[stop]), dest = terminusOf(line, dir);
+  const last = dest.id === st.id, tx = transfers(st, line), no = st.numbers[line.id];
+  if (ev === 'next') {
+    return [
+      clip('C', `本日も、かわみなとメトロをご利用いただきまして、ありがとうございます。この電車は、${line.nameKana}、${dest.nameKana}行きです。`),
+      clip('C', `This is the ${line.nameEn} train bound for ${dest.nameRomaji}.`),
+    ];
+  }
+  const out: Clip[] = [
+    clip('C', `次は、${last ? '終点、' : ''}${st.nameKana}、${st.nameKana}。お出口は、${side === 'left' ? '左側' : '右側'}です。`),
+  ];
+  if (tx.length) out.push(clip('C', `${tx.map((l) => l.nameKana).join('、')}は、お乗り換えです。`));
+  if (last) out.push(clip('C', 'お忘れ物のないよう、ご注意ください。'));
+  out.push(clip('C', `The next station is ${st.nameRomaji}, ${no}${last ? ', the last stop' : ''}. The doors on the ${side} side will open.`));
+  if (tx.length) out.push(clip('C', `Please change here for ${enList(tx.map((l) => `the ${l.nameEn}`))}.`));
+  if (last) out.push(clip('C', 'Please make sure you have all your belongings.'));
+  return out;
+}
+
+export const CAR_DOORS_CLOSING: Clip[] = [clip('C', 'ドアが閉まります。ご注意ください。')];
+
+/** Manners and safety, one now and then on longer runs. */
+export const CAR_NOTICES: Clip[][] = [
+  [clip('C', '優先席付近では、混雑時には、携帯電話の電源をお切りください。それ以外の場所では、マナーモードに設定のうえ、通話はご遠慮ください。'), clip('C', 'Please set your mobile phone to silent mode and refrain from talking on the phone.')],
+  [clip('C', '電車が揺れることがありますので、つり革や手すりに、おつかまりください。'), clip('C', 'Please hold on to a strap or handrail, as the train may sway.')],
+  [clip('C', '車内で不審な物や、不審な人物を見かけましたら、お近くの係員か、非常通報装置でお知らせください。'), clip('C', 'If you notice any suspicious items or persons, please notify the station staff or use the emergency intercom.')],
+  [clip('C', 'リュックなどの大きな荷物は、前に抱えるか、網棚に置いて、周りのお客様のご迷惑にならないよう、ご協力ください。'), clip('C', 'Please hold large bags in front of you or place them on the rack.')],
+];
+
+/** Door side (relative to the direction of travel) a train on `line` heading `dir` opens at. */
+export function doorSideOf(line: LineDef, _dir: Dir): DoorSide {
+  // Left-hand running: the down track is left of increasing chainage. Side platforms are
+  // outside the tracks (doors on the left); an island is between them (doors on the right).
+  return line.platformType === 'island' ? 'right' : 'left';
+}
+
 /** Every clip the game can ask for, deduplicated. The generator bakes exactly these. */
 export function allClips(): Clip[] {
   const out = new Map<string, Clip>();
@@ -113,6 +164,14 @@ export function allClips(): Clip[] {
       }
     }
   }
-  for (const n of NOTICES) for (const c of n) out.set(c.key, c);
+  for (const n of [...NOTICES, ...CAR_NOTICES, PLATFORM_DOOR, CAR_DOORS_CLOSING]) for (const c of n) out.set(c.key, c);
+  for (const line of LINES) {
+    for (const dir of ['down', 'up'] as const) {
+      const step = dir === 'down' ? 1 : -1, first = dir === 'down' ? 1 : line.stops.length - 2;
+      for (let i = first; i >= 0 && i < line.stops.length; i += step) {
+        for (const ev of ['next', 'soon'] as const) for (const c of carAnnouncement(ev, line, dir, i, doorSideOf(line, dir))) out.set(c.key, c);
+      }
+    }
+  }
   return [...out.values()];
 }

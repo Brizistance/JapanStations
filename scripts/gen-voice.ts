@@ -18,7 +18,7 @@ try {
   /* fall back to the real environment */
 }
 const key = process.env.ELEVENLABS_API_KEY;
-const voices = { F: process.env.ELEVENLABS_VOICE_F, M: process.env.ELEVENLABS_VOICE_M };
+const voices = { F: process.env.ELEVENLABS_VOICE_F, M: process.env.ELEVENLABS_VOICE_M, C: process.env.ELEVENLABS_VOICE_CAR };
 
 type Manifest = Record<string, { voice: string; text: string }>;
 const manifest: Manifest = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
@@ -43,8 +43,8 @@ if (dry) {
   for (const c of todo) console.log(`${c.key}  ${c.text}`);
   process.exit(0);
 }
-if (!key || !voices.F || !voices.M) {
-  console.error('Set ELEVENLABS_API_KEY, ELEVENLABS_VOICE_F and ELEVENLABS_VOICE_M in .env.local');
+if (!key || !voices.F || !voices.M || !voices.C) {
+  console.error('Set ELEVENLABS_API_KEY, ELEVENLABS_VOICE_F, ELEVENLABS_VOICE_M and ELEVENLABS_VOICE_CAR in .env.local');
   process.exit(1);
 }
 
