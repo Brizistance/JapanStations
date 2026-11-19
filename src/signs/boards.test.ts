@@ -9,7 +9,7 @@ import { stationExits } from '../stations/exits';
 import { SPECS } from '../stations/specs';
 import type { Picto, SignContent } from './content';
 import { drawSign, platformTrains, signSize } from './draw';
-import { LINES, linesAt } from '../data/network';
+import { linesAt } from '../data/network';
 import { formatClock } from '../sim';
 import { nextArrivals, trainStateAt } from '../sim/timetable';
 import { themeFor } from '../stations/themes';

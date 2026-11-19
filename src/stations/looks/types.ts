@@ -56,8 +56,11 @@ export interface WallOpening {
   /** The gap along the wall. */
   x0: number;
   x1: number;
-  /** 'exit': an exit doorway (`num` is set). 'bay': the mouth of a room (`room` is set). */
-  kind: 'exit' | 'bay';
+  /**
+   * 'exit': an exit doorway (`num` is set). 'bay': the mouth of a room (`room` is set). 'open':
+   * a stretch of wall left out onto floor the composer builds itself (Kawaminato-kō's gallery).
+   */
+  kind: 'exit' | 'bay' | 'open';
   /** Exit number (kind 'exit'). */
   num?: string;
   /** Index into `ConcInfo.rooms` of the room it opens into (kind 'bay'). */
@@ -217,13 +220,16 @@ export interface ConcInfo {
   paid: [number, number];
   /** Stair and escalator openings in the floor. */
   holes: Rect[];
-  /** The same openings with where each leads (every hole has one). */
+  /**
+   * The same openings with where each leads (every stair hole has one), then any ways on through
+   * an 'open' wall gap (Kawaminato-kō's gallery mouths): no floor opening and no stairwell.
+   */
   stairs: StairInfo[];
   /** Exit doorways. */
   exits: ExitDoor[];
   /**
-   * Every gap in the spine's two long walls, sorted by x: the exit doorways (the same as `exits`)
-   * and the mouths of rooms. The long walls are solid everywhere else.
+   * Every gap in the spine's two long walls, sorted by x: the exit doorways (the same as `exits`),
+   * the mouths of rooms and any stretch left open. The long walls are solid everywhere else.
    */
   openings: WallOpening[];
   /** Walkable rooms outside the spine (empty at ordinary stations). Indices are used by `openings`, `Mouth.to` and `Stairwell.room`. */
