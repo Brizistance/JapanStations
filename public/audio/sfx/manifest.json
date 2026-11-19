@@ -403,5 +403,15 @@
   "prompt": "Inside a Japanese commuter train: the door-closing chime, then the doors slide shut with a soft thud. Recorded inside the passenger car. No voice.",
   "seconds": 3.5,
   "loop": false
+ },
+ "ext-roll": {
+  "prompt": "A subway train rolling along at steady speed, heard from the station platform beside the track: heavy wheel rumble, rail hiss and clatter, constant, seamless loop. No voice, no announcements.",
+  "seconds": 8,
+  "loop": true
+ },
+ "ext-motor": {
+  "prompt": "Electric train traction motors heard from the platform as the train runs: a steady inverter whine with a low hum, one constant pitch, seamless loop. No voice.",
+  "seconds": 6,
+  "loop": true
  }
 }
