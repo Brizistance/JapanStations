@@ -5,6 +5,7 @@ import { EYE, input, player, teleport, tickPlayer, nearestStation, where } from 
 import { clock } from '../sim';
 import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
+import { tickPlatformVoice } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
 import { HORIZON, Lighting } from './lighting';
@@ -65,6 +66,7 @@ function World() {
 
     if (useUI.getState().mode === 'play') {
       tickPlayer(dt);
+      tickPlatformVoice(clock.time);
       const p = player.body.pos;
       camera.position.set(p[0], player.eyeY + EYE, p[2]);
       camera.rotation.set(player.pitch, player.yaw, 0);

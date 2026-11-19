@@ -47,6 +47,8 @@ export interface LineDef {
   sideAt?: StationId[];
   /** Platform screen doors: waist-high gates (default) or full-height glass screens. */
   platformDoors?: 'half' | 'full';
+  /** Inbound (上り) direction: female platform voice; the other way gets the male voice. Default 'up'. */
+  inbound?: Dir;
   /** Distance of each track centre from the line centreline, metres. */
   trackOffset: number;
   /** Centreline in world metres (x = east, z = south). Corners are filleted with `radius`. */

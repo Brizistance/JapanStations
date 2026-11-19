@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "voice": "tsx scripts/gen-voice.ts"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.2",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
