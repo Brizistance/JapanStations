@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, teleport } from '../player/player';
+import { setVoiceVolume } from '../audio/engine';
 import { fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
 
 export const dom = { canvas: null as HTMLCanvasElement | null };
@@ -16,6 +17,17 @@ function storage(): Storage | null {
   }
 }
 
+const VOICE_KEY = 'js.voiceVolume';
+const initialVoice = (() => {
+  try {
+    const v = Number(storage()?.getItem(VOICE_KEY) ?? NaN);
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8;
+  } catch {
+    return 0.8;
+  }
+})();
+setVoiceVolume(initialVoice);
+
 interface UI {
   mode: 'menu' | 'play';
   mapOpen: boolean;
@@ -23,6 +35,9 @@ interface UI {
   locked: boolean;
   fast: boolean;
   graphics: Graphics;
+  /** Announcement volume, 0…1. */
+  voiceVolume: number;
+  setVoiceVolume: (v: number) => void;
   /** The in-game graphics panel (G). */
   gfxOpen: boolean;
   setPreset: (p: Preset) => void;
@@ -52,6 +67,16 @@ export const useUI = create<UI>((set, get) => ({
   locked: false,
   fast: false,
   graphics: loadGraphics(storage()),
+  voiceVolume: initialVoice,
+  setVoiceVolume: (v) => {
+    setVoiceVolume(v);
+    try {
+      storage()?.setItem(VOICE_KEY, String(v));
+    } catch {
+      /* ignore */
+    }
+    set({ voiceVolume: v });
+  },
   gfxOpen: false,
   setPreset: (p) => {
     const graphics = fromPreset(p);

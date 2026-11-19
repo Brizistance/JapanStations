@@ -88,6 +88,23 @@ export function EffectSwitches() {
           ))}
         </div>
       </div>
+      <VoiceVolume />
+    </div>
+  );
+}
+
+function VoiceVolume() {
+  const v = useUI((s) => s.voiceVolume);
+  const set = useUI((s) => s.setVoiceVolume);
+  return (
+    <div className="gfx-scale" role="group" aria-label="Announcement volume">
+      <span>
+        <b>案内放送</b> Announcements
+        <small>Platform voice volume{v === 0 ? ' (muted)' : ''}</small>
+      </span>
+      <div>
+        <input type="range" min={0} max={1} step={0.05} value={v} aria-label="Announcement volume" onChange={(e) => set(Number(e.target.value))} />
+      </div>
     </div>
   );
 }

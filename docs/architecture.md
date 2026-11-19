@@ -52,7 +52,7 @@ data/network.ts ──► sim (geometry + timetable) ──► trains/system (pe
 
 1. `clock.advance(dt)`
 2. `updateTrains(clock.time)` — every train's state and every car's pose
-3. `tickPlayer(dt)` — carry with the car being ridden, then move and collide
+3. `tickPlayer(dt)` — carry with the car being ridden, then move and collide; then `tickPlatformVoice()` (`audio/`) announces departure-board status changes on the player's platform. Clips are pre-baked ElevenLabs mp3s in `public/audio/voice/`; after changing stations or wording run `npm run voice` (key in `.env.local`; inbound = female, outbound = male, safety male, etiquette female).
 4. camera follows the player
 5. `WorldView.update()` — mount/unmount stations by distance (≤ 1 per frame), move train meshes, slide doors and platform gates, redraw live signs twice a second
 6. `Lighting.update()` — sky dome follows the camera, sun shadow map is refreshed (High, above ground only)
