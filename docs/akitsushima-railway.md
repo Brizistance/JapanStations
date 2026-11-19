@@ -1,6 +1,6 @@
 # Akitsushima Railway (AR): future plans
 
-**Status:** planned, nothing built. Draft from 2026-11-18. Space for it is already reserved at Kawaminato Station: viaduct through-platforms (2F/3F "future railway concourses" in `hub.ts`). Station names below are drafts and have **not** been web-checked yet.
+**Status:** pass 1 done (2026-11-19): the Main Line is in the data, the timetable and on the route map (`RAIL_LINES` / `RAIL_STATIONS` in `network.ts`, `RAIL_NET` in `sim/index.ts`). Nothing is in the 3D world yet. Draft from 2026-11-18. Space for it is already reserved at Kawaminato Station: viaduct through-platforms (2F/3F "future railway concourses" in `hub.ts`). Station names below are drafts and have **not** been web-checked yet.
 
 ## The company
 
@@ -85,4 +85,34 @@ It leaves the Main Line south of the river and runs west to **Kawaminato-kō** a
 5. **Fastest commuter service:** **特別快速 Special Rapid**. **IC card:** **HANECA (ハネカ)**, from 羽 hane, "wing", with a dragonfly-wing logo (*akitsu* is an old word for dragonfly). It is interoperable with MINACA.
 6. **High-speed:** AR runs it, on the top deck of Kawaminato Station.
 
-**Build plan (on hold, by choice, 2026-11-18):** pass 1 covers the data (operator and line), the timetable, the route map and the AR train. Pass 2 builds the Kawaminato Station viaduct platforms and Higashi-Kawaminato.
+## Implementation decisions (interview, 2026-11-19)
+
+1. **Data extent:** all six in-city Main Line stations go in `network.ts` from the start. Only Kawaminato and Higashi-Kawaminato are hero builds. The Bay branch stays out of the data for now.
+2. **Services:** Local and Rapid first, on a general service-type field, so Special Rapid and Limited Express are later only new rows.
+3. **Map edge:** trains run past the last in-city station to an edge point. A rider who stays aboard gets a fade and is returned to the last station. Boards show Kirigahara / Asanagi.
+4. **Daylight:** sky and sun follow the sim clock (morning, day, dusk, night), shared by all later outdoor stations.
+5. **Hub:** AR **Kawaminato** is its own station with its own gates, linked to Kita-Ōdōri by a walking transfer through the atrium.
+6. **Unbuilt stops:** a simple shared AR island platform (not the metro default), doors open, exits closed off as under construction. Replaced station by station.
+7. **Length:** 8-car trains; Kawaminato and Rapid stops are built 12 cars long.
+8. **Names (picked 2026-11-19, web-searched, no real railway station found):** numbering `AR-A01`…`AR-A06` from the north-east (line id `AR`, badge reads AR over A01).
+
+| Station | Kana | Romaji | Where | Metro transfer |
+|---|---|---|---|---|
+| 鶯坂 | うぐいすざか | Uguisuzaka | East hills | Hibarino (N, K) |
+| 澪上 | みおかみ | Miokami | Upper Mio-gawa valley | Kawaminato-daigaku-mae (N, S, M) |
+| 東川湊 | ひがしかわみなと | Higashi-Kawaminato | Kita east | Suzukakedōri (A) |
+| 川湊 | かわみなと | Kawaminato | Kita, the hub | Kita-Ōdōri (Y, A, S, M) |
+| 紺屋浜 | こんやはま | Kon'yahama | Old shoreline behind the merchant quarter | Aizomechō or Watayamachi (TBD) |
+| 舟見台 | ふなみだい | Funamidai | Bluff above the container port | Nankōdai (Y) |
+
+Kirigahara (霧ヶ原) and Asanagi (朝凪) were searched the same day: no real station or city found.
+
+## Pass 1 as built (2026-11-19)
+
+- **Rapid** skips Higashi-Kawaminato and Kon'yahama (Claude's choice, not yet confirmed). Local and Rapid each run every 10 minutes, five minutes apart at Kawaminato.
+- **Alignment (draft):** 150 m north of Kita-Ōdōri avenue through Kawaminato and Higashi-Kawaminato, rail level +9 m everywhere. To be matched to the reserved deck in `hub.ts` in pass 2, and lifted clear of the Nagisa viaduct by Uguisuzaka.
+- **Miokami is about 570 m from Kawaminato-daigaku-mae**, on the other bank. It is listed as a walking transfer, but that is long; open point.
+- **Kon'yahama** is about 90 m from Aizomechō (transfer set there).
+- **Not done:** the AR train model (20 m, 4 doors) and anything in 3D. Trains exist as timetable entries and live dots on the map.
+
+**Build plan:** pass 2 adds the sim-clock sky, the viaduct and AR train in 3D, the Kawaminato Station platforms, Higashi-Kawaminato, and the shared platform for the unbuilt stops.

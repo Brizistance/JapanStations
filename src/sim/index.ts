@@ -1,34 +1,40 @@
 // Instantiates geometry + timetable for every line in the network data, and owns the sim clock.
 
-import { LINES } from '../data/network';
-import type { LineId } from '../data/types';
+import { LINES, RAIL_LINES } from '../data/network';
+import type { Dir, LineId, ServiceType } from '../data/types';
 import { BOGIE_OFFSET, CAR_PITCH, LineGeom } from './geometry';
-import { buildTimetable, trainStateAt, type Timetable, type TrainState } from './timetable';
+import { buildTimetable, nextDepartures, trainStateAt, type Departure, type Timetable, type TrainState } from './timetable';
 
 export interface LineSim {
   geom: LineGeom;
+  /** The line's timetable; on a line with service types, that of the first (the Local). */
   tt: Timetable;
+  /** One timetable per service type (LineDef.services), each with its own trains. */
+  services?: { type: ServiceType; tt: Timetable }[];
 }
 
 const mod = (a: number, m: number) => ((a % m) + m) % m;
 
 /**
- * Timetable for a line that runs on another line's track (`shares`): phased so that, in both
- * directions, it enters the shared section half a host headway after a host train. Its headway
- * must be a whole number of host headways, so the gap is the same for every train.
+ * A timetable phased against a host's: in both directions it passes `from` (down) and `to` (up)
+ * half a host headway after a host train. Its headway must be a whole number of host headways,
+ * so the gap is the same for every train.
  */
-function sharedTimetable(geom: LineGeom, host: LineSim): Timetable {
-  const sh = geom.def.shares!;
+function phasedTimetable(geom: LineGeom, host: LineSim, from: string, to: string, skip?: string[]): Timetable {
   const hS = host.tt.headway;
-  if (geom.def.service.headwayS % hS !== 0) throw new Error(`${geom.def.id}: headway must be a multiple of ${sh.line}'s`);
+  if (geom.def.service.headwayS % hS !== 0) throw new Error(`${geom.def.id}: headway must be a multiple of ${host.geom.def.id}'s`);
   const at = (l: LineGeom, id: string) => l.def.stops.indexOf(id);
   const dep = (tt: Timetable, stop: number, dir: 'down' | 'up') => tt.departures.get(`${stop}:${dir}`)!.dep + tt.offset;
   // Down times don't depend on the layover split; up times move one-for-one with padEnd.
-  const base = buildTimetable(geom, { padEnd: { mod: hS, residue: 0 } });
-  const offset = mod(dep(host.tt, at(host.geom, sh.from), 'down') + hS / 2 - dep(base, at(geom, sh.from), 'down'), hS);
-  const residue = dep(host.tt, at(host.geom, sh.to), 'up') + hS / 2 - offset - dep(base, at(geom, sh.to), 'up');
-  return buildTimetable(geom, { offset, padEnd: { mod: hS, residue } });
+  const base = buildTimetable(geom, { skip, padEnd: { mod: hS, residue: 0 } });
+  const offset = mod(dep(host.tt, at(host.geom, from), 'down') + hS / 2 - dep(base, at(geom, from), 'down'), hS);
+  const residue = dep(host.tt, at(host.geom, to), 'up') + hS / 2 - offset - dep(base, at(geom, to), 'up');
+  return buildTimetable(geom, { skip, offset, padEnd: { mod: hS, residue } });
 }
+
+/** A line that runs on another line's track (`shares`): phased into the gaps of that line's trains. */
+const sharedTimetable = (geom: LineGeom, host: LineSim): Timetable =>
+  phasedTimetable(geom, host, geom.def.shares!.from, geom.def.shares!.to);
 
 export const NET: LineSim[] = [];
 for (const def of LINES) {
@@ -38,11 +44,38 @@ for (const def of LINES) {
   NET.push({ geom, tt: host ? sharedTimetable(geom, host) : buildTimetable(geom) });
 }
 
+/**
+ * Main-line railways (AR): timetabled and on the route map, but not in the 3D world yet, so
+ * they are kept out of NET (which the world, the trains and the player are built from).
+ */
+export const RAIL_NET: LineSim[] = RAIL_LINES.map((def) => {
+  const geom = new LineGeom(def);
+  const types = def.services ?? [];
+  const sim: LineSim = { geom, tt: buildTimetable(geom, { skip: types[0]?.skips }) };
+  const meet = def.servicesMeetAt ?? def.stops[0];
+  sim.services = types.map((type, i) => ({ type, tt: i === 0 ? sim.tt : phasedTimetable(geom, sim, meet, meet, type.skips) }));
+  return sim;
+});
+
 export const lineSim = (id: LineId): LineSim => {
-  const l = NET.find((x) => x.geom.def.id === id);
+  const l = NET.find((x) => x.geom.def.id === id) ?? RAIL_NET.find((x) => x.geom.def.id === id);
   if (!l) throw new Error(`unknown line ${id}`);
   return l;
 };
+
+export interface LineDeparture extends Departure {
+  /** The service type, on a line that has them. */
+  service?: ServiceType;
+}
+
+/** Next boarding departures from a stop, over all the line's service types, in time order. */
+export function lineDepartures(sim: LineSim, stop: number, dir: Dir, time: number, count = 3): LineDeparture[] {
+  if (!sim.services?.length) return nextDepartures(sim.tt, stop, dir, time, count);
+  return sim.services
+    .flatMap((s) => nextDepartures(s.tt, stop, dir, time, count).map((d): LineDeparture => ({ ...d, service: s.type })))
+    .sort((a, b) => a.dep - b.dep)
+    .slice(0, count);
+}
 
 /** Sim clock. `time` is seconds since midnight of day 0 and keeps counting past 24h. */
 export const clock = {

@@ -24,6 +24,24 @@ export interface ServicePattern {
   cars: number;
 }
 
+/** A named place: a station, or a city beyond the edge of the map. */
+export interface Place {
+  nameJa: string;
+  nameKana: string;
+  nameRomaji: string;
+}
+
+/** A stopping pattern on a line (Local, Rapid…). A line's trains are split between its service types. */
+export interface ServiceType {
+  id: string;
+  nameEn: string;
+  nameJa: string;
+  /** Colour of the type on boards and train displays. */
+  color: string;
+  /** Stations passed without stopping. Never the first or last stop. */
+  skips: StationId[];
+}
+
 export interface LineDef {
   id: LineId;
   nameEn: string;
@@ -76,6 +94,19 @@ export interface LineDef {
   passes?: StationId[];
   /** Extra rail levels between stations, at points on the alignment (e.g. to dive under other lines). */
   profile?: { at: [number, number]; y: number }[];
+  /**
+   * Service types, each with its own trains every `service.headwayS`. The first is the base
+   * timetable; the others are phased half a headway behind it at `servicesMeetAt`.
+   */
+  services?: ServiceType[];
+  servicesMeetAt?: StationId;
+  /**
+   * A main line that runs on past both end stops to cities off the map. Trains do not turn back at
+   * the end stops: they run `runM` metres further to the map edge, and come back as the next train
+   * from that city. `up` is the city beyond the first stop, `down` the one beyond the last.
+   * `diagram` = where the route map draws the two stubs to.
+   */
+  beyond?: { up: Place; down: Place; runM: number; diagram: { up: [number, number]; down: [number, number] } };
 }
 
 export interface StationDef {
@@ -102,7 +133,7 @@ export interface StationDef {
   diagram: {
     x: number;
     y: number;
-    label?: 'right' | 'left' | 'below' | 'se' | 'sw' | 'ne' | 'nw';
+    label?: 'right' | 'left' | 'below' | 'above' | 'se' | 'sw' | 'ne' | 'nw';
     badges?: 'ne' | 'nw' | 'sw';
   };
   district: string;
@@ -111,6 +142,8 @@ export interface StationDef {
   platforms: Record<LineId, [number, number]>;
   /** One-line description shown in the map panel. */
   blurb: string;
+  /** A separate station a short walk away, outside the gates (AR Kawaminato ↔ Kita-Ōdōri). */
+  transfer?: StationId;
 }
 
 export interface Operator {

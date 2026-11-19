@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HOME_STATION, LINES, OPERATOR, STATIONS } from '../data/network';
+import { HOME_STATION, LINES, OPERATOR, RAIL_LINES, STATIONS } from '../data/network';
 import { clock, formatClock } from '../sim';
 import { EffectSwitches, PresetButtons, PresetHint } from './GraphicsSettings';
 import { LineBullet, MetroMap, StationPanel, useTick } from './MetroMap';
@@ -88,12 +88,12 @@ export function MainMenu() {
             </details>
           </div>
           <div className="menu-lines">
-            {LINES.map((l) => (
+            {[...LINES, ...RAIL_LINES].map((l) => (
               <div key={l.id} className="menu-line">
                 <LineBullet line={l} size={26} />
                 <div>
                   <b>{l.nameJa}</b> <span>{l.nameEn}</span>
-                  <small>{l.stops.length} stations · every {Math.round(l.service.headwayS / 60)} min</small>
+                  <small>{l.stops.length} stations · every {Math.round(l.service.headwayS / (l.services?.length ?? 1) / 60)} min{l.type === 'jr' ? ' · map and timetable only' : ''}</small>
                 </div>
               </div>
             ))}

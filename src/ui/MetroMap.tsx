@@ -2,10 +2,10 @@
 // the live train markers, which come from the same timetable the 3D trains follow.
 
 import { useEffect, useRef, useState } from 'react';
-import { LINES, STATIONS, alongPolyline, diagramRuns, diagramSegment, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, RAIL_LINES, RAIL_STATIONS, STATIONS, alongPolyline, destinationOf, diagramPath, diagramRuns, diagramSegment, isUnbuilt, linesAt, stationById } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
-import { NET, clock, formatClock, lineSim } from '../sim';
-import { nextDepartures, trainStateAt } from '../sim/timetable';
+import { NET, RAIL_NET, clock, formatClock, lineDepartures, lineSim, type LineDeparture } from '../sim';
+import { trainStateAt } from '../sim/timetable';
 
 export function useTick(ms: number) {
   const [, set] = useState(0);
@@ -27,7 +27,7 @@ export function NumberBadge({ code, color, size = 34 }: { code: string; color: s
 
 export function LineBullet({ line, size = 22 }: { line: LineDef; size?: number }) {
   return (
-    <span className="bullet" style={{ background: line.color, width: size, height: size, fontSize: size * 0.6 }}>
+    <span className="bullet" style={{ background: line.color, width: size, height: size, fontSize: size * (line.id.length > 1 ? 0.45 : 0.6) }}>
       {line.id}
     </span>
   );
@@ -65,6 +65,7 @@ function badgePos(s: StationDef, i: number, inter: boolean): [number, number] {
 /** The whole diagram, in SVG units. */
 const MAP_W = 1900, MAP_H = 1000;
 const MIN_ZOOM = 1, MAX_ZOOM = 4;
+const LEGEND_ROWS = LINES.length + RAIL_LINES.length;
 type View = { x: number; y: number; w: number };
 
 /** Keep the view inside the diagram (aspect ratio fixed by MAP_W / MAP_H). */
@@ -133,18 +134,31 @@ function usePanZoom() {
 function TrainDots() {
   useTick(500);
   const dots: { key: string; x: number; y: number; color: string; moving: boolean }[] = [];
-  for (const { geom, tt } of NET) {
+  const sims = [...NET.map((l) => ({ geom: l.geom, tt: l.tt, id: l.geom.def.id })), ...RAIL_NET.flatMap((l) => (l.services ?? []).map((sv) => ({ geom: l.geom, tt: sv.tt, id: `${l.geom.def.id}${sv.type.id}` })))];
+  for (const { geom, tt, id } of sims) {
+    const stub = geom.def.beyond;
     for (let k = 0; k < tt.trainCount; k++) {
       const st = trainStateAt(tt, k, clock.time);
-      // Segment the train is on (clamped at the ends for the sidings).
-      let i = 0;
-      while (i < geom.stopS.length - 2 && st.s > geom.stopS[i + 1]) i++;
-      const f = Math.max(-0.12, Math.min(1.12, (st.s - geom.stopS[i]) / (geom.stopS[i + 1] - geom.stopS[i])));
-      const p = alongPolyline(diagramSegment(geom.def, i), f);
+      let p: { x: number; y: number; dx: number; dy: number };
+      if (stub && (st.s < geom.firstS || st.s > geom.lastS)) {
+        // Beyond an end stop of a main line: along the stub towards the map edge.
+        const down = st.s > geom.lastS;
+        const end = stationById(geom.def.stops[down ? geom.def.stops.length - 1 : 0]).diagram;
+        const f = Math.abs(st.s - (down ? geom.lastS : geom.firstS)) / stub.runM;
+        if (f > 0.98) continue; // off the map
+        p = alongPolyline([[end.x, end.y], stub.diagram[down ? 'down' : 'up']], f);
+        if (!down) { p.dx = -p.dx; p.dy = -p.dy; }
+      } else {
+        // Segment the train is on (clamped at the ends for the sidings).
+        let i = 0;
+        while (i < geom.stopS.length - 2 && st.s > geom.stopS[i + 1]) i++;
+        const f = Math.max(-0.12, Math.min(1.12, (st.s - geom.stopS[i]) / (geom.stopS[i + 1] - geom.stopS[i])));
+        p = alongPolyline(diagramSegment(geom.def, i), f);
+      }
       // Offset to the side of the line by direction of travel (trains keep left).
       const side = geom.lateral(st.track, st.s) < 0 ? -1 : 1;
       dots.push({
-        key: `${geom.def.id}${k}`,
+        key: `${id}${k}`,
         x: p.x - p.dy * 9 * side,
         y: p.y + p.dx * 9 * side,
         color: geom.def.color,
@@ -163,19 +177,18 @@ function TrainDots() {
 
 function Departures({ station }: { station: StationDef }) {
   useTick(1000);
-  const rows: { line: LineDef; dir: Dir; times: number[]; platform: number }[] = [];
+  const rows: { line: LineDef; dir: Dir; deps: LineDeparture[]; platform: number }[] = [];
   for (const line of linesAt(station.id)) {
-    const { tt } = lineSim(line.id);
     const stop = line.stops.indexOf(station.id);
     for (const dir of ['down', 'up'] as Dir[]) {
-      const deps = nextDepartures(tt, stop, dir, clock.time, 2);
-      if (deps.length) rows.push({ line, dir, times: deps.map((d) => d.dep), platform: station.platforms[line.id][dir === 'down' ? 0 : 1] });
+      const deps = lineDepartures(lineSim(line.id), stop, dir, clock.time, line.services ? 3 : 2);
+      if (deps.length) rows.push({ line, dir, deps, platform: station.platforms[line.id][dir === 'down' ? 0 : 1] });
     }
   }
   return (
     <div className="deps">
       {rows.map((r) => {
-        const t = terminusOf(r.line, r.dir);
+        const t = destinationOf(r.line, r.dir);
         return (
           <div className="dep" key={r.line.id + r.dir}>
             <LineBullet line={r.line} />
@@ -184,8 +197,11 @@ function Departures({ station }: { station: StationDef }) {
               <span>for {t.nameRomaji} · Platform {r.platform}</span>
             </div>
             <div className="dep-times">
-              {r.times.map((x, i) => (
-                <span key={i} className={i === 0 ? 'first' : ''}>{formatClock(x)}</span>
+              {r.deps.map((d, i) => (
+                <span key={i} className={i === 0 ? 'first' : ''}>
+                  {d.service && <i className="dep-type" style={{ background: d.service.color }} title={d.service.nameEn}>{d.service.nameJa}</i>}
+                  {formatClock(d.dep)}
+                </span>
               ))}
             </div>
           </div>
@@ -222,9 +238,15 @@ export function StationPanel({ id, onGo, goLabel }: { id: string; onGo?: (id: st
       <p className="panel-blurb">
         <b>{s.districtJa}</b> {s.district} — {s.blurb}
       </p>
+      {s.transfer && (
+        <p className="panel-blurb">
+          <b>のりかえ</b> Walking transfer (outside the gates) to {stationById(s.transfer).nameJa} <em>{stationById(s.transfer).nameRomaji}</em>
+        </p>
+      )}
       <h3>つぎの電車 <em>Next departures</em></h3>
       <Departures station={s} />
-      {onGo && (
+      {isUnbuilt(id) && <p className="panel-blurb">この駅はまだ歩けません <em>On the timetable, but not built to walk around yet.</em></p>}
+      {onGo && !isUnbuilt(id) && (
         <button className="btn primary wide" onClick={() => onGo(id)}>
           {goLabel ?? 'この駅へ移動'} <em>Go to this station</em>
         </button>
@@ -256,7 +278,49 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
           data-shared={r.shared || undefined}
         />
       )))}
+      {/* Main-line railways: the black-and-white railway pattern, running off the map at both ends. */}
+      {RAIL_LINES.map((l) => {
+        const pts = [...(l.beyond ? [l.beyond.diagram.up] : []), ...diagramPath(l), ...(l.beyond ? [l.beyond.diagram.down] : [])];
+        const d = pts.map(([x, y]) => `${x},${y}`).join(' ');
+        return (
+          <g key={l.id} fill="none" strokeLinejoin="round">
+            <polyline points={d} stroke="#1b1f24" strokeWidth={8} />
+            <polyline points={d} stroke="#fff" strokeWidth={4.5} strokeDasharray="11 11" />
+            {l.beyond && (['up', 'down'] as const).map((dir) => {
+              const [x, y] = l.beyond!.diagram[dir];
+              return (
+                <g key={dir}>
+                  <text x={x + 10} y={y + 1} className="map-rail-ja">{l.beyond![dir].nameJa}方面</text>
+                  <text x={x + 10} y={y + 13} className="map-rail-en">for {l.beyond![dir].nameRomaji}</text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+      {RAIL_STATIONS.filter((s) => s.transfer).map((s) => {
+        const t = stationById(s.transfer!).diagram;
+        return <line key={s.id} x1={s.diagram.x} y1={s.diagram.y} x2={t.x} y2={t.y} stroke="#8a8f98" strokeWidth={3} strokeDasharray="1 6" strokeLinecap="round" />;
+      })}
       <TrainDots />
+      {RAIL_STATIONS.map((s) => {
+        const { x, y, label } = s.diagram;
+        const sel = s.id === selected;
+        const lp = label === 'right' ? { dx: 13, dy: 4, anchor: 'start' as const } : label === 'left' ? { dx: -13, dy: 4, anchor: 'end' as const }
+          : label === 'above' ? { dx: 0, dy: -13, anchor: 'middle' as const } : { dx: 0, dy: 22, anchor: 'middle' as const };
+        return (
+          <g key={s.id} className={`stn${sel ? ' sel' : ''}`} onClick={() => onSelect(s.id)} tabIndex={0}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(s.id)}>
+            <circle cx={x} cy={y} r={20} fill="transparent" />
+            {sel && <circle cx={x} cy={y} r={14} fill="none" stroke="#e02020" strokeWidth={3} strokeDasharray="5 4" />}
+            <rect x={x - 7} y={y - 7} width={14} height={14} rx={3} fill="#fff" stroke="#1b1f24" strokeWidth={3} />
+            <text x={x + lp.dx} y={y + lp.dy} textAnchor={lp.anchor}>
+              <tspan className="map-rail-ja">{s.nameJa}</tspan>
+              <tspan className="map-rail-en" dx={5}>{s.nameRomaji}</tspan>
+            </text>
+          </g>
+        );
+      })}
       {STATIONS.map((s) => {
         const ls = linesAt(s.id);
         const lp = labelPos(s);
@@ -287,8 +351,16 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
         );
       })}
       {/* Legend */}
-      <g transform={`translate(${MAP_W - 270}, ${MAP_H - 64 - LINES.length * 30})`}>
-        <rect width="250" height={LINES.length * 30 + 44} rx="8" fill="#fff" stroke="#d9d6cc" />
+      <g transform={`translate(${MAP_W - 270}, ${MAP_H - 64 - LEGEND_ROWS * 30})`}>
+        <rect width="250" height={LEGEND_ROWS * 30 + 44} rx="8" fill="#fff" stroke="#d9d6cc" />
+        {RAIL_LINES.map((l, i) => (
+          <g key={l.id} transform={`translate(16, ${20 + (LINES.length + i) * 30})`} fill="none">
+            <line x1={-1} y1={6} x2={21} y2={6} stroke="#1b1f24" strokeWidth={8} />
+            <line x1={-1} y1={6} x2={21} y2={6} stroke="#fff" strokeWidth={4.5} strokeDasharray="5.5 5.5" />
+            <text x={30} y={5} className="map-leg-ja">{l.nameJa}</text>
+            <text x={30} y={18} className="map-leg-en">{l.nameEn}</text>
+          </g>
+        ))}
         {LINES.map((l, i) => (
           <g key={l.id} transform={`translate(16, ${20 + i * 30})`}>
             <circle cx={10} cy={6} r={11} fill={l.color} />
@@ -297,7 +369,7 @@ export function MetroMap({ selected, onSelect, here }: { selected: string | null
             <text x={30} y={18} className="map-leg-en">{l.nameEn}</text>
           </g>
         ))}
-        <g transform={`translate(16, ${22 + LINES.length * 30})`}>
+        <g transform={`translate(16, ${22 + LEGEND_ROWS * 30})`}>
           <rect x={4} y={0} width={12} height={8} rx={2.5} fill="#fff" stroke="#555" strokeWidth={2.5} />
           <text x={30} y={8} className="map-leg-en">走行中の電車 Trains (live)</text>
         </g>

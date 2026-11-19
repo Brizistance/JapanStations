@@ -68,6 +68,8 @@ export interface TimetableOptions {
    * time against every "down" time): the smallest pad ≥ 0 with pad ≡ residue (mod mod).
    */
   padEnd?: { mod: number; residue: number };
+  /** Stations this service type passes without stopping (never the first or last stop). */
+  skip?: string[];
 }
 
 const DOOR_OPEN_DELAY = 1.5;
@@ -129,35 +131,56 @@ export function buildTimetable(geom: LineGeom, opts: TimetableOptions = {}): Tim
     return p;
   };
 
+  // Stops this service calls at, as stop indices. The end stops are always among them.
+  const calls = S.map((_, i) => i).filter((i) => i === 0 || i === n - 1 || !opts.skip?.includes(geom.def.stops[i]));
+  const call = (i: number, dir: Dir) => {
+    const p = dwell(S[i], dir, i, 'intermediate', dir, sv.dwellS);
+    departures.set(`${i}:${dir}`, { arr: p.t0, dep: p.t1 });
+  };
+  // A main line runs on past its end stops (LineDef.beyond): out to the map edge and back, as
+  // the next train from the city beyond. The wait at the edge takes the place of the layover.
+  const edge = geom.def.beyond?.runM;
+  let layEnd: DwellPhase, layStart: DwellPhase;
+
   // Down direction: stop 0 → stop n-1.
-  for (let i = 1; i < n; i++) {
-    run(S[i - 1], S[i], 'down', 'down', i, true);
-    if (i < n - 1) {
-      const p = dwell(S[i], 'down', i, 'intermediate', 'down', sv.dwellS);
-      departures.set(`${i}:down`, { arr: p.t0, dep: p.t1 });
-    }
+  if (edge) call(0, 'down');
+  for (let j = 1; j < calls.length; j++) {
+    run(S[calls[j - 1]], S[calls[j]], 'down', 'down', calls[j], true);
+    if (j < calls.length - 1) call(calls[j], 'down');
   }
-  let p = dwell(S[n - 1], 'down', n - 1, 'arrival', 'down', sv.terminalArrivalDwellS);
-  arrivals.set(`${n - 1}:down`, { arr: p.t0, dep: p.t1 });
-  run(S[n - 1], S[n - 1] + TAIL_STOP, 'down', 'down', -1, false);
-  dwell(S[n - 1] + TAIL_STOP, 'down', -1, 'reverse', 'up', sv.reverseS);
-  run(S[n - 1] + TAIL_STOP, S[n - 1], 'xoverEnd', 'up', n - 1, false);
-  const layEnd = dwell(S[n - 1], 'up', n - 1, 'departure', 'up', sv.minLayoverS);
+  if (edge) {
+    call(n - 1, 'down');
+    run(S[n - 1], S[n - 1] + edge, 'down', 'down', -1, true);
+    layEnd = dwell(S[n - 1] + edge, 'up', -1, 'reverse', 'up', sv.reverseS);
+    run(S[n - 1] + edge, S[n - 1], 'up', 'up', n - 1, true);
+    call(n - 1, 'up');
+  } else {
+    const p = dwell(S[n - 1], 'down', n - 1, 'arrival', 'down', sv.terminalArrivalDwellS);
+    arrivals.set(`${n - 1}:down`, { arr: p.t0, dep: p.t1 });
+    run(S[n - 1], S[n - 1] + TAIL_STOP, 'down', 'down', -1, false);
+    dwell(S[n - 1] + TAIL_STOP, 'down', -1, 'reverse', 'up', sv.reverseS);
+    run(S[n - 1] + TAIL_STOP, S[n - 1], 'xoverEnd', 'up', n - 1, false);
+    layEnd = dwell(S[n - 1], 'up', n - 1, 'departure', 'up', sv.minLayoverS);
+  }
 
   // Up direction: stop n-1 → stop 0.
-  for (let i = n - 2; i >= 0; i--) {
-    run(S[i + 1], S[i], 'up', 'up', i, true);
-    if (i > 0) {
-      const q = dwell(S[i], 'up', i, 'intermediate', 'up', sv.dwellS);
-      departures.set(`${i}:up`, { arr: q.t0, dep: q.t1 });
-    }
+  for (let j = calls.length - 2; j >= 0; j--) {
+    run(S[calls[j + 1]], S[calls[j]], 'up', 'up', calls[j], true);
+    if (j > 0) call(calls[j], 'up');
   }
-  p = dwell(S[0], 'up', 0, 'arrival', 'up', sv.terminalArrivalDwellS);
-  arrivals.set(`0:up`, { arr: p.t0, dep: p.t1 });
-  run(S[0], S[0] - TAIL_STOP, 'up', 'up', -1, false);
-  dwell(S[0] - TAIL_STOP, 'up', -1, 'reverse', 'down', sv.reverseS);
-  run(S[0] - TAIL_STOP, S[0], 'xoverStart', 'down', 0, false);
-  const layStart = dwell(S[0], 'down', 0, 'departure', 'down', sv.minLayoverS);
+  if (edge) {
+    call(0, 'up');
+    run(S[0], S[0] - edge, 'up', 'up', -1, true);
+    layStart = dwell(S[0] - edge, 'down', -1, 'reverse', 'down', sv.reverseS);
+    run(S[0] - edge, S[0], 'down', 'down', 0, true);
+  } else {
+    const p = dwell(S[0], 'up', 0, 'arrival', 'up', sv.terminalArrivalDwellS);
+    arrivals.set(`0:up`, { arr: p.t0, dep: p.t1 });
+    run(S[0], S[0] - TAIL_STOP, 'up', 'up', -1, false);
+    dwell(S[0] - TAIL_STOP, 'up', -1, 'reverse', 'down', sv.reverseS);
+    run(S[0] - TAIL_STOP, S[0], 'xoverStart', 'down', 0, false);
+    layStart = dwell(S[0], 'down', 0, 'departure', 'down', sv.minLayoverS);
+  }
 
   // Pad the two layovers so the cycle is a whole number of headways.
   let padEnd: number, trainCount: number;
@@ -183,8 +206,14 @@ export function buildTimetable(geom: LineGeom, opts: TimetableOptions = {}): Tim
     }
   }
   layStart.t1 += padStart;
-  departures.set(`${n - 1}:up`, { arr: layEnd.t0, dep: layEnd.t1 });
-  departures.set(`0:down`, { arr: layStart.t0, dep: layStart.t1 });
+  for (let i = phases.indexOf(layStart) + 1; i < phases.length; i++) {
+    phases[i].t0 += padStart;
+    phases[i].t1 += padStart;
+  }
+  if (!edge) {
+    departures.set(`${n - 1}:up`, { arr: layEnd.t0, dep: layEnd.t1 });
+    departures.set(`0:down`, { arr: layStart.t0, dep: layStart.t1 });
+  }
 
   return { geom, phases, cycle, headway: sv.headwayS, trainCount, departures, arrivals, offset: opts.offset ?? 0 };
 }

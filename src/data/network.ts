@@ -3,7 +3,7 @@
 // Adding a station = add a StationDef, add it to a line's `stops`/`railY`,
 // and give it a spec in src/stations/specs.ts.
 
-import type { LineDef, LineId, Operator, ServicePattern, StationDef, StationId } from './types';
+import type { LineDef, LineId, Operator, Place, ServicePattern, StationDef, StationId } from './types';
 
 export const OPERATOR: Operator = {
   nameEn: 'Kawaminato Metro',
@@ -830,17 +830,170 @@ export const STATIONS: StationDef[] = [
   },
 ];
 
+// ── Akitsushima Railway (AR): the main-line railway. See docs/akitsushima-railway.md. ──
+// Kept apart from LINES / STATIONS, which are the built, walkable metro: for now AR is on the
+// route map and in the timetable only. Its viaduct, trains and stations are not in the 3D world yet.
+
+export const RAIL_OPERATOR: Operator = {
+  nameEn: 'Akitsushima Railway',
+  nameJa: '秋津島鉄道',
+  city: 'Kawaminato',
+  cityJa: '川湊市',
+};
+
+// Main Line, north-east to south-west ("down"): down the Mio-gawa valley, west along the north
+// side of Kita through Kawaminato Station, then south-west over the river and along the old shore.
+const AR_KITA_Z = A_ODORI_Z - 150; // the viaduct, 150 m north of Kita-Ōdōri avenue
+const AR_EDGE_M = 1500; // how far beyond the end stops trains run before they leave the map
+const AR_E1: [number, number] = [2660, AR_KITA_Z]; // east of Higashi-Kawaminato: turns into the valley
+const AR_VALLEY_DIR: [number, number] = [0.89101, 0.45399]; // 27° south of east
+const AR_E2: [number, number] = along(AR_E1, AR_VALLEY_DIR, 620);
+const AR_HILLS_DIR: [number, number] = [0.97237, -0.23345]; // 13.5° north of east
+const AR_W1: [number, number] = [1500, AR_KITA_Z]; // west of Kawaminato: turns south-west to the river
+const AR_SHORE_DIR: [number, number] = [-0.52498, 0.85112];
+const AR_W2: [number, number] = along(AR_W1, AR_SHORE_DIR, 1250);
+const AR_COAST_DIR: [number, number] = [0.26892, 0.96316];
+const AR_FUNAMIDAI: [number, number] = along(AR_W2, AR_COAST_DIR, 3370);
+const AR_UGUISUZAKA: [number, number] = along(AR_E2, AR_HILLS_DIR, 605);
+
+export const RAIL_LINES: LineDef[] = [
+  {
+    id: 'AR',
+    nameEn: 'AR Main Line',
+    nameJa: '秋津本線',
+    nameKana: 'あきつほんせん',
+    color: '#0b6e6e',
+    type: 'jr',
+    stops: ['uguisuzaka', 'miokami', 'higashi-kawaminato', 'kawaminato', 'konyahama', 'funamidai'],
+    railY: [9, 9, 9, 9, 9, 9],
+    platformType: 'island',
+    trackOffset: 5.5,
+    alignment: {
+      vertices: [along(AR_UGUISUZAKA, AR_HILLS_DIR, AR_EDGE_M + 200), AR_E2, AR_E1, AR_W1, AR_W2, along(AR_FUNAMIDAI, AR_COAST_DIR, AR_EDGE_M + 200)],
+      radius: 400,
+    },
+    // 8-car trains at up to 100 km/h. A Local and a Rapid every 10 minutes each.
+    service: { ...baseService, headwayS: 600, dwellS: 30, maxSpeed: 27.5, cars: 8 },
+    services: [
+      { id: 'local', nameEn: 'Local', nameJa: '普通', color: '#3b4046', skips: [] },
+      { id: 'rapid', nameEn: 'Rapid', nameJa: '快速', color: '#d9541e', skips: ['higashi-kawaminato', 'konyahama'] },
+    ],
+    servicesMeetAt: 'kawaminato',
+    beyond: {
+      up: { nameJa: '霧ヶ原', nameKana: 'きりがはら', nameRomaji: 'Kirigahara' },
+      down: { nameJa: '朝凪', nameKana: 'あさなぎ', nameRomaji: 'Asanagi' },
+      runM: AR_EDGE_M,
+      diagram: { up: [1222, 358], down: [662, 952] },
+    },
+    diagramBends: { 0: [[1125, 400]], 1: [[940, 215]], 3: [[700, 215], [610, 305]], 4: [[610, 434], [662, 486]] },
+  },
+];
+
+const AR_PLATFORMS: Record<LineId, [number, number]> = { AR: [1, 2] };
+export const RAIL_STATIONS: StationDef[] = [
+  {
+    id: 'uguisuzaka',
+    nameJa: '鶯坂',
+    nameKana: 'うぐいすざか',
+    nameRomaji: 'Uguisuzaka',
+    numbers: { AR: 'AR-A01' },
+    position: pos(AR_UGUISUZAKA),
+    diagram: { x: 1180, y: 400, label: 'below' },
+    district: 'East hills',
+    districtJa: '東部丘陵',
+    platforms: AR_PLATFORMS,
+    blurb: 'Embankment station on the slope below the skylark hills; the last stop before the line climbs out of the city.',
+    transfer: 'hibarino',
+  },
+  {
+    id: 'miokami',
+    nameJa: '澪上',
+    nameKana: 'みおかみ',
+    nameRomaji: 'Miokami',
+    numbers: { AR: 'AR-A02' },
+    position: pos(along(AR_E1, AR_VALLEY_DIR, 340)),
+    diagram: { x: 1040, y: 315, label: 'right' },
+    district: 'University',
+    districtJa: '大学地区',
+    platforms: AR_PLATFORMS,
+    blurb: 'The old village upstream on the Mio-gawa, older than the university across the river.',
+    transfer: 'daigaku-mae',
+  },
+  {
+    id: 'higashi-kawaminato',
+    nameJa: '東川湊',
+    nameKana: 'ひがしかわみなと',
+    nameRomaji: 'Higashi-Kawaminato',
+    numbers: { AR: 'AR-A03' },
+    position: { x: 2450, y: AR_KITA_Z },
+    diagram: { x: 915, y: 215, label: 'above' },
+    district: 'Kita (east)',
+    districtJa: 'キタ東',
+    platforms: AR_PLATFORMS,
+    blurb: '1930s brick-and-iron station in the east of Kita, by the civic district.',
+    transfer: 'suzukakedori',
+  },
+  {
+    id: 'kawaminato',
+    nameJa: '川湊',
+    nameKana: 'かわみなと',
+    nameRomaji: 'Kawaminato',
+    numbers: { AR: 'AR-A04' },
+    position: { x: 1870, y: AR_KITA_Z },
+    diagram: { x: 790, y: 215, label: 'above' },
+    district: 'Kita',
+    districtJa: 'キタ',
+    platforms: AR_PLATFORMS,
+    blurb: "The city's main station: through platforms on the viaduct above Kita, where the railway arrived in 1889.",
+    transfer: 'kita-odori',
+  },
+  {
+    id: 'konyahama',
+    nameJa: '紺屋浜',
+    nameKana: 'こんやはま',
+    nameRomaji: "Kon'yahama",
+    numbers: { AR: 'AR-A05' },
+    position: pos(along(AR_W1, AR_SHORE_DIR, 880)),
+    diagram: { x: 610, y: 400, label: 'left' },
+    district: 'Merchant quarter',
+    districtJa: '商人町',
+    platforms: AR_PLATFORMS,
+    blurb: 'On the old shoreline, where the indigo dyers once rinsed their cloth on the beach.',
+    transfer: 'aizomecho',
+  },
+  {
+    id: 'funamidai',
+    nameJa: '舟見台',
+    nameKana: 'ふなみだい',
+    nameRomaji: 'Funamidai',
+    numbers: { AR: 'AR-A06' },
+    position: pos(AR_FUNAMIDAI),
+    diagram: { x: 662, y: 900, label: 'left' },
+    district: 'South port',
+    districtJa: '南港',
+    platforms: AR_PLATFORMS,
+    blurb: 'On the bluff where people once watched the ships come in, now above the container port.',
+    transfer: 'nankodai',
+  },
+];
+
+/** Every line and station, built or not. LINES / STATIONS are the walkable metro only. */
+export const ALL_LINES: LineDef[] = [...LINES, ...RAIL_LINES];
+export const ALL_STATIONS: StationDef[] = [...STATIONS, ...RAIL_STATIONS];
+/** True for a station that is on the map and in the timetable but not built in 3D yet. */
+export const isUnbuilt = (id: StationId): boolean => RAIL_STATIONS.some((s) => s.id === id);
+
 export const lineById = (id: LineId): LineDef => {
-  const l = LINES.find((x) => x.id === id);
+  const l = ALL_LINES.find((x) => x.id === id);
   if (!l) throw new Error(`unknown line ${id}`);
   return l;
 };
 export const stationById = (id: StationId): StationDef => {
-  const s = STATIONS.find((x) => x.id === id);
+  const s = ALL_STATIONS.find((x) => x.id === id);
   if (!s) throw new Error(`unknown station ${id}`);
   return s;
 };
-export const linesAt = (id: StationId): LineDef[] => LINES.filter((l) => l.stops.includes(id));
+export const linesAt = (id: StationId): LineDef[] => ALL_LINES.filter((l) => l.stops.includes(id));
 
 /** A line's platform type at one station (LineDef.sideAt overrides the line's own). */
 export const platformTypeAt = (line: LineDef, id: StationId): LineDef['platformType'] =>
@@ -887,6 +1040,9 @@ export function alongPolyline(pts: [number, number][], f: number): { x: number; 
 /** Terminus a train heading `dir` on `line` is bound for. */
 export const terminusOf = (line: LineDef, dir: 'down' | 'up'): StationDef =>
   stationById(dir === 'down' ? line.stops[line.stops.length - 1] : line.stops[0]);
+
+/** Where a train heading `dir` is bound for: the terminus, or the city beyond the map on a main line. */
+export const destinationOf = (line: LineDef, dir: 'down' | 'up'): Place => line.beyond?.[dir] ?? terminusOf(line, dir);
 
 /** Default spawn when pressing Start. */
 export const HOME_STATION: StationId = 'tsumugibashi';

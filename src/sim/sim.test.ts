@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { K_BESIDE_N, LINES, STATIONS, S_BESIDE_A, lineById, linesAt } from '../data/network';
+import { K_BESIDE_N, LINES, RAIL_STATIONS, STATIONS, S_BESIDE_A, lineById, linesAt } from '../data/network';
 import { hallDims } from '../stations/kit';
-import { NET, carPose, lineSim, type CarPose } from './index';
+import { NET, RAIL_NET, carPose, lineDepartures, lineSim, type CarPose } from './index';
 import { CAR_PITCH, FLAT_M, HALL_HALF, TAIL_END } from './geometry';
 import { nextDepartures, platformDoorOpen, trainStateAt } from './timetable';
 
@@ -252,5 +252,58 @@ describe('timetable', () => {
       for (let i = 1; i < deps.length; i++) expect(deps[i].dep - deps[i - 1].dep).toBe(tt.headway);
     }
     expect(LINES.length).toBe(6);
+  });
+});
+
+describe('AR Main Line (timetable and map only)', () => {
+  const ar = RAIL_NET[0], g = ar.geom, n = g.stopS.length;
+  const [local, rapid] = ar.services!;
+  it('has its stations on straight track, with the run to the map edge on the alignment', () => {
+    g.stopError.forEach((e) => expect(e).toBeLessThan(0.5));
+    const half = (g.def.service.cars * CAR_PITCH) / 2 + 10;
+    for (const s of g.stopS) {
+      const a = g.path.pointAt(s - half), b = g.path.pointAt(s + half);
+      expect(Math.abs(a.tx - b.tx) + Math.abs(a.tz - b.tz)).toBeLessThan(1e-6);
+    }
+    const edge = g.def.beyond!.runM;
+    expect(g.firstS - edge).toBeGreaterThan(half);
+    expect(g.path.length - g.lastS - edge).toBeGreaterThan(half);
+  });
+  it('runs through both end stops: trains board there in both directions and never terminate', () => {
+    for (const { tt } of ar.services!) {
+      expect(tt.arrivals.size).toBe(0);
+      for (const k of ['0:down', '0:up', `${n - 1}:down`, `${n - 1}:up`]) expect(tt.departures.has(k), k).toBe(true);
+      expect(tt.phases[tt.phases.length - 1].t1).toBeCloseTo(tt.cycle, 6);
+      for (let i = 1; i < tt.phases.length; i++) expect(tt.phases[i].t0).toBeCloseTo(tt.phases[i - 1].t1, 6);
+    }
+  });
+  it('the Rapid skips its stations and is the faster train', () => {
+    for (const id of rapid.type.skips) {
+      const i = g.def.stops.indexOf(id);
+      expect(i).toBeGreaterThan(0);
+      expect(rapid.tt.departures.has(`${i}:down`)).toBe(false);
+      expect(local.tt.departures.has(`${i}:down`)).toBe(true);
+    }
+    const trip = (tt: typeof local.tt) => tt.departures.get(`${n - 1}:down`)!.arr - tt.departures.get('0:down')!.dep;
+    expect(trip(rapid.tt)).toBeLessThan(trip(local.tt) - 40);
+  });
+  it('Local and Rapid alternate at every stop with at least two minutes between them', () => {
+    for (let i = 0; i < n; i++) {
+      if (rapid.type.skips.includes(g.def.stops[i])) continue;
+      for (const dir of ['down', 'up'] as const) {
+        const deps = lineDepartures(ar, i, dir, 36000, 8);
+        for (let k = 1; k < deps.length; k++) {
+          expect(deps[k].dep - deps[k - 1].dep, `${g.def.stops[i]} ${dir}`).toBeGreaterThanOrEqual(120);
+          expect(deps[k].service!.id).not.toBe(deps[k - 1].service!.id);
+        }
+      }
+    }
+  });
+  it('gives every AR station a number, a walking transfer and a place on the map', () => {
+    for (const s of RAIL_STATIONS) {
+      expect(s.numbers.AR).toMatch(/^AR-A\d\d$/);
+      expect(STATIONS.some((m) => m.id === s.transfer)).toBe(true);
+      expect(STATIONS.every((m) => Math.hypot(m.diagram.x - s.diagram.x, m.diagram.y - s.diagram.y) > 30)).toBe(true);
+    }
   });
 });

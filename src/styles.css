@@ -125,6 +125,9 @@ kbd {
 .map .stn:hover circle:nth-of-type(2), .map .stn.sel circle:nth-of-type(3) { filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.35)); }
 .map-ja { font-weight: 800; font-size: 19px; fill: #14233b; paint-order: stroke; stroke: #f7f6f1; stroke-width: 4px; }
 .map-en { font-weight: 600; font-size: 11.5px; fill: #5d6673; paint-order: stroke; stroke: #f7f6f1; stroke-width: 3px; }
+.map-rail-ja { font-weight: 800; font-size: 13px; fill: #14233b; paint-order: stroke; stroke: #f7f6f1; stroke-width: 3.5px; }
+.map-rail-en { font-weight: 600; font-size: 10.5px; fill: #5d6673; paint-order: stroke; stroke: #f7f6f1; stroke-width: 3px; }
+.dep-type { display: inline-block; margin-right: 4px; padding: 0 4px; border-radius: 3px; color: #fff; font-size: 0.72em; font-style: normal; font-weight: 800; vertical-align: 1px; }
 .map-geo { font-size: 11px; fill: #7fa6bf; font-weight: 600; letter-spacing: 0.1em; text-anchor: middle; }
 .map-badge-l { font-size: 10.5px; font-weight: 800; text-anchor: middle; }
 .map-badge-n { font-size: 12.5px; font-weight: 800; text-anchor: middle; fill: #14233b; }
