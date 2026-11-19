@@ -7,7 +7,7 @@
 
 import { LINES, linesAt, stationById } from '../data/network';
 import type { LineDef, StationDef, StationId } from '../data/types';
-import { SPECS } from './specs';
+import { SPECS, type ElevatedSpec } from './specs';
 import type { BlockStyle, SurfaceSpec } from './surface';
 
 export interface Named {
@@ -130,7 +130,80 @@ const SHIONDAI_MALL: Named = { ja: '紫苑台タウンプラザ', en: 'Shiondai 
 const SHIONDAI_PARK: Named = { ja: '紫苑台中央公園', en: 'Shiondai Central Park' };
 const SEASIDE_DECK: Named = { ja: '新鴎シーサイドデッキ', en: 'Shin-Kamome Seaside Deck' };
 const SHIN_KAMOME_BUS: Named = { ja: '新鴎バスのりば', en: 'Shin-Kamome bus stop' };
-export const OPEN_AIR: Record<'cutting' | 'terminus' | 'seaside', OpenAirPlan> = {
+const ASAHINO_ARCADE: Named = { ja: 'あさひの高架下商店街', en: 'Asahino Under-the-Tracks Shops' };
+const ASAHINO_BUS: Named = { ja: '旭野駅前バスのりば', en: 'Asahino bus stop' };
+const TAKANODAI_RIDGE: Named = { ja: '高野台団地', en: 'Takanodai Estate (ridge)' };
+const TAKANODAI_VALLEY: Named = { ja: '谷戸の住宅地', en: 'Valley houses' };
+const TAKANODAI_BUS: Named = { ja: '高野台団地バスのりば', en: 'Takanodai Estate bus stop' };
+const IZUMI_DECK: Named = { ja: '泉ヶ丘デッキ', en: 'Izumigaoka Deck' };
+const IZUMI_BUS: Named = { ja: '泉ヶ丘駅前バスターミナル', en: 'Izumigaoka Bus Terminal' };
+const IZUMI_PARK: Named = { ja: '泉ヶ丘公園', en: 'Izumigaoka Park' };
+const IZUMI_CENTRE: Named = { ja: '泉ヶ丘センター', en: 'Izumigaoka Centre' };
+export const OPEN_AIR: Record<NonNullable<ElevatedSpec['layout']>, OpenAirPlan> = {
+  // Asahino: a gate hall for each direction under the viaduct (platform 1 west, platform 2
+  // east), a free passage under the tracks between them, shops in the arches beyond. The box
+  // is hall B, where you arrive (the whole pair is too long for the area map's label).
+  arcade: {
+    box: [6, -9, 40, 9],
+    areas: [
+      { r: [-130, -9.2, 130, 9.2], fill: 'track' },
+      { r: [-58, -8, -36, 8], fill: 'shop', label: ASAHINO_ARCADE },
+      { r: [42, -8, 58, 8], fill: 'shop', label: ASAHINO_ARCADE },
+      { r: [-40, 9.2, 40, 22], fill: 'plaza', label: PLACE.plaza },
+      { r: [-130, 22, 130, 30], fill: 'road' },
+      { r: [-130, -24, 130, -18], fill: 'road' },
+      { r: [-126, 34, 124, 58], fill: 'apartment', label: KIND.mixed },
+      { r: [-126, -70, 124, -28], fill: 'house', label: KIND.house },
+    ],
+    bus: [12, 19],
+    taxi: [-16, 19],
+    exits: [
+      { rect: [-32, 8.85, -26, 9], side: 1, near: [PLACE.plaza, ASAHINO_BUS, ASAHINO_ARCADE] },
+      { rect: [-34.15, -3, -34, 3], side: 0, near: [ASAHINO_ARCADE, KIND.house] },
+      { rect: [8, 8.85, 18, 9], side: 1, near: [PLACE.plaza, ASAHINO_BUS] },
+      { rect: [6, -8, 6.15, -3], side: 0, near: [KIND.house] },
+    ],
+  },
+  // Takanodai: the ridge (−z) is level with the platforms; the station building stands on it.
+  // The valley (+z) is at street level, reached by the underpass under the viaduct.
+  hillside: {
+    box: [-8, -22, 24, 20],
+    areas: [
+      { r: [-130, -8.6, 130, 8.6], fill: 'track' },
+      { r: [-130, -85, 130, -8.6], fill: 'green', label: TAKANODAI_RIDGE },
+      { r: [-20, -26, 40, -22], fill: 'plaza', label: PLACE.plaza },
+      { r: [-130, -32, 130, -26], fill: 'road' },
+      { r: [-126, -80, 124, -36], fill: 'apartment', label: TAKANODAI_RIDGE },
+      { r: [-130, 24, 130, 32], fill: 'road' },
+      { r: [-126, 36, 124, 80], fill: 'house', label: TAKANODAI_VALLEY },
+    ],
+    bus: [34, -29],
+    exits: [
+      { rect: [2, -22.15, 14, -22], side: -1, near: [TAKANODAI_RIDGE, TAKANODAI_BUS] },
+      { rect: [1, 20, 9, 20.15], side: 1, near: [TAKANODAI_VALLEY] },
+    ],
+  },
+  // Izumigaoka: the concourse bridges the tracks past the platforms' +x end (where the line
+  // will carry on); decks on both sides step down to the bus terminal (+z) and the estate (−z).
+  railhead: {
+    box: [54, -14, 70, 14],
+    areas: [
+      { r: [-130, -9.2, 130, 9.2], fill: 'track' },
+      { r: [62, 14, 68, 35], fill: 'deck', label: IZUMI_DECK },
+      { r: [62, -35, 68, -14], fill: 'deck' },
+      { r: [10, 36, 120, 46], fill: 'road', label: IZUMI_BUS },
+      { r: [10, 48, 70, 82], fill: 'green', label: IZUMI_PARK },
+      { r: [74, 48, 124, 82], fill: 'shop', label: IZUMI_CENTRE },
+      { r: [-130, -44, 130, -38], fill: 'road' },
+      { r: [-126, -80, 124, -48], fill: 'apartment', label: KIND.apartment },
+    ],
+    bus: [40, 41],
+    taxi: [96, 38],
+    exits: [
+      { rect: [62, 14, 68, 14.15], side: 1, near: [IZUMI_DECK, IZUMI_BUS, IZUMI_PARK, IZUMI_CENTRE] },
+      { rect: [62, -14.15, 68, -14], side: -1, near: [KIND.apartment] },
+    ],
+  },
   // Shin-Kamome: the hall is under the middle of the viaduct, the sea and its boardwalk on the
   // +z side, the towers across the road on −z. Unpaid side x < −12.
   seaside: {

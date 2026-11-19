@@ -29,7 +29,7 @@ export function buildOpenAir(c: Ctx, spec: ElevatedSpec) {
 }
 
 /** A seeded 0…1 generator. */
-function seeded(seed: number) {
+export function seeded(seed: number) {
   let s = seed;
   return () => {
     s = (s * 1664525 + 1013904223) >>> 0;
@@ -38,7 +38,7 @@ function seeded(seed: number) {
 }
 
 /** Walls round the walkable plot. */
-function plotWalls(b: Builder) {
+export function plotWalls(b: Builder) {
   const X = PLOT_X, Z = PLOT_Z;
   b.block(-X - 1, -1, -Z - 1, -X, 40, Z + 1);
   b.block(X, -1, -Z - 1, X + 1, 40, Z + 1);
@@ -47,7 +47,7 @@ function plotWalls(b: Builder) {
 }
 
 /** A glazed wall: solid sill, glass, solid head. */
-function glazed(b: Builder, mat: string, x0: number, z0: number, x1: number, z1: number, y0: number, y1: number) {
+export function glazed(b: Builder, mat: string, x0: number, z0: number, x1: number, z1: number, y0: number, y1: number) {
   b.block(x0, y0, z0, x1, y1, z1);
   b.deco(mat, x0, y0, z0, x1, y0 + 0.9, z1);
   b.deco('glass', x0, y0 + 0.9, z0, x1, y1 - 0.5, z1);

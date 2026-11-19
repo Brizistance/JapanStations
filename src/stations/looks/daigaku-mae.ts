@@ -17,6 +17,9 @@
 //   The noticeboard court faces itself across the spine at the west end: a pinned cork wall on
 //   one side, a row of tatekan on the other, club banners above. Staff doors, a hose cabinet,
 //   meter cupboards and flyers fill what is left of the free wall.
+// - The exits on the campus side are the university's own: in the lobby at the stair foot, the
+//   library's basement entrance (oak doors, the stacks seen through the glass); at the top, the
+//   stair comes up into a brick forecourt under the campus trees, with the library gate post.
 
 import type { Builder } from '../../world/builder';
 import {
@@ -24,7 +27,65 @@ import {
   passageWalls, pipeRun, serviceDoor, stairwellFaces, vendingRow, wallBand, wbox,
   type Axis, type Brand, type Span, type Wall,
 } from './parts';
-import type { ConcInfo, Rect, RoomInfo, Stairwell, StationLook, WallFace } from './types';
+import type { ConcInfo, ExitInfo, Rect, RoomInfo, Stairwell, StationLook, WallFace } from './types';
+import { KIND, stationExits } from '../exits';
+
+/** True for an exit that comes up on the campus side of the road (the university nearest). */
+const campusExit = (e: ExitInfo) =>
+  stationExits(e.station.id).find((x) => x.num === e.num)?.near[0]?.en === KIND.campus.en;
+
+/** The university library's basement entrance on the lobby's −x wall (x = −4, facing +x). */
+function libraryDoor(e: ExitInfo) {
+  const { b, cf, ext } = e, zc = ext + 2, w = 1.1;
+  // Brick surround and a stone lintel carrying the name.
+  b.deco(BRICK, -3.99, cf, zc - w - 0.45, -3.94, cf + 2.62, zc + w + 0.45);
+  b.deco(STONE, -3.94, cf + 2.22, zc - w - 0.5, -3.9, cf + 2.62, zc + w + 0.5);
+  // Behind the glass: dim reading-room light and the stacks.
+  b.deco('flat:#2a1e16', -3.94, cf + 0.05, zc - w, -3.93, cf + 2.18, zc + w);
+  const r = seeded(e.num.charCodeAt(0) * 31 + 7);
+  for (const y0 of [cf + 0.3, cf + 0.85, cf + 1.4]) {
+    b.deco(OAK, -3.93, y0 - 0.04, zc - w + 0.1, -3.925, y0, zc + w - 0.1);
+    for (let z = zc - w + 0.12; z < zc + w - 0.14;) {
+      const t = 0.03 + r() * 0.05;
+      b.deco(`flat:${BOOKS[Math.floor(r() * BOOKS.length)]}`, -3.928, y0, z, -3.922, y0 + 0.32 + r() * 0.12, z + t);
+      z += t + 0.006;
+    }
+  }
+  b.deco('glow:#ffe2a8', -3.93, cf + 1.95, zc - w + 0.1, -3.925, cf + 2.05, zc + w - 0.1);
+  b.deco('glass', -3.92, cf + 0.05, zc - w, -3.91, cf + 2.18, zc + w);
+  // Oak frame, the meeting stile, brass pulls.
+  for (const z of [zc - w - 0.08, zc + w]) b.deco(OAK, -3.94, cf, z, -3.88, cf + 2.22, z + 0.08);
+  b.deco(OAK, -3.94, cf + 2.14, zc - w, -3.88, cf + 2.22, zc + w);
+  b.deco(OAK, -3.92, cf, zc - 0.03, -3.88, cf + 2.18, zc + 0.03);
+  for (const dz of [-0.14, 0.1]) b.deco(BRASS, -3.88, cf + 0.85, zc + dz, -3.84, cf + 1.25, zc + dz + 0.04);
+  b.deco(BRASS, -3.92, cf, zc - w, -3.88, cf + 0.12, zc + w);
+  b.sign({ k: 'label', text: '川湊大学附属図書館 地下入口', sub: 'Kawaminato University Library — basement entrance', fg: '#f0e2c0', bg: '#3d2014' },
+    -3.89, cf + 2.42, zc, [1, 0], 2.9, 0.34);
+}
+
+/** At street level on the campus side: a brick forecourt round the stair mouth, the library gate post. */
+function campusForecourt(e: ExitInfo) {
+  const { b, gy, ext, run } = e, z0 = ext + 1.2, z1 = ext + 4.0;
+  // Brick paving beyond the parapets and in front of the mouth.
+  b.deco(BRICK, -1.2, gy + 0.004, z0 - 2.2, run + 3.2, gy + 0.01, z1 + 2.2);
+  for (let x = -1.2; x < run + 3.2; x += 1.2) b.deco(STONE, x, gy + 0.01, z0 - 2.2, x + 0.04, gy + 0.012, z1 + 2.2);
+  // Low brick planters along both sides with a cherry tree in each, benches on their fronts.
+  for (const [a, c] of [[z0 - 2.2, z0 - 1.2], [z1 + 1.2, z1 + 2.2]]) {
+    b.deco(BRICK, 0, gy, a, run - 0.8, gy + 0.5, c);
+    b.deco(STONE, -0.04, gy + 0.5, a - 0.04, run - 0.76, gy + 0.56, c + 0.04);
+    b.deco('flat:#4a3b2c', 0.1, gy + 0.56, a + 0.1, run - 0.9, gy + 0.58, c - 0.1);
+    const tx = (run - 0.8) / 2, tz = (a + c) / 2;
+    b.mesh('wood:#4a3424', 'cyl', tx, gy + 1.9, tz, 0.22, 2.7, 0.22);
+    b.mesh('flat:#f2c9d4', 'sphere', tx, gy + 3.7, tz, 3.0, 1.8, 2.4);
+    b.mesh('flat:#e8b3c2', 'sphere', tx + 0.6, gy + 3.4, tz + 0.3, 1.8, 1.2, 1.6);
+  }
+  // The library gate post at the forecourt's street corner.
+  const px = run + 2.4, pz = z1 + 1.7;
+  b.deco(BRICK, px - 0.35, gy, pz - 0.35, px + 0.35, gy + 2.4, pz + 0.35);
+  b.deco(STONE, px - 0.42, gy + 2.4, pz - 0.42, px + 0.42, gy + 2.55, pz + 0.42);
+  b.mesh(OPAL, 'sphere', px, gy + 2.78, pz, 0.36, 0.36, 0.36);
+  b.sign({ k: 'label', text: '川湊大学 図書館口', sub: 'University — Library Gate', fg: '#f0e2c0', bg: '#3d2014' }, px + 0.36, gy + 1.6, pz, [1, 0], 0.66, 1.2);
+}
 
 // ── Palette ──────────────────────────────────────────────────────────────────────────────────
 
@@ -903,7 +964,8 @@ export const look: StationLook = {
     b.deco(PLASTER, -0.008, cf + 1.15, ext, 0, cf + 2.7, ext + 0.9);
     b.deco(PLASTER, -4, cf + 1.15, L - 0.008, 0, cf + 2.7, L);
     // Flyers pasted on the lobby walls (clear of the kit's poster at x = −2 on the back wall).
-    flyers(r, ext + 0.4, L - 0.4, cf + 1.3, cf + 2.1, (mat, a, c, ya, yb) => b.deco(mat, -3.986, ya, a, -3.984, yb, c), 0.5);
+    if (campusExit(e)) libraryDoor(e);
+    else flyers(r, ext + 0.4, L - 0.4, cf + 1.3, cf + 2.1, (mat, a, c, ya, yb) => b.deco(mat, -3.986, ya, a, -3.984, yb, c), 0.5);
     for (const [p, q] of [[-3.8, -2.75], [-1.25, -0.2]]) {
       flyers(r, p, q, cf + 1.25, cf + 2.1, (mat, a, c, ya, yb) => b.deco(mat, a, ya, L - 0.016, c, yb, L - 0.014), 0.7);
     }
@@ -966,6 +1028,7 @@ export const look: StationLook = {
       for (let x = 0.2; x < X - 0.7; x += 1.8) b.deco(IRON, x - 0.018, gy + 1.06, z - 0.018, x + 0.018, gy + 1.56, z + 0.018);
     }
     b.deco(IRON, -0.17, gy + 1.56, z0 - 0.15, -0.13, gy + 1.6, z1 + 0.15);
+    if (campusExit(e)) campusForecourt(e);
   },
 
   passage(p) {

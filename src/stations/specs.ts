@@ -51,8 +51,14 @@ export interface ElevatedSpec {
    * terminus under one barrel vault, its hall under the platform end, a pedestrian deck to the
    * plaza (Shiondai). 'seaside': a viaduct terminus under gull-wing canopies, its hall at ground
    * level under the middle of the viaduct, opening onto a boardwalk by the sea (Shin-Kamome).
+   * Nagisa Line east (nagisa-east.ts), side platforms: 'arcade': a gate hall per direction under
+   * the viaduct, a free passage between them, shops in the arches (Asahino). 'hillside': the
+   * viaduct runs into a ridge; a station building level with the platforms on the ridge, an
+   * underpass to the far platform and the valley entrance (Takanodai). 'railhead': a temporary
+   * terminus with a concourse bridging the tracks past the platform ends and a deck to the
+   * new-town plaza (Izumigaoka).
    */
-  layout?: 'cutting' | 'terminus' | 'seaside';
+  layout?: 'cutting' | 'terminus' | 'seaside' | 'arcade' | 'hillside' | 'railhead';
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -368,10 +374,12 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
   },
   // ── Nagisa Line, west (under the bay) ──
-  // Bay business district: glass-blue panels, skyline mural, towers and a promenade.
+  // The line's western terminus. Bay business district: glass-blue panels, skyline mural; the
+  // unpaid hall is the Minato Center tower's basement (looks/minato-center.ts), so it runs wide.
   'minato-center': {
     kind: 'underground',
     concourse: [-20, 34],
+    width: 12,
     gates: ['hi'],
     stairs: [{ x: -2, up: 1 }],
     style: {
@@ -398,27 +406,30 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
   },
   // ── Nagisa Line, east (on the viaduct) ──
-  // Sunrise suburbs: warm cream panels and a gold sunrise.
+  // Sunrise suburbs: warm cream panels and a gold sunrise. A gate hall per direction (nagisa-east.ts).
   asahino: {
     kind: 'elevated',
+    layout: 'arcade',
     style: {
       wall: 'panel:#f1ebdc', concWall: 'panel:#f4f0e6', floor: 'floor:#d4d0c4', pillar: 'concrete',
       accent: '#e2a400', mural: { v: 'sunset', color: '#f0a32a' },
     },
     surface: { seed: 211, roadHalf: 6, cross: [-64, 70], left: 'house', right: 'mixed', trees: true, poles: true },
   },
-  // Hilltop estate: cool grey panels, hills mural, apartment blocks.
+  // Hilltop estate: cool grey panels, hills mural. Ridge-level building, underpass to the valley (nagisa-east.ts).
   takanodai: {
     kind: 'elevated',
+    layout: 'hillside',
     style: {
       wall: 'panel:#e2e5e8', concWall: 'panel:#edf0f1', floor: 'floor:#d0d1cd', pillar: 'concrete',
       accent: '#4a7fb0', mural: { v: 'hills', color: '#4a7fb0' },
     },
     surface: { seed: 223, roadHalf: 7, cross: [66], left: 'apartment', right: 'apartment', trees: true },
   },
-  // New-town terminus named for its spring: aqua panels, ripples mural, a park.
+  // New-town terminus (for now) named for its spring: aqua panels, ripples mural. Concourse over the tracks, decks to the park (nagisa-east.ts).
   izumigaoka: {
     kind: 'elevated',
+    layout: 'railhead',
     style: {
       wall: 'panel:#e3eff0', concWall: 'panel:#eef5f5', floor: 'floor:#cfd5d4', pillar: 'concrete',
       accent: '#1f8f9a', mural: { v: 'ripples', color: '#1f8f9a' },

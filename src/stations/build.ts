@@ -14,6 +14,7 @@ import {
 } from './kit';
 import { buildHub } from './hub';
 import { buildAtrium } from './atrium';
+import { buildNagisaEast } from './nagisa-east';
 import { buildOpenAir } from './open-air';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
@@ -959,7 +960,8 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     return { build: b.out, primary: p.line.id };
   }
   const l = input.lines[0];
-  if (spec.kind === 'elevated' && spec.layout) buildOpenAir(mk(l), spec);
+  if (spec.kind === 'elevated' && (spec.layout === 'arcade' || spec.layout === 'hillside' || spec.layout === 'railhead')) buildNagisaEast(mk(l), spec);
+  else if (spec.kind === 'elevated' && spec.layout) buildOpenAir(mk(l), spec);
   else if (spec.kind === 'elevated') {
     // A second line here crosses underneath (Hibarino).
     const u = input.lines[1];

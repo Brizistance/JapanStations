@@ -379,11 +379,21 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         b.deco(`paint:${style.accent}`, -H, pf + 2.56, Math.min(z0, zi), H, pf + 2.62, Math.max(z0, zi));
         for (let y = bedY + 0.6; y < -0.2; y += 0.6) b.deco('concreteDark', -H, y, Math.min(z0, zi), H, y + 0.03, Math.max(z0, zi));
       } else {
-        b.wallX('panel:#e4e6e8', -P, P, lo, hi, pf, pf + 1.1);
-        b.block(-P, pf + 1.1, lo, P, pf + 3.3, hi);
-        b.deco('glass', -P, pf + 1.1, lo + 0.07, P, pf + 2.5, hi - 0.07);
-        b.deco('panel:#e4e6e8', -P, pf + 2.5, lo, P, pf + 3.3, hi);
-        for (let x = -P; x <= P; x += 5.8) b.deco('flat:#8d949b', x - 0.1, pf, lo - 0.05, x + 0.1, pf + 3.4, hi + 0.05);
+        // Glazed back wall, in runs between any doorways (o.gaps) onto a building beside the deck.
+        const runs: [number, number][] = [];
+        let from = -P;
+        for (const g of gaps.filter((q) => q.s === s).sort((p, q) => p.x0 - q.x0)) {
+          if (g.x0 > from) runs.push([from, g.x0]);
+          from = Math.max(from, g.x1);
+        }
+        if (from < P) runs.push([from, P]);
+        for (const [xa, xb] of runs) {
+          b.wallX('panel:#e4e6e8', xa, xb, lo, hi, pf, pf + 1.1);
+          b.block(xa, pf + 1.1, lo, xb, pf + 3.3, hi);
+          b.deco('glass', xa, pf + 1.1, lo + 0.07, xb, pf + 2.5, hi - 0.07);
+          b.deco('panel:#e4e6e8', xa, pf + 2.5, lo, xb, pf + 3.3, hi);
+        }
+        for (let x = -P; x <= P; x += 5.8) if (!inGap(s, x, 0.2)) b.deco('flat:#8d949b', x - 0.1, pf, lo - 0.05, x + 0.1, pf + 3.4, hi + 0.05);
       }
       if (o.roof !== false) {
         // Canopy.
