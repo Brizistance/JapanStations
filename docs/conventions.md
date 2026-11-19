@@ -3,7 +3,7 @@
 ## Workflow
 
 - **Keep it loose.** Iterate on working things and avoid heavy process.
-- **Plan docs for features and stations only.** Write `Plans/<area>/<name>/plan.md` (for example `Plans/stations/kitahama-bashi/plan.md` or `Plans/features/route-diagram/plan.md`), then wait for approval before building. Bug fixes and tweaks skip this step.
+- **Short plan in chat for features and stations.** Give a plan of a few lines in chat, then wait for approval before building. No plan files (changed 2026-11-18; `Plans/` holds the old ones). Bug fixes and tweaks skip this step.
 - **When a decision is made, update the relevant doc** in `docs/`, so the docs don't drift from reality.
 - **Custom skills:** once a workflow has been repeated two or three times (adding a station, adding a line), turn it into a project skill in `.claude/skills/`. Planned skills: `new-station`, `new-line`.
 
@@ -40,7 +40,7 @@ npm run build
 4. **Give it a layout and a theme of its own** (standing rule, user, 2026-11-18). Every new station is a hero station; none falls back to the default look.
    - *Layout:* an arrangement no existing station has: a different platform form (island, side, stacked, split-level, offset), concourse shape or level, gate and exit placement, or circulation (mezzanine, sunken court, long passage). Changing only the finishes or the exit count doesn't count. If no composer can build it, extend one or add one (listed in "Layouts implemented" in station-design.md).
    - *Theme:* a `StationLook` of its own, `looks/<station-id>.ts`, with a concept and a centrepiece drawn from the station's name or district, following the hero brief. Its palette and centrepiece must not repeat another hero's.
-   - Propose both in `Plans/stations/<station-id>/plan.md` and get approval before building. Add the row to the hero table in station-design.md, and to "Layouts implemented" if the layout is new.
+   - Propose both in a short plan in chat and get approval before building. Add the row to the hero table in station-design.md, and to "Layouts implemented" if the layout is new.
 5. `npm test`. The sim tests check the geometry; the walk test checks you can reach every part of it.
 
 Signs, the map, departure boards and the timetable pick it up automatically.
