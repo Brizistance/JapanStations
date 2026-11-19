@@ -23,7 +23,7 @@ export type SignCache = Map<string, Entry>;
 const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock']);
 const FAST = new Set(['dep', 'depAll']);
 /** Printed or physical things (posters, murals, machine fronts, doors): lit by the room, not self-lit. */
-const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap']);
+const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap', 'floormark']);
 
 function planeWith(sky: number): THREE.PlaneGeometry {
   const g = new THREE.PlaneGeometry(1, 1);

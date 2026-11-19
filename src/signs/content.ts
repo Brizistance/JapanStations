@@ -40,6 +40,12 @@ export type SignContent =
   /** Train destination LED. */
   | { k: 'dest'; line: LineId; dir: Dir | 'none' }
   /** Live in-car information display. */
-  | { k: 'lcd'; line: LineId; train: number };
+  | { k: 'lcd'; line: LineId; train: number }
+  /**
+   * Floor decal (stations/floor.ts): an arrow and a line badge, and on a big mark the platform
+   * numbers that way (`nums`, のりば / Platforms) or, with `transfer`, のりかえ / Transfer. With
+   * neither, a small badge repeated along a line band. `text` / `sub` are free text instead.
+   */
+  | { k: 'floormark'; arrow?: Arrow; line?: LineId; text?: string; sub?: string; nums?: number[]; transfer?: boolean };
 
 export const signKey = (c: SignContent, w: number, h: number) => `${JSON.stringify(c)}|${w.toFixed(2)}x${h.toFixed(2)}`;

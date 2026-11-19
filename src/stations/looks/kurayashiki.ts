@@ -11,7 +11,7 @@
 
 import type { Builder } from '../../world/builder';
 import {
-  band, cut, doorways, lightPanel, noren, passageWalls, placeAlong, shopFront, toiletX, vendingRow, wbox,
+  band, cut, doorways, lightPanel, noren, passageWalls, placeAlong, shopFront, stairwellFaces, toiletX, vendingRow, wbox,
   type Axis, type Brand, type Span, type Wall,
 } from './parts';
 import type { ConcInfo, ExitInfo, StationLook } from './types';
@@ -312,8 +312,8 @@ function tawara(b: Builder, x: number, y: number, z: number) {
 
 /** A daihachi hand-cart loaded with rice bales and crates, shafts towards +x. About 2.9 × 1.3. */
 function handCart(i: ConcInfo, x: number, z: number): boolean {
-  if (!i.free(x - 1.45, z - 0.7, x + 1.45, z + 0.7, 1.4)) return false;
-  i.claim(x - 2, z - 1.2, x + 2, z + 1.2);
+  if (!i.free(x - 1.45, z - 0.7, x + 1.45, z + 0.7, 0.8)) return false;
+  i.claim(x - 1.9, z - 1.2, x + 1.9, z + 1.2);
   const { b, cf } = i;
   b.block(x - 1.4, cf, z - 0.66, x + 1.42, cf + 1.25, z + 0.66);
   b.deco('wood:#8a6a48', x - 1.0, cf + 0.55, z - 0.5, x + 0.6, cf + 0.62, z + 0.5);
@@ -341,6 +341,44 @@ function handCart(i: ConcInfo, x: number, z: number): boolean {
 
 // ── The timber frame ─────────────────────────────────────────────────────────────────────────
 
+/** z-spans of the stairwell walls a beam at x (half width hw) would run into. */
+function wellSpans(i: ConcInfo, x: number, hw: number): Span[] {
+  const out: Span[] = [];
+  for (const w of i.stairwells) {
+    const ws = w.walls.filter((r) => x + hw > r[0] && x - hw < r[2]);
+    if (ws.length) out.push([Math.min(...ws.map((r) => r[1])), Math.max(...ws.map((r) => r[3]))]);
+  }
+  return out;
+}
+
+/**
+ * The stairwells' outer walls dressed as kura walls: a namako base, plaster above, a timber
+ * plate under the ceiling, a timber pilaster under each beam end, framed posters between them.
+ */
+function dressWells(i: ConcInfo) {
+  const { b, cf } = i, top = cf + i.clear;
+  const beams = grid(i);
+  let v = i.station.id.length + 3;
+  for (const w of i.stairwells) {
+    if (w.room >= 0) continue;
+    for (const f of stairwellFaces(i, w)) {
+      const { axis, at, n, u0, u1 } = f;
+      namakoDado(b, axis, at, n, [[u0, u1]], cf);
+      ab(b, TIMBER, axis, at, u0, u1, cf + 2.75, top, 0, n * 0.2);
+      const bx = f.end ? [] : beams.filter((x) => x > u0 + 0.13 && x < u1 - 0.13);
+      for (const x of bx) ab(b, TIMBER, axis, at, x - 0.12, x + 0.12, cf + 1.09, cf + BEAM, 0, n * 0.07);
+      // Poster centres: midway between beams on a long face, in the middle of the closed end.
+      const edges = [u0, ...bx, u1];
+      const centres = f.end ? [(u0 + u1) / 2] : edges.slice(1).map((e, k) => (e + edges[k]) / 2).filter((c, k) => edges[k + 1] - edges[k] >= 2.2 && c > u0 + 0.6 && c < u1 - 0.6);
+      for (const c of centres) {
+        ab(b, TIMBER, axis, at, c - 0.5, c + 0.5, cf + 1.14, cf + 2.46, n * 0.008, n * 0.026);
+        const [px, pz] = axis === 'x' ? [c, at + n * 0.032] : [at + n * 0.032, c];
+        b.sign({ k: 'poster', v: v++ % 8 }, px, cf + 1.8, pz, axis === 'x' ? [0, n] : [n, 0], 0.9, 1.25);
+      }
+    }
+  }
+}
+
 /**
  * Beams across the concourse every 4 m. Each end meets the wall (on a timber post if there is
  * floor for one, else on a corbel) or, where the wall is spoken for, rests on a pillar and
@@ -352,8 +390,12 @@ function frame(i: ConcInfo, W: Span[][]) {
   // Long beams over the pillar lines, broken at the gate lines (their signs and screens).
   const gaps = i.ends.map((e): Span => [e.g - 2.6, e.g + 2.6]);
   const lines = [...new Set(i.pillars.map(([, pz]) => pz))].filter((z) => Math.abs(z) > 0.5);
+  // ...and at every full-height wall block the kit built in the hall (the gate office).
+  const blocks = i.b.out.boxes.filter((p) => p.solid && p.mat !== 'none' && p.min[1] <= cf + 0.05 && p.max[1] >= top - 0.05
+    && p.min[2] < cw - 0.01 && p.max[2] > -cw + 0.01 && (p.max[0] - p.min[0] > 1 || p.max[2] - p.min[2] > 1));
   for (const z of lines) {
-    for (const [p, q] of cut([i.x0, i.x1], gaps)) b.deco(TIMBER, p, cf + 2.65, z - 0.15, q, top, z + 0.15);
+    const hit = blocks.filter((p) => p.min[2] < z + 0.15 && p.max[2] > z - 0.15).map((p): Span => [p.min[0] - 0.02, p.max[0] + 0.02]);
+    for (const [p, q] of cut([i.x0, i.x1], [...gaps, ...hit])) b.deco(TIMBER, p, cf + 2.65, z - 0.15, q, top, z + 0.15);
   }
   for (const x of grid(i)) {
     if (nearGate(i, x, 2.4)) continue;
@@ -366,7 +408,18 @@ function frame(i: ConcInfo, W: Span[][]) {
       else if (line !== undefined) ends.push(line + s * 0.25);
     }
     if (ends.length < 2) continue;
-    b.deco(TIMBER, x - 0.16, cf + BEAM, ends[0], x + 0.16, top, ends[1]);
+    // Across a stairwell the beam stops at its walls and rests on a corbel there, one each side.
+    let hw = 0.16;
+    for (const w of i.stairwells) for (const j of w.portal.jambs) if (x > j[2] && x - hw < j[2]) hw = Math.max(0.1, x - j[2] - 0.005);
+    const gap = wellSpans(i, x, hw);
+    for (const [p, q] of cut([Math.min(...ends), Math.max(...ends)], gap)) {
+      if (q - p < 0.3) continue;
+      b.deco(TIMBER, x - hw, cf + BEAM, p, x + hw, top, q);
+      for (const [g0, g1] of gap) {
+        if (Math.abs(q - g0) < 0.01) b.deco(TIMBER2, x - hw + 0.01, cf + 2.33, g0 - 0.45, x + hw - 0.01, cf + BEAM, g0);
+        if (Math.abs(p - g1) < 0.01) b.deco(TIMBER2, x - hw + 0.01, cf + 2.33, g1, x + hw - 0.01, cf + BEAM, g1 + 0.45);
+      }
+    }
     for (const s of wall) {
       const [pa, pb] = band(i, s, 0, 0.35);
       if (i.free(x - 0.21, pa, x + 0.21, pb)) {
@@ -404,10 +457,15 @@ export const look: StationLook = {
     }
     // Plain white light where people need to see: either side of each gate line, over the stairs.
     for (const e of i.ends) for (const dx of [-3, 3]) for (const z of [-1.6, 1.6]) lightPanel(i, e.g + dx, z, top, 1.2, 0.5);
-    for (const h of i.holes) {
-      const zc = (h[1] + h[3]) / 2;
+    // The stairwells are walled: their light panels go in the lanes beside them, and one panel
+    // in front of each portal, flush with the ceiling, so the descent is lit.
+    for (const w of i.stairwells) {
+      const f = w.footprint;
       for (let c = i.x0 + 2; c < i.x1 - 1; c += 4) {
-        if (c > h[0] - 3 && c < h[2] + 3 && !nearGate(i, c, 2.6)) lightPanel(i, c, zc, top, 1.6, 0.5);
+        if (nearGate(i, c, 2.6) || c < f[0] - 3.3 || c > f[2] + 3) continue;
+        const inside = c > f[0] - 0.8 && c < f[2] + 0.8;
+        if (inside) for (const s of [-1, 1]) lightPanel(i, c, s * (f[3] + 1.65), top, 1.6, 0.5);
+        else lightPanel(i, c, (f[1] + f[3]) / 2, top, 1.6, 0.5);
       }
     }
   },
@@ -460,8 +518,18 @@ export const look: StationLook = {
     for (const [x, z] of spots) if (n > 0 && woodBench(i, x, z)) n--;
 
     // The hand-cart in the first unpaid hall, between the exits and the gates.
+    // The floor guidance runs down the middle of the hall, so it stands to one side, on floor
+    // `free()` allows, as near the middle of the hall as there is room.
     const e0 = i.ends[0];
-    if (e0) for (const z of [0, 1.6, -1.6]) if (handCart(i, e0.g + (e0.hi ? 7.5 : -7.5), z)) break;
+    if (e0) {
+      const xc = e0.g + (e0.hi ? 7.5 : -7.5);
+      search: for (const dx of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, 3, -3, 4, -4]) {
+        for (const z of [2.6, -2.6, 3.2, -3.2, 3.8, -3.8, 4.4, -4.4, 5, -5, 5.6, -5.6, 6.4, -6.4]) {
+          if (handCart(i, xc + dx, z)) break search;
+        }
+      }
+    }
+    dressWells(i);
 
     // A paid end wall: namako dado and a pair of big framed posters.
     const paidEnds = [...(i.ends.some((e) => !e.hi) ? [] : [i.x0]), ...(i.ends.some((e) => e.hi) ? [] : [i.x1])];

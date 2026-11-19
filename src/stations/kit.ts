@@ -9,6 +9,7 @@ import { lookFor } from './looks';
 import type { ExitInfo } from './looks/types';
 import { themeFor } from './themes';
 import { wayfindExit } from './wayfinding';
+import { floorExit } from './floor';
 import type { HallInfo } from './themes/types';
 
 export const PF_H = 1.1; // platform height above rail
@@ -281,7 +282,10 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       const g = gaps.filter((q) => q.s === s).map((q) => [q.x0, q.x1]);
       for (const seg of o.ceil) {
         const top = seg.y + (seg.vault ? 1.6 : 0) + (seg.emit ? SLAB : 0);
-        b.wallX(style.wall, seg.x0, seg.x1, lo, hi, pf - 0.2, top, g);
+        // Only the doorways inside this segment: Builder.wallX walks its gaps in order and would
+        // otherwise build a reversed box (x from a gap far past the segment's end back to the next gap).
+        const sg = g.filter(([ga, gb]) => gb > seg.x0 && ga < seg.x1);
+        b.wallX(style.wall, seg.x0, seg.x1, lo, hi, pf - 0.2, top, sg);
         for (const [ga, gb] of g) if (ga >= seg.x0 && gb <= seg.x1) b.box(style.wall, ga, pf + 2.5, lo, gb, top, hi);
       }
       b.box('concreteDark', -H, railY - 1, lo, H, pf - 0.2, hi);
@@ -578,8 +582,9 @@ export function rail(b: Builder, x0: number, z0: number, x1: number, z1: number,
  */
 export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear = CONC_CLEAR) {
   const { b, station } = c;
-  // A narrow (old) concourse has five gates and a shallower office.
-  const narrow = cw < 9;
+  // A narrow (old) concourse has five gates and a shallower office. (An interchange spine over
+  // side platforms is 8.9 m and keeps seven.)
+  const narrow = cw < 8.5;
   const n = narrow ? 5 : 7;
   const first = (-(n - 1) / 2) * 1.05, edge = -first + 0.12;
   const oz = narrow ? 3.7 : 5.0;
@@ -676,6 +681,7 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
   b.protect(-3.4, cf + (ext > 0 ? 1.95 : 2.42), -0.4, -0.6, cf + 3.0, 0.02);
   const info: ExitInfo = { b, station, style, wall, floor: style.floor, cf, gy: GY, num, ext, run };
   wayfindExit(info);
+  floorExit(info);
   b.guard(() => {
     look.canopy?.(info);
     look.exit?.(info);

@@ -10,8 +10,8 @@
 
 import { rng, type Builder } from '../../world/builder';
 import {
-  band, bench, cut, doorways, endDado, exitDado, kioskStall, passageDado, passageRails, passageWalls, placeAlong,
-  posterRow, shopFront, SHOPS, toiletX, vendingRow, wallDado, wbox,
+  band, bench, cut, doorways, endDado, exitDado, faceDado, fbox, kioskStall, passageDado, passageRails, passageWalls,
+  placeAlong, posterRow, shopFront, SHOPS, stairwellFaces, toiletX, vendingRow, wallDado, wbox,
   type Brand, type DadoOpts, type Span, type Wall,
 } from './parts';
 import type { ConcInfo, StationLook } from './types';
@@ -52,6 +52,10 @@ const halls = (i: ConcInfo): Span[] => i.ends.map((e): Span => (e.hi ? [e.g, Mat
 
 /** True under a station office (the kit's box runs up to the ceiling there). */
 const inOffice = (i: ConcInfo, x: number, z: number) => i.ends.some((e) => Math.abs(x - e.g) < 3.1 && z > (i.cw < 9 ? 3.7 : 5.0) - 0.1);
+
+/** True within `m` of a stairwell (walls, portal and all): the ceiling over it is behind walls. */
+const inWell = (i: ConcInfo, x: number, z: number, m = 0) =>
+  i.stairwells.some(({ footprint: f }) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
 
 /** Sorted pair. */
 const pair = (a: number, c: number): Span => (a < c ? [a, c] : [c, a]);
@@ -126,6 +130,11 @@ function figure(i: ConcInfo, f: Figure, cx: number, cz: number, flip: number, to
   if (Math.min(...xs) < i.x0 + 0.4 || Math.max(...xs) > i.x1 - 0.4) return;
   if (Math.min(...zs) < -i.cw + 0.4 || Math.max(...zs) > i.cw - 0.4) return;
   if (pts.some(([x, z]) => inOffice(i, x, z))) return;
+  // Nothing over a stairwell: its ceiling is behind walls (check along the lines too).
+  if (pts.some(([x, z]) => inWell(i, x, z, 0.3))) return;
+  for (const [p, q] of f.lines) {
+    for (let t = 0.1; t < 1; t += 0.1) if (inWell(i, pts[p][0] + (pts[q][0] - pts[p][0]) * t, pts[p][1] + (pts[q][1] - pts[p][1]) * t, 0.3)) return;
+  }
   pts.forEach(([x, z], k) => {
     const d = k === 0 ? 0.13 : k % 2 ? 0.09 : 0.07;
     i.b.mesh(k === 0 ? STARS[1] : 'light', 'sphere', x, top - 0.032, z, d, 0.04, d);
@@ -365,23 +374,41 @@ function muralFrame(i: ConcInfo, x: number) {
   }
 }
 
-/** The pale path from the unpaid hall through the gates to the stairs, with brass edges. */
-function floorPath(i: ConcInfo) {
-  const { b, cf } = i, hw = 1.4;
-  const gaps = i.holes.filter((h) => h[1] < hw + 0.1 && h[3] > -hw - 0.1).map((h): Span => [h[0] - 0.05, h[2] + 0.05]);
-  for (const [p, q] of cut([i.x0 + 0.7, i.x1 - 0.7], gaps)) {
-    b.deco(PATH, p, cf, -hw, q, cf + 0.006, hw);
-    for (const k of [-1, 1]) {
-      const [za, zb] = pair(k * hw, k * (hw + 0.04));
-      b.deco(BRASS, p, cf, za, q, cf + 0.011, zb);
+/**
+ * Brass four-point stars set into the floor of the paid area, in the lanes either side of the
+ * route (the bands and the tactile path own the middle). Only where the floor is free.
+ */
+function floorStars(i: ConcInfo) {
+  const { b, cf } = i;
+  for (let x = i.paid[0] + 2.5; x < i.paid[1] - 1.5; x += 4.5) {
+    for (const z of [-4, 4]) {
+      if (!i.free(x - 0.4, z - 0.4, x + 0.4, z + 0.4, 0.8)) continue;
+      b.deco(BRASS, x - 0.28, cf, z - 0.03, x + 0.28, cf + 0.012, z + 0.03);
+      b.deco(BRASS, x - 0.03, cf, z - 0.28, x + 0.03, cf + 0.012, z + 0.28);
     }
   }
-  // Brass four-point stars set into the path across the paid area.
-  for (let x = i.paid[0] + 2.5; x < i.paid[1] - 1.5; x += 4.5) {
-    if (i.ends.some((e) => Math.abs(x - e.g) < 1.5)) continue;
-    if (i.holes.some((h) => x > h[0] - 0.6 && x < h[2] + 0.6 && h[1] < 0.5 && h[3] > -0.5)) continue;
-    b.deco(BRASS, x - 0.28, cf, -0.03, x + 0.28, cf + 0.012, 0.03);
-    b.deco(BRASS, x - 0.03, cf, -0.28, x + 0.03, cf + 0.012, 0.28);
+}
+
+/**
+ * The stairwells' outer walls: midnight tile with the dark dado, the brass horizon line (as on
+ * the long walls), a few stars above and below it and, on the long stretches, a lit brass star.
+ */
+function dressWells(i: ConcInfo, R: () => number) {
+  const { b, cf } = i;
+  for (const w of i.stairwells) {
+    for (const f of stairwellFaces(i, w)) {
+      faceDado(i, f, DADO_OPTS);
+      for (let u = f.u0 + 0.35 + R() * 0.5; u < f.u1 - 0.2; u += 0.8 + R() * 1.1) {
+        const sz = R() < 0.7 ? 0.03 : 0.045, y = cf + (R() < 0.55 ? 1.45 + R() * 0.7 : 2.45 + R() * 0.4);
+        fbox(b, f, STARS[R() < 0.5 ? 0 : 1], u - sz / 2, u + sz / 2, y - sz / 2, y + sz / 2, 0.002, 0.008);
+      }
+      if (f.u1 - f.u0 >= 2.2) {
+        const um = (f.u0 + f.u1) / 2, y = cf + 1.75;
+        fbox(b, f, GOLD_GLOW, um - 0.2, um + 0.2, y - 0.012, y + 0.012, 0.002, 0.01);
+        fbox(b, f, GOLD_GLOW, um - 0.012, um + 0.012, y - 0.2, y + 0.2, 0.002, 0.01);
+        for (const k of [-1, 1]) fbox(b, f, STARS[0], um + k * 0.5 - 0.02, um + k * 0.5 + 0.02, y - 0.02, y + 0.02, 0.002, 0.008);
+      }
+    }
   }
 }
 
@@ -395,7 +422,7 @@ export const look: StationLook = {
   lights(i) {
     const { b, cw } = i, top = i.cf + i.clear, R = rng(0x5717);
     const H = halls(i);
-    const inside = (x: number, z: number, m = 0.2) => x > i.x0 + m && x < i.x1 - m && Math.abs(z) < cw - m && !inOffice(i, x, z);
+    const inside = (x: number, z: number, m = 0.2) => x > i.x0 + m && x < i.x1 - m && Math.abs(z) < cw - m && !inOffice(i, x, z) && !inWell(i, x, z, m + 0.1);
 
     // The Milky Way across each unpaid hall: faint haze patches and a dense band of faint stars.
     for (const [p, q] of H) {
@@ -474,10 +501,14 @@ export const look: StationLook = {
     for (const x of paidEnds) endDado(i, x, DADO_OPTS);
     for (const e of i.ends) muralFrame(i, e.hi ? i.x1 : i.x0);
 
-    // Centrepiece: the orrery in the middle of the (first) unpaid hall, else in the paid area.
+    // Stairwell walls first (before anything else takes the floor beside them).
+    dressWells(i, rng(0x4401));
+
+    // Centrepiece: the orrery wants 2.4 m of free floor all round. The hall is crossed by the
+    // floor guidance now, so it stands in the paid area, at the far end beyond the stairs.
     const cands: [number, number][] = [];
     for (const [p, q] of halls(i)) for (const d of [0, -1, 1, -2, 2, -3, 3]) cands.push([(p + q) / 2 + d, 0]);
-    for (let x = i.paid[0] + 6; x < i.paid[1] - 6; x += 1) cands.push([x, 0]);
+    for (let x = i.paid[1] - 5.5; x > i.paid[0] + 6; x -= 0.5) for (const z of [0, 2, -2]) cands.push([x, z]);
     for (const [x, z] of cands) if (orrery(i, x, z)) break;
 
     // Shops along the paid-area walls, recording their fronts so the friezes skip them.
@@ -499,7 +530,7 @@ export const look: StationLook = {
     const mc: [number, number][] = [];
     const far = paidEnds.includes(i.x1) ? -1 : 1;
     const xs = far < 0 ? i.paid[1] - 4 : i.paid[0] + 4;
-    for (let k = 0; k < i.paid[1] - i.paid[0] - 8; k++) for (const z of [0, 3, -3]) mc.push([xs + far * k, z]);
+    for (let k = 0; k < i.paid[1] - i.paid[0] - 8; k++) for (const z of [5, -5, 3.5, -3.5]) mc.push([xs + far * k, z]);
     for (const [x, z] of mc) if (meteorite(i, x, z)) break;
 
     // Benches midway between pillars, in the pillar lines.
@@ -509,7 +540,7 @@ export const look: StationLook = {
     let nb = 4;
     for (const [x, z] of spots) if (nb > 0 && bench(i, x, z, { axis: 'x', color: '#8a6a3e' })) nb--;
 
-    floorPath(i);
+    floorStars(i);
 
     // Wall friezes: the ridge and the dome on +z, the moon's phases on −z.
     const doors = doorways(i).map(([p, q]): Span => [p - 0.3, q + 0.3]);
@@ -649,3 +680,4 @@ export const look: StationLook = {
     }
   },
 };
+

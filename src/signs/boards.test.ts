@@ -2,7 +2,7 @@
 // platforms) must list both lines' trains, with times read from each line's timetable.
 
 import { describe, expect, it } from 'vitest';
-import { STATIONS, lineById, stationById } from '../data/network';
+import { LINES, STATIONS, lineById, stationById } from '../data/network';
 import { lineSim } from '../sim';
 import { nextDepartures } from '../sim/timetable';
 import { stationExits } from '../stations/exits';
@@ -168,6 +168,37 @@ describe('wayfinding sign layout', () => {
             expectTidy(`${v} ${w}×${h} ${label} ${arrow}`, W, H, texts);
           }
         }
+      }
+    }
+  });
+
+  it('floor marks fit, show their platform numbers, and stay big enough to read off the floor', () => {
+    // Big marks are laid long (across × along the way you walk); band badges are small squares.
+    const big: [number, number][] = [[0.9, 1.5], [0.84, 1.5], [0.9, 0.8], [1.6, 1.0]];
+    for (const line of LINES) {
+      for (const nums of [[1], [1, 2], [5, 6]]) {
+        for (const arrow of ['up', 'left', 'right'] as const) {
+          for (const [w, h] of big) {
+            const label = `${line.id} ${nums} ${arrow} ${w}×${h}`;
+            const p = draw({ k: 'floormark', line: line.id, arrow, nums }, w, h);
+            expectTidy(label, p.W, p.H, p.texts);
+            const num = p.texts.find((t) => t.s === nums.join('・'));
+            expect(num, `${label}: platform numbers`).toBeTruthy();
+            expect(p.texts.some((t) => t.s === 'のりば'), label).toBe(true);
+            expect(p.texts.some((t) => t.s === `Platform${nums.length > 1 ? 's' : ''} ${nums.join('·')}`), label).toBe(true);
+            // The numbers at least 12 cm tall on the floor, the line letter in its badge too.
+            expect(num!.px / (p.W / w), label).toBeGreaterThan(0.12);
+            expect(p.texts.some((t) => t.s === line.id), label).toBe(true);
+            const tr = draw({ k: 'floormark', line: line.id, arrow, nums, transfer: true }, w, h);
+            expectTidy(`${label} transfer`, tr.W, tr.H, tr.texts);
+            expect(tr.texts.some((t) => t.s === 'のりかえ') && tr.texts.some((t) => t.s === 'Transfer'), label).toBe(true);
+          }
+        }
+      }
+      for (const arrow of ['up', 'down'] as const) {
+        const s = draw({ k: 'floormark', line: line.id, arrow }, 0.5, 0.5);
+        expectTidy(`${line.id} badge`, s.W, s.H, s.texts);
+        expect(s.texts.map((t) => t.s)).toEqual([line.id]);
       }
     }
   });

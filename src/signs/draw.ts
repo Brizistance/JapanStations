@@ -1857,6 +1857,63 @@ function drawLcd(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'l
   if (p.kind === 'dwell' && p.doors) text(ctx, 'ドアが開きます  Doors open', W / 2, H * 0.9, H * 0.1, { color: '#ffb300', align: 'center', weight: 600 });
 }
 
+/**
+ * Floor mark (stations/floor.ts), seen from standing height at a slant, so: few elements, bold,
+ * white on a dark tile framed in the line's colour. A tile is opaque, so it fills the whole sign.
+ * Tall (a big mark, read lengthwise as you walk onto it): arrow, badge, platform numbers or
+ * のりかえ, then the small Japanese and English. Square or wide: the same in a row, or just the
+ * arrow and badge (the small badge repeated along a band).
+ */
+function drawFloormark(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'floormark' }>) {
+  const line = c.line ? lineById(c.line) : null;
+  const m = Math.min(W, H);
+  ctx.fillStyle = line?.color ?? '#5b6168';
+  ctx.fillRect(0, 0, W, H);
+  const f = m * 0.07;
+  rr(ctx, f, f, W - 2 * f, H - 2 * f, m * 0.08);
+  ctx.fillStyle = '#1d2228';
+  ctx.fill();
+  const nums = c.nums?.length ? c.nums.join('・') : null;
+  const main = c.transfer ? 'のりかえ' : nums ?? c.text ?? null;
+  const ja = c.transfer ? line?.nameJa : nums ? 'のりば' : c.sub;
+  const en = c.transfer ? 'Transfer' : nums ? `Platform${c.nums!.length > 1 ? 's' : ''} ${c.nums!.join('·')}` : undefined;
+  const dir = c.arrow ?? 'up';
+  const badge = (x: number, y: number, r: number) => {
+    if (!line) return;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.12, 0, Math.PI * 2);
+    ctx.fill();
+    lineBadge(ctx, x, y, r, line);
+  };
+  const inW = W - 2 * f;
+  if (H >= W * 1.2) {
+    if (!main) {
+      arrow(ctx, W / 2, H * 0.3, Math.min(H * 0.34, inW * 0.8), dir, '#fff');
+      badge(W / 2, H * 0.7, Math.min(H * 0.13, inW * 0.3));
+      return;
+    }
+    arrow(ctx, W / 2, H * 0.17, Math.min(H * 0.22, inW * 0.7), dir, '#fff');
+    badge(W / 2, H * 0.385, Math.min(H * 0.085, inW * 0.26));
+    const big = c.transfer ? H * 0.11 : H * 0.17;
+    text(ctx, main, W / 2, H * 0.58, big, { align: 'center', color: '#fff', weight: 800, maxW: inW * 0.86 });
+    if (ja) text(ctx, ja, W / 2, H * 0.755, H * 0.07, { align: 'center', color: '#fff', weight: 700, maxW: inW * 0.86 });
+    if (en) text(ctx, en, W / 2, H * 0.86, H * 0.055, { align: 'center', color: '#d5dbe2', weight: 700, maxW: inW * 0.86 });
+    return;
+  }
+  if (!main) {
+    arrow(ctx, W / 2, H * 0.31, Math.min(H * 0.4, inW * 0.7), dir, '#fff');
+    badge(W / 2, H * 0.72, Math.min(H * 0.17, inW * 0.3));
+    return;
+  }
+  arrow(ctx, f + inW * 0.12, H / 2, Math.min(H * 0.6, inW * 0.2), dir, '#fff');
+  badge(f + inW * 0.32, H * 0.42, Math.min(H * 0.17, inW * 0.08));
+  const x = f + inW * 0.44, maxW = inW * 0.53;
+  text(ctx, main, x, H * 0.4, c.transfer ? H * 0.24 : H * 0.34, { color: '#fff', weight: 800, maxW });
+  if (ja) text(ctx, ja, x, H * 0.7, H * 0.11, { color: '#fff', weight: 700, maxW });
+  if (en) text(ctx, en, x, H * 0.84, H * 0.09, { color: '#d5dbe2', weight: 700, maxW });
+}
+
 export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
   ctx.clearRect(0, 0, W, H);
   switch (c.k) {
@@ -1884,6 +1941,7 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'depAll': return drawDepAll(ctx, W, H, c);
     case 'dest': return drawDest(ctx, W, H, c);
     case 'lcd': return drawLcd(ctx, W, H, c);
+    case 'floormark': return drawFloormark(ctx, W, H, c);
   }
 }
 

@@ -10,10 +10,10 @@
 // street each has a small arcade-style canopy with a striped roof and round lamps.
 
 import {
-  band, bench, cut, endDado, exitDado, pipeRun, shopFront, wallDado, wbox,
+  band, bench, cut, endDado, exitDado, faceDado, fbox, fnormal, fpt, pipeRun, shopFront, stairwellFaces, wallDado, wbox,
   type Brand, type DadoOpts, type Span, type Wall,
 } from './parts';
-import type { ConcInfo, ExitInfo, StationLook } from './types';
+import type { ConcInfo, ExitInfo, Rect, Stairwell, StationLook } from './types';
 
 // ── Palette ──────────────────────────────────────────────────────────────────────────────────
 
@@ -78,6 +78,28 @@ function arches(i: ConcInfo): { x: number; dir: 1 | -1 }[] {
 /** Unpaid end walls (the murals). */
 const muralWalls = (i: ConcInfo) => i.ends.map((e) => (e.hi ? e.g + 16 : e.g - 16));
 
+// ── Stairwells: what the overhead runs and lamps must keep clear of ─────────────────────────
+
+/** Stairwells standing in the hall (their walls run floor to ceiling). */
+const hallWells = (i: ConcInfo): Stairwell[] => i.stairwells.filter((w) => w.room < 0);
+
+/** The floor in front of a portal that stays clear: 3 m out, a metre wider each side than the opening. */
+function approach(w: Stairwell): Rect {
+  const [px, pz] = w.portal.at, [nx, nz] = w.portal.n, hw = w.portal.w / 2 + 1;
+  const a = nx ? px : pz, c = a + (nx || nz) * 3;
+  return nx ? [Math.min(a, c), pz - hw, Math.max(a, c), pz + hw] : [px - hw, Math.min(a, c), px + hw, Math.max(a, c)];
+}
+
+const approaches = (i: ConcInfo): Rect[] => hallWells(i).map(approach);
+
+/** Does the rectangle (grown by m) reach a stairwell footprint or a portal approach? */
+const nearWell = (i: ConcInfo, x0: number, z0: number, x1: number, z1: number, m = 0) =>
+  [...hallWells(i).map((w) => w.footprint), ...approaches(i)].some((r) => x1 + m > r[0] && x0 - m < r[2] && z1 + m > r[1] && z0 - m < r[3]);
+
+/** z-spans a run along z at x must leave out where it meets a stairwell. */
+const wellGapsAt = (i: ConcInfo, x: number): Span[] =>
+  hallWells(i).filter((w) => x > w.footprint[0] - 0.1 && x < w.footprint[2] + 0.1).map((w): Span => [w.footprint[1] - 0.03, w.footprint[3] + 0.03]);
+
 // ── Ceiling: globe lamps, pennants, pipes ────────────────────────────────────────────────────
 
 /** x of each row of globe lamps (every 3 m), clear of gate signs, arches and the murals. */
@@ -100,23 +122,28 @@ function pennants(i: ConcInfo) {
     x > i.x0 + 0.5 && x < i.x1 - 0.5 &&
     !i.ends.some((e) => Math.abs(x - e.g) < 2.6) && !A.some((a) => Math.abs(x - a.x) < 1.0) &&
     !M.some((m) => Math.abs(x - m) < 5) && !L.some((l) => Math.abs(x - l) < 0.5) &&
-    !i.pillars.some(([px, pz]) => Math.abs(px - x) < 0.7 && Math.abs(pz) < span + 0.5);
+    !i.pillars.some(([px, pz]) => Math.abs(px - x) < 0.7 && Math.abs(pz) < span + 0.5) &&
+    !approaches(i).some((a) => x > a[0] - 0.3 && x < a[2] + 0.3);
   let n = 0;
   for (let x0 = i.x0 + 3; x0 < i.x1; x0 += 6) {
-    const x = [x0, x0 + 0.75, x0 - 0.75, x0 + 1.5].find(ok);
+    const x = [x0, x0 + 0.75, x0 - 0.75, x0 + 1.5, x0 - 3].find(ok);
     if (x === undefined) continue;
     const y = cf + 2.76;
-    // The line, and wires up to the ceiling at its ends.
-    b.deco(DARK, x - 0.006, y - 0.005, -span, x + 0.006, y + 0.005, span);
-    for (const z of [-span, span]) b.deco(DARK, x - 0.006, y + 0.005, z - 0.006, x + 0.006, top, z + 0.006);
+    // The line, in pieces that stop at a stairwell's walls, with wires up to the ceiling at every end.
+    const pieces = cut([-span, span], wellGapsAt(i, x));
+    for (const [p, q] of pieces) {
+      b.deco(DARK, x - 0.006, y - 0.005, p, x + 0.006, y + 0.005, q);
+      for (const z of [p, q]) b.deco(DARK, x - 0.006, y + 0.005, z - 0.006, x + 0.006, top, z + 0.006);
+    }
+    const on = (z: number, h: number) => pieces.some(([p, q]) => z - h > p && z + h < q);
     if (n++ % 2 === 0) {
       // Pennant flags, both faces.
       let k = 0;
-      for (let z = -span + 0.4; z < span - 0.2; z += 0.8) b.deco(FLAGS[k++ % FLAGS.length], x - 0.004, cf + 2.53, z - 0.09, x + 0.004, y - 0.01, z + 0.09);
+      for (let z = -span + 0.4; z < span - 0.2; z += 0.8) if (on(z, 0.09)) b.deco(FLAGS[k++ % FLAGS.length], x - 0.004, cf + 2.53, z - 0.09, x + 0.004, y - 0.01, z + 0.09);
     } else {
       // Plastic cherry blossom garland.
       let k = 0;
-      for (let z = -span + 0.35; z < span - 0.2; z += 0.7) b.mesh(k++ % 3 === 2 ? WHITE : PINK, 'sphere', x, y - 0.08, z, 0.13, 0.11, 0.13);
+      for (let z = -span + 0.35; z < span - 0.2; z += 0.7) if (on(z, 0.13)) b.mesh(k++ % 3 === 2 ? WHITE : PINK, 'sphere', x, y - 0.08, z, 0.13, 0.11, 0.13);
     }
   }
 }
@@ -335,6 +362,29 @@ const keys = (i: ConcInfo, s: Wall, xa: number, xb: number, d: number) => {
   wbox(i, s, 'flat:#3a2a20', xa + 0.1, xa + 0.4, cf + 1.0, cf + 1.1, d - 0.3, d - 0.18);
 };
 
+// ── The stairwell's outer walls: the arcade's tile, frieze and old enamel adverts ─────────────
+
+/** Green tile dado and vermilion frieze on every outer face of the stairwells, enamel plates on them. */
+function dressWells(i: ConcInfo) {
+  const { b, cf } = i;
+  let k = 1;
+  for (const w of hallWells(i)) {
+    for (const f of stairwellFaces(i, w)) {
+      faceDado(i, f, DADO);
+      // Plates in vertical pairs: a white backing board on a thin frame, the enamel sign on it.
+      const len = f.u1 - f.u0, n = f.end ? 1 + Math.floor((len - 1.6) / 2.4) : Math.max(1, Math.min(3, Math.floor((len - 1.6) / 2.6) + 1));
+      const pitch = f.end ? 2.4 : 2.9, u0 = (f.u0 + f.u1) / 2 - ((n - 1) * pitch) / 2;
+      for (let j = 0; j < n; j++) {
+        const u = u0 + j * pitch, e = ENAMEL[k++ % ENAMEL.length];
+        fbox(b, f, WOOD, u - 0.22, u + 0.22, cf + 1.31, cf + 2.15, 0.008, 0.02);
+        fbox(b, f, 'flat:#f4f1e6', u - 0.19, u + 0.19, cf + 1.34, cf + 2.12, 0.02, 0.026);
+        const [px, pz] = fpt(f, u, 0.03);
+        b.sign({ k: 'shop', ja: e.ja, bg: e.bg, fg: e.fg, vertical: true }, px, cf + 1.73, pz, fnormal(f), 0.34, 0.74);
+      }
+    }
+  }
+}
+
 // ── Clutter against the walls ────────────────────────────────────────────────────────────────
 
 /** Stacked wooden and plastic produce crates, 1.0 long. */
@@ -507,9 +557,15 @@ export const look: StationLook = {
 
   lights(i) {
     // Opal globes on stems in two rows, clear of the pillars.
+    // Beside a stairwell (or in front of its portal) a lamp moves out to the middle of the lane
+    // between the stairwell wall and the pillar line, or goes.
     const { b } = i, top = i.cf + i.clear, zr = Math.min(2.8, i.cw * 0.35);
+    const lane = hallWells(i).length ? (Math.max(...hallWells(i).map((w) => w.footprint[3])) + Math.min(...i.pillars.map(([, pz]) => Math.abs(pz))) - 0.35) / 2 : zr;
     for (const x of lampXs(i)) {
-      for (const z of [-zr, zr]) {
+      for (const s of [-1, 1]) {
+        let z = s * zr;
+        if (nearWell(i, x - 0.3, z - 0.3, x + 0.3, z + 0.3, 0.3)) z = s * lane;
+        if (nearWell(i, x - 0.3, z - 0.3, x + 0.3, z + 0.3, 0.1)) continue;
         if (i.pillars.some(([px, pz]) => Math.abs(px - x) < 0.7 && Math.abs(pz - z) < 0.7)) continue;
         b.deco(DARK, x - 0.012, i.cf + 2.66, z - 0.012, x + 0.012, top, z + 0.012);
         b.mesh('metal:#9da2a8', 'cyl', x, i.cf + 2.665, z, 0.12, 0.03, 0.12);
@@ -542,6 +598,7 @@ export const look: StationLook = {
     // The arch first (it claims its posts), then benches, then the stalls down both walls.
     const A = arches(i);
     for (const a of A) arch(i, a.x);
+    dressWells(i);
     benches(i);
     let lo = i.paid[0] + 0.3, hi = i.paid[1] - 0.3;
     for (const a of A) {

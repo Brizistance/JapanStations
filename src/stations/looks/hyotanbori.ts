@@ -4,16 +4,19 @@
 // near-black glazed tile, a dark ceiling, a warm dark floor and gold trim; along both walls a
 // continuous run of tiny bars and eateries (counters with noren, or lit lattice doors), each with
 // a lit fascia sign, a projecting vertical sign and a red lantern; strings of chōchin across the
-// alley, a row of gold gourd charms over the stairs, bare bulbs, and old pipes everywhere. The
-// gate lines and the stair openings keep white light so wayfinding still works.
+// alley, rows of gold gourd charms on wires along the stairwell walls, bare bulbs, and old pipes
+// everywhere. The stair openings are walled stairwells now: their long outer walls are part of the
+// alley (black tile, gold line, framed bills, neon, and the doors of the bars that did not fit
+// along the real walls), lit by battens down the lane beside them. The gate lines and the
+// stairwell portals keep white light so wayfinding still works.
 
 import type { Builder } from '../../world/builder';
 import {
-  band, batten, endDado, exitDado, exitHandrails, exitPipes, lantern, lockers, noren, passageDado, passagePipes,
-  passageRails, passageWalls, pipeRun, wallDado, wbox,
-  type Span, type Wall,
+  band, batten, cut, endDado, exitDado, exitHandrails, exitPipes, faceDado, fbox, fnormal, fpt, lantern, lockers, noren,
+  passageDado, passagePipes, passageRails, passageWalls, pipeRun, stairwellFaces, wallDado, wbox,
+  type DadoOpts, type Span, type Wall,
 } from './parts';
-import type { ConcInfo, StationLook } from './types';
+import type { ConcInfo, StationLook, WallFace } from './types';
 
 type Has = { b: Builder };
 
@@ -29,6 +32,8 @@ const WARM_BACK = 'glow:#6e3416';
 const BOTTLES = ['flat:#2f5a35', 'flat:#7a3b1a', 'flat:#d9c27a'];
 
 const NEON = { red: '#ff3d57', pink: '#ff5fa2', amber: '#ffb300', cyan: '#35e0ff' };
+/** Walls: a black dado with a gold cap, a gold line at cf + 2.3, a black skirting. */
+const P: DadoOpts = { mat: DADO, top: 1.0, cap: GOLD, skirting: 'flat:#0a0a0c', frieze: GOLD, friezeY: [2.3, 2.33] };
 const NOREN = { navy: '#1f2a44', maroon: '#7a1f1f', umber: '#2b1a12', white: '#f4efe2' };
 
 interface Bar {
@@ -316,39 +321,224 @@ function services(i: ConcInfo) {
   }
 }
 
-/** Strings of chōchin across the alley, on a wire at cf + 2.71. */
+/** The stairwells that stand in the spine (full-height walls: nothing runs through them). */
+const spineWells = (i: ConcInfo) => i.stairwells.filter((w) => w.room < 0);
+
+/**
+ * How far from the axis the stairwell walls reach on side `s` at x (the outer face of a wall or a
+ * portal jamb there), or 0 where none stands: where a string across the alley must stop.
+ */
+function wellEdge(i: ConcInfo, x: number, s: Wall): number {
+  let e = 0;
+  for (const w of spineWells(i)) {
+    for (const r of [...w.walls, ...w.portal.jambs]) {
+      if (x > r[0] - 0.02 && x < r[2] + 0.02 && (s > 0 ? r[3] > 0 : r[1] < 0)) e = Math.max(e, s > 0 ? r[3] : -r[1]);
+    }
+  }
+  return e;
+}
+
+/**
+ * Strings of chōchin across the alley, on a wire at cf + 2.71. Where a stairwell stands the wire
+ * is hooked to its wall on each side and runs on from there, and no lantern hangs over it.
+ */
 function lanternStrings(i: ConcInfo, xs: number[], reach: number) {
   const { b, cf } = i, wy = cf + 2.71;
   for (const x of xs) {
-    b.deco('flat:#1b1b1b', x - 0.01, wy - 0.01, -reach, x + 0.01, wy + 0.01, reach);
+    const e = { '-1': wellEdge(i, x, -1), '1': wellEdge(i, x, 1) };
+    const wire = (z0: number, z1: number) => {
+      if (z1 - z0 > 0.1) b.deco('flat:#1b1b1b', x - 0.01, wy - 0.01, z0, x + 0.01, wy + 0.01, z1);
+    };
+    if (e['-1'] || e['1']) {
+      wire(-reach, -e['-1']);
+      wire(e['1'], reach);
+    } else wire(-reach, reach);
     let k = 0;
     for (let z = 0.9; z <= Math.min(reach, i.cw - 1.3); z += 1.12, k++) {
-      for (const s of [-1, 1]) chochin(i, x, s * z, cf, k % 4 === 3 ? '#f2c88a' : '#e5533d');
+      for (const s of [-1, 1] as const) {
+        if (z < e[String(s) as '-1' | '1'] + 0.45) continue;
+        chochin(i, x, s * z, cf, k % 4 === 3 ? '#f2c88a' : '#e5533d');
+      }
     }
   }
 }
 
-/** A row of gold gourd charms on a wire along the middle of the alley, over the stair openings. */
-function charms(i: ConcInfo, avoid: number[]) {
-  const { b, cf } = i, top = cf + i.clear, wy = cf + 2.86;
-  let a: number, c: number;
-  if (i.holes.length) {
-    a = Math.min(...i.holes.map((h) => h[0]));
-    c = Math.max(...i.holes.map((h) => h[2]));
-  } else {
-    const m = (i.paid[0] + i.paid[1]) / 2;
-    [a, c] = [m - 6, m + 6];
+// ── The stairwells ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * The long outer faces of the stairwells in the spine, one run per side: back to back stairwells
+ * (and the closed-off strip between them) read as one wall, so their faces are joined.
+ */
+function wellFaces(i: ConcInfo): WallFace[] {
+  const all = spineWells(i).flatMap((w) => stairwellFaces(i, w)).filter((f) => f.axis === 'x' && !f.end);
+  const out: WallFace[] = [];
+  const inWell = (x: number, z: number) => spineWells(i).some(({ footprint: f }) => x > f[0] && x < f[2] && z > f[1] && z < f[3]);
+  for (const f of all.sort((p, q) => p.at - q.at || p.n - q.n || p.u0 - q.u0)) {
+    const last = out[out.length - 1];
+    const gap = last ? f.u0 - last.u1 : Infinity;
+    if (last && last.at === f.at && last.n === f.n && gap < 1.6 && (gap < 0.01 || inWell((last.u1 + f.u0) / 2, f.at - f.n * 0.05))) last.u1 = f.u1;
+    else out.push({ axis: f.axis, at: f.at, n: f.n, u0: f.u0, u1: f.u1 });
   }
-  a = Math.max(a, i.paid[0] + 4.5);
-  c = Math.min(c, i.paid[1] - 4.5);
+  return out;
+}
+
+/** Framed bills for bars and shows along face `f` from u0 to u1, centred as a group, each lit from above. */
+function faceBills(i: ConcInfo, f: WallFace, u0: number, u1: number, v0: number): number {
+  const { b, cf } = i, w = 0.9, h = 1.3, pitch = 1.45, y = cf + 1.5;
+  const m = Math.floor((u1 - u0 - w - 0.3) / pitch) + 1;
+  let v = v0;
+  if (m < 1) return v;
+  const start = (u0 + u1) / 2 - ((m - 1) * pitch) / 2;
+  for (let k = 0; k < m; k++) {
+    const u = start + k * pitch;
+    fbox(b, f, 'flat:#0c0c0e', u - w / 2 - 0.05, u + w / 2 + 0.05, y - h / 2 - 0.05, y + h / 2 + 0.05, 0.008, 0.022);
+    fbox(b, f, GOLD, u - w / 2 - 0.05, u + w / 2 + 0.05, y + h / 2 + 0.05, y + h / 2 + 0.075, 0.008, 0.026);
+    fbox(b, f, 'glow:#ffcf8a', u - 0.2, u + 0.2, y + h / 2 + 0.14, y + h / 2 + 0.16, 0.02, 0.14);
+    const [px, pz] = fpt(f, u, 0.03);
+    b.sign({ k: 'poster', v: v++ % 8 }, px, y, pz, fnormal(f), w, h);
+  }
+  return v;
+}
+
+/** Neon tubes on black mounts high on face `f` from u0 to u1, in pieces of up to 2.6 m, colours in turn. */
+function faceNeon(i: ConcInfo, f: WallFace, u0: number, u1: number, k0: number): number {
+  const { b, cf } = i, colours = Object.values(NEON);
+  let k = k0;
+  const room = u1 - u0 - 0.6;
+  const n = Math.ceil((room + 0.4) / 3.0);
+  if (room < 0.8 || n < 1) return k;
+  const len = Math.min(2.6, (room - (n - 1) * 0.4) / n);
+  if (len < 0.8) return k;
+  const start = (u0 + u1) / 2 - (n * len + (n - 1) * 0.4) / 2;
+  for (let j = 0; j < n; j++) {
+    const p = start + j * (len + 0.4);
+    fbox(b, f, INK, p, p + len, cf + 2.49, cf + 2.58, 0.004, 0.02);
+    fbox(b, f, `glow:${colours[k++ % colours.length]}`, p + 0.05, p + len - 0.05, cf + 2.52, cf + 2.55, 0.02, 0.04);
+  }
+  return k;
+}
+
+/**
+ * The front of one of the bars that did not fit along the real walls, flat against a stairwell
+ * wall, 2.4 m wide round `c`: a black fascia with the lit name sign and a neon line, timber
+ * pilasters, a lit lattice door and window, a short noren, a projecting vertical sign and a red
+ * lantern (both above head height). Stands out 0.12 m at most. `avoid`: x of the lantern strings.
+ */
+function flatBar(i: ConcInfo, f: WallFace, c: number, bar: Bar, avoid: number[]) {
+  const { b, cf } = i, top = cf + i.clear, fy = cf + FY, n = f.n;
+  const x0 = c - 1.2, x1 = c + 1.2, xa = x0 + 0.1, xb = x1 - 0.1;
+  const bx = (mat: string, u0: number, u1: number, y0: number, y1: number, d0: number, d1: number) => fbox(b, f, mat, u0, u1, y0, y1, d0, d1);
+  const zAt = (d: number) => f.at + n * d;
+  const zr = (d0: number, d1: number): Span => (n > 0 ? [zAt(d0), zAt(d1)] : [zAt(d1), zAt(d0)]);
+  const norenFg = bar.noren === NOREN.white ? bar.fg : '#ffffff';
+  // Fascia, gold edge, neon tube, name sign; pilasters.
+  bx(INK, x0, x1, fy, top, 0, 0.05);
+  bx(GOLD, x0, x1, fy, fy + 0.04, 0.05, 0.062);
+  bx(`glow:${bar.neon}`, x0 + 0.1, x1 - 0.1, top - 0.1, top - 0.075, 0.05, 0.07);
+  b.sign({ k: 'shop', ja: bar.ja, en: bar.en, bg: bar.bg, fg: bar.fg }, c, fy + 0.28, zAt(0.066), [0, n], signW(x1 - x0), 0.34);
+  bx(TIMBER, x0, xa, cf, fy, 0, 0.12);
+  bx(TIMBER, xb, x1, cf, fy, 0, 0.12);
+  // Closed front: a timber board, a lit sliding door and a lit window behind lattice.
+  bx(TIMBER, xa, xb, cf, fy, 0.004, 0.02);
+  const xd0 = xa + 0.15, xd1 = xd0 + 0.85;
+  bx(PAPER, xd0, xd1, cf + 0.08, cf + 1.95, 0.02, 0.032);
+  bx(TIMBER, xd0 - 0.04, xd1 + 0.04, cf + 1.95, cf + 2.03, 0.02, 0.07);
+  bx(TIMBER, xd0, xd1, cf + 0.99, cf + 1.03, 0.032, 0.05);
+  for (let k = 1; k < 4; k++) {
+    const x = xd0 + (k * (xd1 - xd0)) / 4;
+    bx(TIMBER, x - 0.015, x + 0.015, cf + 0.08, cf + 1.95, 0.032, 0.05);
+  }
+  const xw0 = xd1 + 0.15, xw1 = xb - 0.15;
+  if (xw1 - xw0 > 0.4) {
+    bx(PAPER, xw0, xw1, cf + 0.95, cf + 1.85, 0.02, 0.032);
+    bx(TIMBER, xw0 - 0.03, xw1 + 0.03, cf + 0.9, cf + 0.95, 0.02, 0.07);
+    const m = Math.max(1, Math.round((xw1 - xw0) / 0.18) - 1);
+    for (let k = 1; k <= m; k++) {
+      const x = xw0 + (k * (xw1 - xw0)) / (m + 1);
+      bx(TIMBER, x - 0.012, x + 0.012, cf + 0.95, cf + 1.85, 0.032, 0.05);
+    }
+  }
+  noren(i, 'x', zAt(0.075), xd0 + 0.05, xd1 - 0.05, cf + 2.0, { color: bar.noren, text: bar.word, fg: norenFg, face: n, h: 0.42 });
+  // Projecting vertical sign, edged in neon, cf + 2.32 … 2.94; a red lantern.
+  const near = (x: number, m: number) => avoid.some((a) => Math.abs(a - x) < m);
+  const xp = x0 + 0.32;
+  if (!near(xp, 0.4)) {
+    const [pa, pb] = zr(0.05, 0.55);
+    b.deco(INK, xp - 0.02, cf + 2.34, pa, xp + 0.02, cf + 2.94, pb);
+    for (const side of [-1, 1]) {
+      b.sign({ k: 'shop', ja: bar.word, bg: bar.bg, fg: bar.fg, vertical: true }, xp + side * 0.026, cf + 2.64, zAt(0.3), [side, 0], 0.42, 0.54);
+    }
+    const [ea, eb] = zr(0.55, 0.57), [ga, gb] = zr(0.05, 0.57);
+    b.deco(`glow:${bar.neon}`, xp - 0.022, cf + 2.32, ea, xp + 0.022, cf + 2.94, eb);
+    b.deco(`glow:${bar.neon}`, xp - 0.022, cf + 2.32, ga, xp + 0.022, cf + 2.34, gb);
+  }
+  if (!near(x1 - 0.45, 0.5)) lantern(i, x1 - 0.45, cf + 2.3, zAt(0.32), { d: 0.32, h: 0.5, top });
+}
+
+/** A row of gold gourd charms on a wire along face `f`, 0.9 m out from it, above head height. */
+function faceCharms(i: ConcInfo, f: WallFace, avoid: number[]) {
+  const { b, cf } = i, top = cf + i.clear, wy = cf + 2.86;
+  const a = f.u0 + 0.5, c = f.u1 - 0.5;
   if (c - a < 2) return;
-  b.deco('flat:#1b1b1b', a, wy, -0.008, c, wy + 0.015, 0.008);
-  for (const x of [a, c]) b.deco('flat:#1b1b1b', x - 0.008, wy, -0.008, x + 0.008, top, 0.008);
+  const zc = f.at + f.n * 0.9, z0 = zc - 0.008, z1 = zc + 0.008;
+  b.deco(INK, a, wy, z0, c, wy + 0.015, z1);
+  for (const x of [a, c]) b.deco(INK, x - 0.008, wy, z0, x + 0.008, top, z1);
   for (let x = a + 0.6; x <= c - 0.6; x += 1.5) {
     if (avoid.some((q) => Math.abs(q - x) < 0.45)) continue;
-    b.deco(GOLD, x - 0.005, cf + 2.66, -0.005, x + 0.005, wy, 0.005);
-    gourd(i, x, cf + 2.49, 0, null, 0.62);
+    b.deco(GOLD, x - 0.005, cf + 2.66, zc - 0.005, x + 0.005, wy, zc + 0.005);
+    gourd(i, x, cf + 2.49, zc, null, 0.62);
   }
+}
+
+/**
+ * Dress the long outer walls of the stairwells as part of the alley: the black dado and gold line,
+ * the doors of the `spare` bars (the names the real walls had no room for), framed bills and neon
+ * between them, and the gourd charms on a wire along each. Nothing stands on the floor.
+ */
+function dressWells(i: ConcInfo, spare: Bar[], avoid: number[]) {
+  const faces = wellFaces(i);
+  if (!faces.length) return;
+  const mine = faces.map(() => [] as Bar[]);
+  spare.forEach((bar, k) => mine[k % faces.length].push(bar));
+  let v = 0, k = 0;
+  faces.forEach((f, fi) => {
+    const L = f.u1 - f.u0, m = mine[fi].length, lo = f.u0 + 1.7, hi = f.u1 - 1.7;
+    // Bar doors: spread along the face, nudged clear of the lantern strings' hooks.
+    const slots: { c: number; bar: Bar }[] = [];
+    mine[fi].forEach((bar, j) => {
+      const want = f.u0 + L * (m === 1 ? 0.42 + 0.16 * fi : (j + 0.5) / m);
+      for (let d = 0; d < 6; d += 0.1) {
+        const c = [want + d, want - d].find((q) => q > lo && q < hi && avoid.every((a) => Math.abs(a - q) > 1.8) && slots.every((o) => Math.abs(o.c - q) > 3.2));
+        if (c !== undefined) {
+          slots.push({ c, bar });
+          break;
+        }
+      }
+    });
+    slots.sort((p, q) => p.c - q.c);
+    const gaps = slots.map((o): Span => [o.c - 1.2, o.c + 1.2]);
+    faceDado(i, f, { ...P, gaps });
+    for (const o of slots) flatBar(i, f, o.c, o.bar, avoid);
+    for (const [p, q] of cut([f.u0 + 0.3, f.u1 - 0.3], gaps.map(([a, c]): Span => [a - 0.25, c + 0.25]))) {
+      v = faceBills(i, f, p, q, v);
+      k = faceNeon(i, f, p, q, k);
+    }
+    faceCharms(i, f, avoid);
+  });
+}
+
+/** The x-runs of the joined stairwells, and the middle of the lane between their walls and the pillar rows. */
+function wellRuns(i: ConcInfo): { runs: Span[]; z: number } {
+  const fps = spineWells(i).map((w) => w.footprint).sort((p, q) => p[0] - q[0]);
+  const runs: Span[] = [];
+  for (const f of fps) {
+    const last = runs[runs.length - 1];
+    if (last && f[0] <= last[1] + 0.5) last[1] = Math.max(last[1], f[2]);
+    else runs.push([f[0], f[2]]);
+  }
+  const edge = Math.max(0, ...fps.map((f) => Math.max(f[3], -f[1])));
+  const pil = i.pillars.length ? Math.min(...i.pillars.map(([, z]) => Math.abs(z))) - 0.35 : edge + 2.2;
+  return { runs, z: (edge + pil) / 2 };
 }
 
 /** The unpaid halls: neon tubes high on the walls, one lantern string across. */
@@ -377,10 +567,14 @@ export const look: StationLook = {
 
   lights(i) {
     const { cf } = i, top = cf + i.clear;
-    // Stair openings: white battens along both long edges, broken nowhere.
-    for (const [hx0, hz0, hx1, hz1] of i.holes) {
-      if (hx1 - hx0 < 1.4) continue;
-      for (const z of [hz0 - 0.45, hz1 + 0.45]) batten(i, 'x', z, hx0 + 0.3, hx1 - 0.3, top);
+    // Stairwells: white battens down the lane beside each wall, and one across the alley just
+    // beyond the 3 m in front of each portal.
+    const { runs, z: zl } = wellRuns(i);
+    for (const [a, c] of runs) for (const s of [-1, 1]) if (c - a > 1.4) batten(i, 'x', s * zl, a + 0.3, c - 0.3, top);
+    for (const w of spineWells(i)) {
+      const [px, pz] = w.portal.at, [nx, nz] = w.portal.n, hw = w.portal.w / 2 - 0.3;
+      if (nx) batten(i, 'z', px + nx * 3.4, pz - hw, pz + hw, top);
+      else batten(i, 'x', pz + nz * 3.4, px - hw, px + hw, top);
     }
     // Gate lines: white battens across the hall either side of the gates, short of the office.
     const oz = i.cw < 9 ? 3.7 : 5.0;
@@ -423,7 +617,6 @@ export const look: StationLook = {
 
   concourse(i) {
     // Walls: black dado with a gold cap, a gold line at cf + 2.3, a black skirting.
-    const P = { mat: DADO, top: 1.0, cap: GOLD, skirting: 'flat:#0a0a0c', frieze: GOLD, friezeY: [2.3, 2.33] as Span };
     for (const s of [-1, 1] as const) wallDado(i, s, P);
     const paidEnds = [...(i.ends.some((e) => !e.hi) ? [] : [i.x0]), ...(i.ends.some((e) => e.hi) ? [] : [i.x1])];
     for (const x of paidEnds) endDado(i, x, P);
@@ -438,10 +631,14 @@ export const look: StationLook = {
     fillWall(i, -first as Wall, ['bar', 'bar', 'lockers', 'bar', 'gap', 'bar', 'bar', 'bar', 'bar', 'bar', 'bar'], bars, avoid);
     for (const s of [-1, 1] as const) bills(i, s, i.paid[0], i.paid[1], s > 0 ? 0 : 4);
 
-    // Overhead: pipes, lantern strings, the gourd charms; the unpaid halls.
+    // The stairwells' outer walls are part of the alley: the bars that did not fit (the names not
+    // yet used) get flat doors there, between bills and neon; the gourd charms hang along them.
+    const used = Math.min(n, list.length);
+    dressWells(i, list.slice(used, used + 4), avoid);
+
+    // Overhead: pipes, lantern strings; the unpaid halls.
     services(i);
     lanternStrings(i, avoid, i.cw - 0.02);
-    charms(i, avoid);
     unpaidHalls(i);
   },
 

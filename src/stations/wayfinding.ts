@@ -95,24 +95,28 @@ function signRect(s: SignPart, depth = 0.1): Rect | null {
 /**
  * Free space for hanging signs at one level: what is already there between `lo` and `hi`
  * (solid or decoration, and other signs), plus whatever is blocked by hand. Rectangles are kept
- * in the builder's root coordinates; queries are in its current frame.
+ * in the builder's root coordinates; queries are in its current frame. The bounds are one or more
+ * rectangles (a spine and the rooms off it, say): a sign must lie wholly inside one of them.
  */
 class Space {
   private taken: Rect[] = [];
-  constructor(private b: Builder, private bounds: Rect) {}
+  private bounds: Rect[];
+  constructor(private b: Builder, bounds: Rect | Rect[]) {
+    this.bounds = (Array.isArray(bounds[0]) ? bounds : [bounds]) as Rect[];
+  }
 
   /** Take in everything the builder already holds that reaches into y ∈ (lo, hi) inside the bounds. */
   scan(lo: number, hi: number, signLo: number, signHi: number) {
-    const k = this.bounds;
+    const inside = (r: Rect) => this.bounds.some((k) => overlaps(r, k));
     for (const p of this.b.out.boxes) {
       if (p.max[1] <= lo || p.min[1] >= hi) continue;
       const r: Rect = [p.min[0], p.min[2], p.max[0], p.max[2]];
-      if (overlaps(r, k)) this.taken.push(r);
+      if (inside(r)) this.taken.push(r);
     }
     for (const s of this.b.out.signs) {
       if (s.pos[1] + s.h / 2 <= signLo || s.pos[1] - s.h / 2 >= signHi) continue;
       const r = signRect(s);
-      if (r && overlaps(r, k)) this.taken.push(r);
+      if (r && inside(r)) this.taken.push(r);
     }
   }
   /** Block a rectangle given in the current frame. */
@@ -121,8 +125,8 @@ class Space {
   }
   /** Is a rectangle in the current frame inside the bounds and clear? */
   ok(r: Rect): boolean {
-    const q = toRoot(this.b, r), k = this.bounds;
-    if (q[0] < k[0] || q[1] < k[1] || q[2] > k[2] || q[3] > k[3]) return false;
+    const q = toRoot(this.b, r);
+    if (!this.bounds.some((k) => q[0] >= k[0] && q[1] >= k[1] && q[2] <= k[2] && q[3] <= k[3])) return false;
     return !this.taken.some((t) => overlaps(q, t));
   }
 }
@@ -249,6 +253,23 @@ function projecting(b: Builder, c: SignContent, x: number, y: number, wallZ: num
   b.protect(x - 0.55, y - h / 2 - 0.1, Math.min(wallZ, z - w / 2 - 0.1), x + 0.55, y + h / 2 + 0.15, Math.max(wallZ, z + w / 2 + 0.1));
 }
 
+/**
+ * A row of flat panels centred on `c`, facing `n` (on a wall or a portal's fascia), laid out from
+ * the reader's left to right, on a thin dark frame; a thin protected volume in front.
+ */
+function flatRow(b: Builder, segs: Seg[], c: V2, n: V2, y: number, w: number, h: number) {
+  const rF: V2 = [n[1], -n[0]]; // the reader's right
+  const total = w * segs.length;
+  const fr = planeRect(c[0] - n[0] * 0.012, c[1] - n[1] * 0.012, n, total + 0.06, 0.008);
+  b.deco(BOARD, fr[0], y - h / 2 - 0.03, fr[1], fr[2], y + h / 2 + 0.03, fr[3]);
+  segs.forEach((s, k) => {
+    const u = -total / 2 + w * (k + 0.5);
+    b.sign(s.c, c[0] + rF[0] * u, y, c[1] + rF[1] * u, n, w - 0.04, h, s.to ? { arrow: unit(s.to) } : {});
+  });
+  const a = planeRect(c[0] + n[0] * 0.1, c[1] + n[1] * 0.1, n, total + 0.2, 0.12);
+  b.protect(a[0], y - h / 2 - 0.08, a[1], a[2], y + h / 2 + 0.08, a[3]);
+}
+
 /** A flat sign on a wall face, with its protected space in front. `n` is the way it faces. */
 function flat(b: Builder, c: SignContent, x: number, y: number, z: number, n: V2, w: number, h: number, frame = false) {
   if (frame) {
@@ -265,49 +286,54 @@ function flat(b: Builder, c: SignContent, x: number, y: number, z: number, n: V2
 const dirOf = (st: StationDef, line: LineDef, p: number): 'down' | 'up' => (st.platforms[line.id]?.[0] === p ? 'down' : 'up');
 const numList = (nums: number[], sep: string) => [...new Set(nums)].sort((a, b) => a - b).join(sep);
 const enPlatforms = (nums: number[]) => `${new Set(nums).size > 1 ? 'Platforms' : 'Platform'} ${numList(nums, ', ')}`;
+const exitList = (nums: string[]) => [...new Set(nums)].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+const transferC = (line: LineDef): SignContent => ({ k: 'guide', ja: `${line.nameJa} のりかえ`, en: `Transfer: ${line.nameEn}`, bg: 'white', badges: [line.id] });
 
-/** Panels pointing to the stairs from (x, z) for someone walking along `walk`: grouped by arrow. */
-function platformSegs(station: StationDef, stairs: StairInfo[], at: V2, walk: V2, mode: 'board' | 'transfer', skip?: string): Seg[] {
+/** A stair someone can get to, the way to set off for it (`to`) and how far it is along the way. */
+interface Reach {
+  st: StairInfo;
+  to: V2;
+  d: number;
+}
+
+/**
+ * Panels pointing to stairs for someone walking along `walk`: platform stairs grouped by arrow
+ * (a platform sign for one platform, else the platform numbers), then one transfer panel per line.
+ * Stairs behind the reader are left out.
+ */
+function stairSegs(station: StationDef, reach: Reach[], walk: V2): Seg[] {
   const n: V2 = [-walk[0], -walk[1]];
-  // Every stair serving each platform (or, for transfers, each line) that is not behind.
-  type T = { st: StairInfo; p: number; to: V2; d: number; a: Arrow };
+  type T = Reach & { p: number; a: Arrow };
+  // Every stair serving each platform (transfers: each line) that is not behind.
   const all = new Map<string, T[]>();
-  for (const st of stairs) {
-    if (st.line.id === skip) continue;
-    const to: V2 = [st.top[0] - at[0], st.top[1] - at[1]];
-    const d = Math.hypot(to[0], to[1]);
-    const a = arrowFor(to, n);
-    if (d < 1 || behind(to, walk)) continue;
-    for (const p of mode === 'transfer' ? [st.platforms[0]] : st.platforms) {
-      const key = mode === 'transfer' ? st.line.id : `${st.line.id}|${p}`;
-      all.set(key, [...(all.get(key) ?? []), { st, p, to, d, a }]);
+  for (const r of reach) {
+    if (r.d < 1 || behind(r.to, walk)) continue;
+    const a = arrowFor(r.to, n);
+    for (const p of r.st.kind === 'transfer' ? [r.st.platforms[0]] : r.st.platforms) {
+      const key = r.st.kind === 'transfer' ? `T|${r.st.line.id}` : `${r.st.line.id}|${p}`;
+      all.set(key, [...(all.get(key) ?? []), { ...r, p, a }]);
     }
   }
   // The nearest, and any other about as near that lies another way (stairs on both sides).
   const groups = new Map<Arrow, T[]>();
+  const transfers: T[] = [];
   for (const list of all.values()) {
     list.sort((a, b) => a.d - b.d);
-    const near = list.filter((t) => t.d <= list[0].d + 1.5);
-    for (const t of near) {
+    for (const t of list.filter((t) => t.d <= list[0].d + 1.5)) {
+      if (t.st.kind === 'transfer') {
+        if (!transfers.some((u) => u.st.line.id === t.st.line.id && u.a === t.a)) transfers.push(t);
+        continue;
+      }
       const g = groups.get(t.a) ?? [];
       if (!g.some((u) => u.st.line.id === t.st.line.id && u.p === t.p)) groups.set(t.a, [...g, t]);
     }
-  }
-  if (mode === 'transfer') {
-    const out: T[] = [];
-    for (const g of groups.values()) out.push(...g);
-    return out.sort((a, b) => a.d - b.d).map(({ st, to }) => ({
-      c: { k: 'guide', ja: `${st.line.nameJa} のりかえ`, en: `Transfer: ${st.line.nameEn}`, bg: 'white', badges: [st.line.id] },
-      to,
-      keys: [st.line.id],
-    }));
   }
   const out: { seg: Seg; d: number }[] = [];
   for (const g of groups.values()) {
     g.sort((a, b) => a.d - b.d);
     const to = g[0].to, d = g[0].d;
     const keys = g.map((t) => `${t.st.line.id}|${t.p}`);
-    if (g.length === 1 && g[0].st.kind === 'platform') {
+    if (g.length === 1) {
       out.push({ seg: { c: { k: 'dir', station: station.id, line: g[0].st.line.id, dir: dirOf(station, g[0].st.line, g[0].p) }, to, keys }, d });
     } else {
       const nums = g.map((t) => t.p);
@@ -315,7 +341,77 @@ function platformSegs(station: StationDef, stairs: StairInfo[], at: V2, walk: V2
       out.push({ seg: { c: { k: 'guide', ja: `のりば ${numList(nums, '・')}`, en: enPlatforms(nums), bg: 'navy', badges }, to, keys }, d });
     }
   }
+  for (const t of transfers) out.push({ seg: { c: transferC(t.st.line), to: t.to, keys: [`T|${t.st.line.id}`] }, d: t.d });
   return out.sort((a, b) => a.d - b.d).map((o) => o.seg);
+}
+
+/** Panels pointing to the stairs from (x, z) in open floor (straight there) for someone walking along `walk`. */
+function platformSegs(station: StationDef, stairs: StairInfo[], at: V2, walk: V2): Seg[] {
+  return stairSegs(station, stairs.map((st) => {
+    const to: V2 = [st.top[0] - at[0], st.top[1] - at[1]];
+    return { st, to, d: Math.hypot(to[0], to[1]) };
+  }), walk);
+}
+
+// ── Routes between the spine and the rooms ───────────────────────────────────────────────────
+
+/** A way between two areas (−1 the spine, else a room index): the middle of the mouth between them. */
+interface Link {
+  p: V2;
+  a: number;
+  c: number;
+}
+
+/** Where someone is going: a point in an area. */
+interface Goal {
+  p: V2;
+  area: number;
+}
+
+/** The ways between the spine and the rooms, one per mouth. */
+function areaLinks(i: ConcInfo): Link[] {
+  const out: Link[] = [];
+  i.rooms.forEach((r, k) => {
+    for (const m of r.mouths) {
+      const p: V2 = m.axis === 'x' ? [(m.u0 + m.u1) / 2, m.at] : [m.at, (m.u0 + m.u1) / 2];
+      const same = (l: Link) => ((l.a === k && l.c === m.to) || (l.a === m.to && l.c === k)) && Math.hypot(l.p[0] - p[0], l.p[1] - p[1]) < 1;
+      if (!out.some(same)) out.push({ p, a: k, c: m.to });
+    }
+  });
+  return out;
+}
+
+/**
+ * The shortest way (straight lines from mouth to mouth) from `from` in area `area` to a goal:
+ * the points to walk to in turn (ending at the goal), its length, and the first link used (−1 if
+ * the goal is in the same area and reached straight). Null if there is no way.
+ */
+function route(links: Link[], from: V2, area: number, g: Goal): { pts: V2[]; d: number; first: number } | null {
+  const hyp = (p: V2, q: V2) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const touches = (l: Link, a: number) => l.a === a || l.c === a;
+  const n = links.length;
+  const dist = new Array<number>(n).fill(Infinity), prev = new Array<number>(n).fill(-1), done = new Array<boolean>(n).fill(false);
+  let best = area === g.area ? hyp(from, g.p) : Infinity, via = -1;
+  links.forEach((l, k) => {
+    if (touches(l, area)) dist[k] = hyp(from, l.p);
+  });
+  for (;;) {
+    let k = -1;
+    for (let j = 0; j < n; j++) if (!done[j] && dist[j] < Infinity && (k < 0 || dist[j] < dist[k])) k = j;
+    if (k < 0 || dist[k] >= best) break;
+    done[k] = true;
+    const l = links[k];
+    if (touches(l, g.area) && dist[k] + hyp(l.p, g.p) < best) (best = dist[k] + hyp(l.p, g.p)), (via = k);
+    for (let j = 0; j < n; j++) {
+      if (done[j] || !(touches(links[j], l.a) || touches(links[j], l.c))) continue;
+      const d = dist[k] + hyp(l.p, links[j].p);
+      if (d < dist[j]) (dist[j] = d), (prev[j] = k);
+    }
+  }
+  if (best === Infinity) return null;
+  const chain: number[] = [];
+  for (let k = via; k >= 0; k = prev[k]) chain.unshift(k);
+  return { pts: [...chain.map((k) => links[k].p), g.p], d: best, first: chain.length ? chain[0] : -1 };
 }
 
 // ── Concourse ────────────────────────────────────────────────────────────────────────────────
@@ -327,84 +423,188 @@ function rows(cw: number): number[] {
   return Array.from({ length: n }, (_, k) => -cw + (2 * cw * (k + 0.5)) / n);
 }
 
-/** Signs in a concourse: platform, transfer and exit directions, exit boards, maps, pictograms. */
+/** A wall face as `WallFace` has it (no extent): its plane, and the way it faces. */
+type FaceAt = { axis: 'x' | 'z'; at: number; n: 1 | -1 };
+const faceN = (f: FaceAt): V2 => (f.axis === 'x' ? [0, f.n] : [f.n, 0]);
+/** The point u along face f, `off` out in front of it (behind it if negative). */
+const onFace = (f: FaceAt, u: number, off: number): V2 => (f.axis === 'x' ? [u, f.at + f.n * off] : [f.at + f.n * off, u]);
+
+/**
+ * Signs in a concourse: headers on every stair portal, platform, transfer and exit directions
+ * along the spine, what lies through each mouth into a room, signs in the rooms leading back,
+ * exit boards, maps and pictograms.
+ */
 export function wayfindConcourse(i: ConcInfo): void {
   const { b, station, cf, cw } = i;
   const ceil = cf + i.clear;
   const y = cf + 2.6, h = 0.45;
-  const narrow = cw < 9;
-  const segW = narrow ? 2.2 : 2.5;
-  const maxSegs = narrow ? 2 : cw >= 16 ? 4 : 3;
+  // An interchange spine over side platforms (8.9) is a full-size corridor; only the old 8 m
+  // concourses get the narrower signs.
+  const narrow = cw < 8.5;
+  const segW = narrow ? 2.2 : 2.4;
+  const maxSegs = narrow ? 3 : 4;
   const lines = linesAt(station.id).map((l) => l.id);
-  const exitsOf = (end: number) => i.exits.filter((e) => e.end === end).map((e) => e.num).sort();
+  const exitsOf = (end: number) => exitList(i.exits.filter((e) => e.end === end).map((e) => e.num));
+  const hyp = (p: V2, q: V2) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const clamp = (v: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi));
 
-  const sp = new Space(b, [i.x0 + 0.3, -cw + 0.15, i.x1 - 0.3, cw - 0.15]);
+  // Hanging signs may go in the spine or in a room, never across a wall between them.
+  const sp = new Space(b, [[i.x0 + 0.3, -cw + 0.15, i.x1 - 0.3, cw - 0.15], ...i.rooms.map((r) => grow(r.rect, -0.15))]);
   sp.scan(cf + 2.2, ceil - 0.3, cf + 1.2, ceil);
   for (const r of i.holes) sp.block(grow(r, 0.15));
   for (const [x, z] of i.pillars) sp.block([x - 0.45, z - 0.45, x + 0.45, z + 0.45]);
+  // Keep the view of every portal's header clear: nothing hangs just in front of it.
+  for (const w of i.stairwells) {
+    const f = w.portal.fascia;
+    const p = onFace(f, f.u0, 0), q = onFace(f, f.u1, 3.5);
+    sp.block([Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])]);
+  }
   const placed: V2[] = [];
-
-  /** The nearest gate line ahead of someone at x walking along walk, and a panel pointing to it. */
-  const gateAhead = (at: V2, walk: V2): Seg | null => {
-    if (Math.abs(walk[0]) < 0.7) return null;
-    let best = -1, bd = Infinity;
-    i.ends.forEach((e, k) => {
-      const d = (e.g - at[0]) * Math.sign(walk[0]);
-      if (d > 1 && d < bd) (best = k), (bd = d);
-    });
-    if (best < 0) return null;
-    const only = exitsOf(best);
-    if (!only.length) return null;
-    return { c: { k: 'exits', station: station.id, only }, to: [Math.sign(walk[0]), 0] };
-  };
   const cap = (segs: Seg[]) => capSegs(segs, maxSegs);
   // Hanging signs keep the floor under them, so nothing solid (a shop) is built up into them.
   const claim = (r: Rect) => i.claim(r[0], r[1], r[2], r[3]);
 
-  // 1. Over the top of every stair: where it goes (front), the way out and transfers (back).
-  //    Transfer stairs first: they sit beside the primary's and have the narrower signs.
-  for (const st of [...i.stairs].sort((a, c) => (a.kind === 'transfer' ? 0 : 1) - (c.kind === 'transfer' ? 0 : 1))) {
-    const d = unit(st.down);
-    const n: V2 = [-d[0], -d[1]];
-    const alongX = Math.abs(d[0]) > 0.5;
-    const cx = alongX ? st.top[0] : (st.rect[0] + st.rect[2]) / 2;
-    const cz = alongX ? (st.rect[1] + st.rect[3]) / 2 : st.top[1];
-    let front: Seg[];
+  // ── Ways: where each stair and gate line is, and how to get there from any area ──
+  const links = areaLinks(i);
+  const areaOf = (p: V2): number => {
+    if (p[0] >= i.x0 && p[0] <= i.x1 && Math.abs(p[1]) <= cw + 0.01) return -1;
+    const k = i.rooms.findIndex((r) => p[0] >= r.rect[0] && p[0] <= r.rect[2] && p[1] >= r.rect[1] && p[1] <= r.rect[3]);
+    return k;
+  };
+  const wellOf = (st: StairInfo) => i.stairwells.find((w) => w.stair === st);
+  // A stair's goal: the floor just in front of its portal.
+  const stairGoal = (st: StairInfo): Goal => {
+    const w = wellOf(st);
+    if (!w) return { p: st.top, area: areaOf(st.top) };
+    const [px, pz] = w.portal.at, [nx, nz] = w.portal.n;
+    return { p: [px + nx * 0.8, pz + nz * 0.8], area: w.room };
+  };
+  const goals = i.stairs.map(stairGoal);
+  const gateGoals: Goal[] = i.ends.map((e) => ({ p: [e.g, 0], area: -1 }));
+  /** The way to a goal: which way to set off (the first point on it at least 1.2 m away). */
+  const reach = (from: V2, area: number, g: Goal) => {
+    const r = route(links, from, area, g);
+    if (!r) return null;
+    const next = r.pts.find((p) => hyp(p, from) >= 1.2) ?? r.pts[r.pts.length - 1];
+    return { to: [next[0] - from[0], next[1] - from[1]] as V2, d: r.d, first: r.first };
+  };
+  const stairReach = (from: V2, area: number, keep: (st: StairInfo, first: number) => boolean = () => true): Reach[] => {
+    const out: Reach[] = [];
+    i.stairs.forEach((st, k) => {
+      const r = reach(from, area, goals[k]);
+      if (r && keep(st, r.first)) out.push({ st, to: r.to, d: r.d });
+    });
+    return out;
+  };
+  /** Exit panels: gate lines grouped by the way they lie (one gate: its exits board strip). */
+  const exitSegs = (gs: { k: number; to: V2; d: number }[], n: V2): Seg[] => {
+    const by = new Map<Arrow, typeof gs>();
+    for (const g of gs) by.set(arrowFor(g.to, n), [...(by.get(arrowFor(g.to, n)) ?? []), g]);
+    return [...by.values()].map((list) => {
+      list.sort((a, c) => a.d - c.d);
+      const nums = exitList(list.flatMap((g) => exitsOf(g.k)));
+      const keys = list.map((g) => `X|${g.k}`);
+      const c: SignContent = list.length === 1
+        ? { k: 'exits', station: station.id, only: nums }
+        : { k: 'guide', ja: `出口 ${nums.join('・')}`, en: `Exits ${nums.join(', ')}`, bg: 'yellow' };
+      return { c, to: list[0].to, keys };
+    });
+  };
+  const gateReach = (from: V2, area: number, keep: (first: number) => boolean = () => true) => {
+    const out: { k: number; to: V2; d: number }[] = [];
+    i.ends.forEach((_, k) => {
+      if (!exitsOf(k).length) return;
+      const r = reach(from, area, gateGoals[k]);
+      if (r && keep(r.first)) out.push({ k, to: r.to, d: r.d });
+    });
+    return out;
+  };
+  /** The nearest gate line ahead of someone at `at` walking along `walk`, and a panel pointing to it. */
+  const gateAhead = (at: V2, area: number, walk: V2): Seg | null => {
+    const gs = gateReach(at, area).filter((g) => g.d > 1 && !behind(g.to, walk)).sort((a, c) => a.d - c.d);
+    return gs.length ? exitSegs([gs[0]], [-walk[0], -walk[1]])[0] : null;
+  };
+
+  // ── 1. Portal headers: on the fascia over every stair head; inside it, for people coming up ──
+  /** The fascia's depth behind its front face at u (found from the box built there), or null. */
+  const solidAt = (x: number, yy: number, z: number) => {
+    const p = b.pt(x, yy, z);
+    return b.out.boxes.some((q) => q.solid && p[0] > q.min[0] && p[0] < q.max[0] && p[1] > q.min[1] && p[1] < q.max[1] && p[2] > q.min[2] && p[2] < q.max[2]);
+  };
+  const fasciaDepth = (f: FaceAt, u: number, yy: number): number | null => {
+    const solid = (d: number) => {
+      const [x, z] = onFace(f, u, -d);
+      return solidAt(x, yy, z);
+    };
+    if (!solid(0.01)) return null;
+    let lo = 0.01, hi = 0.06;
+    while (hi < 1 && solid(hi)) (lo = hi), (hi += 0.05);
+    if (hi >= 1) return null;
+    for (let k = 0; k < 12; k++) {
+      const m = (lo + hi) / 2;
+      if (solid(m)) lo = m;
+      else hi = m;
+    }
+    return hi;
+  };
+  for (const w of i.stairwells) {
+    const st = w.stair, f = w.portal.fascia;
+    const n = faceN(f);
+    const hAv = f.y1 - f.y0 - 0.1;
+    if (hAv < 0.25) continue;
+    const yc = (f.y0 + f.y1) / 2;
+    const W = Math.min(f.u1 - f.u0 - 0.12, w.portal.w + 0.4);
+    if (W < 1.2) continue;
+    const pu = f.axis === 'x' ? w.portal.at[0] : w.portal.at[1];
+    const uc = clamp(pu, f.u0 + W / 2 + 0.06, f.u1 - W / 2 - 0.06);
+    let segs: Seg[], ph: number;
     if (st.kind === 'platform') {
-      const nums = [...st.platforms].sort((a, b) => (dirOf(station, st.line, a) === 'down' ? -1 : 1) - (dirOf(station, st.line, b) === 'down' ? -1 : 1));
+      const nums = [...st.platforms].sort((a, c) => (dirOf(station, st.line, a) === 'down' ? -1 : 1) - (dirOf(station, st.line, c) === 'down' ? -1 : 1));
       // Down platforms are on the hall's −z side: lay the panels out the same way round.
-      const rF: V2 = [n[1], -n[0]];
-      if (rF[1] < 0) nums.reverse();
-      front = nums.map((p) => ({ c: { k: 'dir', station: station.id, line: st.line.id, dir: dirOf(station, st.line, p), arrow: 'down' } }));
+      // (Panels run from the reader's left to right, and the reader's right is [n[1], −n[0]].)
+      if (-n[0] < 0) nums.reverse();
+      const pw = W / nums.length;
+      if (pw >= 1.9) {
+        // One panel per platform: number, line, "for <terminus>".
+        segs = nums.map((p) => ({ c: { k: 'dir', station: station.id, line: st.line.id, dir: dirOf(station, st.line, p), ...(pw >= 2.6 ? { arrow: 'down' as const } : {}) } }));
+        ph = Math.min(hAv, pw / 4.6);
+      } else {
+        // Too narrow for that: the line and its platform numbers.
+        segs = [{ c: { k: 'guide', ja: `のりば ${numList(nums, '・')}`, en: `${st.line.nameEn} · ${enPlatforms(nums)}`, bg: 'navy', badges: [st.line.id] } }];
+        ph = Math.min(hAv, W / 4.2);
+      }
     } else {
-      const nums = st.platforms;
-      front = [{
+      const full = W >= 2.8;
+      segs = [{
         c: {
-          k: 'guide', ja: `${st.line.nameJa} のりかえ ${numList(nums, '・')}番線`, en: `Transfer: ${st.line.nameEn} · ${enPlatforms(nums)}`,
-          bg: 'white', badges: [st.line.id], arrow: 'down',
+          k: 'guide', ja: full ? `${st.line.nameJa} のりかえ ${numList(st.platforms, '・')}番線` : `${st.line.nameJa} のりかえ`,
+          en: full ? `Transfer: ${st.line.nameEn} · ${enPlatforms(st.platforms)}` : `Transfer: ${st.line.nameEn}`, bg: 'white', badges: [st.line.id],
         },
       }];
+      ph = Math.min(hAv, W / 5);
     }
-    // Back: read by people coming up, walking along n: the exits ahead, and transfers.
-    const backAt = (x: number, z: number): Seg[] => {
-      const at: V2 = [x, z];
-      const out: Seg[] = [];
-      const ex = gateAhead(at, n);
-      if (ex) out.push(ex);
-      out.push(...platformSegs(station, i.stairs, at, n, 'transfer', st.line.id));
-      return capSegs(out, Math.min(maxSegs, 3));
-    };
-    const w = st.kind === 'transfer' && backAt(cx, cz).length <= 1 ? 3.0 : segW;
-    // Candidates step back from the opening (along n, never over it) and a little to the side.
-    const rF: V2 = [n[1], -n[0]];
-    const cands: V2[] = [];
-    for (const s of [0, -0.4, 0.4, -0.8, 0.8, -1.2, 1.2]) for (const off of [0, 0.4, 0.8, 1.2]) cands.push([cx + n[0] * off + rF[0] * s, cz + n[1] * off + rF[1] * s]);
-    const where = placeHang(b, sp, { n, y, h, segW: w, front, back: [], ceil, at: (x, z) => ({ front, back: backAt(x, z) }), onPlace: claim }, cands);
-    if (where) placed.push(where);
+    flatRow(b, segs, onFace(f, uc, 0.02), n, yc, W / segs.length, ph);
+
+    // Inside: read by people coming up, walking along n out of the portal: the way out, and the
+    // other lines.
+    const depth = fasciaDepth(f, pu, yc);
+    const Wb = Math.min(w.portal.w - 0.1, 5.2);
+    if (depth === null || Wb < 1.5) continue;
+    const from: V2 = [w.portal.at[0] + n[0] * 0.3, w.portal.at[1] + n[1] * 0.3];
+    const items: Seg[] = [];
+    const ex = gateAhead(from, w.room, n);
+    if (ex) items.push(ex);
+    items.push(...stairSegs(station, stairReach(from, w.room, (s) => s.line.id !== st.line.id), n));
+    const back = capSegs(items, Math.max(1, Math.floor((Wb + 0.05) / 1.85)));
+    if (!back.length) continue;
+    const bw = Math.min(Wb / back.length, 2.6);
+    const bn: V2 = [-n[0], -n[1]];
+    flatRow(b, sortSegs(back, bn), onFace(f, pu, -(depth + 0.02)), bn, yc, bw, Math.min(hAv, bw / 4.6));
   }
 
-  // 2. Paid area: by each gate line, which way to the platforms (for people coming in) and the
-  //    exits through that gate (for people going out); then repeated along the hall.
+  // ── 2. The spine, inside the gates: by each gate line, which way to the platforms and
+  //    transfers (coming in) and the exits through that gate (going out); then repeated along
+  //    the spine about every 15–20 m, each listing the lines ahead and the exits. ──
   const hasHang = (x: number, z: number, r: number) => placed.some((p) => Math.hypot(p[0] - x, p[1] - z) < r);
   const [p0, p1] = i.paid;
   const anchors: { x: number; gate: number | null }[] = [];
@@ -413,7 +613,6 @@ export function wayfindConcourse(i: ConcInfo): void {
     if (x > p0 + 1 && x < p1 - 1) anchors.push({ x, gate: k });
   });
   {
-    // Fill the hall between them (or between a gate and the far wall) about every 18 m.
     const lo = anchors.filter((a) => !i.ends[a.gate!].hi).map((a) => a.x);
     const hi = anchors.filter((a) => i.ends[a.gate!].hi).map((a) => a.x);
     const a = lo.length ? Math.max(...lo) : p0 + 6, c = hi.length ? Math.min(...hi) : p1 - 6;
@@ -422,9 +621,9 @@ export function wayfindConcourse(i: ConcInfo): void {
       const m = Math.floor(L / 18);
       for (let k = 1; k <= m; k++) anchors.push({ x: a + (L * k) / (m + 1), gate: null });
     } else if (hi.length) {
-      for (let x = c - 18; x >= a - 4; x -= 18) anchors.push({ x, gate: null });
+      for (let x = c - 17; x >= a - 4; x -= 17) anchors.push({ x, gate: null });
     } else if (lo.length) {
-      for (let x = a + 18; x <= c + 4; x += 18) anchors.push({ x, gate: null });
+      for (let x = a + 17; x <= c + 4; x += 17) anchors.push({ x, gate: null });
     }
   }
   const inPaid = (x: number) => x > p0 + 1.2 && x < p1 - 1.2;
@@ -436,14 +635,14 @@ export function wayfindConcourse(i: ConcInfo): void {
       const facesAt = (x: number, z: number) => {
         const faces = ([[-1, 0], [1, 0]] as V2[]).map((walk) => {
           const at: V2 = [x, z];
-          // Walking away from the gate just passed: platforms only. Towards it: its exits only.
+          // Walking away from the gate just passed: lines only. Towards it: its exits only.
           if (e && Math.sign(walk[0]) === (e.hi ? 1 : -1)) {
-            const ex = gateAhead(at, walk);
+            const ex = gateAhead(at, -1, walk);
             return ex ? [ex] : [];
           }
-          const segs = platformSegs(station, i.stairs, at, walk, 'board');
+          const segs = stairSegs(station, stairReach(at, -1), walk);
           if (!e) {
-            const ex = gateAhead(at, walk);
+            const ex = gateAhead(at, -1, walk);
             if (ex) segs.unshift(ex);
           }
           return cap(segs);
@@ -456,13 +655,118 @@ export function wayfindConcourse(i: ConcInfo): void {
         if (!back.length) back = front;
         return { front, back };
       };
-      const cands = around(an.x, z, [0, -0.8, 0.8, -1.6, 1.6, -2.5, 2.5], [0, -1.2, 1.2, -2.4, 2.4]).filter(([x]) => inPaid(x));
+      // A stairwell on the axis can fill the spot: look a few metres either way along the spine.
+      const cands = around(an.x, z, [0, -0.8, 0.8, -1.6, 1.6, -2.5, 2.5, -3.5, 3.5, -4.5, 4.5], [0, -1.2, 1.2, -2.4, 2.4]).filter(([x]) => inPaid(x));
       const where = placeHang(b, sp, { n: [1, 0], y, h, segW, front: [], back: [], ceil, at: facesAt, onPlace: claim }, cands);
       if (where) placed.push(where);
     }
   }
 
-  // 3. Unpaid halls: just outside the gates, which way to each exit (and back: to the trains, tickets).
+  // ── 3. Mouths into rooms: over each, seen from along the spine both ways, what lies through it ──
+  /**
+   * A sign hanging across the spine (or a room run along x) beside a mouth in its long wall at
+   * z = wallZ (`inward` the way into the area), naming everything whose way from here starts
+   * through this mouth, with arrows into it.
+   */
+  const mouthSign = (area: number, via: number, u0: number, u1: number, wallZ: number, inward: 1 | -1) => {
+    const xm = (u0 + u1) / 2;
+    const L = links.findIndex((l) => ((l.a === area && l.c === via) || (l.a === via && l.c === area)) && Math.abs(l.p[0] - xm) < 0.6);
+    if (L < 0) return;
+    const probe: V2 = [xm, wallZ + inward * 1.5];
+    const through = (first: number) => first === L;
+    // Lines: platforms of each line together, transfers one per line.
+    const lineSegs: { seg: Seg; d: number }[] = [];
+    const byLine = new Map<string, Reach[]>();
+    for (const r of stairReach(probe, area, (_, first) => through(first))) {
+      const key = `${r.st.kind}|${r.st.line.id}`;
+      byLine.set(key, [...(byLine.get(key) ?? []), r]);
+    }
+    for (const list of byLine.values()) {
+      const st = list[0].st, d = Math.min(...list.map((r) => r.d));
+      if (st.kind === 'transfer') {
+        lineSegs.push({ seg: { c: transferC(st.line), keys: [`T|${st.line.id}`] }, d });
+        continue;
+      }
+      const nums = [...new Set(list.flatMap((r) => r.st.platforms))];
+      const c: SignContent = nums.length === 1
+        ? { k: 'dir', station: station.id, line: st.line.id, dir: dirOf(station, st.line, nums[0]) }
+        : { k: 'guide', ja: `${st.line.nameJa} のりば ${numList(nums, '・')}`, en: `${st.line.nameEn} · ${enPlatforms(nums)}`, bg: 'navy', badges: [st.line.id] };
+      lineSegs.push({ seg: { c, keys: nums.map((p) => `${st.line.id}|${p}`) }, d });
+    }
+    const ls = lineSegs.sort((a, c) => a.d - c.d).map((o) => o.seg);
+    const ex = exitSegs(gateReach(probe, area, through).map((g) => ({ ...g, to: [0, -inward] as V2 })), [1, 0]);
+    // Away from the gates (in a room) the way out comes first.
+    const segs = capSegs(area === -1 ? [...ls, ...ex] : [...ex, ...ls], 2);
+    if (!segs.length) return;
+    const W = segs.length * segW;
+    const half = (u1 - u0) / 2 + 1.2;
+    const dxs: number[] = [0];
+    for (let d = 0.4; d <= half + 1e-6; d += 0.4) dxs.push(d, -d);
+    const cands: V2[] = [];
+    for (const dz of [0, 0.4, 0.8]) for (const dx of dxs) cands.push([xm + dx, wallZ + inward * (0.3 + W / 2 + dz)]);
+    const at = (x: number, z: number) => {
+      // Into the mouth: straight across to it where the sign hangs beside it.
+      const to: V2 = [clamp(x, u0 + 0.8, u1 - 0.8) - x, wallZ - z];
+      const list = segs.map((s) => ({ ...s, to }));
+      return { front: list, back: list };
+    };
+    const where = placeHang(b, sp, { n: [1, 0], y, h, segW, front: [], back: [], ceil, keepOrder: true, at, onPlace: area === -1 ? claim : undefined }, cands);
+    if (where) placed.push(where);
+  };
+  for (const o of i.openings) if (o.kind === 'bay' && o.room !== undefined) mouthSign(-1, o.room, o.x0, o.x1, o.s * cw, o.s > 0 ? -1 : 1);
+  i.rooms.forEach((r, k) => {
+    if (r.kind !== 'spine') return;
+    const zc = (r.rect[1] + r.rect[3]) / 2;
+    for (const m of r.mouths) if (m.axis === 'x') mouthSign(k, m.to, m.u0, m.u1, m.at, m.at < zc ? 1 : -1);
+  });
+
+  // ── 4. Rooms: the way back out, and on to the other lines ──
+  i.rooms.forEach((r, k) => {
+    if (r.kind !== 'cross passage') return;
+    // A sign hanging across the passage: each face, for people walking towards it, says what lies
+    // beyond the mouth ahead of them.
+    const ms = r.mouths.filter((m) => m.axis === 'x');
+    const xc = (r.rect[0] + r.rect[2]) / 2, zc = (r.rect[1] + r.rect[3]) / 2;
+    if (ms.length < 2 || r.rect[2] - r.rect[0] < 2.5) return;
+    const face = (walk: V2): Seg[] => {
+      const m = ms.filter((q) => (q.at - zc) * walk[1] > 0).sort((a, c) => Math.abs(a.at - zc) - Math.abs(c.at - zc))[0];
+      if (!m) return [];
+      const L = links.findIndex((l) => ((l.a === k && l.c === m.to) || (l.a === m.to && l.c === k)) && Math.abs(l.p[1] - m.at) < 0.6);
+      const at: V2 = [xc, zc];
+      const n: V2 = [-walk[0], -walk[1]];
+      const ex = exitSegs(gateReach(at, k, (first) => first === L).filter((g) => !behind(g.to, walk)), n);
+      const st = stairSegs(station, stairReach(at, k, (_, first) => first === L), walk);
+      return capSegs(m.to === -1 ? [...ex, ...st] : [...st, ...ex], 2);
+    };
+    const pw = Math.min(segW, (r.rect[2] - r.rect[0] - 0.6) / 2);
+    const at = () => ({ front: face([0, -1]), back: face([0, 1]) });
+    placeHang(b, sp, { n: [0, 1], y, h, segW: pw, front: [], back: [], ceil, at }, around(xc, zc, [0, -0.3, 0.3], [0, -0.2, 0.2]));
+  });
+  for (const w of i.stairwells) {
+    const r = i.rooms[w.room];
+    if (!r || r.kind !== 'transfer bay') continue;
+    // On the wall at the end of the bay's lobby, facing people coming up out of the portal.
+    const f = w.portal.fascia, n = faceN(f);
+    const face = r.faces
+      .filter((q) => q.axis === f.axis && q.n === -f.n && (q.at - f.at) * f.n > 2 && q.u1 - q.u0 > 1.8)
+      .sort((a, c) => Math.abs(a.at - f.at) - Math.abs(c.at - f.at))[0];
+    if (!face) continue;
+    const span = face.u1 - face.u0 - 0.3;
+    const pu = f.axis === 'x' ? w.portal.at[0] : w.portal.at[1];
+    const front = onFace(f, pu, 0.5), wallPt = onFace(face, clamp(pu, face.u0, face.u1), 0);
+    const read: V2 = [(front[0] + wallPt[0]) / 2, (front[1] + wallPt[1]) / 2];
+    const items: Seg[] = [];
+    const gs = gateReach(read, w.room).sort((a, c) => a.d - c.d);
+    if (gs.length) items.push(...exitSegs([gs[0]], [-n[0], -n[1]]));
+    items.push(...stairSegs(station, stairReach(read, w.room, (s) => s.line.id !== w.stair.line.id), n));
+    const segs = capSegs(items, Math.max(1, Math.min(3, Math.floor((span + 0.05) / 1.75))));
+    if (!segs.length) continue;
+    const pw = Math.min(span / segs.length, 2.6);
+    const fn = faceN(face);
+    flatRow(b, sortSegs(segs, fn), onFace(face, clamp(pu, face.u0 + (pw * segs.length) / 2 + 0.15, face.u1 - (pw * segs.length) / 2 - 0.15), 0.02), fn, cf + 2.55, pw, Math.min(0.45, pw / 4.4));
+  }
+
+  // ── 5. Unpaid halls: just outside the gates, which way to each exit (and back: to the trains, tickets) ──
   const fares = b.out.signs.filter((s) => s.content.k === 'faremap' && Math.abs(s.pos[1] - (cf + 2.46)) < 0.3);
   i.ends.forEach((e, k) => {
     const hx = e.hi ? 1 : -1;
@@ -479,38 +783,51 @@ export function wayfindConcourse(i: ConcInfo): void {
     if (doors.length) placeHang(b, sp, { n: [-hx, 0], y, h, segW: narrow ? 2.1 : 2.4, front: [], back: [], ceil, at: facesAt, onPlace: claim }, cands);
   });
 
-  // 4. Boards on the walls: exits, station map and area map in each unpaid hall; exits and
-  //    station map inside the gates.
+  // ── 6. Boards on the walls: exits, station map and area map in each unpaid hall; exits and
+  //    station map inside the gates. Only on solid wall: never across a doorway or a mouth. ──
+  // (Anything standing in front of the wall up to board height; a kerb or skirting does not count.)
   const wallSolids = b.out.boxes
-    .filter((p) => p.max[1] > cf + 0.05 && p.min[1] < cf + 2.4)
+    .filter((p) => p.max[1] > cf + 0.15 && p.min[1] < cf + 2.4)
     .map((p): Rect => [p.min[0], p.min[2], p.max[0], p.max[2]]);
   const wallSigns = b.out.signs
     .filter((s) => s.pos[1] + s.h / 2 > cf && s.pos[1] - s.h / 2 < ceil)
     .map((s) => signRect(s, 0.1))
     .filter((r): r is Rect => !!r);
   const boards: Rect[] = [];
-  const wallOk = (x: number, s: 1 | -1, w: number, paid: boolean): boolean => {
-    const xa = x - w / 2, xb = x + w / 2;
-    if (xa < i.x0 + 0.4 || xb > i.x1 - 0.4) return false;
-    if (i.exits.some((d) => d.s === s && xb > d.x0 - 0.4 && xa < d.x1 + 0.4)) return false;
-    const strip: Rect = s > 0 ? [xa, cw - 0.8, xb, cw - 0.05] : [xa, -cw + 0.05, xb, -cw + 0.8];
-    const face: Rect = s > 0 ? [xa - 0.15, cw - 0.25, xb + 0.15, cw + 0.05] : [xa - 0.15, -cw - 0.05, xb + 0.15, -cw + 0.25];
+  const band = (f: FaceAt, ua: number, ub: number, d0: number, d1: number): Rect => {
+    const p = onFace(f, ua, d0), q = onFace(f, ub, d1);
+    return [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])];
+  };
+  const faceOk = (f: FaceAt, u: number, w: number, paid: boolean): boolean => {
+    const ua = u - w / 2, ub = u + w / 2;
+    const [lo, hi] = f.axis === 'x' ? [i.x0, i.x1] : [-cw, cw];
+    if (ua < lo + 0.4 - 1e-6 || ub > hi - 0.4 + 1e-6) return false;
+    if (f.axis === 'x' && i.openings.some((d) => d.s === -f.n && ub > d.x0 - 0.35 && ua < d.x1 + 0.35)) return false;
+    const strip = band(f, ua, ub, 0.05, 0.8);
+    const face = band(f, ua - 0.15, ub + 0.15, -0.05, 0.25);
     if (wallSolids.some((r) => overlaps(r, strip))) return false;
     if (wallSigns.some((r) => overlaps(r, face) || overlaps(r, strip))) return false;
     if (boards.some((r) => overlaps(r, face))) return false;
     if (i.holes.some((r) => overlaps(grow(r, 0.3), strip))) return false;
     if (i.pillars.some(([px, pz]) => overlaps([px - 0.5, pz - 0.5, px + 0.5, pz + 0.5], strip))) return false;
+    // Solid wall behind it all the way along.
+    for (let s = ua; s <= ub + 1e-6; s += Math.min(0.25, w)) {
+      const [x, z] = onFace(f, s, -0.06);
+      if (!solidAt(x, cf + 1.5, z)) return false;
+    }
     return !paid || i.free(strip[0], strip[1], strip[2], strip[3]);
   };
-  const board = (c: SignContent, x: number, s: 1 | -1, w: number, bh: number, yc: number) => {
-    flat(b, c, x, yc, s * (cw - 0.02), [0, -s], w, bh, true);
-    const strip: Rect = s > 0 ? [x - w / 2, cw - 0.8, x + w / 2, cw] : [x - w / 2, -cw, x + w / 2, -cw + 0.8];
+  const board = (c: SignContent, f: FaceAt, u: number, w: number, bh: number, yc: number) => {
+    const [x, z] = onFace(f, u, 0.02);
+    flat(b, c, x, yc, z, faceN(f), w, bh, true);
+    const strip = band(f, u - w / 2, u + w / 2, 0, 0.8);
     i.claim(strip[0], strip[1], strip[2], strip[3]);
-    boards.push(s > 0 ? [x - w / 2 - 0.3, cw - 0.3, x + w / 2 + 0.3, cw + 0.1] : [x - w / 2 - 0.3, -cw - 0.1, x + w / 2 + 0.3, -cw + 0.3]);
+    boards.push(band(f, u - w / 2 - 0.3, u + w / 2 + 0.3, -0.1, 0.2));
   };
-  /** First spot along `xs` (on walls `ss`) where a board fits. */
-  const findWall = (xs: number[], ss: (1 | -1)[], w: number, paid: boolean): [number, 1 | -1] | null => {
-    for (const x of xs) for (const s of ss) if (wallOk(x, s, w, paid)) return [x, s];
+  const longWall = (s: 1 | -1): FaceAt => ({ axis: 'x', at: s * cw, n: s > 0 ? -1 : 1 });
+  /** First spot along `us` (on faces `fs`) where a board fits. */
+  const findWall = (us: number[], fs: FaceAt[], w: number, paid: boolean): [number, FaceAt] | null => {
+    for (const u of us) for (const f of fs) if (faceOk(f, u, w, paid)) return [u, f];
     return null;
   };
   const exitsBoard: SignContent = { k: 'exits', station: station.id };
@@ -518,14 +835,24 @@ export function wayfindConcourse(i: ConcInfo): void {
   i.ends.forEach((e) => {
     const hx = e.hi ? 1 : -1;
     const at = (lx: number) => e.g + hx * lx;
-    // Exits: by the gates on the −z wall, between the fence and the ticket machines.
-    const ex = findWall([1.45, 1.6, 1.3].map(at), [-1], ew, false);
-    if (ex) board(exitsBoard, ex[0], ex[1], ew, 1.3, cf + 1.45);
+    // The end wall of the unpaid hall (when the hall runs right to it), beside the mural.
+    const endX = e.hi ? i.x1 : i.x0;
+    const end: FaceAt[] = Math.abs(endX - e.g) < 17.5 ? [{ axis: 'z', at: endX, n: e.hi ? -1 : 1 }] : [];
+    const endUs = (w: number) => {
+      const out: number[] = [];
+      for (let d = 0; d < cw; d += 0.25) out.push(cw - 0.45 - w / 2 - d, -(cw - 0.45 - w / 2 - d));
+      return out;
+    };
+    // Exits: by the gates on the −z wall, between the fence and the ticket machines (or, where
+    // the departures screen stands in front of that, on the end wall).
+    const ex = findWall([1.45, 1.6, 1.3].map(at), [longWall(-1)], ew, false) ?? findWall(endUs(ew), end, ew, false);
+    if (ex) board(exitsBoard, ex[1], ex[0], ew, 1.3, cf + 1.45);
     // Maps: on the walls between the exit doorways and the end wall, where people turn to go out.
-    const sm = findWall([14.5, 14.3, 14.7].map(at), [-1, 1], 2.2, false);
-    if (sm) board({ k: 'stationmap', station: station.id }, sm[0], sm[1], 2.2, 1.5, cf + 1.5);
-    const am = findWall([14.5, 14.3, 14.7].map(at), [1, -1], 2.2, false);
-    if (am) board({ k: 'areamap', station: station.id }, am[0], am[1], 2.2, 1.5, cf + 1.5);
+    const near = [14.5, 14.3, 14.7, 14.1, 14.9, 13.9].map(at);
+    const sm = findWall(near, [longWall(-1), longWall(1)], 2.2, false) ?? findWall(endUs(2.2), end, 2.2, false);
+    if (sm) board({ k: 'stationmap', station: station.id }, sm[1], sm[0], 2.2, 1.5, cf + 1.5);
+    const am = findWall(near, [longWall(1), longWall(-1)], 2.2, false) ?? findWall(endUs(2.2), end, 2.2, false);
+    if (am) board({ k: 'areamap', station: station.id }, am[1], am[0], 2.2, 1.5, cf + 1.5);
   });
   {
     // Inside the gates: an exits board and a station map on the walls near the main gate line.
@@ -537,30 +864,28 @@ export function wayfindConcourse(i: ConcInfo): void {
         const x = e.g - hx * d;
         if (inPaid(x)) xs.push(x);
       }
-      const ex = findWall(xs, [-1, 1], 2.2, true);
-      if (ex) board(exitsBoard, ex[0], ex[1], 2.2, 1.3, cf + 1.45);
-      const sm = findWall(xs, ex ? [ex[1], -ex[1] as 1 | -1] : [-1, 1], 2.2, true);
-      if (sm) board({ k: 'stationmap', station: station.id }, sm[0], sm[1], 2.2, 1.5, cf + 1.5);
+      const ex = findWall(xs, [longWall(-1), longWall(1)], 2.2, true);
+      if (ex) board(exitsBoard, ex[1], ex[0], 2.2, 1.3, cf + 1.45);
+      const sm = findWall(xs, ex ? [ex[1], longWall(ex[1].n > 0 ? 1 : -1)] : [longWall(-1), longWall(1)], 2.2, true);
+      if (sm) board({ k: 'stationmap', station: station.id }, sm[1], sm[0], 2.2, 1.5, cf + 1.5);
     }
   }
 
-  // 5. Facilities, signed at the thing itself (the kit's parts are found by their signs).
+  // ── 7. Facilities, signed at the thing itself (the kit's parts are found by their signs) ──
   const here = (s: SignPart, yc: number) =>
     Math.abs(s.pos[1] - yc) < 0.15 && s.pos[0] > i.x0 && s.pos[0] < i.x1 && Math.abs(s.pos[2]) <= cw + 0.1;
   const picto = (v: Picto): SignContent => ({ k: 'picto', v, label: true });
   const pictoSp = new Space(b, [i.x0 + 0.3, -cw - 0.5, i.x1 - 0.3, cw + 0.5]);
   pictoSp.scan(cf + 2.2, ceil - 0.05, cf + 2.0, ceil);
-  for (const s of b.out.signs.filter((s) => s.content.k === 'label' && s.content.text === 'お手洗い' && here(s, cf + 2.55))) {
-    // Toilets: a projecting sign beside the doors, seen from along the hall.
-    const n = s.normal!;
-    if (Math.abs(n[1]) < 0.5) continue;
-    const wallZ = Math.round((s.pos[2] - n[1] * 0.03) * 1000) / 1000;
+  {
+    // Toilets (doors on the −z wall at x = i.toilets): a projecting sign beside them, seen from
+    // along the spine.
     for (const dx of [1.6, -1.6, 2.2, -2.2]) {
-      const x = s.pos[0] + dx;
-      const za = wallZ + n[1] * 0.02, zb = wallZ + n[1] * 1.1;
-      const r: Rect = [x - 0.3, Math.min(za, zb), x + 0.3, Math.max(za, zb)];
+      const x = i.toilets + dx;
+      const r: Rect = [x - 0.3, -cw + 0.02, x + 0.3, -cw + 1.1];
       if (!pictoSp.ok(r) || i.holes.some((q) => overlaps(grow(q, 0.2), r))) continue;
-      projecting(b, picto('toilet'), x, cf + 2.6, wallZ, n[1] > 0 ? 1 : -1, 0.85, 0.5);
+      if (i.openings.some((o) => o.s < 0 && x + 0.5 > o.x0 && x - 0.5 < o.x1)) continue;
+      projecting(b, picto('toilet'), x, cf + 2.6, -cw, 1, 0.85, 0.5);
       pictoSp.block(grow(r, 0.4));
       break;
     }
@@ -595,6 +920,16 @@ export function wayfindExit(e: ExitInfo): void {
   const lines = linesAt(station.id).map((l) => l.id);
   b.sign({ k: 'guide', ja: '改札・のりば', en: 'Ticket gates / Trains', bg: 'navy', badges: lines }, 0.02, cf + 2.95, ext + 2.6, [1, 0], 2.4, 0.42, { arrow: [0, -1] });
   b.protect(0, cf + 2.65, ext + 1.25, 0.6, cf + 3.25, ext + 3.95);
+  if (ext > 8) {
+    // A long corridor (z = 0 … ext, 4 m wide, ceiling at cf + 2.5): halfway along, a sign hanging
+    // across it, just under the ceiling and clear of its light. Going out (walking +z): the exit
+    // number again. Coming in from the street (walking −z): the way to the gates and the trains.
+    const z = Math.round(ext / 2), sh = 0.34, sy = cf + 2.42 - sh / 2, w = 3.0;
+    b.deco(BOARD, -2 - w / 2 - 0.03, sy - sh / 2 - 0.03, z - 0.04, -2 + w / 2 + 0.03, cf + 2.5, z + 0.04);
+    b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num }, -2, sy, z - 0.05, [0, -1], w, sh, { arrow: [0, 1] });
+    b.sign({ k: 'guide', ja: '改札・のりば', en: 'Ticket gates / Trains', bg: 'navy', badges: lines }, -2, sy, z + 0.05, [0, 1], w, sh, { arrow: [0, -1] });
+    b.protect(-2 - w / 2 - 0.1, sy - sh / 2 - 0.1, z - 0.6, -2 + w / 2 + 0.1, cf + 2.5, z + 0.6);
+  }
 }
 
 // ── Transfer passages ────────────────────────────────────────────────────────────────────────
@@ -692,7 +1027,7 @@ export function wayfindElevated(v: ElevInfo): void {
   //    on the back, the exit.
   {
     const facesAt = (x: number, z: number) => {
-      const front = platformSegs(station, stairs, [x, z], [1, 0], 'board');
+      const front = platformSegs(station, stairs, [x, z], [1, 0]);
       if (under && underTop) {
         front.push({
           c: { k: 'guide', ja: `${under.line.nameJa} のりかえ`, en: `Transfer: ${under.line.nameEn}`, bg: 'white', badges: [under.line.id] },
