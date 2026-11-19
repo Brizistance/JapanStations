@@ -167,7 +167,7 @@ export const LINES: LineDef[] = [
     color: '#7b4fa8',
     type: 'metro',
     stops: ['shinshio', 'kawaminato-ko', 'watayamachi', 'tsumugibashi', 'tomyobori', 'hibarino', 'higashigaoka', 'shin-hibarino'],
-    railY: [-10, -18.5, -10, -11.5, -21.5, -12, -12, -10],
+    railY: [-10, -24, -10, -11.5, -21.5, -12, -12, -10],
     platformType: 'island',
     platformDoors: 'full',
     trackOffset: 5.5,

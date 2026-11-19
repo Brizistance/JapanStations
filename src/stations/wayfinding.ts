@@ -668,6 +668,163 @@ export function wayfindPassage(p: PassageInfo, c: PassageCtx): void {
   }
 }
 
+// ── Atrium interchange ───────────────────────────────────────────────────────────────────────
+
+/**
+ * What an atrium interchange's composer (atrium.ts) built, in the station frame, for its signs.
+ * The upper line has side platforms; doorways in its +z wall open onto a balcony over the
+ * void, doorways in its −z wall onto a landing with a stair down into an underpass. The
+ * balcony stair and the underpass both arrive on the transfer mezzanine, from which one flight
+ * goes down to the lower line's island platform and another up to the gallery round the void.
+ */
+export interface AtriumInfo {
+  b: Builder;
+  station: StationDef;
+  upper: LineDef;
+  lower: LineDef;
+  cf: number;
+  /** Upper platform level, mezzanine level. */
+  pf: number;
+  mz: number;
+  /** Inner face of the upper hall's side walls (|z|), and their outer face. */
+  wallIn: number;
+  wallOut: number;
+  /** Doorways in both side walls of the upper hall (x-ranges). */
+  doors: [number, number][];
+  /** Gallery: head of the flight down (on the gallery), the mouths from the concourse (centre on its wall line), its south wall. */
+  galleryHead: V2;
+  mouths: V2[];
+  gallerySouth: number;
+  /** The gate line off the gallery: x, its centre z, the unpaid lobby's south wall and the exits it leads to (doorway centres). */
+  gate: { x: number; z: number; exits: { num: string; at: V2 }[] };
+  /** Mezzanine: foot of the gallery flight, head of the flight down to the lower line. */
+  mezzFoot: V2;
+  lowerHead: V2;
+  /** Balcony: south edge, underside (the mezzanine's ceiling there), stair head and foot, the void wall beside the stair (x). */
+  balcony: { z1: number; under: number; head: V2; foot: V2; wallX: number };
+  /** Underpass: x-range, mouth on the mezzanine, ceiling, south end wall, foot and head of its stair (head on the landing). */
+  underpass: { x0: number; x1: number; mouth: V2; ceil: number; south: number; foot: V2; head: V2 };
+}
+
+/** Signs round an atrium interchange: platform doorways, balcony, underpass, mezzanine, gallery and harbour gates. */
+export function wayfindAtrium(a: AtriumInfo): void {
+  const { b, station, upper, lower, pf, mz, cf } = a;
+  const [p1, p2] = station.platforms[upper.id];
+  const lowerNums = station.platforms[lower.id];
+  const lines = linesAt(station.id).map((l) => l.id);
+  const dir = (p: number): Extract<SignContent, { k: 'dir' }> => ({ k: 'dir', station: station.id, line: upper.id, dir: dirOf(station, upper, p) });
+  const transfer: Extract<SignContent, { k: 'guide' }> = { k: 'guide', ja: `${lower.nameJa} のりかえ`, en: `Transfer: ${lower.nameEn}`, bg: 'white', badges: [lower.id] };
+  const lowerPf: Extract<SignContent, { k: 'guide' }> = {
+    k: 'guide', ja: `${lower.nameJa} のりば ${numList(lowerNums, '・')}`, en: `${lower.nameEn} · ${enPlatforms(lowerNums)}`, bg: 'white', badges: [lower.id],
+  };
+  const upperNums = station.platforms[upper.id];
+  const upperPf: SignContent = { k: 'guide', ja: `のりば ${numList(upperNums, '・')}`, en: enPlatforms(upperNums), bg: 'navy', badges: [upper.id] };
+  const way: SignContent = { k: 'guide', ja: '出口・改札', en: 'Exit / Ticket gates', bg: 'yellow' };
+  const gateNums = a.gate.exits.map((e) => e.num);
+  const concNums = stationExits(station.id).map((e) => e.num).filter((n) => !gateNums.includes(n));
+  const exitsVia = (only: string[]): SignContent => ({ k: 'exits', station: station.id, only });
+  const to = (from: V2, t: V2): V2 => [t[0] - from[0], t[1] - from[1]];
+  const hang = (x: number, z: number, n: V2, y: number, ceil: number, front: Seg[], back: Seg[], segW = 2.5) =>
+    drawHang(b, x, z, { n, y, h: 0.44, segW, front, back, ceil }, Math.max(front.length, back.length) * segW);
+
+  // 1. The doorways from the upper platforms: the transfer, inside; the platform, outside.
+  for (const s of [1, -1] as const) {
+    for (const [g0, g1] of a.doors) {
+      const gx = (g0 + g1) / 2;
+      flat(b, { ...transfer, arrow: 'up' }, gx, pf + 2.8, s * (a.wallIn - 0.03), [0, -s], 3.4, 0.44);
+      flat(b, { ...dir(s > 0 ? p2 : p1), arrow: 'up' }, gx, pf + 2.8, s * (a.wallOut + 0.02), [0, s], 3.4, 0.44);
+    }
+  }
+
+  // 2. Balcony: by the stair head, on the void wall beside it.
+  {
+    const { head, wallX } = a.balcony;
+    const z = head[1] - 1.6;
+    flat(b, { ...transfer, arrow: arrowFor([0, 1], [-1, 0]) }, wallX - 0.02, pf + 2.2, z, [-1, 0], 2.6, 0.44);
+  }
+
+  // 3. Mezzanine. Under the balcony's edge: the split by platform for people coming up from
+  //    the lower line (front), the lower line and the way out for people arriving (back).
+  {
+    const { under, z1, foot } = a.balcony;
+    const at: V2 = [0, z1 - 0.7];
+    hang(at[0], at[1], [0, 1], mz + 2.5, under,
+      [{ c: dir(p1), to: to(at, a.underpass.mouth) }, { c: dir(p2), to: to(at, foot) }],
+      [{ c: lowerPf, to: to(at, a.lowerHead) }, { c: way, to: to(at, a.mezzFoot) }]);
+    // A pylon beside the head of the lower flight: the same split for people stepping off it, and
+    // the lower line's platforms for people walking up to it.
+    const px = a.lowerHead[0] - 3.4, pz = a.lowerHead[1] - 1.4, pw = 2.4, ph = 0.42;
+    b.box('flat:#3b4046', px - pw / 2 - 0.05, mz, pz - 0.08, px + pw / 2 + 0.05, mz + 2.75, pz + 0.08);
+    const up: V2 = [px, pz];
+    [[dir(p1), to(up, a.underpass.mouth)], [dir(p2), to(up, foot)], [way, to(up, a.mezzFoot)]].forEach(([c, t], k) =>
+      b.sign(c as SignContent, px, mz + 2.45 - k * 0.5, pz + 0.09, [0, 1], pw, ph, { arrow: unit(t as V2) }));
+    b.sign(lowerPf, px, mz + 2.45, pz - 0.09, [0, -1], pw, ph, { arrow: unit(to(up, a.lowerHead)) });
+    b.sign({ k: 'stationmap', station: station.id }, px, mz + 1.2, pz - 0.09, [0, -1], pw, 1.5);
+    b.protect(px - pw / 2 - 0.1, mz, pz - 0.4, px + pw / 2 + 0.1, mz + 2.8, pz + 0.4);
+  }
+
+  // 4. Underpass: over its mouth on the mezzanine, half way along, at the far end and at the foot
+  //    of its stair; on the landing at the top, the way down.
+  {
+    const u = a.underpass, xc = (u.x0 + u.x1) / 2, w = u.x1 - u.x0 - 0.4;
+    flat(b, { ...dir(p1), arrow: 'up' }, xc, u.ceil + 0.3, u.mouth[1] + 0.02, [0, 1], w, 0.44);
+    const mid: V2 = [xc, (u.mouth[1] + u.south) / 2];
+    hang(mid[0], mid[1], [0, 1], mz + 2.45, u.ceil, [{ c: dir(p1), to: [0, -1] }], [{ c: lowerPf, to: [0, 1] }, { c: way, to: [0, 1] }], 1.85);
+    b.sign(dir(p1), xc, mz + 2.3, u.south + 0.02, [0, 1], w, 0.44, { arrow: unit(to([xc, u.south], u.foot)) });
+    b.protect(xc - w / 2 - 0.1, mz + 2.0, u.south, xc + w / 2 + 0.1, mz + 2.6, u.south + 0.3);
+    b.sign(transfer, u.x0 + 0.02, mz + 2.3, u.foot[1], [1, 0], 2.6, 0.44, { arrow: [0, 1] });
+    b.protect(u.x0, mz + 2.0, u.foot[1] - 1.4, u.x0 + 0.3, mz + 2.6, u.foot[1] + 1.4);
+    // The landing: on the wall beyond the stair well, facing people coming through the doorways.
+    b.sign(transfer, 0, pf + 2.3, u.south + 0.02, [0, 1], 2.6, 0.44, { arrow: unit(to([0, u.south], u.head)) });
+    b.protect(-1.4, pf + 2.0, u.south, 1.4, pf + 2.6, u.south + 0.3);
+  }
+
+  // 5. Gallery: over the head of the flight down, and at each mouth from the concourse.
+  const ceil = cf + 3.0, y = cf + 2.6;
+  {
+    const h = a.galleryHead, at: V2 = [h[0], h[1] + 1.2];
+    const back: Seg[] = [{ c: exitsVia(gateNums), to: to(at, [a.gate.x, a.gate.z]) }];
+    if (concNums.length) {
+      const m = [...a.mouths].sort((p, q) => Math.hypot(p[0] - at[0], p[1] - at[1]) - Math.hypot(q[0] - at[0], q[1] - at[1]))[0];
+      back.push({ c: exitsVia(concNums), to: to(at, m) });
+    }
+    hang(at[0], at[1], [0, 1], y, ceil, [{ c: { ...lowerPf, arrow: 'down' } }], back);
+    // Across the gallery, for people coming in through the gates (front) and going out (back).
+    const g: V2 = [a.gate.x - 4.5, (h[1] + a.gallerySouth) / 2];
+    const m = [...a.mouths].sort((p, q) => Math.hypot(p[0] - g[0], p[1] - g[1]) - Math.hypot(q[0] - g[0], q[1] - g[1]))[0];
+    hang(g[0], g[1], [1, 0], y, ceil,
+      [{ c: lowerPf, to: to(g, h) }, { c: upperPf, to: to(g, m) }],
+      [{ c: exitsVia(gateNums), to: to(g, [a.gate.x, a.gate.z]) }], 2.4);
+  }
+  for (const m of a.mouths) {
+    const at: V2 = [m[0], m[1] + 1.6];
+    hang(at[0], at[1], [0, -1], y, ceil,
+      [{ c: lowerPf, to: to(at, a.galleryHead) }, { c: exitsVia(gateNums), to: to(at, [a.gate.x, a.gate.z]) }],
+      [{ c: upperPf, to: [0, -1] }, ...(concNums.length ? [{ c: exitsVia(concNums), to: [0, -1] as V2 }] : [])]);
+  }
+
+  // 6. The harbour gates' unpaid lobby: the way to each exit, and back to the trains and tickets.
+  {
+    const at: V2 = [a.gate.x + 5.5, a.gate.z];
+    const fare = b.out.signs.find((s) => s.content.k === 'faremap' && s.pos[0] > a.gate.x && Math.abs(s.pos[1] - (cf + 2.46)) < 0.3);
+    const back: Seg[] = [{ c: { k: 'guide', ja: 'のりば', en: 'To trains', bg: 'navy', badges: lines }, to: [-1, 0] }];
+    if (fare) back.push({ c: { k: 'picto', v: 'tickets', label: true }, to: [fare.pos[0] - at[0], fare.pos[2] - at[1]] });
+    hang(at[0], at[1], [-1, 0], y, ceil, a.gate.exits.map((e) => ({ c: exitsVia([e.num]), to: to(at, e.at) })), back, 2.4);
+  }
+
+  // 7. Boards on the south wall: exits, station map and area map outside the gates; exits and
+  //    station map in the gallery.
+  const sz = a.gallerySouth - 0.02;
+  const boards: [SignContent, number, number, number][] = [
+    [{ k: 'stationmap', station: station.id }, a.gate.x + 6.0, 2.2, 1.5],
+    [{ k: 'areamap', station: station.id }, a.gate.x + 8.6, 2.2, 1.5],
+    [{ k: 'exits', station: station.id }, a.gate.x + 11.1, 2.0, 1.3],
+    [{ k: 'exits', station: station.id }, a.galleryHead[0] - 6.5, 2.0, 1.3],
+    [{ k: 'stationmap', station: station.id }, a.galleryHead[0] - 9.0, 2.2, 1.5],
+  ];
+  for (const [c, x, w, h] of boards) flat(b, c, x, cf + 1.5, sz, [0, -1], w, h, true);
+}
+
 // ── Elevated stations ────────────────────────────────────────────────────────────────────────
 
 /** Signs in an elevated station's street-level concourse. */

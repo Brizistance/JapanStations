@@ -1,5 +1,6 @@
 // Station composers: assemble kit parts into complete stations.
-// Four layouts — generic underground, the two-line interchange, elevated, and the hub (hub.ts).
+// Five layouts — generic underground, the two-line interchange, elevated, the hub (hub.ts) and the
+// atrium interchange (atrium.ts).
 
 import { linesAt, lineById } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
@@ -12,6 +13,7 @@ import {
   type CeilSeg, type Ctx, type StationStyle,
 } from './kit';
 import { buildHub } from './hub';
+import { buildAtrium } from './atrium';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
 import type { ConcInfo, ExitDoor, StairInfo } from './looks/types';
@@ -56,7 +58,7 @@ interface StairSet {
 }
 
 /** Describe a stair opening whose top (concourse) end is at local (topX, topZ), walking down along `down`. */
-function stairInfo(b: Builder, line: LineDef, kind: StairInfo['kind'], platforms: number[], r: Rect, topX: number, topZ: number, down: [number, number]): StairInfo {
+export function stairInfo(b: Builder, line: LineDef, kind: StairInfo['kind'], platforms: number[], r: Rect, topX: number, topZ: number, down: [number, number]): StairInfo {
   const t = b.pt(topX, 0, topZ);
   return { line, kind, platforms, rect: r, top: [t[0], t[2]], down: b.dir(down) };
 }
@@ -116,7 +118,7 @@ function unpaidEnd(c: Ctx, cf: number, cw: number, nums: [string, string], lines
   b.with({ mz: true, t: [13, 0, -cw] }, () => exit(c, cf, nums[0], ext));
 }
 
-interface ShellOpts {
+export interface ShellOpts {
   cf: number;
   cw: number;
   x0: number;
@@ -131,6 +133,10 @@ interface ShellOpts {
   solids?: Rect[];
   /** Where each opening in `holes` leads. */
   stairs: StairInfo[];
+  /** Extra openings in the long walls (onto an atrium gallery), as x-ranges on wall z = s·cw. */
+  wallGaps?: { s: 1 | -1; x0: number; x1: number }[];
+  /** Floor the look must leave clear (the way to those openings). */
+  claims?: Rect[];
 }
 
 /** A station's style with its look's concourse finishes applied. */
@@ -140,7 +146,7 @@ export function concStyle(c: Ctx): StationStyle {
 }
 
 /** Concourse level: slab, walls, ceiling, lighting, gate ends and exits. */
-function concourse(c0: Ctx, o: ShellOpts) {
+export function concourse(c0: Ctx, o: ShellOpts) {
   const look = lookFor(c0.station.id);
   const c: Ctx = { ...c0, style: concStyle(c0) };
   const { b, style, station } = c;
@@ -150,20 +156,21 @@ function concourse(c0: Ctx, o: ShellOpts) {
   b.slab(style.floor, x0, -cw, x1, cw, cf - SLAB, cf, o.holes);
   b.box(ceilMat, x0 - 0.4, cf + CONC_CLEAR, -cw - 0.4, x1 + 0.4, cf + CONC_CLEAR + 0.5, cw + 0.4);
   const gaps = o.ends.map((e) => (e.hi ? [e.g + 9, e.g + 13] : [e.g - 13, e.g - 9]));
-  b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, cw, cw + 0.4, cf, cf + CONC_CLEAR, gaps);
-  b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, -cw - 0.4, -cw, cf, cf + CONC_CLEAR, gaps);
+  const gapsAt = (s: 1 | -1) => [...gaps, ...(o.wallGaps ?? []).filter((q) => q.s === s).map((q) => [q.x0, q.x1])];
+  b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, cw, cw + 0.4, cf, cf + CONC_CLEAR, gapsAt(1));
+  b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, -cw - 0.4, -cw, cf, cf + CONC_CLEAR, gapsAt(-1));
   b.box(style.concWall, x0 - 0.4, cf, -cw, x0, cf + CONC_CLEAR, cw);
   b.box(style.concWall, x1, cf, -cw, x1 + 0.4, cf + CONC_CLEAR, cw);
   // Accent skirting.
   if (look.skirting !== false) {
-    const runs: number[][] = [];
-    let from = x0;
-    for (const [ga, gb] of [...gaps].sort((p, q) => p[0] - q[0])) {
-      runs.push([from, ga]);
-      from = gb;
-    }
-    runs.push([from, x1]);
-    for (const s of [-1, 1]) {
+    for (const s of [-1, 1] as const) {
+      const runs: number[][] = [];
+      let from = x0;
+      for (const [ga, gb] of gapsAt(s).sort((p, q) => p[0] - q[0])) {
+        runs.push([from, ga]);
+        from = gb;
+      }
+      runs.push([from, x1]);
       for (const [ra, rb] of runs) {
         b.deco(`paint:${style.accent}`, ra, cf + 0.9, s * cw - 0.015, rb, cf + 1.0, s * cw + 0.015);
         b.deco('flat:#4b4d50', ra, cf, s * cw - 0.02, rb, cf + 0.13, s * cw + 0.02);
@@ -194,7 +201,7 @@ function concourse(c0: Ctx, o: ShellOpts) {
   const tx = (paid0 + paid1) / 2 + 3;
 
   // What a look may not build on: everything the kit puts in the concourse, with room to use it.
-  const taken: Rect[] = [...(o.solids ?? []).map((q): Rect => [q[0] - 0.9, q[1] - 0.9, q[2] + 0.9, q[3] + 0.9])];
+  const taken: Rect[] = [...(o.solids ?? []).map((q): Rect => [q[0] - 0.9, q[1] - 0.9, q[2] + 0.9, q[3] + 0.9]), ...(o.claims ?? [])];
   for (const h of o.holes) taken.push([h[0] - 3, h[1] - 0.9, h[2] + 3, h[3] + 0.9]);
   for (const [x, z] of pillars) taken.push([x - 0.6, z - 0.6, x + 0.6, z + 0.6]);
   taken.push([tx - 1.6, -cw, tx + 1.6, -cw + 1.6]);
@@ -714,7 +721,7 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
   const { station, spec } = input;
   const style: StationStyle = spec.style;
   const mk = (l: StationBuildInput['lines'][number]): Ctx => ({ b, line: l.line, station, stop: l.stop, railY: l.railY, style });
-  if (spec.kind === 'interchange' || spec.kind === 'hub') {
+  if (spec.kind === 'interchange' || spec.kind === 'hub' || spec.kind === 'atrium') {
     const beside = spec.kind === 'hub' ? spec.beside : undefined;
     const p = input.lines.find((l) => l.line.id === spec.primary)!;
     const o = input.lines.find((l) => l.line.id !== spec.primary && l.line.id !== beside && !station.at?.[l.line.id])!;
@@ -722,6 +729,7 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     const bl = input.lines.find((l) => l.line.id === beside);
     const ol = spec.kind === 'hub' ? input.lines.find((l) => l.line.id === spec.outer) : undefined;
     if (spec.kind === 'hub') buildHub(mk(p), spec, other, bl && mk(bl), ol && mk(ol));
+    else if (spec.kind === 'atrium') buildAtrium(mk(p), spec, other);
     else {
       // A line beside the primary is the one whose platforms sit off the station point (StationDef.at).
       const side = input.lines.find((l) => l !== p && l !== o && station.at?.[l.line.id]);
