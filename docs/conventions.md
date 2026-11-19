@@ -42,6 +42,7 @@ npm run build
    - *Theme:* a `StationLook` of its own, `looks/<station-id>.ts`, with a concept and a centrepiece drawn from the station's name or district, following the hero brief. Its palette and centrepiece must not repeat another hero's.
    - Propose both in a short plan in chat and get approval before building. Add the row to the hero table in station-design.md, and to "Layouts implemented" if the layout is new.
 5. `npm test`. The sim tests check the geometry; the walk test checks you can reach every part of it.
+6. **Bake its sounds:** run `npm run voice` (platform and in-car announcements) and `npm run sfx` (its own departure melody). Both read the ElevenLabs key and voice ids from `.env.local` (never committed; names in `.env.example`) and only generate what is new. Commit the new files in `public/audio/`.
 
 Signs, the map, departure boards and the timetable pick it up automatically.
 
@@ -52,6 +53,7 @@ Signs, the map, departure boards and the timetable pick it up automatically.
 3. Lines crossing **between** stations need at least 7 m between rail levels there; `npm test` finds every such crossing.
 4. Give the map positions (`diagram`) for the new stations, then look at the map: interchange badges (`badges`) and labels can land on another line.
 5. **Give it an era and a theme of its own** (standing rule, user, 2026-11-18). Every new line gets an invented opening year and a platform architecture no other line has: its own ceiling, pillars, lighting, wall motif (drawn from the line's name) and benches. Propose the era and theme in the line's plan, then write `src/stations/themes/<id>.ts`, register it in `themes/index.ts`, give the theme a subtle `grade`, and add the row to "Line themes" in station-design.md and the opening year to worldbuilding.md. Add the line to `BOARD` in `src/signs/board-style.ts` too: `led` for a line opened before 2000, `lcd` after, with the same opening year as its theme (a test checks).
+6. **Give it sounds of its own.** In `src/audio/sfx.ts` add an instrument and mood to `LINE_TONE` (its approach jingle) and a motor to `MOTOR_OF` by era (`motor-classic` before ~1990, `motor-mid` to ~2000, `motor-modern` after). Set `inbound` on the `LineDef` if inbound isn't the `up` direction (inbound = female platform voice). Then run `npm run voice` and `npm run sfx` (key and voice ids from `.env.local`) and commit `public/audio/`.
 
 ## Text
 

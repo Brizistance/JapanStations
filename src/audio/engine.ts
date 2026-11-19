@@ -158,6 +158,8 @@ export interface Hearing {
   level: number;
   /** Heard through walls and stairwells: dull the highs. */
   muffled: boolean;
+  /** Exact low-pass cutoff, Hz, overriding `muffled` (inside a train: depends on the doors). */
+  cutoff?: number;
   /** Below ground: footsteps echo too. */
   under: boolean;
 }
@@ -182,7 +184,7 @@ export function tickListener(x: number, y: number, z: number, yaw: number, h: He
     L.setOrientation(-Math.sin(yaw), 0, -Math.cos(yaw), 0, 1, 0);
   }
   hearing.gain.setTargetAtTime(h.level, t, 0.25);
-  muffle.frequency.setTargetAtTime(h.muffled ? 1100 : 18000, t, 0.25);
+  muffle.frequency.setTargetAtTime(h.cutoff ?? (h.muffled ? 1100 : 18000), t, 0.25);
   stepEcho.gain.setTargetAtTime(h.under ? 0.8 : 0, t, 0.3);
   for (const a of attached) {
     const p = a.pos();
@@ -265,6 +267,58 @@ export function playAt(name: string, pos: () => V3 | null, opts: { loop?: boolea
   }
   return {
     stop(fadeS = 0.6) {
+      stopped = true;
+      if (!a || !ctx) return;
+      a.gain.gain.setTargetAtTime(0, ctx.currentTime, fadeS / 3);
+      a.src.stop(ctx.currentTime + fadeS);
+    },
+  };
+}
+
+export interface PosLoopHandle {
+  /** Playback rate, level and low-pass cutoff (Hz), eased. */
+  set(rate: number, gain: number, cutoff?: number): void;
+  stop(fadeS?: number): void;
+}
+
+/** A looping sound that follows a moving position (a train running past), steered live. */
+export function loopAt(name: string, pos: () => V3 | null): PosLoopHandle {
+  let a: Attached | null = null, lp: BiquadFilterNode | null = null, stopped = false;
+  let want = { rate: 1, gain: 0, cutoff: 18000 };
+  const apply = () => {
+    if (!a || !lp || !ctx) return;
+    const t = ctx.currentTime;
+    a.src.playbackRate.setTargetAtTime(want.rate, t, 0.15);
+    a.gain.gain.setTargetAtTime(want.gain, t, 0.15);
+    lp.frequency.setTargetAtTime(want.cutoff, t, 0.2);
+  };
+  if (live()) {
+    void load(`sfx/${name}`).then((buf) => {
+      if (!buf || stopped || !ctx) return;
+      const c = ctx;
+      const p = panner(c, pos() ?? listener, 10, 1);
+      const gain = c.createGain();
+      gain.gain.value = 0;
+      lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = want.cutoff;
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(lp).connect(gain).connect(p).connect(trainBus);
+      a = { src, gain, panner: p, pos };
+      attached.add(a);
+      src.onended = () => attached.delete(a!);
+      src.start(0, Math.random() * buf.duration);
+      apply();
+    });
+  }
+  return {
+    set(rate, gain, cutoff = 18000) {
+      want = { rate, gain, cutoff };
+      apply();
+    },
+    stop(fadeS = 1) {
       stopped = true;
       if (!a || !ctx) return;
       a.gain.gain.setTargetAtTime(0, ctx.currentTime, fadeS / 3);

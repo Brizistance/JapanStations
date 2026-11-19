@@ -12,7 +12,7 @@ import { clock } from '../sim';
 import { input, player, where } from '../player/player';
 import { platformNo, platformTrains, statusOf, type Status } from '../signs/departures';
 import { trains } from '../trains/system';
-import { announce, hushVoice, paIdle, playAt, playSeqAt, playStep, setAmbience, setRoom, setSpeakers, tickListener, type Ambience, type Hearing, type SoundHandle } from './engine';
+import { announce, hushVoice, loopAt, paIdle, playAt, playSeqAt, type PosLoopHandle, playStep, setAmbience, setRoom, setSpeakers, tickListener, type Ambience, type Hearing, type SoundHandle } from './engine';
 import { announcement, NOTICES, PLATFORM_DOOR, type Event } from './phrases';
 import { tickCarAudio, tickCarNoise } from './car';
 import { approachSfx, melodySeconds, melodySfx, STEP_COUNT } from './sfx';
@@ -45,6 +45,7 @@ interface Tracked {
   braking: boolean;
   open: boolean;
   wind: boolean;
+  run: boolean;
   pdOpen: boolean;
   pdClose: boolean;
   melody: boolean;
@@ -76,7 +77,67 @@ function trainPos(line: string, index: number): () => [number, number, number] |
   };
 }
 
+// ── A train running in or out: rolling and motor loops that follow it until it's gone ──
+
+interface Running {
+  line: string;
+  index: number;
+  dir: Dir;
+  left: boolean;
+  motor: PosLoopHandle;
+  roll: PosLoopHandle;
+}
+const running: Running[] = [];
+/** Seconds before arrival the running sound starts. */
+const RUN_LEAD = 30;
+
+function startRun(line: string, index: number, dir: Dir) {
+  const pos = trainPos(line, index);
+  running.push({ line, index, dir, left: false, motor: loopAt('ext-motor', pos), roll: loopAt('ext-roll', pos) });
+}
+
+/** Metres a point lies beyond either end of a track's platform (0 alongside it). */
+function beyondPlatform(dir: Dir, p: V3): number {
+  const r = rows[dir].length ? rows[dir] : rows[dir === 'down' ? 'up' : 'down'];
+  if (r.length < 2) return 0;
+  const a = r[0], b = r[r.length - 1];
+  const ab = [b[0] - a[0], b[2] - a[2]], len = Math.hypot(ab[0], ab[1]);
+  const u = ((p[0] - a[0]) * ab[0] + (p[2] - a[2]) * ab[1]) / len;
+  return Math.max(0, -u - 6, u - len - 6); // rows stop short of the platform ends
+}
+
+function tickRunning(under: boolean) {
+  for (let i = running.length - 1; i >= 0; i--) {
+    const r = running[i];
+    const t = trains.find((x) => x.sim.geom.def.id === r.line && x.index === r.index);
+    const pos = t ? trainPos(r.line, r.index)() : null;
+    if (!t || !pos) {
+      r.motor.stop();
+      r.roll.stop();
+      running.splice(i, 1);
+      continue;
+    }
+    const sv = t.sim.geom.def.service, speed = Math.abs(t.state.speed), v = Math.min(1, speed / sv.maxSpeed);
+    const out = beyondPlatform(r.dir, pos);
+    // Into the tunnel the sound dulls and dies away quickly; in the open it carries further.
+    const fade = Math.max(0, 1 - out / (under ? 150 : 280));
+    const cutoff = under ? 800 + 15000 * Math.exp(-out / 40) : 3000 + 13000 * Math.exp(-out / 120);
+    const moving = speed > 0.3 ? 1 : 0;
+    r.roll.set(0.75 + 0.45 * v, Math.min(1, 0.2 + v * 1.1) * fade * moving, cutoff);
+    r.motor.set(0.5 + 1.1 * v, (0.25 + 0.5 * v) * fade * moving, cutoff);
+    if (r.left && fade === 0) {
+      r.motor.stop();
+      r.roll.stop();
+      running.splice(i, 1);
+    }
+  }
+}
+
 function reset() {
+  for (const r of running.splice(0)) {
+    r.motor.stop(0.3);
+    r.roll.stop(0.3);
+  }
   for (const t of tracks.values()) t.idle?.stop(0.3);
   tracks.clear();
   hushVoice();
@@ -84,7 +145,12 @@ function reset() {
 
 function hearing(under: boolean): Hearing {
   const z = where.zone, tr = where.train;
-  if (tr) return { level: tr.state.doorOpen > 0.3 ? 0.4 : 0, muffled: true, under };
+  if (tr) {
+    // Inside the car: through open doors the platform is clearly there, a little quieter and
+    // duller (the car body blocks the direct sound); with doors shut, only a faint thud of it.
+    const d = tr.state.doorOpen;
+    return { level: 0.06 + 0.5 * d, muffled: true, cutoff: 500 + 3300 * d, under };
+  }
   if (z?.kind === 'platform') return { level: 1, muffled: false, under };
   // Distance already quietens the PA; the stairwell dulls it.
   if (z?.kind === 'concourse' || z?.kind === 'passage') return { level: 0.7, muffled: true, under };
@@ -146,7 +212,7 @@ function ambience(playing: boolean, under: boolean): Ambience {
   const z = where.zone;
   if (!playing) return null;
   // On a train: the platform drifts in through open doors.
-  if (where.train) return where.train.state.doorOpen > 0.3 ? (under ? 'amb-platform' : 'amb-outdoor') : null;
+  if (where.train) return where.train.state.speed === 0 && where.station ? (under ? 'amb-platform' : 'amb-outdoor') : null;
   if (!under) return 'amb-outdoor';
   return z?.kind === 'platform' ? 'amb-platform' : 'amb-concourse';
 }
@@ -182,7 +248,7 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
   if (playing) tickCarAudio();
   tickCarNoise();
   const amb = ambience(playing, under);
-  setAmbience(amb, where.train ? 0.45 : amb === 'amb-outdoor' && zone?.kind === 'street' ? 0.6 : 1);
+  setAmbience(amb, where.train ? 0.06 + 0.45 * where.train.state.doorOpen : amb === 'amb-outdoor' && zone?.kind === 'street' ? 0.6 : 1);
   if (playing) tickSteps(dt);
 
   // Which platform's sound we follow: the one stood on, else the station's main line.
@@ -190,8 +256,14 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
   const ride = where.train?.sim.geom.def;
   const rideLine = ride && st?.platforms[ride.shares?.line ?? ride.id] ? ride.shares?.line ?? ride.id : undefined;
   const lineId = !playing || !st || clock.scale !== 1 ? undefined : zone?.kind === 'platform' && zone.line ? zone.line : rideLine ?? where.station!.primary;
-  const key = st && lineId && st.platforms[lineId] && h.level > 0 ? `${st.id}:${lineId}` : null;
-  if (playing) setRoom(room(under, where.station, lineId));
+  // On a train, keep following the platform while stopped there, doors open or not, so the
+  // melody and doors-closing call aren't cut off as the doors shut.
+  const key = st && lineId && st.platforms[lineId] && (h.level > 0 || where.train) ? `${st.id}:${lineId}` : null;
+  if (playing) {
+    const r = room(under, where.station, lineId);
+    // From inside the car the station's echo is heard but further off.
+    setRoom(where.train ? { decay: r.decay, wet: r.wet * 0.6 } : r);
+  }
   if (key !== here) {
     here = key;
     reset();
@@ -216,7 +288,8 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     if (t && t.arr !== d.arr) {
       // That train has gone (or is laying over): pull out.
       t.idle?.stop(1.2);
-      if (t.boarding && t.open) playAt('train-depart', trainPos(t.line.id, t.train));
+      if (t.boarding && t.open) playAt('train-depart', trainPos(t.line.id, t.train), { gain: 0.6 });
+      for (const r of running) if (r.line === t.line.id && r.index === t.train) r.left = true;
       t = undefined;
     }
     if (!t) {
@@ -225,7 +298,7 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
       t = {
         arr: d.arr, dep: d.dep, train: d.train, line: d.line, boarding: d.boarding, status: prev,
         braking: now > d.arr - ARRIVE_LEAD, open: now >= d.arr + DOORS_OPEN_AFTER,
-        wind: now > d.arr - WIND_LEAD, pdOpen: now >= d.arr + 1, pdClose: now >= d.dep - DOORS_CLOSE_BEFORE - 1, melody: now >= d.dep - melodyS - CLOSING_VOICE_S, closing: now >= d.dep - DOORS_CLOSE_BEFORE,
+        wind: now > d.arr - WIND_LEAD, run: false, pdOpen: now >= d.arr + 1, pdClose: now >= d.dep - DOORS_CLOSE_BEFORE - 1, melody: now >= d.dep - melodyS - CLOSING_VOICE_S, closing: now >= d.dep - DOORS_CLOSE_BEFORE,
         idle: dwelling ? playAt('train-idle', trainPos(d.line.id, d.train), { loop: true, gain: 0.6 }) : null,
       };
       tracks.set(dir, t);
@@ -244,9 +317,13 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
       t.wind = true;
       if (under) playAt('tunnel-wind', nearEnd(dir, pos()), { gain: 1.1 });
     }
+    if (!t.run && now >= d.arr - RUN_LEAD && now < d.dep) {
+      t.run = true;
+      startRun(d.line.id, d.train, dir);
+    }
     if (!t.braking && now >= d.arr - ARRIVE_LEAD) {
       t.braking = true;
-      playAt('train-arrive', pos);
+      playAt('train-arrive', pos, { gain: 0.6 });
     }
     if (!t.open && now >= d.arr + DOORS_OPEN_AFTER) {
       t.open = true;
@@ -273,6 +350,8 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
       playAt('doors-close', pos, { gain: 0.8 });
     }
   }
+
+  tickRunning(under);
 
   // General notice between trains.
   if (quiet && paIdle() && performance.now() >= nextNotice) {

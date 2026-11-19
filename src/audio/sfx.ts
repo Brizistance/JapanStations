@@ -59,6 +59,8 @@ export const CAR_SFX: Sfx[] = [
   { name: 'roll-tunnel', seconds: 8, loop: true, prompt: `Subway train running at steady speed through a tunnel: deep roaring rumble, wheel noise echoing off tunnel walls, constant, seamless loop. ${IN_CAR} No voice.` },
   { name: 'roll-open', seconds: 8, loop: true, prompt: `Commuter train running at steady speed on elevated track in the open air: smooth rolling wheels, light wind, constant, seamless loop. ${IN_CAR} No voice.` },
   { name: 'rail-joints', seconds: 4, loop: true, prompt: `Train wheels clicking over rail joints, rhythmic ta-tan ta-tan, steady tempo, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'ext-roll', seconds: 8, loop: true, prompt: 'A subway train rolling along at steady speed, heard from the station platform beside the track: heavy wheel rumble, rail hiss and clatter, constant, seamless loop. No voice, no announcements.' },
+  { name: 'ext-motor', seconds: 6, loop: true, prompt: 'Electric train traction motors heard from the platform as the train runs: a steady inverter whine with a low hum, one constant pitch, seamless loop. No voice.' },
   { name: 'curve-squeal', seconds: 5, loop: true, prompt: 'Steel train wheel flange squeal on a tight curve: sustained high metallic screech, seamless loop. No voice.' },
   { name: 'pass-whoosh', seconds: 3, prompt: `Another subway train passing in the opposite direction in a tunnel, heard from inside a train: a sudden loud whoosh and rumble that quickly fades. ${IN_CAR} No voice.` },
   { name: 'car-ac', seconds: 10, loop: true, prompt: `Inside a stopped Japanese commuter train: steady air-conditioning hum and ventilation fans, quiet, seamless loop. ${IN_CAR} No voice, no music.` },
