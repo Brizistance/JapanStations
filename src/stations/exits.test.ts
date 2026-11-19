@@ -46,7 +46,7 @@ describe('station exits', () => {
       }
     });
 
-    if (spec.kind === 'underground' || spec.kind === 'interchange' || spec.kind === 'atrium') {
+    if (spec.kind === 'underground' || spec.kind === 'interchange') {
       const s = spec.surface;
       const named = [s.parkName && (s.left === 'park' || s.right === 'park') ? s.parkName : null, s.arcadeAt !== undefined ? s.arcadeName : null, s.canalAt !== undefined ? s.canalName : null]
         .filter((n): n is { ja: string; en: string } => !!n);

@@ -39,12 +39,6 @@ const CONC_RISE = 4.9; // kit.ts
 const STREET_CW = 12; // build.ts: where an ordinary station's exits come up
 const INTERCHANGE_CW = 14; // build.ts buildInterchange, without a line beside the primary
 const UNDER_MEZZ_Y = -4.2; // build.ts: B1 mezzanine under an elevated station
-/**
- * atrium.ts: the transfer mezzanine's floor, and exit 5 off the harbour lobby: the doorway's
- * +x edge (where the stair starts climbing +x) and the lobby's −z wall it opens through. The
- * stair mouth runs z = wall − 4 … wall − 1.2.
- */
-export const ATRIUM = { mezzY: -15.5, exit5: { door: 26, wallZ: 39.85, num: '5' } };
 /** world/builder.ts DEFAULT_PLOT. */
 export const PLOT = { x: 130, z: 85 };
 /** surface.ts: fixed positions of the street's features (station frame, metres). */
@@ -135,21 +129,15 @@ export function concourseY(id: StationId): number {
   const pf = (l: LineDef) => railAt(l, id) + PF_H;
   switch (spec.kind) {
     case 'underground': return pf(linesAt(id)[0]) + CONC_RISE; // build.ts uses the first serving line
-    case 'interchange':
-    case 'atrium': return pf(LINES.find((l) => l.id === spec.primary)!) + CONC_RISE;
+    case 'interchange': return pf(LINES.find((l) => l.id === spec.primary)!) + CONC_RISE;
     case 'hub': return pf(crossingLine(st, spec.primary, spec.beside)) + CONC_RISE;
     case 'elevated': return 0.2;
   }
 }
 
-/**
- * Transfer mezzanine level, if any: B1 under an elevated station with a line crossing below, or
- * the deck across an atrium between its two platform levels.
- */
+/** B1 transfer mezzanine level under an elevated station with a line crossing below, if any. */
 export function mezzanineY(id: StationId): number | null {
-  const kind = SPECS[id].kind;
-  if (kind === 'atrium') return ATRIUM.mezzY;
-  return kind === 'elevated' && linesAt(id).length > 1 ? UNDER_MEZZ_Y : null;
+  return SPECS[id].kind === 'elevated' && linesAt(id).length > 1 ? UNDER_MEZZ_Y : null;
 }
 
 /** Half width of an interchange concourse (build.ts buildInterchange). */
@@ -289,17 +277,6 @@ function derive(id: StationId): StationStreet {
       const cw = interchangeHalf(st, spec.primary);
       // Exits 1–2 at the +x end, 3–4 at the −x end (gate lines at x = ±29).
       const es = [...exitPair(42, 1, cw, run, ['1', '2']), ...exitPair(-42, -1, cw, run, ['3', '4'])];
-      return { kind: 'street', surface: spec.surface, box: [-45, -cw, 45, cw], swOut: cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
-    }
-    case 'atrium': {
-      // The interchange's four exits, and exit 5 from the harbour lobby: its stair climbs +x
-      // from the doorway and comes up on the quay between the lobby wall and the road.
-      const cw = INTERCHANGE_CW;
-      const { door, wallZ, num } = ATRIUM.exit5;
-      const es: Omit<StationExit, 'near'>[] = [
-        ...exitPair(42, 1, cw, run, ['1', '2']), ...exitPair(-42, -1, cw, run, ['3', '4']),
-        { num, side: 1, rect: [door, wallZ - 4, door + run, wallZ - 1.2] },
-      ];
       return { kind: 'street', surface: spec.surface, box: [-45, -cw, 45, cw], swOut: cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'hub': {

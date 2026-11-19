@@ -32,7 +32,7 @@ Rail level (metres below street), in station order:
 | N | −16, −15, −11, −12, −11.5, −11, **+6.5**, +6.5, +6.5, +6.5 | The west end runs out under the bay to reclaimed land. After Daigaku-mae the line climbs through an open cut onto a viaduct, and stays on it to Izumigaoka. |
 | A | −14, −16, −15, −17, −19.5, −20.5, −18, −16, −14, −12, −11, −10 | Bored tunnel end to end, and exactly 7.5 m below the line it crosses at each interchange (the same gap Tsumugibashi uses). |
 | S | −10, −11, −10, −11, −20.5, −18.5, −14, −12, −13, −12, −10 | At A's depth at the hub, and 7.5 m below N at Daigaku-mae. |
-| K | −10, **−24**, −10, −11.5, −21.5, −12, −12, −10 | 13 m below N at Kawaminato-kō (room for the atrium's mezzanine and underpass between them), 7 m **above** A at Watayamachi, level with N (beside it) at Tsumugibashi, 7.5 m below S at Tōmyōbori, and under N's viaduct at Hibarino. |
+| K | −10, −18.5, −10, −11.5, −21.5, −12, −12, −10 | 7.5 m below N at Kawaminato-kō, 7 m **above** A at Watayamachi, level with N (beside it) at Tsumugibashi, 7.5 m below S at Tōmyōbori, and under N's viaduct at Hibarino. |
 | M | −12, −17.5, −20.5, −18.5, −13, −12, −10 | 7.5 m below Y at Midorizaka. Dives to **−27.5** at (1325, −653), 7.5 m under A and well under S where it crosses them west of the hub (a `profile` point), then rises into its hall beside S. On S's track it takes S's levels, including at the two stations it passes (`passes`). |
 
 The Akanesuji Line follows streets in a stair-step:
@@ -74,7 +74,7 @@ It crosses nothing between stations. See [stage2.md](../Plans/features/network-e
 | Tsumugibashi | Y ↔ N | The lines cross at right angles, N above Y. A transfer passage beside each N platform leads down a stair/escalator to the Y island platform, and up to the shared concourse. |
 | Aizomechō | N ↔ A | Same pattern as Tsumugibashi: N above, A's island platform below. |
 | Kawaminato-daigaku-mae | N ↔ S | Same pattern again: N above, S's island platform below. |
-| Kawaminato-kō | N ↔ K | N above, K's island platform deep below under an **atrium** (`atrium.ts`): from N platform 2 by a balcony and stair, from platform 1 by an underpass under the N tracks, both to a mezzanine over the void, then down to K. A gallery round the void opens off the concourse, with a third gate line and exit 5 to the quay. |
+| Kawaminato-kō | N ↔ K | Same pattern: N above, K's island platform below. |
 | Watayamachi | K ↔ A | Same pattern with an **island** line on top (K). An island hall has track along its walls, so the transfer passages are reached from the concourse, not through doorways off the platform. |
 | Tōmyōbori | S ↔ K | As Watayamachi: S's island on top, K's island below. |
 | Tsumugibashi | Y ↔ N ↔ K | K runs **beside** N in its own hall on the south side; its stairs rise into the shared concourse, which is widened over both halls. Y is reached by the north transfer passage beside N, or the south one beyond K's hall. |

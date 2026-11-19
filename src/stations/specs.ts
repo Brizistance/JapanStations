@@ -26,18 +26,6 @@ export interface InterchangeSpec {
   style: StationStyle;
   surface: SurfaceSpec;
 }
-/**
- * Two lines crossing at right angles with a deep atrium between them (Kawaminato-kō, atrium.ts):
- * the primary's concourse opens onto a gallery round a void over the crossing line's island
- * platform, with a transfer mezzanine bridging the void.
- */
-export interface AtriumSpec {
-  kind: 'atrium';
-  /** Line whose direction the station frame follows (the upper one). */
-  primary: string;
-  style: StationStyle;
-  surface: SurfaceSpec;
-}
 export interface ElevatedSpec {
   kind: 'elevated';
   style: StationStyle;
@@ -55,7 +43,7 @@ export interface HubSpec {
   style: StationStyle;
   seed: number;
 }
-export type StationSpec = UndergroundSpec | InterchangeSpec | AtriumSpec | ElevatedSpec | HubSpec;
+export type StationSpec = UndergroundSpec | InterchangeSpec | ElevatedSpec | HubSpec;
 
 export const SPECS: Record<StationId, StationSpec> = {
   // Quiet residential station: warm brick, park outside. Yanagisuji Line above, Sumire Line
@@ -120,9 +108,9 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
   },
   // Port station: cool blue-grey panels, wave mural, quay and cranes outside. Nagisa Line above,
-  // Kikyō Line crossing deep below, under an atrium (atrium.ts).
+  // Kikyō Line crossing below.
   'kawaminato-ko': {
-    kind: 'atrium',
+    kind: 'interchange',
     primary: 'N',
     style: {
       wall: 'panel:#cfdbe3', concWall: 'panel:#e3ebf0', floor: 'floor:#c9d0d4', pillar: 'panel:#cfdbe3',
