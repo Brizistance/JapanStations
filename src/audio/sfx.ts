@@ -1,8 +1,8 @@
 // Sound effects baked with the ElevenLabs sound-generation API (scripts/gen-sfx.ts) into
-// public/audio/sfx/<name>.mp3. Pure list, shared by the generator and the game. Every line has
-// its own approach jingle and departure melody, all original.
+// public/audio/sfx/<name>.mp3. Pure list, shared by the generator and the game. Each line has
+// its own approach jingle, each station its own departure melody; all original.
 
-import { LINES } from '../data/network';
+import { LINES, STATIONS } from '../data/network';
 
 export interface Sfx {
   name: string;
@@ -26,7 +26,24 @@ const LINE_TONE: Record<string, string> = {
 const tone = (id: string) => LINE_TONE[id] ?? 'clean electronic bells';
 
 export const approachSfx = (line: string) => `approach-${line}`;
-export const departSfx = (line: string) => `depart-${line}`;
+export const melodySfx = (station: string) => `melody-${station}`;
+
+function h32(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+  return h >>> 0;
+}
+/** Each station's departure melody length, 5–10 s. The closing announcement follows it. */
+export const melodySeconds = (station: string) => 5 + (h32(station) % 6);
+
+const INSTRUMENTS = [
+  'glockenspiel and soft synth pad', 'marimba and pizzicato strings', 'electric piano and chimes',
+  'music box and celesta', 'vibraphone and flute', 'bright synth bells and handclaps',
+  'koto-like plucked strings and woodblock', 'steel drum and xylophone', 'acoustic guitar and glockenspiel',
+  'harp and bells', 'chiptune square-wave lead', 'ocarina and marimba',
+];
+const MOODS = ['cheerful and bouncy', 'calm and gentle', 'nostalgic and warm', 'bright and hopeful', 'playful', 'elegant and flowing', 'breezy and light'];
+
 export const STEP_COUNT = 6;
 
 export const SFX: Sfx[] = [
@@ -41,12 +58,38 @@ export const SFX: Sfx[] = [
       prompt: `Short Japanese railway train-approach jingle (sekkin melody), a three to four note motif on ${tone(l.id)}. ${PA} ${NO_VOICE}`,
       seconds: 3,
     },
-    {
-      name: departSfx(l.id),
-      prompt: `Japanese railway departure melody (hassha melody), a cheerful catchy short original tune on ${tone(l.id)}, ends cleanly on the tonic. ${PA} ${NO_VOICE}`,
-      seconds: 6,
-    },
   ]),
+  ...STATIONS.map((st): Sfx => {
+    const h = h32(st.id), place = st.blurb.split(/[.:]/)[0];
+    return {
+      name: melodySfx(st.id),
+      prompt: `Japanese railway station departure melody (hassha melody): a catchy original short tune, ${MOODS[(h >>> 8) % MOODS.length]}, on ${INSTRUMENTS[(h >>> 4) % INSTRUMENTS.length]}. The mood suits this place: ${place}. A complete phrase that ends cleanly on the tonic. Clean studio recording. ${NO_VOICE}`,
+      seconds: melodySeconds(st.id),
+    };
+  }),
+  {
+    name: 'tunnel-wind',
+    prompt: 'Rush of air pushed out of a subway tunnel onto an underground platform just before a train arrives: wind building from silence to a strong gust, distant low rumble growing. No voice.',
+    seconds: 10,
+  },
+  {
+    name: 'amb-platform',
+    prompt: 'Underground subway platform room tone: steady ventilation hum, faint distant crowd murmur, occasional far-off footsteps, quiet and constant, seamless loop. No clear speech, no music.',
+    seconds: 15,
+    loop: true,
+  },
+  {
+    name: 'amb-concourse',
+    prompt: 'Busy Japanese metro station concourse ambience: crowd murmur, many footsteps on tile, occasional ticket gate beeps, air conditioning hum, constant, seamless loop. No clear speech, no music.',
+    seconds: 15,
+    loop: true,
+  },
+  {
+    name: 'amb-outdoor',
+    prompt: 'Elevated city railway platform outdoors in Japan: light wind, distant city traffic, a few birds, quiet and constant, seamless loop. No speech, no music.',
+    seconds: 15,
+    loop: true,
+  },
   {
     name: 'train-arrive',
     prompt: 'Electric subway train arriving at an underground station platform: rumble growing from the tunnel, inverter motor whine winding down, soft brake squeal, comes to a stop. Realistic field recording, no voice.',

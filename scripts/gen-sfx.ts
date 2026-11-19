@@ -4,7 +4,7 @@
 //   npm run sfx -- --dry    list what would be generated
 //   npm run sfx -- step-3   regenerate just these names
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SFX, type Sfx } from '../src/audio/sfx';
 
@@ -28,6 +28,16 @@ const same = (s: Sfx) => {
   return m && m.prompt === s.prompt && m.seconds === s.seconds && m.loop === !!s.loop && existsSync(join(OUT, `${s.name}.mp3`));
 };
 
+// Drop effects no longer in the list.
+for (const name of Object.keys(manifest)) {
+  if (SFX.some((s) => s.name === name)) continue;
+  console.log(`${dry ? 'Would remove' : 'Removing'} unused ${name}`);
+  if (!dry) {
+    rmSync(join(OUT, `${name}.mp3`), { force: true });
+    delete manifest[name];
+    writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1));
+  }
+}
 const todo = only.length ? SFX.filter((s) => only.includes(s.name)) : SFX.filter((s) => !same(s));
 console.log(`${SFX.length} effects, ${todo.length} to generate, ${todo.reduce((n, s) => n + s.seconds, 0)} s of audio.`);
 if (dry) {

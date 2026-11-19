@@ -1,13 +1,14 @@
 // Audio output. One AudioContext (unlocked on the first click or key, as browsers require).
 //
-//   PA (announcements, jingles) ─┐
-//   trains (positional) ─────────┴→ hearing gain → muffle (low-pass) ─┬→ out
-//                                                                    └→ echo (convolver) → out
-//   footsteps ───────────────────────────────────────────────────────┬→ out
-//                                                                    └→ echo (underground only)
+//   PA channel (one per track) → speaker tone → speakers along that track's platform edge ─┐
+//   trains, doors, tunnel wind (positional) ───────────────────────────────────────────────┴→ hearing → muffle ─┬→ out
+//                                                                                                               └→ echo → out
+//   ambience loops (crossfaded by place) ──────────────────────────────────────────────────────────────────────┬→ out
+//   footsteps ─────────────────────────────────────────────────────────────────────────────────────────────────┴→ echo
 //
-// "Hearing" is how much of the station's sound reaches the player: full on the platform,
-// quiet and muffled on stairs and concourse, none outside.
+// Everything in the station is positional, so far sounds fade with distance and both tracks
+// can speak at once. "Hearing" dulls the station's sound away from the platform. The echo is
+// a code-made impulse response sized to the room the player is in.
 
 const BASE = `${import.meta.env.BASE_URL}audio/`;
 const CLIP_GAP_S = 0.3, GROUP_GAP_S = 0.8;
@@ -15,55 +16,93 @@ const CLIP_GAP_S = 0.3, GROUP_GAP_S = 0.8;
 const VOICE_GAIN = 0.8;
 /** An announcement still waiting after this long is out of date: drop it. */
 const STALE_MS = 15000;
+const SOUND_SPEED = 343;
+
+type V3 = [number, number, number];
 
 let ctx: AudioContext | null = null;
-let paBus: GainNode, trainBus: GainNode, stepBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode;
-let echoSend: GainNode, stepEcho: GainNode;
+let trainBus: GainNode, stepBus: GainNode, ambBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode, out: AudioNode;
+let echoIn: GainNode, stepEcho: GainNode, ambEcho: GainNode;
 const vol = { voice: 0.8, sfx: 0.8 };
 
-function impulse(c: AudioContext, seconds: number, decay: number): AudioBuffer {
+// ── Echo: two convolvers, crossfaded when the room changes ──
+
+export interface Room {
+  /** Seconds for the tail to die away. */
+  decay: number;
+  /** How much of the station's sound goes into the echo. */
+  wet: number;
+}
+const echo: { conv: ConvolverNode; gain: GainNode }[] = [];
+let echoActive = 0, echoDecay = 0;
+
+function impulse(c: AudioContext, seconds: number): AudioBuffer {
   const n = Math.floor(c.sampleRate * seconds), buf = c.createBuffer(2, n, c.sampleRate);
+  const k = 6.9 / seconds; // −60 dB at the end
   for (let ch = 0; ch < 2; ch++) {
     const d = buf.getChannelData(ch);
     for (let i = 0; i < n; i++) {
       const t = i / c.sampleRate;
-      // A short gap, a few hard early reflections off tile, then a long diffuse tail.
-      const early = t > 0.012 && t < 0.09 && Math.random() < 0.004 ? 0.8 : 0;
-      d[i] = t < 0.012 ? 0 : (Math.random() * 2 - 1) * Math.exp(-t * decay) * 0.55 + early * (Math.random() < 0.5 ? -1 : 1);
+      // A short gap, sparse hard early reflections off tile, then a diffuse tail.
+      const early = t > 0.01 && t < 0.03 + seconds * 0.04 && Math.random() < 0.004 ? 0.7 * (Math.random() < 0.5 ? -1 : 1) : 0;
+      d[i] = t < 0.01 ? 0 : (Math.random() * 2 - 1) * Math.exp(-t * k) * 0.5 + early;
     }
   }
   return buf;
 }
 
+export function setRoom(r: Room) {
+  if (!live()) return;
+  const c = ctx!, t = c.currentTime;
+  echoIn.gain.setTargetAtTime(r.wet, t, 0.4);
+  if (Math.abs(r.decay - echoDecay) < 0.25) return;
+  echoDecay = r.decay;
+  const next = 1 - echoActive;
+  echo[next].conv.buffer = impulse(c, r.decay);
+  echo[next].gain.gain.setTargetAtTime(1, t, 0.3);
+  echo[echoActive].gain.gain.setTargetAtTime(0, t, 0.3);
+  echoActive = next;
+}
+
+// ── Setup ──
+
 function unlock() {
   if (!ctx) {
     const c = (ctx = new AudioContext());
-    const out = c.createDynamicsCompressor();
-    out.connect(c.destination);
+    const comp = c.createDynamicsCompressor();
+    comp.connect(c.destination);
+    out = comp;
+    echoIn = c.createGain();
+    echoIn.gain.value = 0.4;
+    for (let i = 0; i < 2; i++) {
+      const conv = c.createConvolver(), gain = c.createGain();
+      gain.gain.value = i === 0 ? 1 : 0;
+      conv.buffer = impulse(c, 2);
+      echoIn.connect(conv).connect(gain).connect(out);
+      echo.push({ conv, gain });
+    }
+    echoDecay = 2;
     hearing = c.createGain();
     hearing.gain.value = 0;
     muffle = c.createBiquadFilter();
     muffle.type = 'lowpass';
     muffle.frequency.value = 18000;
-    const echo = c.createConvolver();
-    echo.buffer = impulse(c, 2.6, 2.6);
-    const echoOut = c.createGain();
-    echoOut.gain.value = 0.9;
-    echo.connect(echoOut).connect(out);
-    echoSend = c.createGain();
-    echoSend.gain.value = 0.45;
-    stepEcho = c.createGain();
-    stepEcho.gain.value = 0;
     hearing.connect(muffle);
     muffle.connect(out);
-    muffle.connect(echoSend).connect(echo);
-    paBus = c.createGain();
+    muffle.connect(echoIn);
     trainBus = c.createGain();
-    stepBus = c.createGain();
-    paBus.connect(hearing);
     trainBus.connect(hearing);
+    stepBus = c.createGain();
+    stepEcho = c.createGain();
+    stepEcho.gain.value = 0;
     stepBus.connect(out);
-    stepBus.connect(stepEcho).connect(echo);
+    stepBus.connect(stepEcho).connect(echoIn);
+    ambBus = c.createGain();
+    ambEcho = c.createGain();
+    ambEcho.gain.value = 0.15;
+    ambBus.connect(out);
+    ambBus.connect(ambEcho).connect(echoIn);
+    for (const ch of channels.values()) wireChannel(ch);
     applyVolume();
   }
   if (ctx.state === 'suspended') void ctx.resume();
@@ -76,9 +115,11 @@ const live = () => ctx !== null && ctx.state === 'running';
 
 function applyVolume() {
   if (!ctx) return;
-  paBus.gain.setTargetAtTime(vol.voice, ctx.currentTime, 0.05);
-  trainBus.gain.setTargetAtTime(vol.sfx, ctx.currentTime, 0.05);
-  stepBus.gain.setTargetAtTime(vol.sfx * 0.45, ctx.currentTime, 0.05);
+  const t = ctx.currentTime;
+  for (const ch of channels.values()) ch.input?.gain.setTargetAtTime(vol.voice, t, 0.05);
+  trainBus.gain.setTargetAtTime(vol.sfx, t, 0.05);
+  stepBus.gain.setTargetAtTime(vol.sfx * 0.45, t, 0.05);
+  ambBus.gain.setTargetAtTime(vol.sfx * 0.5, t, 0.05);
 }
 export function setVoiceVolume(v: number) {
   vol.voice = v;
@@ -112,13 +153,15 @@ export interface Hearing {
   level: number;
   /** Heard through walls and stairwells: dull the highs. */
   muffled: boolean;
-  /** Below ground: tiled echo on everything. */
+  /** Below ground: footsteps echo too. */
   under: boolean;
 }
 
+let listener: V3 = [0, 0, 0];
 export function tickListener(x: number, y: number, z: number, yaw: number, h: Hearing) {
   if (!live()) return;
   const c = ctx!, t = c.currentTime, L = c.listener;
+  listener = [x, y, z];
   if (L.positionX) {
     L.positionX.setValueAtTime(x, t);
     L.positionY.setValueAtTime(y, t);
@@ -134,9 +177,8 @@ export function tickListener(x: number, y: number, z: number, yaw: number, h: He
     L.setOrientation(-Math.sin(yaw), 0, -Math.cos(yaw), 0, 1, 0);
   }
   hearing.gain.setTargetAtTime(h.level, t, 0.25);
-  muffle.frequency.setTargetAtTime(h.muffled ? 900 : 18000, t, 0.25);
-  echoSend.gain.setTargetAtTime(h.under ? 0.45 : 0.08, t, 0.3);
-  stepEcho.gain.setTargetAtTime(h.under ? 0.35 : 0, t, 0.3);
+  muffle.frequency.setTargetAtTime(h.muffled ? 1100 : 18000, t, 0.25);
+  stepEcho.gain.setTargetAtTime(h.under ? 0.8 : 0, t, 0.3);
   for (const a of attached) {
     const p = a.pos();
     if (!p) continue;
@@ -144,6 +186,43 @@ export function tickListener(x: number, y: number, z: number, yaw: number, h: He
     a.panner.positionY.setValueAtTime(p[1], t);
     a.panner.positionZ.setValueAtTime(p[2], t);
   }
+  // Each PA speaker reaches you after its own travel time: the smeared, overlapping sound
+  // of a long row of ceiling speakers.
+  for (const ch of channels.values()) {
+    for (const s of ch.speakers) s.delay.delayTime.setTargetAtTime(dist(s.at, listener) / SOUND_SPEED, t, 0.05);
+  }
+}
+const dist = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+function panner(c: AudioContext, at: V3, ref: number, rolloff: number): PannerNode {
+  return new PannerNode(c, {
+    panningModel: 'HRTF', distanceModel: 'inverse', refDistance: ref, rolloffFactor: rolloff, maxDistance: 500,
+    positionX: at[0], positionY: at[1], positionZ: at[2],
+  });
+}
+
+// ── Ambience: one loop per kind of place, crossfaded ──
+
+export type Ambience = 'amb-platform' | 'amb-concourse' | 'amb-outdoor' | null;
+const ambLoops = new Map<string, GainNode>();
+export function setAmbience(kind: Ambience, level = 1) {
+  if (!live()) return;
+  const c = ctx!, t = c.currentTime;
+  if (kind && !ambLoops.has(kind)) {
+    const g = c.createGain();
+    g.gain.value = 0;
+    g.connect(ambBus);
+    ambLoops.set(kind, g);
+    void load(`sfx/${kind}`).then((buf) => {
+      if (!buf) return;
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(g);
+      src.start(0, Math.random() * buf.duration);
+    });
+  }
+  for (const [k, g] of ambLoops) g.gain.setTargetAtTime(k === kind ? level : 0, t, 0.8);
 }
 
 // ── Positional sounds that follow something (a train) ──
@@ -152,7 +231,7 @@ interface Attached {
   src: AudioBufferSourceNode;
   gain: GainNode;
   panner: PannerNode;
-  pos: () => [number, number, number] | null;
+  pos: () => V3 | null;
 }
 const attached = new Set<Attached>();
 export interface SoundHandle {
@@ -160,23 +239,20 @@ export interface SoundHandle {
 }
 
 /** Play an effect at a moving position. Returns a handle to stop it (loops run until stopped). */
-export function playAt(name: string, pos: () => [number, number, number] | null, opts: { loop?: boolean; gain?: number } = {}): SoundHandle {
+export function playAt(name: string, pos: () => V3 | null, opts: { loop?: boolean; gain?: number } = {}): SoundHandle {
   let a: Attached | null = null, stopped = false;
   if (live()) {
     void load(`sfx/${name}`).then((buf) => {
       if (!buf || stopped || !ctx) return;
-      const c = ctx, p0 = pos();
-      const panner = new PannerNode(c, {
-        panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 10, rolloffFactor: 0.9, maxDistance: 400,
-        positionX: p0?.[0] ?? 0, positionY: p0?.[1] ?? 0, positionZ: p0?.[2] ?? 0,
-      });
+      const c = ctx;
+      const p = panner(c, pos() ?? listener, 10, 1);
       const gain = c.createGain();
       gain.gain.value = opts.gain ?? 1;
       const src = c.createBufferSource();
       src.buffer = buf;
       src.loop = !!opts.loop;
-      src.connect(gain).connect(panner).connect(trainBus);
-      a = { src, gain, panner, pos };
+      src.connect(gain).connect(p).connect(trainBus);
+      a = { src, gain, panner: p, pos };
       attached.add(a);
       src.onended = () => attached.delete(a!);
       src.start();
@@ -206,75 +282,160 @@ export function playStep(name: string) {
   });
 }
 
-// ── PA queue: announcements and jingles, one after another ──
+// ── PA: one channel per track, each with its own queue and row of speakers ──
 
+interface Speaker {
+  at: V3;
+  delay: DelayNode;
+  panner: PannerNode;
+}
 interface Group {
   tag: string;
   items: string[];
   at: number;
 }
-const queue: Group[] = [];
-let busy = false, generation = 0;
-let current: AudioBufferSourceNode | null = null;
+interface Channel {
+  input: GainNode | null;
+  tone: AudioNode | null;
+  speakers: Speaker[];
+  want: V3[];
+  queue: Group[];
+  busy: boolean;
+  generation: number;
+  current: AudioBufferSourceNode | null;
+}
+const channels = new Map<string, Channel>();
 
-/**
- * Queue an announcement: paths under public/audio, played in order. A newer group from the
- * same `tag` replaces one still waiting. `preempt` cuts off whatever is playing (the
- * departure melody must start on time).
- */
-export function announce(tag: string, items: string[], preempt = false) {
-  if (!live() || vol.voice <= 0) return;
-  if (preempt) hushVoice();
-  const i = queue.findIndex((g) => g.tag === tag);
-  if (i >= 0) queue.splice(i, 1);
-  queue.push({ tag, items, at: performance.now() });
-  for (const p of items) void load(p);
-  if (!busy) void pump();
+function channel(id: string): Channel {
+  let ch = channels.get(id);
+  if (!ch) {
+    ch = { input: null, tone: null, speakers: [], want: [], queue: [], busy: false, generation: 0, current: null };
+    channels.set(id, ch);
+    if (ctx) wireChannel(ch);
+  }
+  return ch;
 }
 
-/** True when nothing is playing or waiting on the PA. */
-export const paIdle = () => !busy && queue.length === 0;
+/** Bandwidth-limited, slightly driven: the sound of a station loudspeaker. */
+function speakerTone(c: AudioContext, input: AudioNode): AudioNode {
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 320;
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 4800;
+  const presence = c.createBiquadFilter();
+  presence.type = 'peaking';
+  presence.frequency.value = 2200;
+  presence.Q.value = 0.9;
+  presence.gain.value = 4;
+  const drive = c.createWaveShaper();
+  const n = 1024, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(1.6 * x) / Math.tanh(1.6);
+  }
+  drive.curve = curve;
+  drive.oversample = '2x';
+  input.connect(hp).connect(presence).connect(drive).connect(lp);
+  return lp;
+}
 
-/** Stop and forget everything on the PA (leaving a station, teleporting). */
-export function hushVoice() {
-  queue.length = 0;
-  generation++;
+function wireChannel(ch: Channel) {
+  const c = ctx!;
+  ch.input = c.createGain();
+  ch.input.gain.value = vol.voice;
+  ch.tone = speakerTone(c, ch.input);
+  placeSpeakers(ch);
+}
+
+function placeSpeakers(ch: Channel) {
+  if (!ctx || !ch.tone) return;
+  const c = ctx;
+  for (const s of ch.speakers) {
+    ch.tone.disconnect(s.delay);
+    s.panner.disconnect();
+  }
+  ch.speakers = ch.want.map((at) => {
+    const delay = c.createDelay(1);
+    delay.delayTime.value = dist(at, listener) / SOUND_SPEED;
+    const g = c.createGain();
+    g.gain.value = 1 / Math.sqrt(ch.want.length);
+    const p = panner(c, at, 3.5, 1.1);
+    ch.tone!.connect(delay).connect(g).connect(p).connect(hearing);
+    return { at, delay, panner: p };
+  });
+}
+
+/** Where a channel's loudspeakers hang, world coordinates. */
+export function setSpeakers(id: string, at: V3[]) {
+  const ch = channel(id);
+  ch.want = at;
+  placeSpeakers(ch);
+}
+
+/**
+ * Queue an announcement on a channel: paths under public/audio, played in order. A newer
+ * group with the same `tag` replaces one still waiting. `preempt` cuts off whatever the
+ * channel is playing (the departure melody must start on time).
+ */
+export function announce(channelId: string, tag: string, items: string[], preempt = false) {
+  if (!live() || vol.voice <= 0) return;
+  const ch = channel(channelId);
+  if (preempt) hushChannel(ch);
+  const i = ch.queue.findIndex((g) => g.tag === tag);
+  if (i >= 0) ch.queue.splice(i, 1);
+  ch.queue.push({ tag, items, at: performance.now() });
+  for (const p of items) void load(p);
+  if (!ch.busy) void pump(ch);
+}
+
+/** True when no channel is playing or waiting. */
+export const paIdle = () => [...channels.values()].every((ch) => !ch.busy && ch.queue.length === 0);
+
+function hushChannel(ch: Channel) {
+  ch.queue.length = 0;
+  ch.generation++;
   try {
-    current?.stop();
+    ch.current?.stop();
   } catch {
     /* already stopped */
   }
 }
-
-async function pump() {
-  busy = true;
-  while (queue.length) {
-    const g = queue.shift()!;
-    if (performance.now() - g.at > STALE_MS) continue;
-    const gen = generation;
-    for (const p of g.items) {
-      const buf = await load(p);
-      if (gen !== generation) break;
-      if (buf) await play(buf, p.startsWith('voice/') ? VOICE_GAIN : 1);
-      if (gen !== generation) break;
-      await wait(CLIP_GAP_S);
-    }
-    if (gen === generation) await wait(GROUP_GAP_S);
-  }
-  busy = false;
+/** Stop and forget everything on the PA (leaving a station, teleporting). */
+export function hushVoice() {
+  for (const ch of channels.values()) hushChannel(ch);
 }
 
-function play(buf: AudioBuffer, gain: number): Promise<void> {
+async function pump(ch: Channel) {
+  ch.busy = true;
+  while (ch.queue.length) {
+    const g = ch.queue.shift()!;
+    if (performance.now() - g.at > STALE_MS) continue;
+    const gen = ch.generation;
+    for (const p of g.items) {
+      const buf = await load(p);
+      if (gen !== ch.generation) break;
+      if (buf) await play(ch, buf, p.startsWith('voice/') ? VOICE_GAIN : 1);
+      if (gen !== ch.generation) break;
+      await wait(CLIP_GAP_S);
+    }
+    if (gen === ch.generation) await wait(GROUP_GAP_S);
+  }
+  ch.busy = false;
+}
+
+function play(ch: Channel, buf: AudioBuffer, gain: number): Promise<void> {
   return new Promise((resolve) => {
     const src = ctx!.createBufferSource(), g = ctx!.createGain();
     src.buffer = buf;
     g.gain.value = gain;
-    src.connect(g).connect(paBus);
+    src.connect(g).connect(ch.input!);
     src.onended = () => {
-      if (current === src) current = null;
+      if (ch.current === src) ch.current = null;
       resolve();
     };
-    current = src;
+    ch.current = src;
     src.start();
   });
 }

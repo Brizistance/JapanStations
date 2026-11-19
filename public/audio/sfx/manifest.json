@@ -9,19 +9,9 @@
   "seconds": 3,
   "loop": false
  },
- "depart-Y": {
-  "prompt": "Japanese railway departure melody (hassha melody), a cheerful catchy short original tune on warm wooden marimba, gentle and nostalgic, ends cleanly on the tonic. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
-  "seconds": 6,
-  "loop": false
- },
  "approach-N": {
   "prompt": "Short Japanese railway train-approach jingle (sekkin melody), a three to four note motif on bright glockenspiel with a light seaside breeze feel. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
   "seconds": 3,
-  "loop": false
- },
- "depart-N": {
-  "prompt": "Japanese railway departure melody (hassha melody), a cheerful catchy short original tune on bright glockenspiel with a light seaside breeze feel, ends cleanly on the tonic. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
-  "seconds": 6,
   "loop": false
  },
  "approach-A": {
@@ -29,19 +19,9 @@
   "seconds": 3,
   "loop": false
  },
- "depart-A": {
-  "prompt": "Japanese railway departure melody (hassha melody), a cheerful catchy short original tune on soft vibraphone, calm and elegant, ends cleanly on the tonic. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
-  "seconds": 6,
-  "loop": false
- },
  "approach-S": {
   "prompt": "Short Japanese railway train-approach jingle (sekkin melody), a three to four note motif on clean modern synth bells, crisp and airy. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
   "seconds": 3,
-  "loop": false
- },
- "depart-S": {
-  "prompt": "Japanese railway departure melody (hassha melody), a cheerful catchy short original tune on clean modern synth bells, crisp and airy, ends cleanly on the tonic. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
-  "seconds": 6,
   "loop": false
  },
  "approach-K": {
@@ -49,19 +29,9 @@
   "seconds": 3,
   "loop": false
  },
- "depart-K": {
-  "prompt": "Japanese railway departure melody (hassha melody), a cheerful catchy short original tune on plucked koto-like strings with a soft electric piano, graceful, ends cleanly on the tonic. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
-  "seconds": 6,
-  "loop": false
- },
  "approach-M": {
   "prompt": "Short Japanese railway train-approach jingle (sekkin melody), a three to four note motif on music box and celesta, delicate and sweet. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
   "seconds": 3,
-  "loop": false
- },
- "depart-M": {
-  "prompt": "Japanese railway departure melody (hassha melody), a cheerful catchy short original tune on music box and celesta, delicate and sweet, ends cleanly on the tonic. Played over a Japanese station public address speaker in an underground platform. Instrumental only, no voice, no speech.",
-  "seconds": 6,
   "loop": false
  },
  "train-arrive": {
@@ -118,5 +88,255 @@
   "prompt": "A single footstep of a sneaker on a hard tiled floor, short and dry, close up, slightly heavier heel. One step only, no voice.",
   "seconds": 0.5,
   "loop": false
+ },
+ "melody-shin-midorigaoka": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, calm and gentle, on bright synth bells and handclaps. The mood suits this place: Hilltop new-town terminus. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-aobadai": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on marimba and pizzicato strings. The mood suits this place: Leafy residential heights with a small shopping street by the station. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-midorizaka": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, nostalgic and warm, on music box and celesta. The mood suits this place: Quiet residential station on the northern slope, with a park by the exit. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-kita-odori": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, calm and gentle, on koto-like plucked strings and woodblock. The mood suits this place: The city’s central station. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-tsumugibashi": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, bright and hopeful, on ocarina and marimba. The mood suits this place: The central interchange. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 9,
+  "loop": false
+ },
+ "melody-hyotanbori": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, bright and hopeful, on marimba and pizzicato strings. The mood suits this place: Neon, canals and late-night food. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-tsurumatsu": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on vibraphone and flute. The mood suits this place: Old-town station beside a covered shopping arcade. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-minamihorie": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, calm and gentle, on koto-like plucked strings and woodblock. The mood suits this place: Canal-side lanes of boutiques, cafés and furniture shops south of the old town. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 6,
+  "loop": false
+ },
+ "melody-kaiseicho": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, elegant and flowing, on electric piano and chimes. The mood suits this place: Meiji-era school town. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 8,
+  "loop": false
+ },
+ "melody-nankodai": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on glockenspiel and soft synth pad. The mood suits this place: Southern terminus on the heights above the container port. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-minato-center": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on electric piano and chimes. The mood suits this place: Terminus in the bay-side business district on reclaimed land. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-umibe-shiyakusho-mae": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on ocarina and marimba. The mood suits this place: Kawaminato City Hall, rebuilt on the waterfront, and its civic plaza. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-kawaminato-ko": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, bright and hopeful, on glockenspiel and soft synth pad. The mood suits this place: Redeveloped port. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-aizomecho": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, breezy and light, on glockenspiel and soft synth pad. The mood suits this place: The old indigo dyers’ quarter. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-daigaku-mae": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on steel drum and xylophone. The mood suits this place: Brick-lined station at the gates of Kawaminato University. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-hibarino": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on koto-like plucked strings and woodblock. The mood suits this place: Suburban station where the Nagisa Line comes out onto its viaduct; the Kikyō Line crosses underneath. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-asahino": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, breezy and light, on music box and celesta. The mood suits this place: Elevated station among sunrise-facing suburbs, with bicycle parking under the tracks. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-takanodai": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, nostalgic and warm, on bright synth bells and handclaps. The mood suits this place: Hilltop housing estate looking down on the viaduct. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-izumigaoka": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, calm and gentle, on bright synth bells and handclaps. The mood suits this place: Elevated terminus of the eastern new town, named for the spring at its centre. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-shin-kamome": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, elegant and flowing, on ocarina and marimba. The mood suits this place: Terminus on the newest reclaimed island, its apartment towers looking back at the city. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 9,
+  "loop": false
+ },
+ "melody-shiosai-koen": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, calm and gentle, on vibraphone and flute. The mood suits this place: Seaside park where you can hear the waves from the station exits. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 8,
+  "loop": false
+ },
+ "melody-kamomehama": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, breezy and light, on chiptune square-wave lead. The mood suits this place: Stadium station on reclaimed land, beside Kawaminato Dome. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-watayamachi": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, elegant and flowing, on vibraphone and flute. The mood suits this place: The cotton wholesalers’ street, all noren and shophouses. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 9,
+  "loop": false
+ },
+ "melody-suzukakedori": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, elegant and flowing, on marimba and pizzicato strings. The mood suits this place: Plane-tree avenue through the civic and theatre district. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 9,
+  "loop": false
+ },
+ "melody-tsukimizaka": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, bright and hopeful, on acoustic guitar and glockenspiel. The mood suits this place: Quiet hillside neighbourhood named for its moon-viewing slope. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-yamabukidai": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on harp and bells. The mood suits this place: New-town station with a bus rotary, in the north-eastern hills. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-momijigaoka": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, calm and gentle, on harp and bells. The mood suits this place: Maple-covered hillside of older houses, scarlet every November. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 8,
+  "loop": false
+ },
+ "melody-seiryodai": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on vibraphone and flute. The mood suits this place: Cool upland estate of apartment blocks around a research campus. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-hoshimine": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, bright and hopeful, on bright synth bells and handclaps. The mood suits this place: Ridge-top station below the city observatory. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 6,
+  "loop": false
+ },
+ "melody-kasumidani": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, nostalgic and warm, on steel drum and xylophone. The mood suits this place: Where the line leaves the ridge tunnel. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 6,
+  "loop": false
+ },
+ "melody-shiondai": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on marimba and pizzicato strings. The mood suits this place: Elevated terminus of the 1990s aster new town, with a bus terminal and a shopping centre on a pedestrian deck. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-shiomi": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, nostalgic and warm, on marimba and pizzicato strings. The mood suits this place: Terminus at the tip of the river-mouth landfill, facing the open bay. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 9,
+  "loop": false
+ },
+ "melody-nishi-yunagi": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, bright and hopeful, on glockenspiel and soft synth pad. The mood suits this place: Quiet apartments along the river mouth, west of Yūnagihama. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-yunagihama": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on koto-like plucked strings and woodblock. The mood suits this place: Waterfront station at the river mouth, with a sunset promenade over the bay. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 8,
+  "loop": false
+ },
+ "melody-kurayashiki": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, bright and hopeful, on koto-like plucked strings and woodblock. The mood suits this place: Old rice-storehouse quarter on the river’s north bank, its white godowns now cafés. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-tomyobori": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, elegant and flowing, on ocarina and marimba. The mood suits this place: Lantern-lit canal quarter of small temples and teahouses. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-sakurazutsumi": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, nostalgic and warm, on bright synth bells and handclaps. The mood suits this place: Station beside a cherry-lined river embankment and park. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-hanamizuki": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on glockenspiel and soft synth pad. The mood suits this place: Residential avenue lined with dogwood. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-shin-sakuragawa": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on chiptune square-wave lead. The mood suits this place: Newer canal quarter along the cherry-lined Sakura-gawa. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 8,
+  "loop": false
+ },
+ "melody-uminomori": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on marimba and pizzicato strings. The mood suits this place: Terminus beside the forest park planted on the old landfill. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-shinshio": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on marimba and pizzicato strings. The mood suits this place: Terminus on the new bay front between the river mouth and the port. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 5,
+  "loop": false
+ },
+ "melody-higashigaoka": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on marimba and pizzicato strings. The mood suits this place: Hillside streets of houses and a shrine wood, above the Nagisa Line valley. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-shin-hibarino": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, nostalgic and warm, on bright synth bells and handclaps. The mood suits this place: Terminus of the newest eastern estate, laid out around a skylark meadow park. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 9,
+  "loop": false
+ },
+ "melody-seiran": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, calm and gentle, on music box and celesta. The mood suits this place: Hillside terminus in clear mountain air. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 10,
+  "loop": false
+ },
+ "melody-minami-sakuragawa": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, playful, on marimba and pizzicato strings. The mood suits this place: The lower Sakura-gawa. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "melody-harunodai": {
+  "prompt": "Japanese railway station departure melody (hassha melody): a catchy original short tune, cheerful and bouncy, on glockenspiel and soft synth pad. The mood suits this place: Terminus on the sunny southern heights, among new houses and spring meadows. A complete phrase that ends cleanly on the tonic. Clean studio recording. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "tunnel-wind": {
+  "prompt": "Rush of air pushed out of a subway tunnel onto an underground platform just before a train arrives: wind building from silence to a strong gust, distant low rumble growing. No voice.",
+  "seconds": 10,
+  "loop": false
+ },
+ "amb-platform": {
+  "prompt": "Underground subway platform room tone: steady ventilation hum, faint distant crowd murmur, occasional far-off footsteps, quiet and constant, seamless loop. No clear speech, no music.",
+  "seconds": 15,
+  "loop": true
+ },
+ "amb-concourse": {
+  "prompt": "Busy Japanese metro station concourse ambience: crowd murmur, many footsteps on tile, occasional ticket gate beeps, air conditioning hum, constant, seamless loop. No clear speech, no music.",
+  "seconds": 15,
+  "loop": true
+ },
+ "amb-outdoor": {
+  "prompt": "Elevated city railway platform outdoors in Japan: light wind, distant city traffic, a few birds, quiet and constant, seamless loop. No speech, no music.",
+  "seconds": 15,
+  "loop": true
  }
 }
