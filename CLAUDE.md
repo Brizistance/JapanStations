@@ -47,3 +47,4 @@ npm run build
 6. **Keep this file short.** Put details in `docs/`, and update the relevant doc when a decision is made.
 7. **No fake information.** Departure boards, in-car displays, the HUD and the map must read the timetable; never show invented times.
 8. **Every new line gets its own era and theme.** An invented opening year and a platform architecture unlike any other line's. See "Adding a line" in docs/conventions.md.
+9. **Every new station gets its own layout and theme.** No new station falls back to the default look or reuses another station's arrangement. See "Adding a station" in docs/conventions.md.

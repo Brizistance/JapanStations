@@ -140,6 +140,7 @@ Passenger guidance away from the platforms. All of it is generated: nothing is t
 - **Ticket gates** (改札) with IC readers, and a staffed window.
 - **Signage**: line colour + station number badge, bilingual (JP large, EN smaller), exits on **yellow**, platform headers on navy with the platform number in the line colour.
 - **Station name board** (駅名標): name, kana, romaji, number, and neighbouring stations with arrows that point the right way for where the sign is mounted.
+- **Departure boards** (発車標, `src/signs/departures.ts`): equipment, not signs. They hang lower than the printed platform signs (centre pf + 2.45 against 2.72) in a deep metal case with a hood and stout rods (`Builder.screen`), and glow. Lines opened before 2000 (Y, N, A) have 3-colour dot-matrix LED boards: drawn one pixel per LED, snapped to red / green / amber, and shown as round dots by the sign material. Newer lines (S, K, M) have full-colour LCDs. The style per line is in `src/signs/board-style.ts`; a concourse board takes the station's oldest line's. Both show a header (track, line, clock), the next trains, an approach strip (接近表示: the last two stops, with the next train lit where it really is), and a scrolling ticker (status, transfers, operator). Japanese and English alternate every 4 s. 45 s before a train arrives the header flashes まもなく電車がまいります; 8 s before it leaves it says 発車します. Boards near the player redraw at 15 Hz. Every time shown is a timetable time, and `boards.test.ts` checks this.
 - Vending machines, lockers, posters, horizontal traffic signals, guard rails, utility poles, vertical shop signs (袖看板).
 - **Audio** (not built yet): departure melodies, bilingual announcements, door chimes.
 
@@ -193,9 +194,10 @@ To open a shell later: add the line to the network data, replace the hoarding wi
 
 - Each line has a **visual identity**: its colour on signs and screen door trim, and its own architecture (see Line themes).
 - Each station gets **one distinctive feature** so stations don't all feel the same.
+- **Every new station gets its own layout and its own look** (standing rule, user, 2026-11-18): an arrangement and a theme no other station has. The default look is only for the stations built before this rule. See "Adding a station" in conventions.md.
 - Station designs are **invented but plausible**. Draw from real stations for patterns, never copy one exactly.
-- Build reusable parts so new stations can be assembled quickly. A new station should be a spec, not new geometry code, unless it needs a new layout.
+- Build reusable parts so a new station's unique layout and look can be built from kit and `parts.ts` pieces, with new geometry code only where the kit has nothing that fits.
 
 ## Per-station plans
 
-A station with a new layout or a hero feature gets `Plans/stations/<station-id>/plan.md` before it's built. A station that only needs a new entry in `specs.ts` doesn't.
+Every new station gets `Plans/stations/<station-id>/plan.md` before it's built, proposing its layout and its look (see Design rules).
