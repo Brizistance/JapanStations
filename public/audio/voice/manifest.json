@@ -915,44 +915,388 @@
   "voice": "M",
   "text": "If you see any suspicious items or persons, please inform a station attendant."
  },
- "F-5321ee78": {
-  "voice": "F",
+ "M-3f06f661": {
+  "voice": "M",
   "text": "しんみどりがおか、しんみどりがおかです。"
  },
- "F-e9b4e8eb": {
-  "voice": "F",
+ "M-a3af984c": {
+  "voice": "M",
   "text": "This is Shin-Midorigaoka."
  },
- "F-fe0ef4b0": {
-  "voice": "F",
+ "M-bdf6c065": {
+  "voice": "M",
+  "text": "あおばだい、あおばだいです。"
+ },
+ "M-b60ce509": {
+  "voice": "M",
+  "text": "This is Aobadai."
+ },
+ "M-fbd66439": {
+  "voice": "M",
+  "text": "みどりざか、みどりざかです。"
+ },
+ "M-44761e2b": {
+  "voice": "M",
+  "text": "This is Midorizaka."
+ },
+ "M-84f44b1f": {
+  "voice": "M",
+  "text": "きたおおどおり、きたおおどおりです。あかねすじせん、しおかぜせんは、お乗り換えです。"
+ },
+ "M-b0eeb77a": {
+  "voice": "M",
+  "text": "This is Kita-Ōdōri. Please transfer here for the Akanesuji Line and the Shiokaze Line."
+ },
+ "M-a828bb3d": {
+  "voice": "M",
+  "text": "きたおおどおり、きたおおどおりです。やなぎすじせん、しおかぜせんは、お乗り換えです。"
+ },
+ "M-81c849f9": {
+  "voice": "M",
+  "text": "This is Kita-Ōdōri. Please transfer here for the Yanagisuji Line and the Shiokaze Line."
+ },
+ "M-9a1fbd92": {
+  "voice": "M",
+  "text": "きたおおどおり、きたおおどおりです。やなぎすじせん、あかねすじせんは、お乗り換えです。"
+ },
+ "M-d5ccbdce": {
+  "voice": "M",
+  "text": "This is Kita-Ōdōri. Please transfer here for the Yanagisuji Line and the Akanesuji Line."
+ },
+ "M-fb6fed22": {
+  "voice": "M",
+  "text": "つむぎばし、つむぎばしです。なぎさせん、ききょうせんは、お乗り換えです。"
+ },
+ "M-47f377c4": {
+  "voice": "M",
+  "text": "This is Tsumugibashi. Please transfer here for the Nagisa Line and the Kikyō Line."
+ },
+ "M-7512237c": {
+  "voice": "M",
+  "text": "つむぎばし、つむぎばしです。やなぎすじせん、ききょうせんは、お乗り換えです。"
+ },
+ "M-13d09f95": {
+  "voice": "M",
+  "text": "This is Tsumugibashi. Please transfer here for the Yanagisuji Line and the Kikyō Line."
+ },
+ "M-795c28b6": {
+  "voice": "M",
+  "text": "つむぎばし、つむぎばしです。やなぎすじせん、なぎさせんは、お乗り換えです。"
+ },
+ "M-25b41993": {
+  "voice": "M",
+  "text": "This is Tsumugibashi. Please transfer here for the Yanagisuji Line and the Nagisa Line."
+ },
+ "M-578b65fd": {
+  "voice": "M",
+  "text": "ひょうたんぼり、ひょうたんぼりです。"
+ },
+ "M-b22a0f87": {
+  "voice": "M",
+  "text": "This is Hyōtanbori."
+ },
+ "M-16cd4f29": {
+  "voice": "M",
+  "text": "つるまつ、つるまつです。"
+ },
+ "M-9f4f9769": {
+  "voice": "M",
+  "text": "This is Tsurumatsu."
+ },
+ "M-3e14f821": {
+  "voice": "M",
+  "text": "みなみほりえ、みなみほりえです。"
+ },
+ "M-84c5880e": {
+  "voice": "M",
+  "text": "This is Minamihorie."
+ },
+ "M-14cc66f5": {
+  "voice": "M",
+  "text": "かいせいちょう、かいせいちょうです。"
+ },
+ "M-01effc82": {
+  "voice": "M",
+  "text": "This is Kaiseichō."
+ },
+ "M-59b8fce1": {
+  "voice": "M",
   "text": "みなとせんたー、みなとせんたーです。"
  },
- "F-0e21e802": {
-  "voice": "F",
+ "M-74502beb": {
+  "voice": "M",
   "text": "This is Minato Center."
  },
- "F-867e2f18": {
-  "voice": "F",
+ "M-5ead6d0f": {
+  "voice": "M",
+  "text": "うみべしやくしょまえ、うみべしやくしょまえです。"
+ },
+ "M-ca4983cf": {
+  "voice": "M",
+  "text": "This is Umibe-shiyakusho-mae."
+ },
+ "M-eaa282d6": {
+  "voice": "M",
+  "text": "かわみなとこう、かわみなとこうです。ききょうせんは、お乗り換えです。"
+ },
+ "M-6dcee4cd": {
+  "voice": "M",
+  "text": "This is Kawaminato-kō. Please transfer here for the Kikyō Line."
+ },
+ "M-83b60f5c": {
+  "voice": "M",
+  "text": "かわみなとこう、かわみなとこうです。なぎさせんは、お乗り換えです。"
+ },
+ "M-d376fc6b": {
+  "voice": "M",
+  "text": "This is Kawaminato-kō. Please transfer here for the Nagisa Line."
+ },
+ "M-5b57d6fc": {
+  "voice": "M",
+  "text": "あいぞめちょう、あいぞめちょうです。あかねすじせんは、お乗り換えです。"
+ },
+ "M-c3dc9e47": {
+  "voice": "M",
+  "text": "This is Aizomechō. Please transfer here for the Akanesuji Line."
+ },
+ "M-6de2c18c": {
+  "voice": "M",
+  "text": "あいぞめちょう、あいぞめちょうです。なぎさせんは、お乗り換えです。"
+ },
+ "M-a1dfce95": {
+  "voice": "M",
+  "text": "This is Aizomechō. Please transfer here for the Nagisa Line."
+ },
+ "M-3d4c31b7": {
+  "voice": "M",
+  "text": "かわみなとだいがくまえ、かわみなとだいがくまえです。しおかぜせんは、お乗り換えです。"
+ },
+ "M-63ead9f4": {
+  "voice": "M",
+  "text": "This is Kawaminato-daigaku-mae. Please transfer here for the Shiokaze Line."
+ },
+ "M-a7c8ac1c": {
+  "voice": "M",
+  "text": "かわみなとだいがくまえ、かわみなとだいがくまえです。なぎさせんは、お乗り換えです。"
+ },
+ "M-b0700b33": {
+  "voice": "M",
+  "text": "This is Kawaminato-daigaku-mae. Please transfer here for the Nagisa Line."
+ },
+ "M-0ed821b8": {
+  "voice": "M",
+  "text": "ひばりの、ひばりのです。ききょうせんは、お乗り換えです。"
+ },
+ "M-f86b1af0": {
+  "voice": "M",
+  "text": "This is Hibarino. Please transfer here for the Kikyō Line."
+ },
+ "M-c0c7063a": {
+  "voice": "M",
+  "text": "ひばりの、ひばりのです。なぎさせんは、お乗り換えです。"
+ },
+ "M-5858d1cc": {
+  "voice": "M",
+  "text": "This is Hibarino. Please transfer here for the Nagisa Line."
+ },
+ "M-6d3575c1": {
+  "voice": "M",
+  "text": "あさひの、あさひのです。"
+ },
+ "M-cdc24b87": {
+  "voice": "M",
+  "text": "This is Asahino."
+ },
+ "M-66219995": {
+  "voice": "M",
+  "text": "たかのだい、たかのだいです。"
+ },
+ "M-90c9011c": {
+  "voice": "M",
+  "text": "This is Takanodai."
+ },
+ "M-26687609": {
+  "voice": "M",
   "text": "しんかもめ、しんかもめです。"
  },
- "F-bdcb8bb8": {
-  "voice": "F",
+ "M-cf0877bd": {
+  "voice": "M",
   "text": "This is Shin-Kamome."
  },
- "F-f27817e0": {
-  "voice": "F",
+ "M-4f238763": {
+  "voice": "M",
+  "text": "しおさいこうえん、しおさいこうえんです。"
+ },
+ "M-b32eee14": {
+  "voice": "M",
+  "text": "This is Shiosai-kōen."
+ },
+ "M-b1858411": {
+  "voice": "M",
+  "text": "かもめはま、かもめはまです。"
+ },
+ "M-127136d7": {
+  "voice": "M",
+  "text": "This is Kamomehama."
+ },
+ "M-1360cdfa": {
+  "voice": "M",
+  "text": "わたやまち、わたやまちです。ききょうせんは、お乗り換えです。"
+ },
+ "M-fc52d54b": {
+  "voice": "M",
+  "text": "This is Watayamachi. Please transfer here for the Kikyō Line."
+ },
+ "M-7e1d9b00": {
+  "voice": "M",
+  "text": "わたやまち、わたやまちです。あかねすじせんは、お乗り換えです。"
+ },
+ "M-3cee6ffb": {
+  "voice": "M",
+  "text": "This is Watayamachi. Please transfer here for the Akanesuji Line."
+ },
+ "M-b4a6ddc1": {
+  "voice": "M",
+  "text": "すずかけどおり、すずかけどおりです。"
+ },
+ "M-028321c7": {
+  "voice": "M",
+  "text": "This is Suzukakedōri."
+ },
+ "M-c37eb091": {
+  "voice": "M",
+  "text": "つきみざか、つきみざかです。"
+ },
+ "M-a6b13513": {
+  "voice": "M",
+  "text": "This is Tsukimizaka."
+ },
+ "M-23b476e1": {
+  "voice": "M",
+  "text": "やまぶきだい、やまぶきだいです。"
+ },
+ "M-4688f03d": {
+  "voice": "M",
+  "text": "This is Yamabukidai."
+ },
+ "M-c69783b7": {
+  "voice": "M",
+  "text": "もみじがおか、もみじがおかです。"
+ },
+ "M-a7df1dc6": {
+  "voice": "M",
+  "text": "This is Momijigaoka."
+ },
+ "M-36b2d2b5": {
+  "voice": "M",
+  "text": "せいりょうだい、せいりょうだいです。"
+ },
+ "M-200fa185": {
+  "voice": "M",
+  "text": "This is Seiryōdai."
+ },
+ "M-475db1a3": {
+  "voice": "M",
+  "text": "ほしみね、ほしみねです。"
+ },
+ "M-b6dfae84": {
+  "voice": "M",
+  "text": "This is Hoshimine."
+ },
+ "M-4ff6df59": {
+  "voice": "M",
+  "text": "かすみだに、かすみだにです。"
+ },
+ "M-91ee6d06": {
+  "voice": "M",
+  "text": "This is Kasumidani."
+ },
+ "M-43dcb991": {
+  "voice": "M",
   "text": "しおみ、しおみです。"
  },
- "F-ae244c56": {
-  "voice": "F",
+ "M-6435e419": {
+  "voice": "M",
   "text": "This is Shiomi."
  },
- "F-0861ccc0": {
-  "voice": "F",
+ "M-ca3e07ff": {
+  "voice": "M",
+  "text": "にしゆうなぎ、にしゆうなぎです。"
+ },
+ "M-7329d455": {
+  "voice": "M",
+  "text": "This is Nishi-Yūnagi."
+ },
+ "M-e510d409": {
+  "voice": "M",
+  "text": "ゆうなぎはま、ゆうなぎはまです。"
+ },
+ "M-73bccb5e": {
+  "voice": "M",
+  "text": "This is Yūnagihama."
+ },
+ "M-a93bfb05": {
+  "voice": "M",
+  "text": "くらやしき、くらやしきです。"
+ },
+ "M-76f96863": {
+  "voice": "M",
+  "text": "This is Kurayashiki."
+ },
+ "M-f8c19512": {
+  "voice": "M",
+  "text": "とうみょうぼり、とうみょうぼりです。ききょうせんは、お乗り換えです。"
+ },
+ "M-ad2f12b2": {
+  "voice": "M",
+  "text": "This is Tōmyōbori. Please transfer here for the Kikyō Line."
+ },
+ "M-793611c3": {
+  "voice": "M",
+  "text": "とうみょうぼり、とうみょうぼりです。しおかぜせんは、お乗り換えです。"
+ },
+ "M-45e31155": {
+  "voice": "M",
+  "text": "This is Tōmyōbori. Please transfer here for the Shiokaze Line."
+ },
+ "M-9058a8d1": {
+  "voice": "M",
+  "text": "さくらづつみ、さくらづつみです。"
+ },
+ "M-1e64d4bc": {
+  "voice": "M",
+  "text": "This is Sakurazutsumi."
+ },
+ "M-ec8f6565": {
+  "voice": "M",
+  "text": "はなみずき、はなみずきです。"
+ },
+ "M-dd7af479": {
+  "voice": "M",
+  "text": "This is Hanamizuki."
+ },
+ "M-2479d2e9": {
+  "voice": "M",
+  "text": "しんさくらがわ、しんさくらがわです。"
+ },
+ "M-c0c8d54c": {
+  "voice": "M",
+  "text": "This is Shin-Sakuragawa."
+ },
+ "M-1c9033f1": {
+  "voice": "M",
   "text": "しんしお、しんしおです。"
  },
- "F-36638670": {
-  "voice": "F",
+ "M-c902f97b": {
+  "voice": "M",
   "text": "This is Shinshio."
+ },
+ "M-a5a24f2f": {
+  "voice": "M",
+  "text": "ひがしがおか、ひがしがおかです。"
+ },
+ "M-f5ddcea2": {
+  "voice": "M",
+  "text": "This is Higashigaoka."
  }
 }
