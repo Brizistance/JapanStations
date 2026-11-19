@@ -12,11 +12,11 @@
 | Operator | Type | Status |
 |---|---|---|
 | **Kawaminato Metro (川湊メトロ)** | Underground metro, 6 lines | Built |
-| _TBD_ JR-style main line | Through platforms on the viaduct at Kawaminato Station | Space reserved, not named |
+| **Akitsushima Railway (秋津島鉄道, AR)** | JR-style main line: through platforms on the viaduct at Kawaminato Station | Named 2026-11-18, not built. Plans: [akitsushima-railway.md](akitsushima-railway.md) |
 | _TBD_ private railway | Dead-end terminal in the Kawaminato Station Building | Space reserved, not named |
 | _TBD_ high-speed line | Top deck at Kawaminato Station | Space reserved, not named |
 
-The three future operators are deliberately unnamed. Their space at the hub is signed only **将来線予定地 / Reserved for future line** plus the kind of railway. Name them when one is actually built.
+The other two future operators are deliberately unnamed. Their space at the hub is signed only **将来線予定地 / Reserved for future line** plus the kind of railway. Name them when one is actually built.
 
 Brand: navy `#0d3b66` roundel with three flowing white strokes (a stylised 川). Drawn in code (`logo()` in `src/signs/draw.ts`, `Logo` in `src/ui/MainMenu.tsx`). IC card: **MINACA (ミナカ)**.
 
