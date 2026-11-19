@@ -52,7 +52,7 @@ data/network.ts ──► sim (geometry + timetable) ──► trains/system (pe
 
 1. `clock.advance(dt)`
 2. `updateTrains(clock.time)` — every train's state and every car's pose
-3. `tickPlayer(dt)` — carry with the car being ridden, then move and collide; then camera, then `tickStationAudio()` (`audio/`): Osaka-style platform PA (jingle → voice, departure melody → doors closing, chime → notices), positional train/door sounds and footsteps, all timed from the timetable, heard fully on platforms and muffled on concourses, with code-generated tile echo underground. Clips are pre-baked ElevenLabs mp3s in `public/audio/`; after changing stations, wording or prompts run `npm run voice` / `npm run sfx` (key in `.env.local`; inbound = female, outbound = male, safety male, etiquette female).
+3. `tickPlayer(dt)` — carry with the car being ridden, then move and collide; then camera, then `tickStationAudio()` (`audio/`): Osaka-style platform PA (line jingle → voice, per-station departure melody → doors closing, chime → notices) played from a row of filtered speakers along each track's platform edge, positional train/door/tunnel-wind sounds, ambience loops and footsteps, all timed from the timetable; echo is code-generated and sized to the current room. Clips are pre-baked ElevenLabs mp3s in `public/audio/`; after changing stations, wording or prompts run `npm run voice` / `npm run sfx` (key in `.env.local`; inbound = female, outbound = male, safety male, etiquette female).
 4. camera follows the player
 5. `WorldView.update()` — mount/unmount stations by distance (≤ 1 per frame), move train meshes, slide doors and platform gates, redraw live signs twice a second
 6. `Lighting.update()` — sky dome follows the camera, sun shadow map is refreshed (High, above ground only)

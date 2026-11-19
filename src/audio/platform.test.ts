@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STATIONS, lineById } from '../data/network';
 import { allClips, announcement, dirVoice } from './phrases';
-import { edge } from './platform';
+import { edge, speakerRows } from './platform';
 
 describe('platform announcement triggers', () => {
   it('fires once per status change, never on first sight', () => {
@@ -30,5 +30,16 @@ describe('platform phrases', () => {
   it('every clip key is unique to its voice and text', () => {
     const clips = allClips();
     expect(new Set(clips.map((c) => c.key)).size).toBe(new Set(clips.map((c) => c.voice + c.text)).size);
+  });
+});
+
+describe('PA speaker rows', () => {
+  it('puts down speakers on the low side and up on the high side, along the long axis', () => {
+    const r = speakerRows([-60, 0, -5], [60, 3.5, 5]);
+    expect(r.down.length).toBeGreaterThanOrEqual(3);
+    expect(r.down.every((p) => p[2] < 0 && Math.abs(p[0]) < 60)).toBe(true);
+    expect(r.up.every((p) => p[2] > 0)).toBe(true);
+    const turned = speakerRows([-5, 0, -60], [5, 3.5, 60]);
+    expect(turned.up.every((p) => p[0] > 0)).toBe(true);
   });
 });
