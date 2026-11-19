@@ -63,7 +63,7 @@ function badgePos(s: StationDef, i: number, inter: boolean): [number, number] {
 }
 
 /** The whole diagram, in SVG units. */
-const MAP_W = 1900, MAP_H = 1000;
+const MAP_W = 1900, MAP_H = 1060;
 const MIN_ZOOM = 1, MAX_ZOOM = 4;
 type View = { x: number; y: number; w: number };
 

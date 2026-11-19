@@ -20,6 +20,15 @@ export const XOVER_FAR = 150;
 export const TAIL_STOP = 215;
 export const TAIL_END = 285;
 
+/** Stacked stations (LineDef.stackAt): both tracks at this lateral, the up track this far above. */
+export const STACK_LATERAL = 2.5;
+export const STACK_DY = 8;
+/** The tracks are fully stacked within this distance of the station centre … */
+const STACK_NEAR = HALL_HALF + 10;
+/** … converge sideways over this far, and climb apart over this far. */
+const STACK_LAT_FAR = HALL_HALF + 130;
+const STACK_DY_FAR = HALL_HALF + 260;
+
 /**
  * Which rail path a train is following.
  * - down / up: the running tracks (trains keep left, so "down" is at lateral -offset).
@@ -73,6 +82,22 @@ export class LineGeom {
     }
     for (const q of def.profile ?? []) this.profile.push({ s: this.path.project(q.at[0], q.at[1]).s, y: q.y, flat: 40 });
     this.profile.sort((a, b) => a.s - b.s);
+    this.stackS = (def.stackAt ?? []).map((id) => this.stopS[def.stops.indexOf(id)]);
+  }
+
+  /** Chainages of the stacked stations (LineDef.stackAt). */
+  readonly stackS: number[];
+
+  /** 0 … 1: how far into a stacked station's arrangement chainage s is, over [STACK_NEAR, far]. */
+  private stacked(s: number, far: number): number {
+    let t = 0;
+    for (const ss of this.stackS) t = Math.max(t, smooth((far - Math.abs(s - ss)) / (far - STACK_NEAR)));
+    return t;
+  }
+
+  /** Height of a track above the line's rail level (only the up track at a stacked station). */
+  dy(track: Track, s: number): number {
+    return track === 'up' && this.stackS.length ? STACK_DY * this.stacked(s, STACK_DY_FAR) : 0;
   }
 
   get firstS() {
@@ -99,9 +124,11 @@ export class LineGeom {
     const L = this.def.trackOffset;
     switch (track) {
       case 'down':
-        return -L;
-      case 'up':
-        return L;
+      case 'up': {
+        const base = track === 'down' ? -L : L;
+        if (!this.stackS.length) return base;
+        return base + (STACK_LATERAL - base) * this.stacked(s, STACK_LAT_FAR);
+      }
       case 'xoverEnd': {
         const q = s - this.lastS;
         return L - 2 * L * smooth((q - XOVER_NEAR) / (XOVER_FAR - XOVER_NEAR));
@@ -123,7 +150,9 @@ export class LineGeom {
   }
 
   trackPoint(track: Track, s: number, out?: Vec3Like): Vec3Like {
-    return this.point(s, this.lateral(track, s), out);
+    const p = this.point(s, this.lateral(track, s), out);
+    p.y += this.dy(track, s);
+    return p;
   }
 
   /** Yaw (three.js rotation.y) that maps local +x onto the path tangent at s. */

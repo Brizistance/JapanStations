@@ -22,6 +22,7 @@ const LINE_TONE: Record<string, string> = {
   S: 'clean modern synth bells, crisp and airy',
   K: 'plucked koto-like strings with a soft electric piano, graceful',
   M: 'music box and celesta, delicate and sweet',
+  G: 'soft tubular bells and warm strings, spacious and calm',
 };
 const tone = (id: string) => LINE_TONE[id] ?? 'clean electronic bells';
 
@@ -49,7 +50,7 @@ export const STEP_COUNT = 6;
 // ── Inside the car: steady loops, pitched and faded live by the train's speed ──
 
 /** Motor sound by line era: classic musical inverter whine → early IGBT → quiet modern SiC. */
-export const MOTOR_OF: Record<string, string> = { Y: 'motor-classic', N: 'motor-classic', A: 'motor-mid', S: 'motor-modern', K: 'motor-modern', M: 'motor-modern' };
+export const MOTOR_OF: Record<string, string> = { Y: 'motor-classic', N: 'motor-classic', A: 'motor-mid', S: 'motor-modern', K: 'motor-modern', M: 'motor-modern', G: 'motor-modern' };
 const IN_CAR = 'Recorded inside the passenger car.';
 
 export const CAR_SFX: Sfx[] = [

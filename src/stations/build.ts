@@ -16,6 +16,10 @@ import { buildHub } from './hub';
 import { buildAtrium } from './atrium';
 import { buildNagisaEast } from './nagisa-east';
 import { buildOpenAir } from './open-air';
+import { buildStacked } from './stacked';
+import { ADIT_X, buildAdit } from './adit';
+import { buildMidLevel } from './midlevel';
+import { TUNNEL_DOOR, buildTransfer } from './transfer';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
 import type { ConcInfo, ConcRoom, ExitDoor, StairInfo, Stairwell, WallFace } from './looks/types';
@@ -153,6 +157,8 @@ export interface ShellOpts {
   ways?: StairInfo[];
   /** Floor the look must leave clear (the way to those openings). */
   claims?: Rect[];
+  /** Openings in the concourse ceiling, for stairs climbing up out of it (Harunodai). */
+  ceilHoles?: Rect[];
 }
 
 /** A finished face's band, `d` deep, from y0 to y1 (decoration along a wall). */
@@ -222,7 +228,8 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   const walk: Rect[] = [[x0, -cw, x1, cw], ...rooms.map((r) => r.rect), ...plan.floor];
   for (const r of walk) b.slab(style.floor, r[0], r[1], r[2], r[3], cf - SLAB, cf, o.holes);
   if (fw > cw) b.slab('concrete', x0, -fw, x1, fw, cf - SLAB, cf - 0.02, [...o.holes, ...walk]);
-  b.box(ceilMat, x0 - 0.4, ceil, -fw - 0.4, x1 + 0.4, ceil + 0.5, fw + 0.4);
+  if (o.ceilHoles?.length) b.slab(ceilMat, x0 - 0.4, -fw - 0.4, x1 + 0.4, fw + 0.4, ceil, ceil + 0.5, o.ceilHoles);
+  else b.box(ceilMat, x0 - 0.4, ceil, -fw - 0.4, x1 + 0.4, ceil + 0.5, fw + 0.4);
   for (const r of plan.walls) b.box(style.concWall, r[0], cf, r[1], r[2], ceil, r[3]);
   // Accent skirting along the spine's long walls and round the rooms.
   if (look.skirting !== false) {
@@ -377,7 +384,7 @@ export function concourse(c0: Ctx, o: ShellOpts) {
 const islandPillarZ = (cw: number) => Math.min(6, Math.max(cw - 3.4, 4.9));
 
 /** Half width of an ordinary station's concourse: the older the line, the smaller the station. */
-const STREET_CW = 12;
+export const STREET_CW = 12;
 function concourseHalf(line: LineDef): number {
   const opened = themeFor(line.id).opened ?? 2000;
   // Side platforms bring their stairs up 8.6 m out, so they cannot go below 10.
@@ -385,15 +392,17 @@ function concourseHalf(line: LineDef): number {
   return opened < 2010 ? 10 : STREET_CW;
 }
 
-function buildUnderground(c: Ctx, spec: UndergroundSpec) {
+type Further = { ctx: Ctx; dir: [number, number]; primaryDir: [number, number]; x: number };
+function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
+  if (spec.stacked) return buildStacked(c, spec);
   const { b, line, station, railY, style } = c;
   const d = hallDims(line, railY);
   const cf = d.pf + CONC_RISE;
   const cw = spec.width ?? concourseHalf(line);
   const [cx0, cx1] = spec.concourse;
   // A station can ask for a tall vault; a line's theme (Yanagisuji) gives every station a lower one.
-  const vault = style.vault || themeFor(line.id).vault;
-  const open = style.vault ? d.pf + 5.0 : vault ? d.pf + 4.4 : d.pf + 4.2;
+  const vault = !!spec.cavern || style.vault || themeFor(line.id).vault;
+  const open = spec.cavern ? d.pf + spec.cavern : style.vault ? d.pf + 5.0 : vault ? d.pf + 4.4 : d.pf + 4.2;
   const ceil: CeilSeg[] = [];
   if (cx0 > -HALL_HALF) ceil.push({ x0: -HALL_HALF, x1: cx0, y: open, emit: true, vault });
   ceil.push({ x0: cx0, x1: cx1, y: cf - SLAB, emit: false });
@@ -426,7 +435,14 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
     nums: [String(i * 2 + 1), String(i * 2 + 2)] as [string, string],
   }));
   // The street does not move: a narrower concourse reaches the same entrances by longer corridors.
-  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: [...st.holes, ...voids], ends, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info });
+  // A hillside adit leaves the +z wall for the valley (Narukozaka).
+  const door = spec.adit ? ADIT_X : spec.transfer ? TUNNEL_DOOR : null;
+  const adit = door ? { wallGaps: [{ s: 1 as const, x0: door[0], x1: door[1] }], claims: [[door[0] - 0.5, cw - 3, door[1] + 0.5, cw] as Rect] } : {};
+  // A line crossing further along, reached by a transfer tunnel (Shin-Hibarino).
+  if (spec.transfer && !further) throw new Error(`${station.id}: a transfer tunnel needs a second line`);
+  if (spec.transfer && further) buildTransfer(c, cf, cw, further);
+  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: [...st.holes, ...voids], ends, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info, ...adit });
+  if (spec.adit) buildAdit(c, cf, cw);
   surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
 
@@ -504,6 +520,38 @@ export function quarterTurns(from: [number, number], to: [number, number]): 0 | 
  * joined to the first by three cross passages. The structure keeps the old width (14 m half
  * width, or out past the beside line's passage), so the exits come up where they always did.
  */
+/**
+ * Dress one escalator well (Nankōdai): a luminous ceiling, the line colours climbing the two
+ * long walls as bands that follow the slope, vertical light slots, and a ring of lanterns hung
+ * down the well over the stairs. Frame: the well runs along +z from z0 (top of the flights) to
+ * z1 (their foot), between walls at x = ±w; decoration only.
+ */
+function wellDress(b: Builder, style: StationStyle, upper: string, lower: string, w: number, z0: number, z1: number, base: number, top: number, yTop: number, yFoot: number, run: number) {
+  // Luminous ceiling panels with dark joints.
+  for (let z = z0 + 0.5; z + 2.6 <= z1; z += 3) b.deco('light', -w + 0.4, top - 0.04, z, w - 0.4, top - 0.02, z + 2.6);
+  for (const s of [-1, 1]) {
+    const x0 = s > 0 ? w - 0.03 : -w, x1 = x0 + 0.03;
+    // Bands in both line colours, stepping down the wall alongside the flights.
+    const n = 12;
+    for (let k = 0; k < n; k++) {
+      const za = z0 + (run * k) / n, zb = z0 + (run * (k + 1)) / n, y = yTop - ((yTop - yFoot) * (k + 0.5)) / n;
+      b.deco(`paint:${upper}`, x0, y + 2.9, za, x1, y + 3.1, zb);
+      b.deco(`paint:${lower}`, x0, y + 3.15, za, x1, y + 3.35, zb);
+    }
+    // Tall light slots up the walls, every 4 m.
+    for (let z = z0 + 2; z < z1 - 1; z += 4) b.deco('light', x0 + (s > 0 ? -0.01 : 0.01), base + 1, z - 0.12, x1 + (s > 0 ? -0.01 : 0.01), top - 1, z + 0.12);
+    b.deco(`paint:${style.accent}`, x0, top - 0.6, z0, x1, top - 0.45, z1);
+  }
+  // Lanterns down the well's centre line, high over the flights.
+  for (let z = z0 + 4; z < z1 - 2; z += 6) {
+    const k = (z - z0) / run, y = yTop - (yTop - yFoot) * k + 4.2;
+    if (y + 1 > top - 0.5) continue;
+    b.mesh('metal:#2b2e33', 'cyl', 0, (y + 0.7 + top) / 2, z, 0.05, top - y - 0.7, 0.05);
+    b.mesh('glass', 'sphere', 0, y, z, 1.1, 1.1, 1.1);
+    b.mesh('light', 'sphere', 0, y, z, 0.6, 0.6, 0.6);
+  }
+}
+
 function buildInterchange(
   c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, beside?: { ctx: Ctx; z: number },
 ) {
@@ -515,6 +563,8 @@ function buildInterchange(
   const dY = hallDims(o.line, o.railY);
   const pfY = dY.pf;
   const runY = Math.round((pfN - pfY) * 1.7 * 100) / 100;
+  /** Half width of each transfer shaft's opening: an escalator well, or the plain stair shaft. */
+  const WX = spec.well ? 4.4 : 2.16, WO = spec.well ? 3.9 : 1.86;
   const dK = beside && hallDims(beside.ctx.line, beside.ctx.railY);
   if (beside && beside.ctx.railY !== railY) throw new Error('the line beside the primary must be at its depth');
   // Each side's transfer passage: against the primary's wall, or past the beside line's hall.
@@ -588,8 +638,8 @@ function buildInterchange(
       const cs = concStyle(c), wall = cs.concWall;
       b.box(cs.floor, -26, pfN - SLAB, zc0, 4, pfN, zc1);
       b.box(wall, -26.3, pfN, zc0, -26, pfN + 2.8, zc1 + 0.3);
-      b.wallX(wall, -26, 4, zc1, zc1 + 0.3, pfN, pfN + 2.8, [[-1.86, 1.86]]);
-      b.box(wall, -1.86, pfN + 2.3, zc1, 1.86, pfN + 2.8, zc1 + 0.3);
+      b.wallX(wall, -26, 4, zc1, zc1 + 0.3, pfN, pfN + 2.8, [[-WO, WO]]);
+      b.box(wall, -WO, pfN + 2.3, zc1, WO, pfN + 2.8, zc1 + 0.3);
       b.box('ceil', -26.3, pfN + 2.8, zc0, 4, pfN + 3.3, zc1 + 0.3);
       b.box(wall, 3.7, pfN + 2.8, zc0, 4, cf - SLAB, zc1 + 0.3);
       for (let x = -24; x < 2; x += 5) ceilingLight(b, x, x + 2.6, zc0 + 1.9, zc0 + 2.4, pfN + 2.8);
@@ -621,12 +671,20 @@ function buildInterchange(
         mouths: [{ axis: 'x', at: m[1], u0: m[0], u1: m[2], to: atPrimary ? -1 : 0 }], stairs: [ti],
       });
       // Stairs + escalator down to the other line's island platform.
-      b.with({ rot: 3, t: [0, 0, zc1 + runY] }, () => islandUnit(b, pfY, pfN, runY, null));
-      const shaftTop = pfN + 2.8, shaftBase = pfY + 4.5 + SLAB;
-      for (const sx of [-1, 1]) b.box(wall, Math.min(sx * 1.86, sx * 2.16), shaftBase, zc1 + 0.3, Math.max(sx * 1.86, sx * 2.16), shaftTop, zc1 + runY);
-      b.box(wall, -2.16, shaftBase, zc1 + runY, 2.16, shaftTop, zc1 + runY + 0.3);
-      b.box('ceil', -2.16, shaftTop, zc1 + 0.3, 2.16, shaftTop + 0.5, zc1 + runY + 0.3);
-      ceilingLight(b, -0.3, 0.3, zc1 + 2, zc1 + runY - 2, shaftTop);
+      b.with({ rot: 3, t: [0, 0, zc1 + runY] }, () => {
+        islandUnit(b, pfY, pfN, runY, null);
+        // An escalator either side of the stair in a well: up on the stair's escalator side, down on the other.
+        if (spec.well) {
+          escalator(b, { x0: 0, x1: runY, z0: 2.25, z1: 3.65, yLow: pfY, yHigh: pfN, dir: 1 });
+          escalator(b, { x0: 0, x1: runY, z0: -3.65, z1: -2.25, yLow: pfY, yHigh: pfN, dir: -1 });
+        }
+      });
+      const shaftTop = spec.well ? cf + CONC_CLEAR : pfN + 2.8, shaftBase = pfY + 4.5 + SLAB;
+      for (const sx of [-1, 1]) b.box(wall, Math.min(sx * (WX - 0.3), sx * WX), shaftBase, zc1 + 0.3, Math.max(sx * (WX - 0.3), sx * WX), shaftTop, zc1 + runY);
+      b.box(wall, -WX, shaftBase, zc1 + runY, WX, shaftTop, zc1 + runY + 0.3);
+      b.box('ceil', -WX, shaftTop, zc1 + 0.3, WX, shaftTop + 0.5, zc1 + runY + 0.3);
+      if (spec.well) wellDress(b, style, line.color, o.line.color, WX - 0.3, zc1 + 0.3, zc1 + runY, shaftBase, shaftTop, pfN, pfY, runY);
+      else ceilingLight(b, -0.3, 0.3, zc1 + 2, zc1 + runY - 2, shaftTop);
       // Wayfinding.
       const yName = `${o.line.nameJa} のりば ${o.station.platforms[o.line.id].join('・')}`;
       b.sign({ k: 'guide', ja: yName, en: `${o.line.nameEn} platforms`, bg: 'white', badges: [o.line.id], arrow: 'up' }, 0, pfN + 2.55, zc1 - 0.02, [0, -1], 3.6, 0.44);
@@ -659,7 +717,7 @@ function buildInterchange(
     hall(o, {
       ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pfY + 4.5, emit: true }],
       blocks: yBlocks,
-      ceilHoles: yBlocks.map(([a, e]) => [a, -1.86, e, 1.86]),
+      ceilHoles: yBlocks.map(([a, e]) => [a, -(WX - 0.3), e, WX - 0.3]),
     });
     const guide: SignContent = { k: 'guide', ja: `${line.nameJa} のりかえ・出口`, en: `${line.nameEn} / Exit`, bg: 'white', badges: [line.id], arrow: 'up' };
     const name = { k: 'name', station: station.id, line: o.line.id, arrow: 'right' } as const;
@@ -955,7 +1013,8 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     else {
       // A line beside the primary is the one whose platforms sit off the station point (StationDef.at).
       const side = input.lines.find((l) => l !== p && l !== o && station.at?.[l.line.id]);
-      buildInterchange(mk(p), spec, other, side && { ctx: mk(side), z: besideOffset(station, p, side) });
+      if (spec.mid) buildMidLevel(mk(p), spec, other);
+      else buildInterchange(mk(p), spec, other, side && { ctx: mk(side), z: besideOffset(station, p, side) });
     }
     return { build: b.out, primary: p.line.id };
   }
@@ -967,7 +1026,15 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     const u = input.lines[1];
     buildElevated(mk(l), spec, u && { ctx: mk(u), dir: u.dir, primaryDir: l.dir });
   }
-  else buildUnderground(mk(l), spec);
+  else {
+    // A second line crossing further along (StationDef.at), for a transfer tunnel.
+    const f = input.lines[1];
+    const further = f && station.at?.[f.line.id] ? (() => {
+      const at = station.at![f.line.id]!, dx = at.x - station.position.x, dz = at.y - station.position.y;
+      return { ctx: mk(f), dir: f.dir, primaryDir: l.dir, x: dx * l.dir[0] + dz * l.dir[1] };
+    })() : undefined;
+    buildUnderground(mk(l), spec as UndergroundSpec, further);
+  }
   return { build: b.out, primary: l.line.id };
 }
 

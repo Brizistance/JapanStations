@@ -51,6 +51,12 @@ export interface LineDef {
   inbound?: Dir;
   /** Distance of each track centre from the line centreline, metres. */
   trackOffset: number;
+  /**
+   * Stations where the two tracks run one above the other (Hotarugawa): both at lateral
+   * STACK_LATERAL, the up track STACK_DY above the down track, easing back to side by side
+   * between stations (sim/geometry.ts).
+   */
+  stackAt?: StationId[];
   /** Centreline in world metres (x = east, z = south). Corners are filleted with `radius`. */
   alignment: { vertices: [number, number][]; radius: number };
   service: ServicePattern;
@@ -91,7 +97,8 @@ export interface StationDef {
   position: { x: number; y: number };
   /**
    * Per-line platform centre, for a line that runs alongside another rather than across it
-   * (the Shiokaze Line beside the Akanesuji Line at Kita-Ōdōri). Defaults to `position`.
+   * (the Shiokaze Line beside the Akanesuji Line at Kita-Ōdōri), or that crosses it further
+   * along (the Ichō Line at Shin-Hibarino, reached by a transfer tunnel). Defaults to `position`.
    */
   at?: Partial<Record<LineId, { x: number; y: number }>>;
   /**

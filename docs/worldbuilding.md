@@ -42,7 +42,8 @@ The opening year decides a line's architecture (see "Line themes" in [station-de
 | Akanesuji | 1994 | Planned in the bubble years, so deep and richly finished |
 | Shiokaze | 2004 | Waterfront redevelopment along the Mio-gawa and the bay |
 | Kikyō | 2015 | The crosstown link the south had waited decades for |
-| Sumire | 2023 | The newest line, sharing the Shiokaze Line's track |
+| Sumire | 2023 | Sharing the Shiokaze Line's track |
+| Ichō | 2026 | The newest and deepest: a southern and eastern orbital tying four line ends together |
 
 ## Shops and brands
 

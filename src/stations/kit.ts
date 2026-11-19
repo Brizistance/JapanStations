@@ -100,7 +100,7 @@ const inBlocks = (x: number, blocks: [number, number][], m = 1.2) => blocks.some
 export const PSD_FULL_H = 2.5;
 
 /** Platform screen doors along one platform edge: waist-high gates, or full-height glass screens. */
-function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: number) {
+export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: number) {
   const { b, line } = c;
   const z = zEdge + inward * 0.14;
   const xs = doorXs(line.service.cars);
@@ -248,6 +248,9 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   const inGap = (s: number, x: number, m = 1.6) => gaps.some((g) => g.s === s && x > g.x0 - m && x < g.x1 + m);
   if (o.elevated) {
     b.slab('concrete', -H, -wallZ - 0.6, H, wallZ + 0.6, railY - 1.3, bedY, holes);
+  } else if (holes.length) {
+    // Stairs arriving from below (Harunodai) come up through the base as well as the platform.
+    b.slab('concrete', -H, -wallZ - 0.5, H, wallZ + 0.5, railY - 1.0, bedY, holes);
   } else {
     b.box('concrete', -H, railY - 1.0, -wallZ - 0.5, H, bedY, wallZ + 0.5);
   }

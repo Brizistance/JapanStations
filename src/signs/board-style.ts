@@ -15,6 +15,7 @@ export const BOARD: Record<LineId, { style: BoardStyle; opened: number }> = {
   S: { style: 'lcd', opened: 2004 },
   K: { style: 'lcd', opened: 2015 },
   M: { style: 'lcd', opened: 2023 },
+  G: { style: 'lcd', opened: 2026 },
 };
 
 export const lineBoard = (id: LineId): BoardStyle => BOARD[id]?.style ?? 'lcd';
