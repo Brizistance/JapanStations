@@ -109,6 +109,67 @@ export const PLACE = {
 } satisfies Record<string, Named>;
 const { canal: DEFAULT_CANAL, arcade: DEFAULT_ARCADE, ferry: FERRY, promenade: PROMENADE, plaza: PLAZA, busTaxi: BUS_TAXI, mart: MART, bikes: BIKES } = PLACE;
 
+/** Map fills for an open-air plan (draw.ts areaOpenAir). */
+export type AreaFill = 'house' | 'apartment' | 'road' | 'plaza' | 'track' | 'green' | 'shop' | 'deck';
+/**
+ * open-air.ts: the plan of each open-air layout, shared by the builder, the exit boards and the
+ * area map. Station frame (+x along the line towards Shiondai), metres.
+ */
+export interface OpenAirPlan {
+  /** The station building or concourse. */
+  box: PlanRect;
+  areas: { r: PlanRect; fill: AreaFill; label?: Named }[];
+  bus: [number, number];
+  taxi?: [number, number];
+  /** Street entrances (no exit numbers, as at the other open-air stations). */
+  exits: { rect: PlanRect; side: -1 | 0 | 1; near: Named[] }[];
+}
+const KASUMIDANI_BUS: Named = { ja: '霞谷バスのりば', en: 'Kasumidani bus stop' };
+const SHIONDAI_BUS: Named = { ja: '紫苑台バスターミナル', en: 'Shiondai Bus Terminal' };
+const SHIONDAI_MALL: Named = { ja: '紫苑台タウンプラザ', en: 'Shiondai Town Plaza' };
+const SHIONDAI_PARK: Named = { ja: '紫苑台中央公園', en: 'Shiondai Central Park' };
+export const OPEN_AIR: Record<'cutting' | 'terminus', OpenAirPlan> = {
+  // Kasumidani: the cutting runs the whole plot; the bridge building spans it at x = 0 … 15.
+  cutting: {
+    box: [0, -15, 15, 15],
+    areas: [
+      { r: [-130, -8.1, 130, 8.1], fill: 'track' },
+      { r: [-130, -12, -116, 12], fill: 'green', label: { ja: '霞谷トンネル', en: 'Kasumidani Tunnel' } },
+      { r: [-6, -30, 26, -15], fill: 'plaza', label: PLACE.plaza },
+      { r: [-130, -38, 130, -30], fill: 'road' },
+      { r: [-130, 16, 130, 22], fill: 'road' },
+      { r: [-126, -80, 124, -42], fill: 'house', label: KIND.house },
+      { r: [-126, 24, 124, 80], fill: 'house', label: KIND.house },
+    ],
+    bus: [8, -26],
+    exits: [
+      { rect: [9, -15.2, 14, -15], side: -1, near: [KASUMIDANI_BUS, PLACE.plaza] },
+      { rect: [9, 15, 14, 15.2], side: 1, near: [KIND.house] },
+    ],
+  },
+  // Shiondai: the concourse is under the platform's +x end; the bus terminal and the deck to
+  // the shopping centre are on the +z side.
+  terminus: {
+    box: [24, -8, 60, 8],
+    areas: [
+      { r: [-130, -8.3, 130, 8.3], fill: 'track' },
+      { r: [20, 8, 60, 22], fill: 'plaza', label: PLACE.plaza },
+      { r: [-130, 22, 130, 44], fill: 'road', label: SHIONDAI_BUS },
+      { r: [-130, -26, 130, -18], fill: 'road' },
+      { r: [-10, 50, 80, 82], fill: 'shop', label: SHIONDAI_MALL },
+      { r: [-126, 50, -20, 82], fill: 'green', label: SHIONDAI_PARK },
+      { r: [-126, -80, 124, -32], fill: 'apartment', label: KIND.apartment },
+      { r: [26, 12, 34, 50], fill: 'deck' },
+    ],
+    bus: [-25, 33],
+    taxi: [53, 27],
+    exits: [
+      { rect: [27, 7.85, 35, 8], side: 1, near: [SHIONDAI_BUS, SHIONDAI_MALL, PLACE.plaza] },
+      { rect: [23.85, -3, 24, 3], side: 0, near: [KIND.apartment, SHIONDAI_PARK] },
+    ],
+  },
+};
+
 /** A thing at street level: its extent along the road and which side it is on (0 = both). */
 interface Feature {
   n: Named;
@@ -310,6 +371,7 @@ function derive(id: StationId): StationStreet {
       return { kind: 'hub', exits: withNear(hubFeatures(), es) };
     }
     case 'elevated': {
+      if (spec.layout) return { kind: 'elevated', exits: OPEN_AIR[spec.layout].exits.map((e) => ({ num: '', ...e })) };
       // Two street entrances: the wide south front onto the plaza, and the west end.
       const [x0, , cw] = ELEVATED.concourse;
       return {

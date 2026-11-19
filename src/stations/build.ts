@@ -14,6 +14,7 @@ import {
 } from './kit';
 import { buildHub } from './hub';
 import { buildAtrium } from './atrium';
+import { buildOpenAir } from './open-air';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
 import type { ConcInfo, ConcRoom, ExitDoor, StairInfo, Stairwell, WallFace } from './looks/types';
@@ -899,7 +900,8 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     return { build: b.out, primary: p.line.id };
   }
   const l = input.lines[0];
-  if (spec.kind === 'elevated') {
+  if (spec.kind === 'elevated' && spec.layout) buildOpenAir(mk(l), spec);
+  else if (spec.kind === 'elevated') {
     // A second line here crosses underneath (Hibarino).
     const u = input.lines[1];
     buildElevated(mk(l), spec, u && { ctx: mk(u), dir: u.dir, primaryDir: l.dir });

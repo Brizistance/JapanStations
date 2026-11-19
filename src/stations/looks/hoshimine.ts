@@ -1,7 +1,7 @@
-// Station look: Hoshimine (星峰), the Akanesuji Line's ridge-top terminus below the city
-// observatory. See Plans/features/station-looks/plan.md.
+// Station look: Hoshimine (星峰), the Akanesuji Line's ridge-top station below the city
+// observatory (its terminus until the 2008 extension). See Plans/features/station-looks/plan.md.
 //
-// "Under the night sky": a quiet terminus that feels like a planetarium foyer. Midnight-blue
+// "Under the night sky": a quiet station that feels like a planetarium foyer. Midnight-blue
 // tile, a blue-black ceiling full of stars (denser over the unpaid hall and the gates, a Milky
 // Way band, a few invented figures picked out in brass), a brass horizon line with the ridge
 // and the observatory dome in silhouette along one wall and the phases of the moon along the

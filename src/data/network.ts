@@ -35,6 +35,7 @@ const A_SUJI_X = 1070; // Akane-suji, through Aizomechō
 const A_ODORI_Z = -680; // Kita-Ōdōri avenue, through the hub
 const A_HILL_X = 3000;
 const A_RIDGE_Z = -2500; // the ridge road it follows east, out to Hoshimine
+const A_VALLEY_X = 7000; // beyond the ridge: the valley road it turns north along, to Shiondai
 const along = (o: [number, number], d: [number, number], t: number): [number, number] => [
   o[0] + d[0] * t,
   o[1] + d[1] * t,
@@ -123,19 +124,21 @@ export const LINES: LineDef[] = [
     // under Kita-Ōdōri avenue, then north into the hills: a stair-step diagonal that
     // crosses each older line once, at right angles, 7.5 m below it. West of Kamomehama it
     // runs out under the bay to the reclaimed islands; in the hills it turns east along
-    // the ridge road to Hoshimine.
+    // the ridge road to Hoshimine. The 2008 extension leaves the tunnel on the far side of the
+    // ridge, in an open cutting at Kasumidani, then climbs onto a viaduct and turns north to
+    // the new town at Shiondai.
     id: 'A',
     nameEn: 'Akanesuji Line',
     nameJa: '茜筋線',
     nameKana: 'あかねすじせん',
     color: '#b7282e',
     type: 'metro',
-    stops: ['shin-kamome', 'shiosai-koen', 'kamomehama', 'watayamachi', 'aizomecho', 'kita-odori', 'suzukakedori', 'tsukimizaka', 'yamabukidai', 'momijigaoka', 'seiryodai', 'hoshimine'],
-    railY: [-14, -16, -15, -17, -19.5, -20.5, -18, -16, -14, -12, -11, -10],
+    stops: ['shin-kamome', 'shiosai-koen', 'kamomehama', 'watayamachi', 'aizomecho', 'kita-odori', 'suzukakedori', 'tsukimizaka', 'yamabukidai', 'momijigaoka', 'seiryodai', 'hoshimine', 'kasumidani', 'shiondai'],
+    railY: [-14, -16, -15, -17, -19.5, -20.5, -18, -16, -14, -12, -11, -10, -5.2, 7.5],
     platformType: 'island',
     platformDoors: 'full',
     trackOffset: 5.5,
-    alignment: { vertices: [[-1380, 1400], [A_SUJI_X, 1400], [A_SUJI_X, A_ODORI_Z], [A_HILL_X, A_ODORI_Z], [A_HILL_X, A_RIDGE_Z], [5820, A_RIDGE_Z]], radius: 400 },
+    alignment: { vertices: [[-1380, 1400], [A_SUJI_X, 1400], [A_SUJI_X, A_ODORI_Z], [A_HILL_X, A_ODORI_Z], [A_HILL_X, A_RIDGE_Z], [A_VALLEY_X, A_RIDGE_Z], [A_VALLEY_X, -3700]], radius: 400 },
     service: { ...baseService, headwayS: 300 },
   },
   {
@@ -597,7 +600,33 @@ export const STATIONS: StationDef[] = [
     district: 'North-east ridge',
     districtJa: '北東尾根',
     platforms: { A: [1, 2] },
-    blurb: 'Ridge-top terminus below the city observatory.',
+    blurb: 'Ridge-top station below the city observatory.',
+  },
+  {
+    id: 'kasumidani',
+    nameJa: '霞谷',
+    nameKana: 'かすみだに',
+    nameRomaji: 'Kasumidani',
+    numbers: { A: 'A-13' },
+    position: { x: 6250, y: A_RIDGE_Z },
+    diagram: { x: 1670, y: 100 },
+    district: 'Kasumi valley',
+    districtJa: '霞谷',
+    platforms: { A: [1, 2] },
+    blurb: 'Where the line leaves the ridge tunnel: an open cutting in a misty valley of terraced houses.',
+  },
+  {
+    id: 'shiondai',
+    nameJa: '紫苑台',
+    nameKana: 'しおんだい',
+    nameRomaji: 'Shiondai',
+    numbers: { A: 'A-14' },
+    position: { x: A_VALLEY_X, y: -3250 },
+    diagram: { x: 1810, y: 100 },
+    district: 'North-east new town',
+    districtJa: '北東ニュータウン',
+    platforms: { A: [1, 2] },
+    blurb: 'Elevated terminus of the 1990s aster new town, with a bus terminal and a shopping centre on a pedestrian deck.',
   },
   // ── Shiokaze Line ──
   {

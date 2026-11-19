@@ -81,6 +81,10 @@ export interface HallOpts {
   blocks: [number, number][];
   /** Open-air viaduct station: deck, back walls and canopies instead of a tunnel box. */
   elevated?: boolean;
+  /** Open-air, in a cutting: retaining walls up to street level instead of glazed back walls. */
+  cutting?: boolean;
+  /** false: no canopies or canopy lights; the composer roofs the platform itself. */
+  roof?: false;
   /** Holes in the platform slab (stairs arriving from below), [x0, z0, x1, z1]. */
   platHoles?: number[][];
   /** Holes in the ceiling (stair shafts rising out of the hall). */
@@ -359,18 +363,30 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
     for (const s of [-1, 1]) {
       const z0 = s * wallZ, z1 = s * (wallZ + 0.2);
       const lo = Math.min(z0, z1), hi = Math.max(z0, z1);
-      b.wallX('panel:#e4e6e8', -P, P, lo, hi, pf, pf + 1.1);
-      b.block(-P, pf + 1.1, lo, P, pf + 3.3, hi);
-      b.deco('glass', -P, pf + 1.1, lo + 0.07, P, pf + 2.5, hi - 0.07);
-      b.deco('panel:#e4e6e8', -P, pf + 2.5, lo, P, pf + 3.3, hi);
-      for (let x = -P; x <= P; x += 5.8) b.deco('flat:#8d949b', x - 0.1, pf, lo - 0.05, x + 0.1, pf + 3.4, hi + 0.05);
-      // Canopy.
-      const c0 = s * (pe - 0.7), c1 = s * (wallZ + 0.7);
-      b.deco('flat:#eef0f2', -P - 1, pf + 3.3, Math.min(c0, c1), P + 1, pf + 3.45, Math.max(c0, c1));
-      b.deco(`flat:${line.color}`, -P - 1, pf + 3.1, s * (pe - 0.7) - 0.04, P + 1, pf + 3.3, s * (pe - 0.7) + 0.04);
+      if (o.cutting) {
+        // Board-marked retaining wall up to street level, with a line-colour band at door height.
+        const zb = s * (wallZ + 0.4);
+        b.box('concrete', -H, bedY, Math.min(z0, zb), H, 0, Math.max(z0, zb));
+        const zi = s * (wallZ - 0.02);
+        b.deco(`paint:${line.color}`, -H, pf + 2.62, Math.min(z0, zi), H, pf + 2.8, Math.max(z0, zi));
+        b.deco(`paint:${style.accent}`, -H, pf + 2.56, Math.min(z0, zi), H, pf + 2.62, Math.max(z0, zi));
+        for (let y = bedY + 0.6; y < -0.2; y += 0.6) b.deco('concreteDark', -H, y, Math.min(z0, zi), H, y + 0.03, Math.max(z0, zi));
+      } else {
+        b.wallX('panel:#e4e6e8', -P, P, lo, hi, pf, pf + 1.1);
+        b.block(-P, pf + 1.1, lo, P, pf + 3.3, hi);
+        b.deco('glass', -P, pf + 1.1, lo + 0.07, P, pf + 2.5, hi - 0.07);
+        b.deco('panel:#e4e6e8', -P, pf + 2.5, lo, P, pf + 3.3, hi);
+        for (let x = -P; x <= P; x += 5.8) b.deco('flat:#8d949b', x - 0.1, pf, lo - 0.05, x + 0.1, pf + 3.4, hi + 0.05);
+      }
+      if (o.roof !== false) {
+        // Canopy.
+        const c0 = s * (pe - 0.7), c1 = s * (wallZ + 0.7);
+        b.deco('flat:#eef0f2', -P - 1, pf + 3.3, Math.min(c0, c1), P + 1, pf + 3.45, Math.max(c0, c1));
+        b.deco(`flat:${line.color}`, -P - 1, pf + 3.1, s * (pe - 0.7) - 0.04, P + 1, pf + 3.3, s * (pe - 0.7) + 0.04);
+      }
     }
     // Deck parapets beyond the platforms.
-    for (const s of [-1, 1]) {
+    for (const s of o.cutting ? [] : [-1, 1]) {
       for (const [xa, xb] of [[-H, -P], [P, H]]) {
         b.box('concrete', xa, bedY, Math.min(s * wallZ, s * (wallZ + 0.6)), xb, bedY + 1.3, Math.max(s * wallZ, s * (wallZ + 0.6)));
       }
@@ -404,7 +420,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       }
     }
   }
-  if (o.elevated) {
+  if (o.elevated && o.roof !== false) {
     for (let x = -P + 2; x + 3 <= P; x += 5) {
       for (const z of lightRows) ceilingLight(b, x, x + 3, z - 0.1, z + 0.1, pf + 3.3);
     }

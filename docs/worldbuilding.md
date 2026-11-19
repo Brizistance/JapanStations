@@ -161,7 +161,9 @@ Invented with each station's look (`src/stations/looks/<station>.ts`), 2026-11-1
 | A-02 | 潮騒公園 | しおさいこうえん | Shiosai-kōen | South bay | Seaside park; shiosai = the sound of the surf |
 | A-10 | 紅葉ヶ丘 | もみじがおか | Momijigaoka | North-east hills | Maple hillside, scarlet in November |
 | A-11 | 清涼台 | せいりょうだい | Seiryōdai | North-east plateau | Cool upland estate and research campus |
-| A-12 | 星峰 | ほしみね | Hoshimine | North-east ridge | Ridge-top terminus below the city observatory |
+| A-12 | 星峰 | ほしみね | Hoshimine | North-east ridge | Ridge-top station below the city observatory |
+| A-13 | 霞谷 | かすみだに | Kasumidani | Kasumi valley | Open cutting where the line leaves the ridge tunnel (2008); names web-searched 2026-11-18, no real station |
+| A-14 | 紫苑台 | しおんだい | Shiondai | North-east new town | Elevated terminus of the 1990s aster new town, bus terminal and shopping centre (2008) |
 | S-09 | 潮見 | しおみ | Shiomi | North-west waterfront | Terminus at the tip of the river-mouth landfill |
 | S-10 | 西夕凪 | にしゆうなぎ | Nishi-Yūnagi | North-west waterfront | Quiet apartments west of Yūnagihama |
 | S-17 | 花みずき | はなみずき | Hanamizuki | South-east | Dogwood avenue; future junction for the Sumire Line |

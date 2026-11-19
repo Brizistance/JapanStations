@@ -5,9 +5,10 @@ import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
 import { trainStateAt } from '../sim/timetable';
 import {
-  ELEVATED, KIND, PLACE, PLOT, STREET, concourseY, mezzanineY, stationExits, stationStreet,
-  type Named, type PlanRect, type StationExit, type StationStreet,
+  ELEVATED, KIND, OPEN_AIR, PLACE, PLOT, STREET, concourseY, mezzanineY, stationExits, stationStreet,
+  type AreaFill, type Named, type OpenAirPlan, type PlanRect, type StationExit, type StationStreet,
 } from '../stations/exits';
+import { SPECS } from '../stations/specs';
 import type { BlockStyle } from '../stations/surface';
 import type { Arrow, Picto, SignContent } from './content';
 import { boardPixels, boards, drawDep, drawDepAll, platformNo } from './departures';
@@ -403,6 +404,57 @@ function drawMachine(ctx: Ctx, W: number, H: number, v: string) {
 
 function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'mural' }>) {
   const col = c.color;
+  if (c.v === 'mist') {
+    // Kasumidani: ridgelines one behind another, each paler, with mist lying in the valleys.
+    ctx.fillStyle = '#eef1f3';
+    ctx.fillRect(0, 0, W, H);
+    for (let k = 0; k < 6; k++) {
+      ctx.fillStyle = col;
+      ctx.globalAlpha = 0.14 + k * 0.15;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      const base = H * (0.3 + k * 0.11);
+      for (let i = 0; i <= 48; i++) {
+        const x = (i / 48) * W;
+        const y = base - H * 0.09 * (Math.sin(i * 0.37 + k * 1.9) + 0.6 * Math.sin(i * 0.91 + k * 0.7));
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.fill();
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = '#eef1f3';
+      ctx.fillRect(0, base + H * 0.035, W, H * 0.025);
+    }
+    ctx.globalAlpha = 1;
+    return;
+  }
+  if (c.v === 'aster') {
+    // Shiondai: asters (紫苑), lilac rays round a yellow disc, on tall stems.
+    ctx.fillStyle = '#f6f4f9';
+    ctx.fillRect(0, 0, W, H);
+    const r = H / 9;
+    for (let i = 0; i < 26; i++) {
+      const cx = ((i * 0.618) % 1) * W, cy = H * (0.18 + ((i * 0.382) % 1) * 0.5);
+      ctx.strokeStyle = '#6f8f5a';
+      ctx.lineWidth = r * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + r * 0.3, H);
+      ctx.stroke();
+      ctx.fillStyle = col;
+      for (let p = 0; p < 16; p++) {
+        const a = (p / 16) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.ellipse(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.55, r * 0.42, r * 0.1, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#e8b830';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
   if (c.v === 'weave') {
     // Tsumugi: woven kasuri stripes.
     ctx.fillStyle = '#f1e9da';
@@ -1588,7 +1640,9 @@ function drawAreaMap(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k
   ctx.clip();
   R(-X, -Z, X, Z, '#ebe8df');
   const m: MapCtx = { R, P, sc, lp, box: [...P(-X, -Z), ...P(X, Z)], placed: [] };
+  const spec = SPECS[st.id];
   if (plan.kind === 'street') areaStreet(ctx, st, plan, m);
+  else if (spec.kind === 'elevated' && spec.layout) areaOpenAir(ctx, st, plan.exits, m, OPEN_AIR[spec.layout]);
   else areaElevated(ctx, st, plan.exits, m);
   ctx.restore();
   ctx.strokeStyle = '#9aa0a6';
@@ -1725,6 +1779,34 @@ function areaStreet(ctx: Ctx, st: StationDef, plan: Extract<StationStreet, { kin
   for (const l of [...labels.filter((q) => !q.plain), ...labels.filter((q) => q.plain)]) {
     const [x, y] = P(l.x, l.z);
     mapLabel(ctx, l.n, x, y, lp, 70 * sc, m.box, m.placed);
+  }
+}
+
+/** Kasumidani and Shiondai: their own plans (exits.ts OPEN_AIR). */
+function areaOpenAir(ctx: Ctx, st: StationDef, exits: StationExit[], m: MapCtx, plan: OpenAirPlan) {
+  const { R, P, sc, lp } = m;
+  const line = linesAt(st.id)[0];
+  const fill: Record<AreaFill, string> = {
+    house: BLOCK_FILL.house, apartment: BLOCK_FILL.apartment, road: '#d6d3cb', plaza: '#f3f1ea',
+    track: '#c3c7cc', green: BLOCK_FILL.park, shop: '#d9d2e6', deck: '#b9b0d6',
+  };
+  for (const a of plan.areas) {
+    R(a.r[0], a.r[1], a.r[2], a.r[3], fill[a.fill]);
+    if (a.fill === 'track') R(a.r[0], -1, a.r[2], 1, line.color);
+  }
+  areaStation(ctx, st, plan.box, m);
+  areaExits(ctx, exits, m);
+  const icon = (v: Picto, [x, z]: [number, number]) => {
+    const [px, pz] = P(x, z), s = Math.max(lp * 1.4, sc * 6);
+    pictogram(ctx, v, px - s / 2, pz - s / 2, s);
+    m.placed.push([px - s / 2, pz - s / 2, px + s / 2, pz + s / 2]);
+  };
+  icon('bus', plan.bus);
+  if (plan.taxi) icon('taxi', plan.taxi);
+  for (const a of plan.areas) {
+    if (!a.label) continue;
+    const [px, pz] = P((a.r[0] + a.r[2]) / 2, (a.r[1] + a.r[3]) / 2);
+    mapLabel(ctx, a.label, px, pz, lp, 70 * sc, m.box, m.placed);
   }
 }
 

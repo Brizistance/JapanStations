@@ -40,6 +40,14 @@ export interface AtriumSpec {
 }
 export interface ElevatedSpec {
   kind: 'elevated';
+  /**
+   * Open-air layouts of their own (open-air.ts). Default: the viaduct station with a concourse
+   * under the deck and a stair to each side platform. 'cutting': an island in an open cutting
+   * with a station building bridging it at street level (Kasumidani). 'terminus': a viaduct
+   * terminus under one barrel vault, its hall under the platform end, a pedestrian deck to the
+   * plaza (Shiondai).
+   */
+  layout?: 'cutting' | 'terminus';
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -409,6 +417,29 @@ export const SPECS: Record<StationId, StationSpec> = {
       seed: 227, roadHalf: 6, cross: [72], left: 'park', right: 'apartment', trees: true, poles: true,
       parkName: { ja: '泉ヶ丘公園', en: 'Izumigaoka Park' },
     },
+  },
+  // ── Akanesuji Line, the 2008 extension ──
+  // Where the line leaves the ridge tunnel: an island in an open cutting, a glazed bridge
+  // building over it, a sawtooth canopy. Mist greys and slate, a layered-ridges mural.
+  kasumidani: {
+    kind: 'elevated',
+    layout: 'cutting',
+    style: {
+      wall: 'panel:#dfe5ea', concWall: 'panel:#e9eef1', floor: 'floor:#c9cdd0', pillar: 'paint:#5b6a78',
+      accent: '#5b6a78', mural: { v: 'mist', color: '#5b6a78' },
+    },
+    surface: { seed: 241, roadHalf: 5, cross: [], left: 'house', right: 'house', trees: true, poles: true },
+  },
+  // New-town terminus: one barrel vault over the viaduct, lilac steel, an aster mural, a bus
+  // terminal and a shopping centre reached by a pedestrian deck.
+  shiondai: {
+    kind: 'elevated',
+    layout: 'terminus',
+    style: {
+      wall: 'panel:#ebe8f1', concWall: 'panel:#f2f0f6', floor: 'floor:#d3d0d8', pillar: 'paint:#8a7fb8',
+      accent: '#8a7fb8', mural: { v: 'aster', color: '#8a7fb8' },
+    },
+    surface: { seed: 251, roadHalf: 8, cross: [], left: 'apartment', right: 'apartment', trees: true },
   },
   // ── Akanesuji Line, west (the reclaimed islands) ──
   // Newest island terminus: white panels, gulls, apartment towers facing the bay.

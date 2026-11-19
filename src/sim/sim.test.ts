@@ -146,10 +146,11 @@ describe('network data', () => {
       for (const id of g.def.passes ?? []) expect(g.def.stops).not.toContain(id);
     }
   });
-  it('the Akanesuji Line stays in bored tunnel end to end', () => {
-    // The Akanesuji Line never surfaces: no open cut or viaduct to draw.
+  it('the Akanesuji Line stays in bored tunnel until the 2008 extension past Hoshimine', () => {
+    // Underground through Hoshimine; only Kasumidani (cutting) and Shiondai (viaduct) are open.
     const a = lineSim('A').geom;
-    expect(Math.max(...a.def.railY)).toBeLessThan(-6);
+    const h = a.def.stops.indexOf('hoshimine');
+    expect(Math.max(...a.def.railY.slice(0, h + 1))).toBeLessThan(-6);
   });
 });
 
