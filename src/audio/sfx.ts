@@ -46,7 +46,28 @@ const MOODS = ['cheerful and bouncy', 'calm and gentle', 'nostalgic and warm', '
 
 export const STEP_COUNT = 6;
 
+// ── Inside the car: steady loops, pitched and faded live by the train's speed ──
+
+/** Motor sound by line era: classic musical inverter whine → early IGBT → quiet modern SiC. */
+export const MOTOR_OF: Record<string, string> = { Y: 'motor-classic', N: 'motor-classic', A: 'motor-mid', S: 'motor-modern', K: 'motor-modern', M: 'motor-modern' };
+const IN_CAR = 'Recorded inside the passenger car.';
+
+export const CAR_SFX: Sfx[] = [
+  { name: 'motor-classic', seconds: 6, loop: true, prompt: `Japanese subway train GTO VVVF inverter traction motor: a loud, musical electronic whine at one steady pitch, constant, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'motor-mid', seconds: 6, loop: true, prompt: `Japanese commuter train IGBT VVVF inverter traction motor: a steady electronic whine with a low hum, one constant pitch, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'motor-modern', seconds: 6, loop: true, prompt: `Modern quiet SiC inverter traction motor of a new Japanese train: a soft smooth hum with a faint high whine, one constant pitch, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'roll-tunnel', seconds: 8, loop: true, prompt: `Subway train running at steady speed through a tunnel: deep roaring rumble, wheel noise echoing off tunnel walls, constant, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'roll-open', seconds: 8, loop: true, prompt: `Commuter train running at steady speed on elevated track in the open air: smooth rolling wheels, light wind, constant, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'rail-joints', seconds: 4, loop: true, prompt: `Train wheels clicking over rail joints, rhythmic ta-tan ta-tan, steady tempo, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'curve-squeal', seconds: 5, loop: true, prompt: 'Steel train wheel flange squeal on a tight curve: sustained high metallic screech, seamless loop. No voice.' },
+  { name: 'pass-whoosh', seconds: 3, prompt: `Another subway train passing in the opposite direction in a tunnel, heard from inside a train: a sudden loud whoosh and rumble that quickly fades. ${IN_CAR} No voice.` },
+  { name: 'car-ac', seconds: 10, loop: true, prompt: `Inside a stopped Japanese commuter train: steady air-conditioning hum and ventilation fans, quiet, seamless loop. ${IN_CAR} No voice, no music.` },
+  { name: 'car-creak', seconds: 8, loop: true, prompt: `Inside a moving train: soft occasional creaks and rattles of the car body, handles and fittings, quiet, seamless loop. ${IN_CAR} No voice.` },
+  { name: 'car-door-open', seconds: 3, prompt: `Inside a Japanese commuter train: a short two-tone door chime, then the doors slide open with a pneumatic hiss. ${IN_CAR} No voice.` },
+  { name: 'car-door-close', seconds: 3.5, prompt: `Inside a Japanese commuter train: the door-closing chime, then the doors slide shut with a soft thud. ${IN_CAR} No voice.` },
+];
 export const SFX: Sfx[] = [
+  ...CAR_SFX,
   {
     name: 'chime',
     prompt: `Japanese train station attention chime: four clean electronic bell tones ascending, like a school bell, before an announcement. ${PA} ${NO_VOICE}`,

@@ -14,7 +14,7 @@ import { platformNo, platformTrains, statusOf, type Status } from '../signs/depa
 import { trains } from '../trains/system';
 import { announce, hushVoice, paIdle, playAt, playSeqAt, playStep, setAmbience, setRoom, setSpeakers, tickListener, type Ambience, type Hearing, type SoundHandle } from './engine';
 import { announcement, NOTICES, PLATFORM_DOOR, type Event } from './phrases';
-import { tickCarAudio } from './car';
+import { tickCarAudio, tickCarNoise } from './car';
 import { approachSfx, melodySeconds, melodySfx, STEP_COUNT } from './sfx';
 
 /** The announcement a status change calls for, if any. Doors closing is timed separately. */
@@ -144,7 +144,9 @@ function room(under: boolean, w: StationWorld | null, line: string | undefined) 
 
 function ambience(playing: boolean, under: boolean): Ambience {
   const z = where.zone;
-  if (!playing || where.train) return null;
+  if (!playing) return null;
+  // On a train: the platform drifts in through open doors.
+  if (where.train) return where.train.state.doorOpen > 0.3 ? (under ? 'amb-platform' : 'amb-outdoor') : null;
   if (!under) return 'amb-outdoor';
   return z?.kind === 'platform' ? 'amb-platform' : 'amb-concourse';
 }
@@ -178,12 +180,16 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
   tickListener(cam.x, cam.y, cam.z, yaw, h);
   listenerAt = [cam.x, cam.y, cam.z];
   if (playing) tickCarAudio();
+  tickCarNoise();
   const amb = ambience(playing, under);
-  setAmbience(amb, amb === 'amb-outdoor' && zone?.kind === 'street' ? 0.6 : 1);
+  setAmbience(amb, where.train ? 0.45 : amb === 'amb-outdoor' && zone?.kind === 'street' ? 0.6 : 1);
   if (playing) tickSteps(dt);
 
   // Which platform's sound we follow: the one stood on, else the station's main line.
-  const lineId = !playing || !st || clock.scale !== 1 ? undefined : zone?.kind === 'platform' && zone.line ? zone.line : where.station!.primary;
+  // Which platform's sound we follow: the one stood on, the riding train's line, else the station's main line.
+  const ride = where.train?.sim.geom.def;
+  const rideLine = ride && st?.platforms[ride.shares?.line ?? ride.id] ? ride.shares?.line ?? ride.id : undefined;
+  const lineId = !playing || !st || clock.scale !== 1 ? undefined : zone?.kind === 'platform' && zone.line ? zone.line : rideLine ?? where.station!.primary;
   const key = st && lineId && st.platforms[lineId] && h.level > 0 ? `${st.id}:${lineId}` : null;
   if (playing) setRoom(room(under, where.station, lineId));
   if (key !== here) {

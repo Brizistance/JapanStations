@@ -343,5 +343,65 @@
   "prompt": "Japanese platform screen door warning chime: a short repeating two-tone electronic beep from a small speaker on the door, then the glass doors start sliding. No voice.",
   "seconds": 2,
   "loop": false
+ },
+ "motor-classic": {
+  "prompt": "Japanese subway train GTO VVVF inverter traction motor: a loud, musical electronic whine at one steady pitch, constant, seamless loop. Recorded inside the passenger car. No voice.",
+  "seconds": 6,
+  "loop": true
+ },
+ "motor-mid": {
+  "prompt": "Japanese commuter train IGBT VVVF inverter traction motor: a steady electronic whine with a low hum, one constant pitch, seamless loop. Recorded inside the passenger car. No voice.",
+  "seconds": 6,
+  "loop": true
+ },
+ "motor-modern": {
+  "prompt": "Modern quiet SiC inverter traction motor of a new Japanese train: a soft smooth hum with a faint high whine, one constant pitch, seamless loop. Recorded inside the passenger car. No voice.",
+  "seconds": 6,
+  "loop": true
+ },
+ "roll-tunnel": {
+  "prompt": "Subway train running at steady speed through a tunnel: deep roaring rumble, wheel noise echoing off tunnel walls, constant, seamless loop. Recorded inside the passenger car. No voice.",
+  "seconds": 8,
+  "loop": true
+ },
+ "roll-open": {
+  "prompt": "Commuter train running at steady speed on elevated track in the open air: smooth rolling wheels, light wind, constant, seamless loop. Recorded inside the passenger car. No voice.",
+  "seconds": 8,
+  "loop": true
+ },
+ "rail-joints": {
+  "prompt": "Train wheels clicking over rail joints, rhythmic ta-tan ta-tan, steady tempo, seamless loop. Recorded inside the passenger car. No voice.",
+  "seconds": 4,
+  "loop": true
+ },
+ "curve-squeal": {
+  "prompt": "Steel train wheel flange squeal on a tight curve: sustained high metallic screech, seamless loop. No voice.",
+  "seconds": 5,
+  "loop": true
+ },
+ "pass-whoosh": {
+  "prompt": "Another subway train passing in the opposite direction in a tunnel, heard from inside a train: a sudden loud whoosh and rumble that quickly fades. Recorded inside the passenger car. No voice.",
+  "seconds": 3,
+  "loop": false
+ },
+ "car-ac": {
+  "prompt": "Inside a stopped Japanese commuter train: steady air-conditioning hum and ventilation fans, quiet, seamless loop. Recorded inside the passenger car. No voice, no music.",
+  "seconds": 10,
+  "loop": true
+ },
+ "car-creak": {
+  "prompt": "Inside a moving train: soft occasional creaks and rattles of the car body, handles and fittings, quiet, seamless loop. Recorded inside the passenger car. No voice.",
+  "seconds": 8,
+  "loop": true
+ },
+ "car-door-open": {
+  "prompt": "Inside a Japanese commuter train: a short two-tone door chime, then the doors slide open with a pneumatic hiss. Recorded inside the passenger car. No voice.",
+  "seconds": 3,
+  "loop": false
+ },
+ "car-door-close": {
+  "prompt": "Inside a Japanese commuter train: the door-closing chime, then the doors slide shut with a soft thud. Recorded inside the passenger car. No voice.",
+  "seconds": 3.5,
+  "loop": false
  }
 }
