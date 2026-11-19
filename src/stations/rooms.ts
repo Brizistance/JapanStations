@@ -80,12 +80,17 @@ export interface WallPlan {
 
 /**
  * Plan the walls of the spine (half width `cw`, x0 … x1, long walls `spineT` thick unless a room
- * sits closer) and of the rooms beyond it. `exits` are the exit doorways in the long walls.
+ * sits closer) and of the rooms beyond it. `exits` are the exit doorways in the long walls;
+ * `open` are stretches of the long walls left out onto floor the composer builds itself.
  */
-export function planWalls(x0: number, x1: number, cw: number, spineT: number, exits: { s: 1 | -1; x0: number; x1: number; num: string }[], rooms: RoomSpec[]): WallPlan {
+export function planWalls(
+  x0: number, x1: number, cw: number, spineT: number, exits: { s: 1 | -1; x0: number; x1: number; num: string }[], rooms: RoomSpec[],
+  open: { s: 1 | -1; x0: number; x1: number }[] = [],
+): WallPlan {
   const areas = [{ rect: [x0, -cw, x1, cw] as Rect, t: spineT }, ...rooms.map((r) => ({ rect: r.rect, t: 0.2 }))];
   const gaps: Mouth[] = [
     ...exits.map((e): Mouth => ({ axis: 'x', at: e.s * cw, u0: e.x0, u1: e.x1, to: -2 })),
+    ...open.map((g): Mouth => ({ axis: 'x', at: g.s * cw, u0: g.x0, u1: g.x1, to: -2 })),
     ...rooms.flatMap((r) => r.mouths),
   ];
   const out: WallPlan = { walls: [], floor: [], faces: areas.map(() => []), mouths: rooms.map((r) => [...r.mouths]), openings: [] };
@@ -158,6 +163,7 @@ export function planWalls(x0: number, x1: number, cw: number, spineT: number, ex
   });
   out.openings = [
     ...exits.map((e): WallOpening => ({ s: e.s, x0: e.x0, x1: e.x1, kind: 'exit', num: e.num })),
+    ...open.map((g): WallOpening => ({ s: g.s, x0: g.x0, x1: g.x1, kind: 'open' })),
     ...rooms.flatMap((r, k) => r.mouths.filter((m) => m.to === -1 && m.axis === 'x').map((m): WallOpening => ({ s: m.at > 0 ? 1 : -1, x0: m.u0, x1: m.u1, kind: 'bay', room: k }))),
   ].sort((a, c) => a.x0 - c.x0 || a.s - c.s);
   return out;

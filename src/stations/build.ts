@@ -1,5 +1,6 @@
 // Station composers: assemble kit parts into complete stations.
-// Four layouts — generic underground, the two-line interchange, elevated, and the hub (hub.ts).
+// Five layouts — generic underground, the two-line interchange, elevated, the hub (hub.ts) and the
+// atrium interchange (atrium.ts).
 
 import { linesAt, lineById } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
@@ -12,6 +13,7 @@ import {
   type CeilSeg, type Ctx, type StationStyle,
 } from './kit';
 import { buildHub } from './hub';
+import { buildAtrium } from './atrium';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
 import type { ConcInfo, ConcRoom, ExitDoor, StairInfo, Stairwell, WallFace } from './looks/types';
@@ -58,7 +60,7 @@ interface StairSet {
 }
 
 /** Describe a stair opening whose top (concourse) end is at local (topX, topZ), walking down along `down`. */
-function stairInfo(b: Builder, line: LineDef, kind: StairInfo['kind'], platforms: number[], r: Rect, topX: number, topZ: number, down: [number, number]): StairInfo {
+export function stairInfo(b: Builder, line: LineDef, kind: StairInfo['kind'], platforms: number[], r: Rect, topX: number, topZ: number, down: [number, number]): StairInfo {
   const t = b.pt(topX, 0, topZ);
   return { line, kind, platforms, rect: r, top: [t[0], t[2]], down: b.dir(down) };
 }
@@ -118,7 +120,7 @@ function unpaidEnd(c: Ctx, cf: number, cw: number, nums: [string, string], lines
   b.with({ mz: true, t: [13, 0, -cw] }, () => exit(c, cf, nums[0], ext));
 }
 
-interface ShellOpts {
+export interface ShellOpts {
   cf: number;
   cw: number;
   x0: number;
@@ -140,6 +142,15 @@ interface ShellOpts {
   footprint?: number;
   /** Walkable rooms outside the spine, entered through gaps in its long walls (interchanges). */
   rooms?: RoomSpec[];
+  /** Stretches of the long walls left out onto floor the composer builds itself (an atrium gallery). */
+  wallGaps?: { s: 1 | -1; x0: number; x1: number }[];
+  /**
+   * Where those openings lead, for wayfinding: listed in `ConcInfo.stairs` like a stair (top in
+   * the spine, in front of the opening), but no floor opening, so no stairwell.
+   */
+  ways?: StairInfo[];
+  /** Floor the look must leave clear (the way to those openings). */
+  claims?: Rect[];
 }
 
 /** A finished face's band, `d` deep, from y0 to y1 (decoration along a wall). */
@@ -189,7 +200,7 @@ export function concStyle(c: Ctx): StationStyle {
 }
 
 /** Concourse level: slab, walls, ceiling, lighting, gate ends and exits. */
-function concourse(c0: Ctx, o: ShellOpts) {
+export function concourse(c0: Ctx, o: ShellOpts) {
   const look = lookFor(c0.station.id);
   const c: Ctx = { ...c0, style: concStyle(c0) };
   const { b, style, station } = c;
@@ -201,7 +212,7 @@ function concourse(c0: Ctx, o: ShellOpts) {
   const lines = linesAt(station.id).map((l) => l.id);
   const exits: ExitDoor[] = o.ends.flatMap((e, end) =>
     ([-1, 1] as const).map((s): ExitDoor => ({ num: e.nums[s > 0 ? 1 : 0], s, x0: e.hi ? e.g + 9 : e.g - 13, x1: e.hi ? e.g + 13 : e.g - 9, end })));
-  const plan = planWalls(x0, x1, cw, 0.4, exits, rooms);
+  const plan = planWalls(x0, x1, cw, 0.4, exits, rooms, o.wallGaps);
 
   // Floor where people walk (the spine, the rooms, and the floor in the mouths between them).
   // The rest of the old footprint is bare structure, a hair lower so that the floors of exit
@@ -261,7 +272,7 @@ function concourse(c0: Ctx, o: ShellOpts) {
   }
 
   // What a look may not build on: everything the kit puts in the concourse, with room to use it.
-  const taken: Rect[] = [...(o.solids ?? []).map((q): Rect => [q[0] - 0.9, q[1] - 0.9, q[2] + 0.9, q[3] + 0.9])];
+  const taken: Rect[] = [...(o.solids ?? []).map((q): Rect => [q[0] - 0.9, q[1] - 0.9, q[2] + 0.9, q[3] + 0.9]), ...(o.claims ?? [])];
   // Each stair's reservations stay in the area it stands in (the spine, or its room): a stair in a
   // transfer bay keeps nothing on the spine side of the bay's wall. Round the opening: 0.9 m
   // either side along its length, the 3 m approach in front of its portal, and beyond the closed
@@ -301,7 +312,7 @@ function concourse(c0: Ctx, o: ShellOpts) {
     b, station, line: c.line, era: themeFor(c.line.id).opened ?? 2000, style,
     wall: style.concWall, floor: style.floor, pillar: style.pillar, ceil: ceilMat,
     cf, cw, footprint: fw, clear: CONC_CLEAR, x0, x1, ends: o.ends.map((e) => ({ g: e.g, hi: e.hi })), paid: [paid0, paid1], holes: o.holes, pillars,
-    stairs: o.stairs, exits, openings: plan.openings, rooms: concRooms, toilets: tx,
+    stairs: [...o.stairs, ...(o.ways ?? [])], exits, openings: plan.openings, rooms: concRooms, toilets: tx,
     stairwells: wells.map((w): Stairwell => ({ stair: w.stair, walls: w.walls, footprint: w.footprint, room: w.room, portal: w.portal })),
     free: (a, z0, d, z1, m = 0) =>
       a - m >= x0 && d + m <= x1 && z0 - m >= -cw && z1 + m <= cw && !taken.some((q) => d + m > q[0] && a - m < q[2] && z1 + m > q[1] && z0 - m < q[3]),
@@ -871,7 +882,7 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
   const { station, spec } = input;
   const style: StationStyle = spec.style;
   const mk = (l: StationBuildInput['lines'][number]): Ctx => ({ b, line: l.line, station, stop: l.stop, railY: l.railY, style });
-  if (spec.kind === 'interchange' || spec.kind === 'hub') {
+  if (spec.kind === 'interchange' || spec.kind === 'hub' || spec.kind === 'atrium') {
     const beside = spec.kind === 'hub' ? spec.beside : undefined;
     const p = input.lines.find((l) => l.line.id === spec.primary)!;
     const o = input.lines.find((l) => l.line.id !== spec.primary && l.line.id !== beside && !station.at?.[l.line.id])!;
@@ -879,6 +890,7 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     const bl = input.lines.find((l) => l.line.id === beside);
     const ol = spec.kind === 'hub' ? input.lines.find((l) => l.line.id === spec.outer) : undefined;
     if (spec.kind === 'hub') buildHub(mk(p), spec, other, bl && mk(bl), ol && mk(ol));
+    else if (spec.kind === 'atrium') buildAtrium(mk(p), spec, other);
     else {
       // A line beside the primary is the one whose platforms sit off the station point (StationDef.at).
       const side = input.lines.find((l) => l !== p && l !== o && station.at?.[l.line.id]);
