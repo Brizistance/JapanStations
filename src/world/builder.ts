@@ -90,8 +90,21 @@ export interface MeshPart {
   open?: boolean;
 }
 
+/** A Blender-built model placed in the scene (render/building-models.ts). Visual only. */
+export interface ModelPart {
+  kind: string;
+  id: string;
+  /** Origin: the middle of the frontage, on the ground. */
+  pos: V3;
+  /** Rotation about y that turns the model's front (local -z) to face the street. */
+  yaw: number;
+  /** Picks which set of shop names the signs carry. */
+  seed: number;
+}
+
 export interface Build {
   boxes: BoxPart[];
+  models: ModelPart[];
   ramps: RampPart[];
   signs: SignPart[];
   gates: GatePart[];
@@ -146,7 +159,7 @@ export interface SignOpts {
 
 export class Builder {
   readonly out: Build = {
-    boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], holes: [],
+    boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], models: [], holes: [],
     spawn: { pos: [0, 0, 0], yaw: 0 },
     plot: { ...DEFAULT_PLOT },
     keepOut: [],
@@ -351,6 +364,12 @@ export class Builder {
       min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])],
       max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])],
     });
+  }
+
+  /** A Blender-built model with its front (local -z) along this frame's -z. Mirrored frames turn it, never flip it. */
+  model(kind: string, id: string, x: number, y: number, z: number, seed = 0) {
+    const n = this.dir([0, -1]);
+    this.out.models.push({ kind, id, pos: this.pt(x, y, z), yaw: Math.atan2(-n[0], -n[1]) + 0, seed });
   }
 
   mesh(mat: string, shape: MeshPart['shape'], x: number, y: number, z: number, sx: number, sy: number, sz: number) {

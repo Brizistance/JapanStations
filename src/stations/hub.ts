@@ -23,7 +23,7 @@ import { rng, type Builder } from '../world/builder';
 import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from './build';
 import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, gateLine, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
-import { SHOPS, car, crosswalk, fillLots, signal, tree, type Shop } from './surface';
+import { SHOPS, car, crosswalk, fillLots, fillModelLots, signal, tree, type Shop } from './surface';
 
 export const HUB_PLOT = { x: 190, z: 160 };
 
@@ -691,8 +691,8 @@ function street(h: H, seed: number) {
   for (const sx of [-1, 1]) for (let z = S_FRONT + 12; z < Z - 4; z += 15) tree(b, sx * (YS + 1.6), z, 6.5, 'leaf');
 
   // ── City blocks south of the avenue ──
-  fillLots(b, r, 'office', -X + 1, -YS - 3, S_FRONT, Z);
-  fillLots(b, r, 'office', YS + 3, X - 1, S_FRONT, Z);
+  fillModelLots(b, r, -X + 1, -YS - 3, S_FRONT, Z, { tower: true });
+  fillModelLots(b, r, YS + 3, X - 1, S_FRONT, Z, { tower: true, cornerAtStart: true });
 
   // ── The station plaza ──
   // Bus terminal (east): three lanes, two islands, four stops.

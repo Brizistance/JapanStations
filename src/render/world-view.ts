@@ -9,6 +9,7 @@ import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF, CAR_HALF_W } from '../trains/car';
+import { loadBuildingModels } from './building-models';
 import { carModel, loadCarModel } from './car-model';
 import type { BoxPart, GatePart } from '../world/builder';
 import { halfWidth, sampleChainages, structureAt } from '../world/structure';
@@ -247,6 +248,18 @@ export class WorldView {
     for (const sim of NET) this.root.add(buildTrack(sim));
     // Trains mounted before the model arrived are remounted with it.
     loadCarModel().then(() => this.resetTrains(), (e) => console.warn('train model not loaded, using boxes:', e));
+    loadBuildingModels().then(() => this.resetBuildings(), (e) => console.warn('building models not loaded:', e));
+  }
+
+  /** Stations mounted before the building models arrived are dropped; update() mounts them again. */
+  private resetBuildings() {
+    for (const w of STATION_WORLDS) {
+      const v = this.stations.get(w.def.id);
+      if (!v || !w.build.models.length) continue;
+      this.root.remove(v.group);
+      v.dispose();
+      this.stations.delete(w.def.id);
+    }
   }
 
   private resetTrains() {

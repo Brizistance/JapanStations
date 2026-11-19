@@ -3,6 +3,7 @@
 // repeatable neighbourhood. Coordinates are station-frame metres (x along the line).
 
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
+import { BUILDING_MODELS } from './buildings';
 import { GROUND_Y, vending } from './kit';
 
 export type BlockStyle = 'office' | 'mixed' | 'neon' | 'apartment' | 'house' | 'oldtown' | 'godown' | 'warehouse' | 'campus' | 'park' | 'sea' | 'dome';
@@ -267,6 +268,52 @@ export function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: num
     if (xb - x - w < 16) w = xb - x;
     const floors = Math.round(bs.floors[0] + r() * (bs.floors[1] - bs.floors[0])) + (style === 'office' ? 6 : 2);
     const mat = bs.mat[Math.floor(r() * bs.mat.length)];
+    if (zMax - 1 - zb > 6) b.box(mat, x + 0.5, GY, zb, x + w - 0.5, GY + floors * 3.3, zMax - 1);
+    x += w;
+  }
+}
+
+/**
+ * A front row of Blender-built buildings (stations/buildings.ts) on lots facing -z at z0, for a business
+ * district: mostly offices, some zakkyo buildings, one glass tower if asked for. Plain blocks behind.
+ * `cornerAtStart`: the lot at xa stands on a street corner (a corner model, its second face towards -x).
+ */
+export function fillModelLots(b: Builder, r: () => number, xa: number, xb: number, z0: number, zMax: number, o: { tower?: boolean; cornerAtStart?: boolean } = {}) {
+  const GAP = 0.3;
+  const deep: [number, number, number][] = []; // x0, x1, depth of the towers, for the back row
+  let x = xa + (o.cornerAtStart ? GAP : 0), n = 0, last = '', towerDue = !!o.tower;
+  for (;;) {
+    const room = xb - x;
+    const fits = BUILDING_MODELS.filter((m) => m.w <= room && z0 + m.d < zMax - 2 && `${m.kind}_${m.id}` !== last);
+    let pool = fits.filter((m) => !!m.corner === (n === 0 && !!o.cornerAtStart) && m.kind !== 'tower');
+    if (towerDue && n >= 2) {
+      const towers = fits.filter((m) => m.kind === 'tower');
+      if (towers.length) pool = towers;
+      towerDue = false;
+    } else if (pool.length) {
+      const kind = r() < 0.7 ? 'office' : 'zakkyo';
+      const ofKind = pool.filter((m) => m.kind === kind);
+      if (ofKind.length) pool = ofKind;
+    }
+    if (!pool.length) break;
+    const m = pool[Math.floor(r() * pool.length)];
+    b.block(x, GY, z0, x + m.w, GY + m.h, z0 + m.d);
+    b.model(m.kind, m.id, x + m.w / 2, GY, z0, Math.floor(r() * 1000));
+    if (m.kind === 'tower') deep.push([x, x + m.w, m.d]);
+    last = `${m.kind}_${m.id}`;
+    x += m.w + GAP;
+    n++;
+  }
+  if (xb - x > 2) b.box('facade:grid:#b9b3a6', x, GY, z0 + 0.3, xb - 0.2, GY + 13, z0 + 10);
+  // Back row: plain blocks that close off the view, standing clear of the towers.
+  const bs = STYLE.mixed;
+  x = xa;
+  while (xb - x > 6) {
+    let w = 20 + r() * 22;
+    if (xb - x - w < 16) w = xb - x;
+    const floors = Math.round(bs.floors[0] + r() * (bs.floors[1] - bs.floors[0])) + 6;
+    const mat = bs.mat[Math.floor(r() * bs.mat.length)];
+    const zb = Math.max(z0 + 26, ...deep.filter((d) => d[0] < x + w && d[1] > x).map((d) => z0 + d[2] + 3));
     if (zMax - 1 - zb > 6) b.box(mat, x + 0.5, GY, zb, x + w - 0.5, GY + floors * 3.3, zMax - 1);
     x += w;
   }

@@ -47,6 +47,7 @@ data/network.ts ──► sim (geometry + timetable) ──► trains/system (pe
 - **Rendering reads state.** It never owns network or sim truth.
 - **One part list, two consumers.** Stations and train cars are built with `Builder` into plain data (boxes, ramps, signs, gates). The renderer merges the boxes into one mesh per material; the collision world uses the same boxes. What you see is what you bump into.
 - **Trains are the one exception.** The car's part list (`trains/car.ts`) is still its collision, its sliding doors and its live signs, but what you see is a Blender model (`public/models/metro-car.glb`, loaded by `render/car-model.ts`) built to the same dimensions. The model's materials are named with our material keys, so it goes through `getMaterial()` and the lit shader like everything else. If the file fails to load, the boxes are drawn instead.
+- **Street buildings can be models too.** `Builder.model()` records a `ModelPart` (kind, variant, position, yaw) and the street builder adds an invisible collider for the lot (`fillModelLots()` in `stations/surface.ts`, footprints in `stations/buildings.ts`). `render/building-models.ts` loads `public/models/buildings/*.glb` (built by `tools/blender/build_*.py`, layout described in `buildkit.py`), shades them from vertex colours and draws each variant's sign texture with invented shop names. Only Kita-Ōdōri uses them so far; the simplified `_lo` copies are not used yet.
 
 ## The frame tick (`render/Scene.tsx`)
 

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import type { Build, GatePart } from '../world/builder';
 import { boxesToGeometry, groupBy, meshesToGeometry, skyAt, type EnvMode } from './geometry';
+import { buildingModel } from './building-models';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
 import { separateCoplanar } from './zfight';
@@ -24,7 +25,9 @@ export function staticGroup(build: Build, mode: EnvMode, shareKey?: string): { g
   const group = makeStatic(build, mode);
   return {
     group,
-    dispose: () => group.traverse((o) => (o as THREE.Mesh).geometry?.dispose()),
+    dispose: () => group.traverse((o) => {
+      if (!o.userData.shared) (o as THREE.Mesh).geometry?.dispose();
+    }),
   };
 }
 
@@ -44,6 +47,10 @@ function makeStatic(build: Build, mode: EnvMode): THREE.Group {
   };
   for (const [mat, boxes] of groupBy(separateCoplanar(build.boxes))) add(boxesToGeometry(boxes, mode), mat);
   for (const [mat, parts] of groupBy(build.meshes)) add(meshesToGeometry(parts, mode), mat);
+  for (const part of build.models) {
+    const model = buildingModel(part);
+    if (model) group.add(model);
+  }
   return group;
 }
 
