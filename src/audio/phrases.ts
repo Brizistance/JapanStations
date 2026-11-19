@@ -69,8 +69,8 @@ export function announcement(ev: Event, st: StationDef, line: LineDef, dir: Dir,
     case 'arrive': {
       const tx = transfers(st, line);
       return [
-        clip('F', `${st.nameKana}、${st.nameKana}です。${tx.length ? `${tx.map((l) => l.nameKana).join('、')}は、お乗り換えです。` : ''}`),
-        clip('F', `This is ${st.nameRomaji}.${tx.length ? ` Please transfer here for ${enList(tx.map((l) => `the ${l.nameEn}`))}.` : ''}`),
+        clip(v, `${st.nameKana}、${st.nameKana}です。${tx.length ? `${tx.map((l) => l.nameKana).join('、')}は、お乗り換えです。` : ''}`),
+        clip(v, `This is ${st.nameRomaji}.${tx.length ? ` Please transfer here for ${enList(tx.map((l) => `the ${l.nameEn}`))}.` : ''}`),
       ];
     }
     case 'closing':
