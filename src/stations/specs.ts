@@ -20,6 +20,20 @@ export interface UndergroundSpec {
   voids?: [number, number, number, number][];
   /** A walled-off siding behind the +z platform, seen through a long railed opening (an old terminus). */
   stub?: true;
+  /**
+   * A mined cavern (Tōdai-dōri): the hall outside the concourse is vaulted this high above the
+   * platform, and the concourse crosses it like a bridge. The look draws the cavern's own arch.
+   */
+  cavern?: number;
+  /** Tracks one above the other (LineDef.stackAt), built by stacked.ts; `stairs` is not used. */
+  stacked?: true;
+  /** A level tunnel from the paid concourse out to a valley entrance (Narukozaka, adit.ts). */
+  adit?: true;
+  /**
+   * A second line crossing further along (StationDef.at), reached by a long transfer tunnel with
+   * moving walkways from the paid concourse (Shin-Hibarino, transfer.ts).
+   */
+  transfer?: true;
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -27,6 +41,13 @@ export interface InterchangeSpec {
   kind: 'interchange';
   /** Line whose direction the station frame follows. */
   primary: string;
+  /**
+   * Escalator wells (Nankōdai): each transfer stair to the deeper line runs down a tall, wide,
+   * lit well with an escalator either side, instead of a narrow enclosed shaft.
+   */
+  well?: true;
+  /** A shared ticket hall halfway between the two lines, stairs up to one and down to the other (Harunodai, midlevel.ts). */
+  mid?: true;
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -359,12 +380,12 @@ export const SPECS: Record<StationId, StationSpec> = {
       campusName: { ja: '川湊第一高等学校', en: 'Kawaminato Daiichi High School' },
     },
   },
-  // Southern terminus above the container port: steel-grey panels, gulls, quay and cranes.
+  // Southern terminus above the container port; the Ichō Line deep below, reached down two
+  // escalator wells (build.ts wellDress). Steel-grey panels, gulls, quay and cranes.
   nankodai: {
-    kind: 'underground',
-    concourse: [-34, 20],
-    gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    kind: 'interchange',
+    primary: 'Y',
+    well: true,
     style: {
       wall: 'panel:#d5dbe0', concWall: 'panel:#e6eaee', floor: 'floor:#c8cdd0', pillar: 'panel:#5c6b78',
       accent: '#d9822b', mural: { v: 'gulls', color: '#33546e' },
@@ -595,12 +616,11 @@ export const SPECS: Record<StationId, StationSpec> = {
       canalName: { ja: '新桜橋', en: 'Shin-Sakura-bashi' }, treeLeaf: 'flat:#f2bfcd',
     },
   },
-  // Forest-park terminus on the old landfill: moss-green tile, leaves, the forest park outside.
+  // Forest-park station on the old landfill, the Ichō Line deep below: Kawaminato-kō's atrium
+  // (atrium.ts), the void opening on the sea side. Moss-green tile, leaves, the forest park outside.
   uminomori: {
-    kind: 'underground',
-    concourse: [-34, 20],
-    gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    kind: 'atrium',
+    primary: 'S',
     style: {
       wall: 'tile:#3e5f4a', concWall: 'tile:#ebf0ec', floor: 'floor:#cbccc4', pillar: 'tile:#3e5f4a',
       accent: '#9cc45a', mural: { v: 'leaves', color: '#2f7a4a' },
@@ -639,12 +659,14 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 283, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'house', trees: true, poles: true },
   },
-  // Newest eastern estate: pale wheat panels, rolling hills, the skylark meadow park.
+  // Newest eastern estate: the Kikyō Line's terminus, the Ichō Line's 100 m west, joined by a long
+  // transfer tunnel with moving walkways (transfer.ts). Pale wheat panels, the skylark meadow park.
   'shin-hibarino': {
     kind: 'underground',
-    concourse: [-34, 20],
-    gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    concourse: [-30, 30],
+    gates: ['hi'],
+    stairs: [{ x: -6, up: 1 }],
+    transfer: true,
     style: {
       wall: 'panel:#f1ecdc', concWall: 'panel:#f5f2e8', floor: 'floor:#d4d0c3', pillar: 'panel:#f1ecdc',
       accent: '#7b4fa8', mural: { v: 'hills', color: '#8a9a3e' },
@@ -686,16 +708,124 @@ export const SPECS: Record<StationId, StationSpec> = {
       canalName: { ja: '南桜橋', en: 'Minami-Sakura-bashi' }, treeLeaf: 'flat:#f2bfcd',
     },
   },
-  // Sunny southern heights: butter-yellow panels, spring hills, new houses.
+  // Sunny southern heights, the Ichō Line crossing deep below: one ticket hall halfway between
+  // the two lines (midlevel.ts). Butter-yellow panels, spring hills, new houses.
   harunodai: {
-    kind: 'underground',
-    concourse: [-34, 20],
-    gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    kind: 'interchange',
+    primary: 'M',
+    mid: true,
     style: {
       wall: 'panel:#f6f0d9', concWall: 'panel:#f8f5e8', floor: 'floor:#d6d2c3', pillar: 'panel:#f6f0d9',
       accent: '#c2368f', mural: { v: 'hills', color: '#9cbf4a' },
     },
     surface: { seed: 313, roadHalf: 7, cross: [-66, 62], left: 'house', right: 'apartment', trees: true, poles: true },
+  },
+
+  // ══ Network expansion, stage 4: the Ichō Line, and S and M extensions ══
+  // Old dockers' town: tarred-rope brown tile, navy gulls, warehouses and the port union hall.
+  ikarimachi: {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    style: {
+      wall: 'tile:#6b4f3a', concWall: 'tile:#ece6dd', floor: 'floor:#c9c4bb', pillar: 'tile:#2f3e56',
+      accent: '#c99a06', mural: { v: 'gulls', color: '#2f3e56' },
+    },
+    surface: { seed: 401, roadHalf: 7, cross: [-66, 70], left: 'godown', right: 'oldtown', poles: true },
+  },
+  // Lighthouse avenue on the heights: a mined cavern crossed by the concourse bridge (looks/todai-dori.ts).
+  // White enamel, harbour-blue trim, sea mist.
+  'todai-dori': {
+    kind: 'underground',
+    concourse: [-22, 24],
+    gates: ['lo'],
+    stairs: [{ x: 12, up: -1 }],
+    cavern: 11.5,
+    style: {
+      wall: 'panel:#f3f4f2', concWall: 'panel:#f7f8f6', floor: 'floor:#cfd2d0', pillar: 'panel:#2d5f8a',
+      accent: '#2d5f8a', mural: { v: 'mist', color: '#5d8bb0' },
+    },
+    surface: { seed: 409, roadHalf: 10, cross: [-80, 72], left: 'apartment', right: 'mixed', trees: true, avenue: true },
+  },
+  // Firefly stream: stacked platforms (stacked.ts). Deep night-green tile, firefly lights, rice fields and a stream.
+  hotarugawa: {
+    kind: 'underground',
+    concourse: [-22, 34],
+    gates: ['hi'],
+    stairs: [],
+    stacked: true,
+    style: {
+      wall: 'tile:#1f3a32', concWall: 'tile:#e8eee9', floor: 'floor:#c8cbc4', pillar: 'tile:#1f3a32',
+      accent: '#d6e86a', mural: { v: 'leaves', color: '#b9d24a' },
+    },
+    surface: {
+      seed: 419, roadHalf: 6, cross: [-62, 60], canalAt: 60, left: 'house', right: 'park', trees: true, poles: true,
+      canalName: { ja: '蛍橋', en: 'Hotaru-bashi' },
+    },
+  },
+  // Terraced-field slope: a hillside adit (adit.ts) from the concourse out to the valley's rice
+  // fields, besides the exits up to the hilltop. Straw-gold panels, rolling hills, the college.
+  narukozaka: {
+    kind: 'underground',
+    concourse: [-34, 34],
+    gates: ['lo'],
+    stairs: [{ x: 4, up: -1 }],
+    adit: true,
+    style: {
+      wall: 'panel:#efe2bf', concWall: 'panel:#f4eedc', floor: 'floor:#d3cdbd', pillar: 'tile:#8a6a2e',
+      accent: '#c99a06', mural: { v: 'hills', color: '#a4882e' },
+    },
+    surface: {
+      seed: 421, roadHalf: 6.5, cross: [], left: 'campus', right: 'house', trees: true, valleyZ: 44,
+      campusName: { ja: '川湊農業短期大学', en: 'Kawaminato Agricultural College' },
+    },
+  },
+  // Morning-calm shore: the line comes up from Uminomori into an open cutting. Kasumidani's
+  // arrangement (open-air.ts 'cutting'): island under a sawtooth canopy, a glazed building
+  // bridging the cutting. Dawn-pink panels, sea mist, the yacht harbour beside it.
+  asanagi: {
+    kind: 'elevated',
+    layout: 'cutting',
+    style: {
+      wall: 'panel:#f0dcd2', concWall: 'panel:#f6ede8', floor: 'floor:#d0cac6', pillar: 'paint:#ee7b1a',
+      accent: '#ee7b1a', mural: { v: 'mist', color: '#e39a7a' },
+    },
+    surface: { seed: 431, roadHalf: 6, cross: [], left: 'apartment', right: 'park', trees: true, poles: true },
+  },
+  // White-sand beach terminus on a viaduct by the sea. Shin-Kamome's arrangement (open-air.ts
+  // 'seaside'): gull-wing canopies, a glazed hall under the viaduct, a boardwalk. Sand and turquoise.
+  shirasunahama: {
+    kind: 'elevated',
+    layout: 'seaside',
+    style: {
+      wall: 'panel:#f4efe2', concWall: 'panel:#f8f5ec', floor: 'floor:#d8d2c2', pillar: 'paint:#2a9d9a',
+      accent: '#2a9d9a', mural: { v: 'gulls', color: '#2a9d9a' },
+    },
+    surface: {
+      seed: 433, roadHalf: 8, cross: [-70], left: 'park', right: 'sea', waterfront: 'promenade', trees: true,
+      promenadeName: { ja: '白砂浜ビーチデッキ', en: 'Shirasunahama Beach Deck' },
+    },
+  },
+  // Rape-blossom hillside on the viaduct. Hibarino's arrangement (build.ts buildElevated): side
+  // platforms, the concourse under the deck. Bright yellow panels, yellow-leaved trees.
+  nanohanadai: {
+    kind: 'elevated',
+    style: {
+      wall: 'panel:#f7e27a', concWall: 'panel:#faf3d2', floor: 'floor:#d6d0bd', pillar: 'concrete',
+      accent: '#c2368f', mural: { v: 'hills', color: '#e3c22a' },
+    },
+    surface: { seed: 439, roadHalf: 6.5, cross: [66], left: 'house', right: 'house', trees: true, poles: true, treeLeaf: 'flat:#f2df6a' },
+  },
+  // Milk-vetch meadow terminus on the viaduct. Shiondai's arrangement (open-air.ts 'terminus'):
+  // one barrel vault, the hall under the platform end, a deck to the meadow park. Pink-lilac steel.
+  rengeno: {
+    kind: 'elevated',
+    layout: 'terminus',
+    style: {
+      wall: 'panel:#efd7e6', concWall: 'panel:#f6edf2', floor: 'floor:#d4ccd1', pillar: 'paint:#b0569a',
+      accent: '#c2368f', mural: { v: 'aster', color: '#b0569a' },
+    },
+    surface: { seed: 443, roadHalf: 7, cross: [], left: 'apartment', right: 'park', trees: true },
   },
 };

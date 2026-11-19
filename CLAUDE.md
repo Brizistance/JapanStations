@@ -14,7 +14,7 @@ Work for the coming months goes to **more stations and lines** and **visual qual
 
 ## Status
 
-Playable. Six lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**, Sumire **M**), 46 stations, ten interchanges, eleven hero stations. Kita-Ōdōri is the central hub. The AR Main Line (Akitsushima Railway, 6 stations, Local and Rapid) is on the route map and in the timetable only, not yet in 3D: [docs/akitsushima-railway.md](docs/akitsushima-railway.md). Main menu with route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. Details: [docs/vision.md](docs/vision.md).
+Playable. Seven lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**, Sumire **M**, Ichō **G**), 54 stations, fourteen interchanges, eleven hero stations. Kita-Ōdōri is the central hub. The AR Main Line (Akitsushima Railway, 6 stations, Local and Rapid) is on the route map and in the timetable only, not yet in 3D: [docs/akitsushima-railway.md](docs/akitsushima-railway.md). Main menu with route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. Details: [docs/vision.md](docs/vision.md).
 
 ## Working cheaply (usage limits are tight)
 

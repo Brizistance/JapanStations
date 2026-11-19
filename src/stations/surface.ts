@@ -39,6 +39,11 @@ export interface SurfaceSpec {
   promenadeName?: { ja: string; en: string };
   /** Name on the park gate (default Midorizaka Park). */
   parkName?: { ja: string; en: string };
+  /**
+   * The ground falls away beyond this z on the +z side (Narukozaka): the street stops there and
+   * the station's composer builds the slope and the valley below.
+   */
+  valleyZ?: number;
   /** Canopy material for street and park trees (default 'leaf'); a flat pink makes cherries. */
   treeLeaf?: string;
 }
@@ -293,6 +298,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   const seaHoles: number[][] = [];
   if (spec.right === 'sea') seaHoles.push([-X, seaZ, X, Z]);
   if (spec.left === 'sea') seaHoles.push([-X, -Z, X, -seaZ]);
+  if (spec.valleyZ !== undefined) seaHoles.push([-X, spec.valleyZ, X, Z]);
 
   // ── Ground ──
   b.slab('asphalt', -X, -Z, X, Z, -0.6, 0, [...holes, ...canalHoles, ...seaHoles]);
@@ -386,7 +392,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           // Houses either side of the park (which spans x = -62 … 22).
           if (xa < -66) fillLots(b, r, 'house', xa, Math.min(xb, -64), swOut);
           if (xb > 28) fillLots(b, r, 'house', Math.max(xa, 24), xb, swOut);
-        } else fillLots(b, r, style, xa, xb, swOut);
+        } else fillLots(b, r, style, xa, xb, swOut, side > 0 && spec.valleyZ !== undefined ? spec.valleyZ - 2 : PLOT_Z);
       }
       if (style === 'park') park(b, r, swOut, spec.parkName ?? { ja: '緑坂公園', en: 'Midorizaka Park' }, spec.treeLeaf);
       if (style === 'sea') b.open(() => (spec.waterfront === 'promenade' ? promenade(b, r, swOut, seaZ, spec.treeLeaf, spec.promenadeName) : quay(b, r, swOut, seaZ, spec.quayName)));

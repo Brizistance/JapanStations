@@ -53,7 +53,7 @@ describe('network data', () => {
   });
   it('every interchange has its lines crossing at right angles and different depths, or side by side', () => {
     const shared = STATIONS.filter((s) => linesAt(s.id).length > 1);
-    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'daigaku-mae', 'hanamizuki', 'hibarino', 'kawaminato-ko', 'kita-odori', 'midorizaka', 'tomyobori', 'tsumugibashi', 'watayamachi']);
+    expect(shared.map((s) => s.id).sort()).toEqual(['aizomecho', 'daigaku-mae', 'hanamizuki', 'harunodai', 'hibarino', 'kawaminato-ko', 'kita-odori', 'midorizaka', 'nankodai', 'shin-hibarino', 'tomyobori', 'tsumugibashi', 'uminomori', 'watayamachi']);
     for (const s of shared) {
       const at = linesAt(s.id).map((l) => {
         const g = lineSim(l.id).geom, ss = g.stopS[l.stops.indexOf(s.id)];
@@ -251,7 +251,7 @@ describe('timetable', () => {
       const deps = nextDepartures(tt, 1, 'down', 0, 5);
       for (let i = 1; i < deps.length; i++) expect(deps[i].dep - deps[i - 1].dep).toBe(tt.headway);
     }
-    expect(LINES.length).toBe(6);
+    expect(LINES.length).toBe(7);
   });
 });
 

@@ -89,6 +89,20 @@ const S_INSIDE: [number, number] = [-S_SOUTH_DIR[1], S_SOUTH_DIR[0]]; // inside 
 const M_INNER = (t: number) => along([S_BEND[0] + S_INSIDE[0] * M_BESIDE_S, S_BEND[1] + S_INSIDE[1] * M_BESIDE_S], S_SOUTH_DIR, t);
 const M_CORNER = M_INNER((M_HUB_Z - M_INNER(0)[1]) / S_SOUTH_DIR[1]);
 const M_EAST_TURN: [number, number] = along(DAIGAKU, S_SOUTH_DIR, 3300);
+// Past Harunodai the Sumire Line bends 20° south of east onto the spring-flower heights.
+const M_SE_TURN: [number, number] = along(M_EAST_TURN, [1, 0], 1350);
+const M_ESE: [number, number] = [0.93969, 0.34202];
+
+// Ichō Line. Deepest line yet: east from Nankōdai under the southern heights, then due north
+// under Harunodai and Uminomori (crossing M and S at right angles), under the Nagisa viaduct,
+// and turning NNW to end across the Kikyō Line at Shin-Hibarino.
+const G_X = S_TURN[0] + 1100; // the north–south leg, through Uminomori and Harunodai
+const G_SOUTH_Z = 3550; // the east–west leg, through Nankōdai
+const SHIN_HIBARINO: [number, number] = along(K_HILLS, N_EAST_DIR, 1400);
+// Its platforms at Shin-Hibarino lie 100 m west of the Kikyō Line's, under that line's track, so
+// the transfer is a long tunnel (stations/transfer.ts).
+const G_SHIN_HIBARINO: [number, number] = along(SHIN_HIBARINO, N_EAST_DIR, -100);
+const G_NORTH_TURN: [number, number] = along(G_SHIN_HIBARINO, S_SOUTH_DIR, (G_X - G_SHIN_HIBARINO[0]) / S_SOUTH_DIR[0]);
 
 export const LINES: LineDef[] = [
   {
@@ -154,12 +168,15 @@ export const LINES: LineDef[] = [
     nameKana: 'しおかぜせん',
     color: '#ee7b1a',
     type: 'metro',
-    stops: ['shiomi', 'nishi-yunagi', 'yunagihama', 'kurayashiki', 'kita-odori', 'daigaku-mae', 'tomyobori', 'sakurazutsumi', 'hanamizuki', 'shin-sakuragawa', 'uminomori'],
-    railY: [-10, -11, -10, -11, -20.5, -18.5, -14, -12, -13, -12, -10],
+    stops: ['shiomi', 'nishi-yunagi', 'yunagihama', 'kurayashiki', 'kita-odori', 'daigaku-mae', 'tomyobori', 'sakurazutsumi', 'hanamizuki', 'shin-sakuragawa', 'uminomori', 'asanagi', 'shirasunahama'],
+    railY: [-10, -11, -10, -11, -20.5, -18.5, -14, -12, -13, -12, -10, -5.2, 5.5],
     platformType: 'island',
+    // Side platforms at Uminomori, where the Ichō Line's atrium opens beside them (stations/atrium.ts).
+    sideAt: ['uminomori'],
     platformDoors: 'full',
     trackOffset: 5.5,
-    alignment: { vertices: [[-1380, S_ODORI_Z], S_BEND, S_TURN, along(S_TURN, [1, 0], 1500)], radius: 400 },
+    // East of Uminomori it rises into a cutting at Asanagi and onto a viaduct by the beach.
+    alignment: { vertices: [[-1380, S_ODORI_Z], S_BEND, S_TURN, along(S_TURN, [1, 0], 3200)], radius: 400 },
     service: { ...baseService, headwayS: 300 },
   },
   {
@@ -197,15 +214,17 @@ export const LINES: LineDef[] = [
     nameKana: 'すみれせん',
     color: '#c2368f',
     type: 'metro',
-    stops: ['seiran', 'midorizaka', 'kita-odori', 'daigaku-mae', 'hanamizuki', 'minami-sakuragawa', 'harunodai'],
-    railY: [-12, -17.5, -20.5, -18.5, -13, -12, -10],
+    stops: ['seiran', 'midorizaka', 'kita-odori', 'daigaku-mae', 'hanamizuki', 'minami-sakuragawa', 'harunodai', 'nanohanadai', 'rengeno'],
+    railY: [-12, -17.5, -20.5, -18.5, -13, -12, -10, 6.5, 7.5],
+    // Past Harunodai it climbs out onto the heights: side platforms at the hillside station.
+    sideAt: ['nanohanadai'],
     platformType: 'island',
     platformDoors: 'full',
     trackOffset: 5.5,
     alignment: {
       vertices: [
         along(SEIRAN, M_ENE, 420), M_WEST, [M_WEST[0], M_HUB_Z], M_CORNER,
-        M_INNER(270), along(S_BEND, S_SOUTH_DIR, 470), M_EAST_TURN, along(M_EAST_TURN, [1, 0], 1170),
+        M_INNER(270), along(S_BEND, S_SOUTH_DIR, 470), M_EAST_TURN, M_SE_TURN, along(M_SE_TURN, M_ESE, 1850),
       ],
       radius: 400 - M_BESIDE_S,
     },
@@ -218,6 +237,31 @@ export const LINES: LineDef[] = [
     // Drawn beside Y into the hub, beside S out of it, and as a stripe inside S where it shares its track.
     diagramOffset: { 1: -14, 2: -14 },
     diagramShared: [3],
+  },
+  {
+    // Seventh line, the deepest: a southern and eastern orbital that ties four line ends
+    // together (Y at Nankōdai, M at Harunodai, S at Uminomori, K at Shin-Hibarino).
+    id: 'G',
+    nameEn: 'Ichō Line',
+    nameJa: '銀杏線',
+    nameKana: 'いちょうせん',
+    color: '#c99a06',
+    type: 'metro',
+    stops: ['nankodai', 'ikarimachi', 'todai-dori', 'harunodai', 'uminomori', 'hotarugawa', 'narukozaka', 'shin-hibarino'],
+    railY: [-30, -32, -30, -26, -26, -28, -28, -26],
+    // Hotarugawa's tracks run one above the other (stations/stacked.ts).
+    stackAt: ['hotarugawa'],
+    platformType: 'island',
+    platformDoors: 'full',
+    // Tracks set wide: a broad island, which Ikarimachi splits into twin tubes and a central hall.
+    trackOffset: 7,
+    alignment: {
+      vertices: [[1400, G_SOUTH_Z], [G_X, G_SOUTH_Z], G_NORTH_TURN, along(G_SHIN_HIBARINO, NNW, 420)],
+      radius: 400,
+    },
+    service: { ...baseService, headwayS: 300 },
+    // Route-map corners: below Nankōdai, before the climb to Harunodai, above Uminomori, below Shin-Hibarino.
+    diagramBends: { 0: [[760, 1010]], 2: [[1160, 1010]], 4: [[1240, 790]], 6: [[1370, 530]] },
   },
 ];
 
@@ -347,13 +391,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '南港台',
     nameKana: 'なんこうだい',
     nameRomaji: 'Nankōdai',
-    numbers: { Y: 'Y-18' },
-    position: { x: 1870, y: 3550 },
+    numbers: { Y: 'Y-18', G: 'G-11' },
+    position: { x: 1870, y: G_SOUTH_Z },
     diagram: { x: 760, y: 900, label: 'right' },
     district: 'South port',
     districtJa: '南港',
-    platforms: { Y: [1, 2] },
-    blurb: 'Southern terminus on the heights above the container port.',
+    platforms: { Y: [1, 2], G: [3, 4] },
+    blurb: 'Southern terminus of the Yanagisuji Line on the heights above the container port; the Ichō Line starts deep below.',
   },
   // ── Nagisa Line ──
   {
@@ -740,13 +784,13 @@ export const STATIONS: StationDef[] = [
     nameJa: '海の森',
     nameKana: 'うみのもり',
     nameRomaji: 'Uminomori',
-    numbers: { S: 'S-19' },
+    numbers: { S: 'S-19', G: 'G-15' },
     position: pos(along(S_TURN, [1, 0], 1100)),
-    diagram: { x: 1240, y: 850, badges: 'ne' },
+    diagram: { x: 1240, y: 850, label: 'se', badges: 'nw' },
     district: 'Bay forest',
     districtJa: '海の森',
-    platforms: { S: [1, 2] },
-    blurb: 'Terminus beside the forest park planted on the old landfill.',
+    platforms: { S: [1, 2], G: [3, 4] },
+    blurb: 'Beside the forest park planted on the old landfill; the Ichō Line crosses deep below.',
   },
   // ── Kikyō Line ──
   {
@@ -780,13 +824,14 @@ export const STATIONS: StationDef[] = [
     nameJa: '新雲雀野',
     nameKana: 'しんひばりの',
     nameRomaji: 'Shin-Hibarino',
-    numbers: { K: 'K-18' },
-    position: pos(along(K_HILLS, N_EAST_DIR, 1400)),
+    numbers: { K: 'K-18', G: 'G-18' },
+    position: pos(SHIN_HIBARINO),
+    at: { G: pos(G_SHIN_HIBARINO) },
     diagram: { x: 1570, y: 330 },
     district: 'East new town',
     districtJa: '東部ニュータウン',
-    platforms: { K: [1, 2] },
-    blurb: 'Terminus of the newest eastern estate, laid out around a skylark meadow park.',
+    platforms: { K: [1, 2], G: [3, 4] },
+    blurb: 'Terminus of the Kikyō and Ichō lines in the newest eastern estate, laid out around a skylark meadow park.',
   },
   // ── Sumire Line ──
   {
@@ -820,13 +865,120 @@ export const STATIONS: StationDef[] = [
     nameJa: '春野台',
     nameKana: 'はるのだい',
     nameRomaji: 'Harunodai',
-    numbers: { M: 'M-17' },
-    position: pos(along(M_EAST_TURN, [1, 0], 750)),
-    diagram: { x: 1180, y: 930 },
+    numbers: { M: 'M-17', G: 'G-14' },
+    position: { x: G_X, y: M_EAST_TURN[1] },
+    diagram: { x: 1240, y: 930, label: 'se', badges: 'nw' },
+    district: 'Southern heights',
+    districtJa: '南台地',
+    platforms: { M: [1, 2], G: [3, 4] },
+    blurb: 'On the sunny southern heights, among new houses and spring meadows; the Ichō Line crosses deep below.',
+  },
+  // ── Shiokaze Line, east along the bay ──
+  {
+    id: 'asanagi',
+    nameJa: '朝凪',
+    nameKana: 'あさなぎ',
+    nameRomaji: 'Asanagi',
+    numbers: { S: 'S-20' },
+    position: pos(along(S_TURN, [1, 0], 1950)),
+    diagram: { x: 1380, y: 850 },
+    district: 'Bay shore',
+    districtJa: '湾岸',
+    platforms: { S: [1, 2] },
+    blurb: 'Morning-calm shore of the inner bay: fishing piers, a yacht harbour and early-opening cafés.',
+  },
+  {
+    id: 'shirasunahama',
+    nameJa: '白砂浜',
+    nameKana: 'しらすなはま',
+    nameRomaji: 'Shirasunahama',
+    numbers: { S: 'S-21' },
+    position: pos(along(S_TURN, [1, 0], 2800)),
+    diagram: { x: 1520, y: 850 },
+    district: 'Bay shore',
+    districtJa: '湾岸',
+    platforms: { S: [1, 2] },
+    blurb: "Terminus beside the city's man-made white-sand beach and its summer beach huts.",
+  },
+  // ── Sumire Line, onto the spring-flower heights ──
+  {
+    id: 'nanohanadai',
+    nameJa: '菜の花台',
+    nameKana: 'なのはなだい',
+    nameRomaji: 'Nanohanadai',
+    numbers: { M: 'M-18' },
+    position: pos(along(M_SE_TURN, M_ESE, 600)),
+    diagram: { x: 1380, y: 930 },
     district: 'Southern heights',
     districtJa: '南台地',
     platforms: { M: [1, 2] },
-    blurb: 'Terminus on the sunny southern heights, among new houses and spring meadows.',
+    blurb: 'Hillside estate above fields of rape blossom, yellow every March.',
+  },
+  {
+    id: 'rengeno',
+    nameJa: '蓮華野',
+    nameKana: 'れんげの',
+    nameRomaji: 'Rengeno',
+    numbers: { M: 'M-19' },
+    position: pos(along(M_SE_TURN, M_ESE, 1450)),
+    diagram: { x: 1520, y: 930 },
+    district: 'Southern heights',
+    districtJa: '南台地',
+    platforms: { M: [1, 2] },
+    blurb: 'Terminus among milk-vetch meadows and new houses at the far edge of the heights.',
+  },
+  // ── Ichō Line ──
+  {
+    id: 'ikarimachi',
+    nameJa: '錨町',
+    nameKana: 'いかりまち',
+    nameRomaji: 'Ikarimachi',
+    numbers: { G: 'G-12' },
+    position: { x: 2900, y: G_SOUTH_Z },
+    diagram: { x: 880, y: 1010 },
+    district: 'South port',
+    districtJa: '南港',
+    platforms: { G: [1, 2] },
+    blurb: "Old dockers' town below the heights: rope lofts, a seamen's bathhouse and the port union hall.",
+  },
+  {
+    id: 'todai-dori',
+    nameJa: '灯台通',
+    nameKana: 'とうだいどおり',
+    nameRomaji: 'Tōdai-dōri',
+    numbers: { G: 'G-13' },
+    position: { x: 3900, y: G_SOUTH_Z },
+    diagram: { x: 1020, y: 1010 },
+    district: 'Southern heights',
+    districtJa: '南台地',
+    platforms: { G: [1, 2] },
+    blurb: 'Avenue climbing the heights to the old harbour lighthouse, now a museum and lookout.',
+  },
+  {
+    id: 'hotarugawa',
+    nameJa: '蛍川',
+    nameKana: 'ほたるがわ',
+    nameRomaji: 'Hotarugawa',
+    numbers: { G: 'G-16' },
+    position: { x: G_X, y: 1000 },
+    diagram: { x: 1300, y: 730, label: 'right' },
+    district: 'East fields',
+    districtJa: '東部田園',
+    platforms: { G: [1, 2] },
+    blurb: 'A restored stream through rice fields and allotments, where fireflies come out in June.',
+  },
+  {
+    id: 'narukozaka',
+    nameJa: '鳴子坂',
+    nameKana: 'なるこざか',
+    nameRomaji: 'Narukozaka',
+    numbers: { G: 'G-17' },
+    position: { x: G_X, y: -200 },
+    diagram: { x: 1370, y: 660, label: 'right' },
+    district: 'East hills',
+    districtJa: '東丘',
+    platforms: { G: [1, 2] },
+    blurb: 'Slope of terraced fields below the skylark meadows, with a farm shop and a small agricultural college.',
   },
 ];
 

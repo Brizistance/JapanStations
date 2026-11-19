@@ -54,8 +54,8 @@ const UP_X: [number, number] = [-7.6, -3.6];
 const SH_X1 = 7.2, SH_D = 4.42, LAND_D = 2.22, STAIR_TOP = 5.2;
 /** Harbour gate line (x), east end of its unpaid lobby, and the south wall (the quay wall is at 51.6). */
 const HG = 17.7, HX1 = 31.7, GZ1 = 51.1;
-/** Gallery pillars at the void's edge (|x|), and where along it (z). */
-const PIL_X = 8.3, PIL_Z = [18, 26, 34, 42];
+/** Gallery pillars stand this far outside the void's edge, at these z. */
+const PIL_OUT = 0.6, PIL_Z = [18, 26, 34, 42];
 
 type Other = { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] };
 
@@ -101,7 +101,7 @@ export function buildAtrium(c: Ctx, spec: AtriumSpec, other: Other) {
 
   // ── Levels and the void ──
   const dN = hallDims(line, c.railY), dK = hallDims(o.line, o.railY);
-  const pfN = dN.pf, pfK = dK.pf, cf = pfN + CONC_RISE, mz = ATRIUM.mezzY;
+  const pfN = dN.pf, pfK = dK.pf, cf = pfN + CONC_RISE, mz = pfN - ATRIUM.mezzDrop;
   const runK = r2((mz - pfK) * 1.7), runG = r2((cf - mz) * 1.7), runS = r2((pfN - mz) * 1.7);
   /** Void: the Kikyō hall's width, from the Nagisa hall's outer wall to the head of the gallery flight. */
   const VX = dK.wallZ, VZ0 = dN.wallZ + 0.5, VZ1 = MEZZ_S + runG;
@@ -277,8 +277,8 @@ export function buildAtrium(c: Ctx, spec: AtriumSpec, other: Other) {
   b.guard(() => {
     const strips: { xf: Parameters<typeof b.with>[0]; i: ConcInfo }[] = [
       // West and east galleries, in frames running along them (x = station z).
-      { xf: { rot: 1, t: [-(VX + GW / 2), 0, 0] }, i: galleryInfo(c, cs, ceilMat, cf, CW, GZ1, GW / 2, [], PIL_Z.map((z): [number, number] => [z, PIL_X - VX - GW / 2])) },
-      { xf: { rot: 1, t: [VX + GW / 2, 0, 0] }, i: galleryInfo(c, cs, ceilMat, cf, CW, HZ0, GW / 2, [], PIL_Z.filter((z) => z < HZ0 - 2).map((z): [number, number] => [z, -(PIL_X - VX - GW / 2)])) },
+      { xf: { rot: 1, t: [-(VX + GW / 2), 0, 0] }, i: galleryInfo(c, cs, ceilMat, cf, CW, GZ1, GW / 2, [], PIL_Z.map((z): [number, number] => [z, PIL_OUT - GW / 2])) },
+      { xf: { rot: 1, t: [VX + GW / 2, 0, 0] }, i: galleryInfo(c, cs, ceilMat, cf, CW, HZ0, GW / 2, [], PIL_Z.filter((z) => z < HZ0 - 2).map((z): [number, number] => [z, -(PIL_OUT - GW / 2)])) },
       // South of the void, and the harbour gates' hall.
       { xf: { t: [0, 0, (VZ1 + GZ1) / 2] }, i: galleryInfo(c, cs, ceilMat, cf, -VX, VX, (GZ1 - VZ1) / 2, [], []) },
       { xf: { t: [0, 0, hzc] }, i: galleryInfo(c, cs, ceilMat, cf, VX, HX1, hcw, [{ g: HG, hi: true }], []) },

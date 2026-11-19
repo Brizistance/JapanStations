@@ -1,3 +1,4 @@
+import { STACK_DY } from '../sim/geometry';
 // Exits: for each station, which numbered exits it has and what is near each at street level.
 //
 // Derived from the station's spec (specs.ts) so that exit boards always match the street the
@@ -44,7 +45,12 @@ const UNDER_MEZZ_Y = -4.2; // build.ts: B1 mezzanine under an elevated station
  * +x edge (where the stair starts climbing +x) and the lobby's −z wall it opens through. The
  * stair mouth runs z = wall − 4 … wall − 1.2.
  */
-export const ATRIUM = { mezzY: -15.5, exit5: { door: 26, wallZ: 39.85, num: '5' } };
+/** midlevel.ts (Harunodai): the ticket hall's x extent, half width and gate lines at ±g. */
+export const MID = { x0: -41, x1: 41, cw: 21, g: 25 };
+/** Level of a shared mid-level concourse: halfway between the two platforms. */
+export const midCf = (pfUpper: number, pfLower: number) => Math.round(((pfUpper + pfLower) / 2) * 100) / 100;
+/** mezzDrop: the transfer mezzanine is this far below the upper line's platforms. */
+export const ATRIUM = { mezzDrop: 5.6, exit5: { door: 26, wallZ: 39.85, num: '5' } };
 /** world/builder.ts DEFAULT_PLOT. */
 export const PLOT = { x: 130, z: 85 };
 /** surface.ts: fixed positions of the street's features (station frame, metres). */
@@ -288,8 +294,11 @@ export function concourseY(id: StationId): number {
   const spec = SPECS[id], st = stationById(id);
   const pf = (l: LineDef) => railAt(l, id) + PF_H;
   switch (spec.kind) {
-    case 'underground': return pf(linesAt(id)[0]) + CONC_RISE; // build.ts uses the first serving line
+    // build.ts uses the first serving line; a stacked station's concourse is over its upper level.
+    case 'underground': return pf(linesAt(id)[0]) + CONC_RISE + (spec.stacked ? STACK_DY : 0);
     case 'interchange':
+      if (spec.mid) return midCf(pf(LINES.find((l) => l.id === spec.primary)!), pf(crossingLine(st, spec.primary)));
+      return pf(LINES.find((l) => l.id === spec.primary)!) + CONC_RISE;
     case 'atrium': return pf(LINES.find((l) => l.id === spec.primary)!) + CONC_RISE;
     case 'hub': return pf(crossingLine(st, spec.primary, spec.beside)) + CONC_RISE;
     case 'elevated': return 0.2;
@@ -302,7 +311,7 @@ export function concourseY(id: StationId): number {
  */
 export function mezzanineY(id: StationId): number | null {
   const kind = SPECS[id].kind;
-  if (kind === 'atrium') return ATRIUM.mezzY;
+  if (kind === 'atrium') return concourseY(id) - CONC_RISE - ATRIUM.mezzDrop;
   return kind === 'elevated' && linesAt(id).length > 1 ? UNDER_MEZZ_Y : null;
 }
 
@@ -440,6 +449,11 @@ function derive(id: StationId): StationStreet {
       return { kind: 'street', surface: spec.surface, box: [cx0, -cw, cx1, cw], swOut: STREET_CW + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'interchange': {
+      if (spec.mid) {
+        // midlevel.ts: gates at ±MID.g, exits 1–2 east, 3–4 west, from the hall's long walls.
+        const es = [...exitPair(MID.g + 13, 1, MID.cw, run, ['1', '2']), ...exitPair(-MID.g - 13, -1, MID.cw, run, ['3', '4'])];
+        return { kind: 'street', surface: spec.surface, box: [MID.x0, -MID.cw, MID.x1, MID.cw], swOut: MID.cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
+      }
       const cw = interchangeHalf(st, spec.primary);
       // Exits 1–2 at the +x end, 3–4 at the −x end (gate lines at x = ±29).
       const es = [...exitPair(42, 1, cw, run, ['1', '2']), ...exitPair(-42, -1, cw, run, ['3', '4'])];

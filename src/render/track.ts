@@ -72,9 +72,10 @@ const TUNNEL_H = 4.65;
 
 function profiles(geom: LineGeom, type: Structure, siding: boolean, m: Sample): { p: Profile; closed: boolean }[] {
   const L = geom.def.trackOffset, W = halfWidth(geom);
-  const rect =(c: number, w: number): Profile => [[c - w, -BED], [c + w, -BED], [c + w, TUNNEL_H], [c - w, TUNNEL_H]];
+  const rect = (c: number, w: number, dy = 0): Profile => [[c - w, dy - BED], [c + w, dy - BED], [c + w, dy + TUNNEL_H], [c - w, dy + TUNNEL_H]];
   if (type === 'tunnel') {
-    if (geom.def.platformType === 'island' && !siding) return [{ p: rect(-L, 2.2), closed: true }, { p: rect(L, 2.2), closed: true }];
+    // Twin tubes, each following its own track (they converge and stack at a stacked station).
+    if (geom.def.platformType === 'island' && !siding) return (['down', 'up'] as const).map((t) => ({ p: rect(geom.lateral(t, m.s), 2.2, geom.dy(t, m.s)), closed: true }));
     return [{ p: rect(0, W), closed: true }];
   }
   if (type === 'cut') {
@@ -130,10 +131,12 @@ export function buildTrack(sim: LineSim): THREE.Group {
 
     if (type === 'tunnel' && lit.has(a)) {
       const twin = geom.def.platformType === 'island' && !siding;
-      const lats = twin ? [-L - 2.15, L + 2.15] : [-W + 0.05, W - 0.05];
-      for (const lat of lats) {
+      const lats: [number, number][] = twin
+        ? [[geom.lateral('down', a.s) - 2.15, geom.dy('down', a.s)], [geom.lateral('up', a.s) + 2.15, geom.dy('up', a.s)]]
+        : [[-W + 0.05, 0], [W - 0.05, 0]];
+      for (const [lat, dy] of lats) {
         q.setFromAxisAngle(up, Math.atan2(-a.tz, a.tx));
-        v.set(a.x - a.tz * lat, a.y + 2.7, a.z + a.tx * lat);
+        v.set(a.x - a.tz * lat, a.y + dy + 2.7, a.z + a.tx * lat);
         lights.push(new THREE.Matrix4().compose(v, q, sc));
       }
     }
@@ -164,10 +167,11 @@ export function buildTrack(sim: LineSim): THREE.Group {
       const a = samples[i], b = samples[i + 1];
       if (a.s < t.s0 || b.s > t.s1 || hosted[i]) continue;
       const ca = geom.lateral(t.track, a.s), cb = geom.lateral(t.track, b.s);
-      sleepers.quad(a, b, [ca - 1.25, yS], [ca + 1.25, yS], [cb - 1.25, yS], [cb + 1.25, yS], 0, 2.6);
+      const da = geom.dy(t.track, a.s), db = geom.dy(t.track, b.s);
+      sleepers.quad(a, b, [ca - 1.25, yS + da], [ca + 1.25, yS + da], [cb - 1.25, yS + db], [cb + 1.25, yS + db], 0, 2.6);
       for (const g of [-G, G]) {
-        const ra: Profile = [[ca + g - 0.035, yS], [ca + g - 0.035, 0], [ca + g + 0.035, 0], [ca + g + 0.035, yS]];
-        const rb: Profile = [[cb + g - 0.035, yS], [cb + g - 0.035, 0], [cb + g + 0.035, 0], [cb + g + 0.035, yS]];
+        const ra: Profile = [[ca + g - 0.035, yS + da], [ca + g - 0.035, da], [ca + g + 0.035, da], [ca + g + 0.035, yS + da]];
+        const rb: Profile = [[cb + g - 0.035, yS + db], [cb + g - 0.035, db], [cb + g + 0.035, db], [cb + g + 0.035, yS + db]];
         rails.span(a, b, ra, rb, false);
       }
     }
