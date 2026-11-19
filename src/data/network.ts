@@ -123,7 +123,7 @@ export const LINES: LineDef[] = [
     // The newest, deepest line. South half under Akane-suji (north–south), then east
     // under Kita-Ōdōri avenue, then north into the hills: a stair-step diagonal that
     // crosses each older line once, at right angles, 7.5 m below it. West of Kamomehama it
-    // runs out under the bay to the reclaimed islands; in the hills it turns east along
+    // runs out under the bay to the reclaimed islands, rising onto a viaduct at Shin-Kamome; in the hills it turns east along
     // the ridge road to Hoshimine. The 2008 extension leaves the tunnel on the far side of the
     // ridge, in an open cutting at Kasumidani, then climbs onto a viaduct and turns north to
     // the new town at Shiondai.
@@ -134,8 +134,10 @@ export const LINES: LineDef[] = [
     color: '#b7282e',
     type: 'metro',
     stops: ['shin-kamome', 'shiosai-koen', 'kamomehama', 'watayamachi', 'aizomecho', 'kita-odori', 'suzukakedori', 'tsukimizaka', 'yamabukidai', 'momijigaoka', 'seiryodai', 'hoshimine', 'kasumidani', 'shiondai'],
-    railY: [-14, -16, -15, -17, -19.5, -20.5, -18, -16, -14, -12, -11, -10, -5.2, 7.5],
+    railY: [5.5, -10, -15, -17, -19.5, -20.5, -18, -22, -14, -12, -11, -10, -5.2, 7.5],
     platformType: 'island',
+    // The shallow park station and the old new-town terminus were built with side platforms.
+    sideAt: ['shiosai-koen', 'yamabukidai'],
     platformDoors: 'full',
     trackOffset: 5.5,
     alignment: { vertices: [[-1380, 1400], [A_SUJI_X, 1400], [A_SUJI_X, A_ODORI_Z], [A_HILL_X, A_ODORI_Z], [A_HILL_X, A_RIDGE_Z], [A_VALLEY_X, A_RIDGE_Z], [A_VALLEY_X, -3700]], radius: 400 },
@@ -839,6 +841,10 @@ export const stationById = (id: StationId): StationDef => {
   return s;
 };
 export const linesAt = (id: StationId): LineDef[] => LINES.filter((l) => l.stops.includes(id));
+
+/** A line's platform type at one station (LineDef.sideAt overrides the line's own). */
+export const platformTypeAt = (line: LineDef, id: StationId): LineDef['platformType'] =>
+  line.sideAt?.includes(id) ? 'side' : line.platformType;
 
 /** Route-map polyline for segment i of a line (stops[i] → stops[i + 1]), including any corners. */
 export function diagramSegment(line: LineDef, i: number): [number, number][] {

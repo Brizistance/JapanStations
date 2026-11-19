@@ -13,6 +13,7 @@
 import type { LineDef, StationDef } from '../../data/types';
 import type { Builder } from '../../world/builder';
 import type { StationStyle } from '../kit';
+import type { HallInfo } from '../themes/types';
 
 /** [x0, z0, x1, z1] */
 export type Rect = [number, number, number, number];
@@ -347,4 +348,9 @@ export interface StationLook {
   canopy?(e: ExitInfo): void;
   /** Decoration for one transfer passage (decoration only). */
   passage?(p: PassageInfo): void;
+  /**
+   * Decoration for the primary line's platform hall, after the line's theme (decoration only:
+   * the platforms, screen doors, stairs and walls stay as the kit built them).
+   */
+  platform?(h: HallInfo): void;
 }

@@ -40,6 +40,11 @@ export interface LineDef {
    * track spacing is constant along the whole line and never has to flare.
    */
   platformType: 'island' | 'side';
+  /**
+   * Stations where an island line has side platforms instead. The tracks keep the line's
+   * spacing; the platforms sit outside them, with a wide track bed between (platformTypeAt).
+   */
+  sideAt?: StationId[];
   /** Platform screen doors: waist-high gates (default) or full-height glass screens. */
   platformDoors?: 'half' | 'full';
   /** Distance of each track centre from the line centreline, metres. */

@@ -8,6 +8,10 @@
 // Shiondai (terminus): an island on the viaduct under one barrel vault. The concourse is under
 //   the platform's far end, its stair climbing back onto the island; a broad stair at the front
 //   door rises to a pedestrian deck over the bus terminal to the shopping centre.
+// Shin-Kamome (seaside): the line comes up out of the bay onto a viaduct across the island. An
+//   island under gull-wing canopies, open to the sea wind; a glazed hall at ground level under
+//   the middle of the viaduct, its stair rising straight up into the island; a boardwalk by the
+//   sea in front, apartment towers behind.
 
 import { HALL_HALF } from '../sim/geometry';
 import type { Builder } from '../world/builder';
@@ -20,6 +24,7 @@ import { wayfindElevated } from './wayfinding';
 
 export function buildOpenAir(c: Ctx, spec: ElevatedSpec) {
   if (spec.layout === 'cutting') c.b.open(() => buildCutting(c, spec));
+  else if (spec.layout === 'seaside') buildSeaside(c, spec);
   else buildTerminus(c, spec);
 }
 
@@ -385,4 +390,155 @@ function buildTerminus(c: Ctx, spec: ElevatedSpec) {
   for (const [hx, hz, hw, hh] of [[-90, -170, 240, 50], [60, -180, 260, 64], [-120, 170, 220, 46], [110, 175, 240, 58]]) {
     b.mesh('leaf', 'sphere', hx, -6, hz, hw, hh * 2, hw * 0.6);
   }
+}
+
+// ── Shin-Kamome: viaduct terminus by the sea, gull-wing canopies ─────────────────────────────
+
+function buildSeaside(c: Ctx, spec: ElevatedSpec) {
+  const { b, line, station, railY, style } = c;
+  const d = hallDims(line, railY);
+  const pf = d.pf, fl = 0.2, GY = GROUND_Y;
+  const S = OPEN_AIR.seaside;
+  const [cx0, , cx1, cw] = S.box;
+  const deckUnder = railY - 1.3;
+  const gateX = -12;
+  // The stair rises straight up (+x) from the paid hall into the middle of the island.
+  const run = Math.round((pf - fl) * 1.7 * 100) / 100;
+  const foot = -3, top = foot + run;
+  const accent = style.accent;
+
+  hall(c, {
+    ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pf + 3.3, emit: false }],
+    blocks: [[foot - 1, top]],
+    elevated: true,
+    roof: false,
+    platHoles: [[foot, -1.84, top, 1.84]],
+  });
+  b.with({ t: [foot, 0, 0] }, () => islandUnit(b, fl, pf, run, pf));
+  b.hang({ k: 'guide', ja: '出口・改札', en: 'Exit / Ticket gates', bg: 'yellow', arrow: 'up' }, top + 1.6, pf + 2.6, 0, 3.3, 0.46,
+    { ceil: pf + 3.3, back: { k: 'guide', ja: '出口・改札', en: 'Exit / Ticket gates', bg: 'yellow', arrow: 'up' } });
+
+  // Gull-wing canopies: a shallow V of white panels on the island's columns, low over the
+  // middle and lifting out over the tracks, open to the sea wind under their edges.
+  const R = d.wallZ + 0.8, lo = pf + 3.45, lift = 1.3, n = 8, w = R / n;
+  const yAt = (z: number) => lo + lift * (Math.abs(z) / R);
+  const strips = (s: number) => Array.from({ length: n }, (_, k) => {
+    const za = s * k * w, zb = s * (k + 1) * w;
+    return { z0: Math.min(za, zb), z1: Math.max(za, zb), y: yAt((k + 0.5) * w) };
+  });
+  for (const s of [-1, 1]) {
+    for (const q of strips(s)) b.deco('panel:#f4f6f7', -HALL_HALF, q.y, q.z0, HALL_HALF, q.y + 0.12, q.z1);
+    b.deco(`paint:${line.color}`, -HALL_HALF, yAt(R) - 0.3, s * R - 0.06, HALL_HALF, yAt(R) + 0.14, s * R + 0.06);
+    // Purlins over the platform edges carry the hanging signs; a row of lights under each wing.
+    b.deco('metal:#9aa3ab', -58, pf + 3.3, s * 2.05 - 0.07, 58, pf + 3.45, s * 2.05 + 0.07);
+    for (let x = -56; x + 3 <= 56; x += 5) ceilingLight(b, x, x + 3, s * 3.6 - 0.1, s * 3.6 + 0.1, yAt(3.6) - 0.22);
+  }
+  b.deco('metal:#9aa3ab', -HALL_HALF, lo - 0.16, -0.16, HALL_HALF, lo + 0.02, 0.16); // valley gutter
+  // Sea-blue ribs on the column grid, a strut from each column head up to the wing.
+  for (let x = -54; x <= 54; x += 6) {
+    for (const s of [-1, 1]) {
+      for (const q of strips(s)) b.deco(`paint:${accent}`, x - 0.1, q.y - 0.22, q.z0, x + 0.1, q.y, q.z1);
+      if (x > foot - 1.6 && x < top + 0.6) continue;
+      b.deco('metal:#9aa3ab', x - 0.08, pf + 3.3, s * 2.05 - 0.08, x + 0.08, yAt(2.05), s * 2.05 + 0.08);
+    }
+  }
+
+  // Slim T-piers under the deck, clear of the hall.
+  for (const x of [-52.5, -37.5, 22.5, 37.5, 52.5]) {
+    b.box('concrete', x - 1.1, 0, -1.1, x + 1.1, deckUnder - 1.0, 1.1);
+    b.deco('concrete', x - 0.8, deckUnder - 1.0, -8.3, x + 0.8, deckUnder, 8.3);
+  }
+
+  // ── The hall under the deck: glazed to the sea, the town end open ──
+  b.slab(style.floor, cx0, -cw, cx1, cw, 0.1, fl, []);
+  const door = S.exits[0].rect;
+  const frame = 'flat:#dfe6ea';
+  glazed(b, frame, cx0, cw - 0.15, door[0], cw, fl, deckUnder);
+  glazed(b, frame, door[2], cw - 0.15, cx1, cw, fl, deckUnder);
+  b.deco(frame, door[0], fl + 3.0, cw - 0.15, door[2], deckUnder, cw);
+  b.sign({ k: 'entrance', station: station.id }, (door[0] + door[2]) / 2, fl + 3.6, cw + 0.02, [0, 1], 6, 0.9);
+  glazed(b, frame, cx1, -cw, cx1 + 0.15, cw, fl, deckUnder);
+  b.box(style.concWall, cx0, fl, -cw, cx1, deckUnder, -cw + 0.15);
+  b.box(style.concWall, cx0 - 0.15, fl, -cw, cx0, deckUnder, -3);
+  b.box(style.concWall, cx0 - 0.15, fl, 3, cx0, deckUnder, cw);
+  b.deco(style.concWall, cx0 - 0.15, fl + 3.0, -3, cx0, deckUnder, 3);
+  b.sign({ k: 'entrance', station: station.id }, cx0 - 0.17, fl + 3.6, 0, [-1, 0], 5.4, 0.9);
+  for (let x = cx0 + 2; x + 2.4 < cx1; x += 4.5) {
+    for (const z of [-5, 0, 5]) {
+      if (z === 0 && x + 2.4 > foot - 0.5 && x < top + 0.5) continue;
+      ceilingLight(b, x, x + 2.4, z - 0.22, z + 0.22, deckUnder);
+    }
+  }
+  b.with({ ...MIRROR_X, t: [gateX, 0, 0] }, () => gateLine(c, fl, cw, [line.id], deckUnder - fl));
+  ticketMachines(c, fl, cx0 + 1.2, -cw + 0.15, 5);
+  vending(b, cx1 - 1.2, fl, -cw + 0.5, [0, 1], 'vending');
+  vending(b, cx1 - 2.3, fl, -cw + 0.5, [0, 1], 'vending2');
+  // The gulls mural on the back wall, facing the sea through the glass.
+  b.sign({ k: 'mural', ...style.mural }, 3.5, fl + 2.3, -cw + 0.17, [0, 1], 12, 2.8);
+  b.zone('concourse', cx0, 0, -cw, cx1, deckUnder, cw, '改札階コンコース', 'Concourse (street level)');
+  const nums = station.platforms[line.id];
+  wayfindElevated({
+    b, station, line, style, fl, top: deckUnder, cw, x0: cx0, x1: cx1, gateX,
+    stairs: [{ x: foot, z: -0.9, platform: nums[0], dir: 'down' }, { x: foot, z: 0.9, platform: nums[1], dir: 'up' }],
+    entrances: [{ x: (door[0] + door[2]) / 2, z: cw, n: [0, 1], w: door[2] - door[0] }, { x: cx0, z: 0, n: [-1, 0], w: 6 }],
+  });
+  b.setSpawn(cx0 + 5, fl, 3, [1, 0]);
+
+  // ── The island: boardwalk and sea in front, the road and towers behind ──
+  const X = PLOT_X, Z = PLOT_Z, seaZ = 42;
+  const road: Rect = [-X, -24, X, -16];
+  b.box('water', -X, -1.6, seaZ, X, -1.2, Z + 60, false);
+  b.slab('asphalt', -X, -Z, X, seaZ, -0.6, 0, []);
+  b.slab('paver', -X, -Z, X, seaZ, 0, GY, [road, [cx0, -cw, cx1, cw]]);
+  b.slab('paver', cx0, -cw, cx1, cw, 0, 0.1, []);
+  b.zone('street', -X, -0.3, -Z, X, 80, seaZ, `${station.nameJa}駅前`, `${station.nameRomaji} — station plaza`);
+  plotWalls(b);
+  for (let x = -X; x < X; x += 6) b.deco('flat:#e9e9e4', x, 0.004, -20.07, x + 3, 0.01, -19.93);
+
+  // Seawall, railing and boardwalk, benches facing the water, a white lighthouse on the mole.
+  b.box('concrete', -X, -2, seaZ - 0.4, X, GY, seaZ);
+  b.deco('wood:#9a7a58', -X, GY, 20, X, GY + 0.04, seaZ - 0.4);
+  for (let x = -X; x < X; x += 3) {
+    b.block(x, GY, seaZ - 0.5, x + 3, GY + 1.1, seaZ - 0.4);
+    b.deco('metal:#c3c7cb', x, GY + 0.98, seaZ - 0.52, x + 3, GY + 1.1, seaZ - 0.4);
+    b.deco('metal:#c3c7cb', x, GY, seaZ - 0.5, x + 0.06, GY + 1.0, seaZ - 0.44);
+  }
+  for (let x = -X + 8; x < X - 6; x += 12) {
+    b.box('wood:#6b5440', x - 1.2, GY, seaZ - 3.2, x + 1.2, GY + 0.45, seaZ - 2.7);
+    b.deco('wood:#6b5440', x - 1.2, GY + 0.45, seaZ - 3.25, x + 1.2, GY + 0.95, seaZ - 3.15);
+  }
+  const r = seeded(spec.surface.seed);
+  for (let x = -X + 6; x < X - 4; x += 16) if (Math.abs(x + 17.5) > 7) tree(b, x + r() * 3, 21.5, 4.6 + r(), spec.surface.treeLeaf ?? 'leaf2');
+  b.deco('concrete', -X, -1.6, seaZ + 28, -30, GY + 0.6, seaZ + 32);
+  b.mesh('flat:#f4f4f0', 'cyl', -40, GY + 5, seaZ + 30, 2.2, 9, 2.2);
+  b.mesh(`flat:${style.mural.color}`, 'cyl', -40, GY + 10.2, seaZ + 30, 2.0, 1.4, 2.0);
+  b.deco('glow:#fff1c4', -40.6, GY + 9.6, seaZ + 29.4, -39.4, GY + 10.8, seaZ + 30.6);
+  const deckName = spec.surface.promenadeName ?? { ja: '新鴎シーサイドデッキ', en: 'Shin-Kamome Seaside Deck' };
+  b.box('flat:#2c6a96', -21, GY, 19.6, -14, GY + 2.2, 19.9);
+  b.sign({ k: 'label', text: deckName.ja, sub: deckName.en, fg: '#fff', bg: '#2c6a96' }, -17.5, GY + 1.4, 19.58, [0, -1], 6.6, 1.3);
+
+  // Bus stop on the town side, under the viaduct's shadow.
+  for (const px of [-45, -35]) b.box(`paint:${accent}`, px - 0.08, GY, -14.6, px + 0.08, GY + 2.8, -14.44);
+  b.deco('flat:#f4f6f7', -46, GY + 2.8, -15.6, -34, GY + 2.95, -13.2);
+  b.box('flat:#3b4046', -43, GY, -14.2, -37, GY + 0.45, -13.7);
+  b.sign({ k: 'label', text: '新鴎バスのりば', sub: 'Shin-Kamome bus stop', fg: '#fff', bg: '#2c6a96' }, -40, GY + 2.4, -14.66, [0, 1], 3.6, 0.6);
+  car(b, -20, -22, '#d9d9d4');
+  car(b, 30, -18, '#2c6a96');
+
+  // Apartment towers across the road, looking back at the city.
+  const towerMats = ['facade:apt:#eef1f3', 'facade:apt:#e2e8ec', 'facade:apt:#e9e6df'];
+  for (const [z0, z1] of [[-56, -34], [-82, -62]] as const) {
+    for (let x = -126; x < 120;) {
+      const tw = 16 + r() * 8;
+      b.box(towerMats[Math.floor(r() * 3)], x, GY, z0, Math.min(x + tw, 124), GY + (12 + Math.floor(r() * 14)) * 3.1, z1);
+      x += tw + 8;
+    }
+  }
+  // Bicycle racks under the viaduct, east of the hall.
+  for (let x = 16; x < 58; x += 0.8) {
+    const col = ['#3a3f45', '#2c6a96', '#9c1f1f', '#c9c2a8'][Math.abs(Math.round(x * 5)) % 4];
+    b.deco('flat:#3a3f45', x, GY + 0.3, -6.4, x + 0.06, GY + 0.95, -4.8);
+    b.deco(`flat:${col}`, x - 0.03, GY + 0.6, -6.1, x + 0.09, GY + 0.72, -5.3);
+  }
+  b.box('flat:#b7bcc2', 15.5, GY, -7.2, 58.5, GY + 1.0, -7.1);
 }

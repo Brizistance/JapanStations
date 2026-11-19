@@ -110,7 +110,7 @@ export const PLACE = {
 const { canal: DEFAULT_CANAL, arcade: DEFAULT_ARCADE, ferry: FERRY, promenade: PROMENADE, plaza: PLAZA, busTaxi: BUS_TAXI, mart: MART, bikes: BIKES } = PLACE;
 
 /** Map fills for an open-air plan (draw.ts areaOpenAir). */
-export type AreaFill = 'house' | 'apartment' | 'road' | 'plaza' | 'track' | 'green' | 'shop' | 'deck';
+export type AreaFill = 'house' | 'apartment' | 'road' | 'plaza' | 'track' | 'green' | 'shop' | 'deck' | 'sea';
 /**
  * open-air.ts: the plan of each open-air layout, shared by the builder, the exit boards and the
  * area map. Station frame (+x along the line towards Shiondai), metres.
@@ -128,7 +128,27 @@ const KASUMIDANI_BUS: Named = { ja: '霞谷バスのりば', en: 'Kasumidani bus
 const SHIONDAI_BUS: Named = { ja: '紫苑台バスターミナル', en: 'Shiondai Bus Terminal' };
 const SHIONDAI_MALL: Named = { ja: '紫苑台タウンプラザ', en: 'Shiondai Town Plaza' };
 const SHIONDAI_PARK: Named = { ja: '紫苑台中央公園', en: 'Shiondai Central Park' };
-export const OPEN_AIR: Record<'cutting' | 'terminus', OpenAirPlan> = {
+const SEASIDE_DECK: Named = { ja: '新鴎シーサイドデッキ', en: 'Shin-Kamome Seaside Deck' };
+const SHIN_KAMOME_BUS: Named = { ja: '新鴎バスのりば', en: 'Shin-Kamome bus stop' };
+export const OPEN_AIR: Record<'cutting' | 'terminus' | 'seaside', OpenAirPlan> = {
+  // Shin-Kamome: the hall is under the middle of the viaduct, the sea and its boardwalk on the
+  // +z side, the towers across the road on −z. Unpaid side x < −12.
+  seaside: {
+    box: [-24, -8, 14, 8],
+    areas: [
+      { r: [-130, -8.3, 130, 8.3], fill: 'track' },
+      { r: [-34, 8, 24, 18], fill: 'plaza', label: PLACE.plaza },
+      { r: [-130, 18, 130, 42], fill: 'deck', label: SEASIDE_DECK },
+      { r: [-130, 42, 130, 85], fill: 'sea' },
+      { r: [-130, -24, 130, -16], fill: 'road' },
+      { r: [-126, -80, 124, -32], fill: 'apartment', label: KIND.apartment },
+    ],
+    bus: [-40, -13],
+    exits: [
+      { rect: [-21, 7.85, -14, 8], side: 1, near: [SEASIDE_DECK, PLACE.plaza] },
+      { rect: [-24, -3, -23.85, 3], side: 0, near: [KIND.apartment, SHIN_KAMOME_BUS] },
+    ],
+  },
   // Kasumidani: the cutting runs the whole plot; the bridge building spans it at x = 0 … 15.
   cutting: {
     box: [0, -15, 15, 15],

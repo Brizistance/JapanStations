@@ -1788,7 +1788,7 @@ function areaOpenAir(ctx: Ctx, st: StationDef, exits: StationExit[], m: MapCtx, 
   const line = linesAt(st.id)[0];
   const fill: Record<AreaFill, string> = {
     house: BLOCK_FILL.house, apartment: BLOCK_FILL.apartment, road: '#d6d3cb', plaza: '#f3f1ea',
-    track: '#c3c7cc', green: BLOCK_FILL.park, shop: '#d9d2e6', deck: '#b9b0d6',
+    track: '#c3c7cc', green: BLOCK_FILL.park, shop: '#d9d2e6', deck: '#b9b0d6', sea: '#bcd6e6',
   };
   for (const a of plan.areas) {
     R(a.r[0], a.r[1], a.r[2], a.r[3], fill[a.fill]);

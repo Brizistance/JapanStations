@@ -58,7 +58,7 @@ function makeTrain(sim: LineSim, index: number, time: number): TrainRuntime {
 
 function place(t: TrainRuntime, snap: boolean) {
   const { geom } = t.sim;
-  t.doorSide = geom.doorSide(geom.lateral(t.state.track, t.state.s));
+  t.doorSide = geom.doorSide(geom.lateral(t.state.track, t.state.s), t.state.s);
   t.cars.forEach((f, c) => {
     const p = f.prev!;
     p.x = f.x; p.y = f.y; p.z = f.z; p.yaw = f.yaw; p.pitch = f.pitch;

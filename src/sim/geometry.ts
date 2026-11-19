@@ -133,8 +133,15 @@ export class LineGeom {
   }
 
   /** Which side of a train the platform is on, as a sign along local +z. */
-  doorSide(trackLateral: number): 1 | -1 {
-    const s = trackLateral < 0 ? -1 : 1;
-    return (this.def.platformType === 'island' ? -s : s) as 1 | -1;
+  doorSide(trackLateral: number, s = NaN): 1 | -1 {
+    const side = trackLateral < 0 ? -1 : 1;
+    let type = this.def.platformType;
+    if (this.def.sideAt && Number.isFinite(s)) {
+      // The nearest stop decides (LineDef.sideAt).
+      let k = 0;
+      for (let i = 1; i < this.stopS.length; i++) if (Math.abs(this.stopS[i] - s) < Math.abs(this.stopS[k] - s)) k = i;
+      if (this.def.sideAt.includes(this.def.stops[k])) type = 'side';
+    }
+    return (type === 'island' ? -side : side) as 1 | -1;
   }
 }

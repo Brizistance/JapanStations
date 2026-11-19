@@ -107,7 +107,7 @@ The Sumire Line runs on the Shiokaze Line's track from just before Daigaku-mae t
 
 ### Phase 1 simplification: one platform type per line
 
-`platformType`, `platformDoors` and `trackOffset` are per **line**, not per station, so the two tracks stay a constant distance apart and never flare around an island platform. To mix platform types on one line later, `LineGeom.lateral()` needs to vary the offset by chainage; everything else already reads track positions through that function.
+`platformType`, `platformDoors` and `trackOffset` are per **line**, not per station, so the two tracks stay a constant distance apart and never flare around an island platform. To mix platform types on one line later, `LineGeom.lateral()` needs to vary the offset by chainage; everything else already reads track positions through that function. Exception without flaring: `sideAt` lists stations where an island line has side platforms outside its usual track spacing (Akanesuji at Shiosai-kōen and Yamabukidai).
 
 ## Timetable
 

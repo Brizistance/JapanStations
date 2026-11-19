@@ -16,6 +16,10 @@ export interface UndergroundSpec {
   stairs: { x: number; up: 1 | -1 }[];
   /** Half width of the concourse; by default it follows the line's age (build.ts). */
   width?: number;
+  /** Railed openings in the concourse floor looking down onto an island platform, [x0, z0, x1, z1]. */
+  voids?: [number, number, number, number][];
+  /** A walled-off siding behind the +z platform, seen through a long railed opening (an old terminus). */
+  stub?: true;
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -45,9 +49,10 @@ export interface ElevatedSpec {
    * under the deck and a stair to each side platform. 'cutting': an island in an open cutting
    * with a station building bridging it at street level (Kasumidani). 'terminus': a viaduct
    * terminus under one barrel vault, its hall under the platform end, a pedestrian deck to the
-   * plaza (Shiondai).
+   * plaza (Shiondai). 'seaside': a viaduct terminus under gull-wing canopies, its hall at ground
+   * level under the middle of the viaduct, opening onto a boardwalk by the sea (Shin-Kamome).
    */
-  layout?: 'cutting' | 'terminus';
+  layout?: 'cutting' | 'terminus' | 'seaside';
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -197,23 +202,28 @@ export const SPECS: Record<StationId, StationSpec> = {
     surface: { seed: 127, roadHalf: 11, cross: [-76, 74], left: 'office', right: 'mixed', trees: true },
   },
   // Hillside neighbourhood: night-blue tile and a moon mural.
+  // Deep under the slope: a tall vault over most of the island, moon phases hung in it, and the
+  // concourse only at the uphill (+x) end.
   tsukimizaka: {
     kind: 'underground',
-    concourse: [-34, 20],
-    gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    concourse: [20, 60],
+    gates: ['hi'],
+    stairs: [{ x: 24, up: 1 }],
     style: {
       wall: 'tile:#27324d', concWall: 'tile:#eceef3', floor: 'floor:#cfcdc8', pillar: 'tile:#27324d',
-      accent: '#e8c65a', mural: { v: 'moon', color: '#f0d77a' },
+      accent: '#e8c65a', mural: { v: 'moon', color: '#f0d77a' }, vault: true,
     },
     surface: { seed: 131, roadHalf: 6.5, cross: [-66, 62], left: 'house', right: 'apartment', trees: true, poles: true },
   },
-  // New-town station (the old north-east terminus): cream panels, kerria-yellow trim.
+  // New-town station (the old north-east terminus): cream panels, kerria-yellow trim. Side
+  // platforms under a long central concourse; the old terminus's siding behind the +z platform.
   yamabukidai: {
     kind: 'underground',
-    concourse: [-20, 34],
-    gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    concourse: [-40, 40],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: -6, up: -1 }, { x: 6, up: 1 }],
+    width: 12,
+    stub: true,
     style: {
       wall: 'panel:#f3f0e2', concWall: 'panel:#f6f4ea', floor: 'floor:#d6d2c4', pillar: 'panel:#f3f0e2',
       accent: '#e2a400', mural: { v: 'kerria', color: '#e8b200' },
@@ -443,11 +453,10 @@ export const SPECS: Record<StationId, StationSpec> = {
   },
   // ── Akanesuji Line, west (the reclaimed islands) ──
   // Newest island terminus: white panels, gulls, apartment towers facing the bay.
+  // The line comes up out of the bay onto a viaduct across the island: gull-wing canopies.
   'shin-kamome': {
-    kind: 'underground',
-    concourse: [-20, 34],
-    gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    kind: 'elevated',
+    layout: 'seaside',
     style: {
       wall: 'panel:#f0f3f4', concWall: 'panel:#f5f7f8', floor: 'floor:#d0d5d7', pillar: 'panel:#f0f3f4',
       accent: '#b7282e', mural: { v: 'gulls', color: '#2c6a96' },
@@ -456,12 +465,14 @@ export const SPECS: Record<StationId, StationSpec> = {
       promenadeName: { ja: '新鴎シーサイドデッキ', en: 'Shin-Kamome Seaside Deck' },
     },
   },
-  // Seaside park: sea-green tile, wave mural, the park opposite the exit.
+  // Seaside park: sea-green tile, wave mural, the park opposite the exit. Shallow, side
+  // platforms, and a small concourse over the west end only.
   'shiosai-koen': {
     kind: 'underground',
-    concourse: [-34, 22],
+    concourse: [-60, -24],
     gates: ['lo'],
-    stairs: [{ x: 2, up: -1 }],
+    stairs: [{ x: -25, up: -1 }],
+    width: 12,
     style: {
       wall: 'tile:#cfe3df', concWall: 'tile:#eaf3f1', floor: 'floor:#cbd1cf', pillar: 'tile:#2f7a74',
       accent: '#2f7a74', mural: { v: 'waves', color: '#2f8f86' },
@@ -487,12 +498,14 @@ export const SPECS: Record<StationId, StationSpec> = {
       parkName: { ja: '紅葉ヶ丘公園', en: 'Momijigaoka Park' }, treeLeaf: 'flat:#c8452a',
     },
   },
-  // Cool upland estate: mint-white panels, pine mural, a research campus.
+  // Cool upland estate: mint-white panels, pine mural, a research campus. A full-length
+  // concourse with two railed voids down onto the island between its stairs.
   seiryodai: {
     kind: 'underground',
-    concourse: [-34, 34],
+    concourse: [-56, 56],
     gates: ['lo', 'hi'],
-    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    stairs: [{ x: -16, up: -1 }, { x: 16, up: 1 }],
+    voids: [[-13, -1.4, -3, 1.4], [3, -1.4, 13, 1.4]],
     style: {
       wall: 'panel:#e4efeb', concWall: 'panel:#eef5f2', floor: 'floor:#cfd3cf', pillar: 'panel:#e4efeb',
       accent: '#2e7d6b', mural: { v: 'pines', color: '#2e7d6b' },

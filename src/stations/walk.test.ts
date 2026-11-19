@@ -9,7 +9,7 @@ import { stepBody, toLocal, toWorld, type Body } from '../world/collision';
 import type { V3 } from '../world/builder';
 import { clock } from '../sim';
 import { hallDims } from './kit';
-import { LINES } from '../data/network';
+import { LINES, platformTypeAt } from '../data/network';
 
 const STEP = 0.6;
 const SUB = 6;
@@ -77,7 +77,7 @@ describe('station walkability', () => {
       // Nothing reachable may be at track-bed level inside a hall.
       for (const line of LINES.filter((x) => x.stops.includes(w.def.id))) {
         const railY = line.railY[line.stops.indexOf(w.def.id)];
-        const d = hallDims(line, railY);
+        const d = hallDims({ ...line, platformType: platformTypeAt(line, w.def.id) }, railY);
         // (Only meaningful for halls aligned with the station frame, i.e. the primary line.)
         if (line.id !== w.primary) continue;
         const overTrack = (z: number) => (d.island ? Math.abs(z) > d.pe + 0.3 : Math.abs(z) < d.pe - 0.3);

@@ -62,7 +62,8 @@ export function hallDims(line: LineDef, railY: number): HallDims {
   const island = line.platformType === 'island';
   const L = line.trackOffset;
   const pe = island ? L - 1.48 : L + 1.48;
-  return { pf: railY + PF_H, pe, wallZ: island ? L + 2.2 : pe + 5.2, island };
+  // Side platforms on a widely spaced line (an island line's sideAt stations) are narrower.
+  return { pf: railY + PF_H, pe, wallZ: island ? L + 2.2 : pe + (L > 3 ? 4.4 : 5.2), island };
 }
 
 export interface CeilSeg {
@@ -315,9 +316,12 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         b.box('concreteDark', x0, mouthTop, -wallZ, x1, yt, -(L - 2.2));
         b.box('concreteDark', x0, mouthTop, L - 2.2, x1, yt, wallZ);
       } else {
-        b.box('concreteDark', x0, yb, 4.1, x1, yt, wallZ);
-        b.box('concreteDark', x0, yb, -wallZ, x1, yt, -4.1);
-        b.box('concreteDark', x0, mouthTop, -4.1, x1, yt, 4.1);
+        // One mouth over both tracks; between widely spaced tracks, a pier down the middle.
+        const m = L + 2.2;
+        b.box('concreteDark', x0, yb, m, x1, yt, wallZ);
+        b.box('concreteDark', x0, yb, -wallZ, x1, yt, -m);
+        b.box('concreteDark', x0, mouthTop, -m, x1, yt, m);
+        if (L > 3) b.box('concreteDark', x0, yb, -(L - 2.2), x1, yt, L - 2.2);
       }
     }
     // Ceilings.
@@ -336,7 +340,10 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         } else b.slab(th.ceilMat ?? 'ceil', s.x0, -wallZ - 0.5, s.x1, wallZ + 0.5, s.y, s.y + SLAB, o.ceilHoles ?? []);
       } else if (!o.elevated) {
         // Under the concourse: hang ceiling panels below its slab, except where stairs come through.
-        const cuts = o.blocks.filter(([a, c]) => c > s.x0 && a < s.x1).map(([a, c]) => [a - 0.4, -wallZ, c + 0.4, wallZ]);
+        const cuts = [
+          ...o.blocks.filter(([a, c]) => c > s.x0 && a < s.x1).map(([a, c]) => [a - 0.4, -wallZ, c + 0.4, wallZ]),
+          ...(o.ceilHoles ?? []).filter((q) => q[2] > s.x0 && q[0] < s.x1),
+        ];
         b.slab(th.ceilMat ?? 'ceil', s.x0, -wallZ, s.x1, wallZ, vis(s), vis(s) + 0.05, cuts, false);
         if (dropped(s)) {
           // Bulkheads closing the void above a dropped ceiling, at its ends and round the stairs.
@@ -512,6 +519,9 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       }
     }
   }
+
+  // The station's own touches on the platform (its look).
+  lookFor(station.id).platform?.(info);
 
   // ── Zones ──
   // The track beds, whichever way this hall is turned inside its station.

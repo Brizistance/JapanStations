@@ -7,13 +7,18 @@ import { look as hoshimine } from './hoshimine';
 import { look as hyotanbori } from './hyotanbori';
 import { look as kamomehama } from './kamomehama';
 import { look as kurayashiki } from './kurayashiki';
+import { look as seiryodai } from './seiryodai';
+import { look as shiosaiKoen } from './shiosai-koen';
 import { look as tomyobori } from './tomyobori';
+import { look as tsukimizaka } from './tsukimizaka';
+import { look as yamabukidai } from './yamabukidai';
 import { look as tsumugibashi } from './tsumugibashi';
 import { look as tsurumatsu } from './tsurumatsu';
 import type { StationLook } from './types';
 
 const LOOKS: Record<string, StationLook> = {
   aizomecho, 'daigaku-mae': daigakuMae, hoshimine, hyotanbori, kamomehama, kurayashiki, tomyobori, tsumugibashi, tsurumatsu,
+  seiryodai, 'shiosai-koen': shiosaiKoen, tsukimizaka, yamabukidai,
 };
 
 export function lookFor(stationId: string): StationLook {

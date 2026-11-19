@@ -2,7 +2,7 @@
 // Five layouts — generic underground, the two-line interchange, elevated, the hub (hub.ts) and the
 // atrium interchange (atrium.ts).
 
-import { linesAt, lineById } from '../data/network';
+import { linesAt, lineById, platformTypeAt } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
 import { HALL_HALF } from '../sim/geometry';
 import { Builder, rng, type Build } from '../world/builder';
@@ -412,7 +412,12 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
       solids.push([ex, -1.1, ex + 2.2, 1.1]);
     }
   }
-  hall(c, { ceil, blocks: st.blocks });
+  const voids: Rect[] = spec.voids ?? [];
+  // An old terminus's siding: seen through the +z wall between the stairs, inside the concourse's span.
+  const stub = spec.stub ? stubGaps(cx0 + 2, cx1 - 2, st.blocks) : [];
+  hall(c, { ceil, blocks: st.blocks, ceilHoles: voids, gaps: stub.map(([x0, x1]) => ({ s: 1 as const, x0, x1 })) });
+  if (spec.stub) stubSiding(c, d.wallZ, stub);
+  for (const v of voids) voidRail(b, v, cf);
 
   const ends = spec.gates.map((g, i) => ({
     g: g === 'hi' ? cx1 - 16 : cx0 + 16,
@@ -420,8 +425,59 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
     nums: [String(i * 2 + 1), String(i * 2 + 2)] as [string, string],
   }));
   // The street does not move: a narrower concourse reaches the same entrances by longer corridors.
-  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: st.holes, ends, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info });
+  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: [...st.holes, ...voids], ends, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info });
   surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
+}
+
+/** Glass balustrade round a void in the concourse floor. */
+function voidRail(b: Builder, v: Rect, cf: number) {
+  const [x0, z0, x1, z1] = v, t = 0.08;
+  const sides: Rect[] = [[x0 - t, z0 - t, x1 + t, z0], [x0 - t, z1, x1 + t, z1 + t], [x0 - t, z0, x0, z1], [x1, z0, x1 + t, z1]];
+  for (const r of sides) {
+    b.block(r[0], cf, r[1], r[2], cf + 1.1, r[3]);
+    b.deco('glass', r[0], cf + 0.1, r[1], r[2], cf + 1.0, r[3]);
+    b.deco('metal:#c3c7cb', r[0] - 0.02, cf + 1.0, r[1] - 0.02, r[2] + 0.02, cf + 1.1, r[3] + 0.02);
+  }
+}
+
+/** Openings for the stub siding: x0 … x1, broken where a platform stair stands against the wall. */
+function stubGaps(x0: number, x1: number, blocks: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  let x = x0;
+  for (const [a, c] of [...blocks].sort((p, q) => p[0] - q[0])) {
+    if (a - 2 > x + 3) out.push([x, a - 2]);
+    x = Math.max(x, c + 2);
+  }
+  if (x1 > x + 3) out.push([x, x1]);
+  return out;
+}
+
+/** The old terminus's third track: a dead-end siding behind a railing at the back of the +z platform. */
+function stubSiding(c: Ctx, wallZ: number, gaps: [number, number][]) {
+  const { b, line, railY, style } = c;
+  if (!gaps.length) return;
+  const pf = railY + 1.1, x0 = gaps[0][0], x1 = gaps[gaps.length - 1][1];
+  const z0 = wallZ + 0.5, z1 = wallZ + 6.2, zc = (z0 + z1) / 2, top = pf + 2.5;
+  b.box('concreteDark', x0 - 0.5, railY - 1, z0, x1 + 0.5, railY - 0.2, z1 + 0.5);
+  b.box(style.wall, x0 - 0.5, railY - 1, z1, x1 + 0.5, top + 0.5, z1 + 0.5);
+  for (const x of [x0 - 0.5, x1]) b.box(style.wall, x, railY - 1, z0, x + 0.5, top + 0.5, z1);
+  b.box('concreteDark', x0 - 0.5, top, z0, x1 + 0.5, top + 0.5, z1 + 0.5);
+  // Ballast, sleepers and rusty rails, a buffer stop at the west end.
+  b.deco('flat:#6b6660', x0, railY - 0.2, zc - 1.4, x1, railY - 0.12, zc + 1.4);
+  for (let x = x0 + 0.3; x < x1; x += 0.65) b.deco('flat:#5a4a3c', x, railY - 0.12, zc - 1.2, x + 0.22, railY - 0.04, zc + 1.2);
+  for (const dz of [-0.7175, 0.7175]) b.deco('metal:#7a5a46', x0, railY - 0.04, zc + dz - 0.035, x1, railY + 0.1, zc + dz + 0.035);
+  b.deco('paint:#c62828', x0 + 0.3, railY, zc - 1.0, x0 + 0.9, railY + 1.0, zc + 1.0);
+  b.deco('paint:#ffd100', x0 + 0.9, railY + 0.55, zc - 1.0, x0 + 1.0, railY + 0.8, zc + 1.0);
+  // A railing in each opening, dim lights inside, and a notice on the far wall.
+  for (const [a, e] of gaps) {
+    b.block(a, pf, wallZ - 0.12, e, pf + 1.15, wallZ + 0.02);
+    b.deco('metal:#c3c7cb', a, pf + 1.05, wallZ - 0.14, e, pf + 1.15, wallZ + 0.04);
+    for (let x = a; x <= e + 0.01; x += 2) b.deco('metal:#c3c7cb', x - 0.03, pf, wallZ - 0.1, x + 0.03, pf + 1.05, wallZ);
+    b.deco('glass', a, pf + 0.1, wallZ - 0.07, e, pf + 1.0, wallZ - 0.03);
+  }
+  for (let x = x0 + 4; x < x1 - 3; x += 12) ceilingLight(b, x, x + 1.2, zc - 0.1, zc + 0.1, top);
+  b.sign({ k: 'label', text: '旧引上線', sub: 'Former terminal siding — not in use', fg: '#fff', bg: '#3b4046' }, (x0 + x1) / 2, pf + 2.0, z1 - 0.02, [0, -1], 3.6, 0.6);
+  b.keepOut(x0, railY - 1.5, z0, x1, pf - 0.3, z1, `${line.nameEn} siding`);
 }
 
 /** Width of the mouth into a transfer bay, beside (or just past) the head of its stair. */
@@ -882,7 +938,10 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
   const b = new Builder();
   const { station, spec } = input;
   const style: StationStyle = spec.style;
-  const mk = (l: StationBuildInput['lines'][number]): Ctx => ({ b, line: l.line, station, stop: l.stop, railY: l.railY, style });
+  // The line as built here: its platform type at this station (LineDef.sideAt).
+  const mk = (l: StationBuildInput['lines'][number]): Ctx => ({
+    b, line: { ...l.line, platformType: platformTypeAt(l.line, station.id) }, station, stop: l.stop, railY: l.railY, style,
+  });
   if (spec.kind === 'interchange' || spec.kind === 'hub' || spec.kind === 'atrium') {
     const beside = spec.kind === 'hub' ? spec.beside : undefined;
     const p = input.lines.find((l) => l.line.id === spec.primary)!;
