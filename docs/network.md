@@ -18,8 +18,8 @@ After the stage 1 extensions (see [Plans/features/network-expansion](../Plans/fe
 ### Stations in order
 
 - **Y** (north → south, "down"): Shin-Midorigaoka Y-09 · Aobadai Y-10 · Midorizaka Y-11 · **Kita-Ōdōri Y-12** · **Tsumugibashi Y-13** · Hyōtanbori Y-14 · Tsurumatsu Y-15 · Minamihorie Y-16 · Kaiseichō Y-17 · Nankōdai Y-18
-- **N** (west → east, "down"): Minato Center N-09 · Umibe-shiyakusho-mae N-10 · Kawaminato-kō N-11 · **Aizomechō N-12** · **Tsumugibashi N-13** · **Kawaminato-daigaku-mae N-14** · Hibarino N-15 · Asahino N-16 · Takanodai N-17 · Izumigaoka N-18
-- **A** (south-west → north-east, "down"): Shin-Kamome A-09 · Shiosai-kōen A-10 · Kamomehama A-11 · Watayamachi A-12 · **Aizomechō A-13** · **Kita-Ōdōri A-14** · Suzukakedōri A-15 · Tsukimizaka A-16 · Yamabukidai A-17 · Momijigaoka A-18 · Seiryōdai A-19 · Hoshimine A-20
+- **N** (west → east, "down"): Minato Center N-01 · Umibe-shiyakusho-mae N-02 · Kawaminato-kō N-03 · **Aizomechō N-04** · **Tsumugibashi N-05** · **Kawaminato-daigaku-mae N-06** · Hibarino N-07 · Asahino N-08 · Takanodai N-09 · Izumigaoka N-10
+- **A** (south-west → north-east, "down"): Shin-Kamome A-01 · Shiosai-kōen A-02 · Kamomehama A-03 · Watayamachi A-04 · **Aizomechō A-05** · **Kita-Ōdōri A-06** · Suzukakedōri A-07 · Tsukimizaka A-08 · Yamabukidai A-09 · Momijigaoka A-10 · Seiryōdai A-11 · Hoshimine A-12
 - **S** (west → south-east, "down"): Shiomi S-09 · Nishi-Yūnagi S-10 · Yūnagihama S-11 · Kurayashiki S-12 · **Kita-Ōdōri S-13** · **Kawaminato-daigaku-mae S-14** · Tōmyōbori S-15 · Sakurazutsumi S-16 · Hanamizuki S-17 · Shin-Sakuragawa S-18 · Uminomori S-19
 - **K** (west → east, "down"): Shinshio K-11 · **Kawaminato-kō K-12** · **Watayamachi K-13** · **Tsumugibashi K-14** · **Tōmyōbori K-15** · **Hibarino K-16** · Higashigaoka K-17 · Shin-Hibarino K-18
 - **M** (north-east → south-east, "down"): Seiran M-11 · **Midorizaka M-12** · **Kita-Ōdōri M-13** · **Kawaminato-daigaku-mae M-14** · (passes Tōmyōbori, Sakurazutsumi) · **Hanamizuki M-15** · Minami-Sakuragawa M-16 · Harunodai M-17
@@ -63,7 +63,7 @@ It crosses nothing between stations. See [stage2.md](../Plans/features/network-e
 
 ## Numbering
 
-- `<LineLetter>-<NN>`, for example `Y-13`. Numbers start at **11** and increase in the "down" direction, leaving 01–10 for extensions at the low end.
+- `<LineLetter>-<NN>`, for example `Y-13`. Numbers increase in the "down" direction. N and A start at **01** (open water bounds their low end); Y, S, K and M start higher (09–11), leaving room to extend.
 - A transfer station has **one number per line** it serves.
 - **Platform numbers**: `[down, up]` per line, stored on the station. At an interchange the first line keeps 1/2 and each later one takes the next pair (Tsumugibashi: Y 1/2, N 3/4, K 5/6; Aizomechō: N 1/2, A 3/4; Daigaku-mae: N 1/2, S 3/4; Kita-Ōdōri: Y 1/2, A 3/4, S 5/6; Kawaminato-kō: N 1/2, K 3/4; Watayamachi: A 1/2, K 3/4; Tōmyōbori: S 1/2, K 3/4; Hibarino: N 1/2, K 3/4; Midorizaka: Y 1/2, M 3/4; Kita-Ōdōri M 7/8). A line on another's track uses that line's platform numbers (M at Daigaku-mae: 3/4, at Hanamizuki: 1/2).
 

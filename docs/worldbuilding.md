@@ -125,19 +125,19 @@ Invented with each station's look (`src/stations/looks/<station>.ts`), 2026-11-1
 | No. | Kanji | Kana | Romaji | District | Character |
 |---|---|---|---|---|---|
 | Y-11 | 緑坂 | みどりざか | Midorizaka | North hills | Quiet residential station, park (the old north terminus) |
-| Y-12 / A-14 / S-13 | 北大通 | きたおおどおり | Kita-Ōdōri | Kita | **The central station.** Metro hub under Kawaminato Station |
-| Y-13 / N-13 | 紬橋 | つむぎばし | Tsumugibashi | Central | Interchange. Tsumugi = pongee silk: merchant-city roots |
+| Y-12 / A-06 / S-13 | 北大通 | きたおおどおり | Kita-Ōdōri | Kita | **The central station.** Metro hub under Kawaminato Station |
+| Y-13 / N-05 | 紬橋 | つむぎばし | Tsumugibashi | Central | Interchange. Tsumugi = pongee silk: merchant-city roots |
 | Y-14 | 瓢箪堀 | ひょうたんぼり | Hyōtanbori | Minami | Nightlife, "gourd canal" |
 | Y-15 | 鶴松 | つるまつ | Tsurumatsu | Old town | Shōtengai arcade station (the old south terminus) |
-| N-11 | 川湊港 | かわみなとこう | Kawaminato-kō | Bay area | Port, ferry terminal |
-| N-12 / A-13 | 藍染町 | あいぞめちょう | Aizomechō | Merchant quarter | Interchange. Old indigo dyers' quarter |
-| N-14 / S-14 | 川湊大学前 | かわみなとだいがくまえ | Kawaminato-daigaku-mae | University | Brick, campus gate. Interchange |
-| N-15 | 雲雀野 | ひばりの | Hibarino | East hills | Elevated; where the line comes out onto the viaduct. Hibari = skylark |
-| A-11 | 鴎浜 | かもめはま | Kamomehama | South bay | Stadium station beside Kawaminato Dome. Kamome = gull |
-| A-12 | 綿屋町 | わたやまち | Watayamachi | Merchant quarter (south) | Cotton wholesalers' street |
-| A-15 | 鈴懸通 | すずかけどおり | Suzukakedōri | Kita (east) | Plane-tree avenue, civic and theatre district |
-| A-16 | 月見坂 | つきみざか | Tsukimizaka | North-east slope | "Moon-viewing slope", quiet hillside |
-| A-17 | 山吹台 | やまぶきだい | Yamabukidai | North-east hills | New town, bus rotary. Yamabuki = kerria |
+| N-03 | 川湊港 | かわみなとこう | Kawaminato-kō | Bay area | Port, ferry terminal |
+| N-04 / A-05 | 藍染町 | あいぞめちょう | Aizomechō | Merchant quarter | Interchange. Old indigo dyers' quarter |
+| N-06 / S-14 | 川湊大学前 | かわみなとだいがくまえ | Kawaminato-daigaku-mae | University | Brick, campus gate. Interchange |
+| N-07 | 雲雀野 | ひばりの | Hibarino | East hills | Elevated; where the line comes out onto the viaduct. Hibari = skylark |
+| A-03 | 鴎浜 | かもめはま | Kamomehama | South bay | Stadium station beside Kawaminato Dome. Kamome = gull |
+| A-04 | 綿屋町 | わたやまち | Watayamachi | Merchant quarter (south) | Cotton wholesalers' street |
+| A-07 | 鈴懸通 | すずかけどおり | Suzukakedōri | Kita (east) | Plane-tree avenue, civic and theatre district |
+| A-08 | 月見坂 | つきみざか | Tsukimizaka | North-east slope | "Moon-viewing slope", quiet hillside |
+| A-09 | 山吹台 | やまぶきだい | Yamabukidai | North-east hills | New town, bus rotary. Yamabuki = kerria |
 | S-11 | 夕凪浜 | ゆうなぎはま | Yūnagihama | North-west waterfront | At the river mouth; sunset promenade. Yūnagi = the evening calm |
 | S-12 | 蔵屋敷 | くらやしき | Kurayashiki | Riverside | Old rice-storehouse quarter; white kura turned into cafés. Named for the Edo-period domain warehouses |
 | S-15 | 灯明堀 | とうみょうぼり | Tōmyōbori | South-east canals | Lantern-lit canal, small temples; Hyōtanbori's quieter cousin |
@@ -152,16 +152,16 @@ Invented with each station's look (`src/stations/looks/<station>.ts`), 2026-11-1
 | Y-16 | 南堀江 | みなみほりえ | Minamihorie | Minami-Horie | Canal lanes of boutiques and cafés south of the old town |
 | Y-17 | 開成町 | かいせいちょう | Kaiseichō | South residential | Meiji-era school town: red-brick school, ginkgo avenue |
 | Y-18 | 南港台 | なんこうだい | Nankōdai | South port | Terminus on the heights above the container port |
-| N-09 | みなとセンター | みなとせんたー | Minato Center | Bay new town | Terminus in the reclaimed-land business district |
-| N-10 | 海辺市役所前 | うみべしやくしょまえ | Umibe-shiyakusho-mae | Seaside civic district | City hall, rebuilt on the waterfront |
-| N-16 | 旭野 | あさひの | Asahino | East suburbs | Elevated, sunrise-facing suburbs |
-| N-17 | 高野台 | たかのだい | Takanodai | East hills | Elevated, hilltop housing estate |
-| N-18 | 泉ヶ丘 | いずみがおか | Izumigaoka | East new town | Elevated terminus, named for the spring at its centre |
-| A-09 | 新鴎 | しんかもめ | Shin-Kamome | South bay (new island) | Terminus on the newest reclaimed island |
-| A-10 | 潮騒公園 | しおさいこうえん | Shiosai-kōen | South bay | Seaside park; shiosai = the sound of the surf |
-| A-18 | 紅葉ヶ丘 | もみじがおか | Momijigaoka | North-east hills | Maple hillside, scarlet in November |
-| A-19 | 清涼台 | せいりょうだい | Seiryōdai | North-east plateau | Cool upland estate and research campus |
-| A-20 | 星峰 | ほしみね | Hoshimine | North-east ridge | Ridge-top terminus below the city observatory |
+| N-01 | みなとセンター | みなとせんたー | Minato Center | Bay new town | Terminus in the reclaimed-land business district |
+| N-02 | 海辺市役所前 | うみべしやくしょまえ | Umibe-shiyakusho-mae | Seaside civic district | City hall, rebuilt on the waterfront |
+| N-08 | 旭野 | あさひの | Asahino | East suburbs | Elevated, sunrise-facing suburbs |
+| N-09 | 高野台 | たかのだい | Takanodai | East hills | Elevated, hilltop housing estate |
+| N-10 | 泉ヶ丘 | いずみがおか | Izumigaoka | East new town | Elevated terminus, named for the spring at its centre |
+| A-01 | 新鴎 | しんかもめ | Shin-Kamome | South bay (new island) | Terminus on the newest reclaimed island |
+| A-02 | 潮騒公園 | しおさいこうえん | Shiosai-kōen | South bay | Seaside park; shiosai = the sound of the surf |
+| A-10 | 紅葉ヶ丘 | もみじがおか | Momijigaoka | North-east hills | Maple hillside, scarlet in November |
+| A-11 | 清涼台 | せいりょうだい | Seiryōdai | North-east plateau | Cool upland estate and research campus |
+| A-12 | 星峰 | ほしみね | Hoshimine | North-east ridge | Ridge-top terminus below the city observatory |
 | S-09 | 潮見 | しおみ | Shiomi | North-west waterfront | Terminus at the tip of the river-mouth landfill |
 | S-10 | 西夕凪 | にしゆうなぎ | Nishi-Yūnagi | North-west waterfront | Quiet apartments west of Yūnagihama |
 | S-17 | 花みずき | はなみずき | Hanamizuki | South-east | Dogwood avenue; future junction for the Sumire Line |
