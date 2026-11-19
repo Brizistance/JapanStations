@@ -91,6 +91,11 @@ export const SFX: Sfx[] = [
     loop: true,
   },
   {
+    name: 'pd-chime',
+    prompt: 'Japanese platform screen door warning chime: a short repeating two-tone electronic beep from a small speaker on the door, then the glass doors start sliding. No voice.',
+    seconds: 2,
+  },
+  {
     name: 'train-arrive',
     prompt: 'Electric subway train arriving at an underground station platform: rumble growing from the tunnel, inverter motor whine winding down, soft brake squeal, comes to a stop. Realistic field recording, no voice.',
     seconds: 9,

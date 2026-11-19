@@ -338,5 +338,10 @@
   "prompt": "Elevated city railway platform outdoors in Japan: light wind, distant city traffic, a few birds, quiet and constant, seamless loop. No speech, no music.",
   "seconds": 15,
   "loop": true
+ },
+ "pd-chime": {
+  "prompt": "Japanese platform screen door warning chime: a short repeating two-tone electronic beep from a small speaker on the door, then the glass doors start sliding. No voice.",
+  "seconds": 2,
+  "loop": false
  }
 }

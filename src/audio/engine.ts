@@ -16,6 +16,8 @@ const CLIP_GAP_S = 0.3, GROUP_GAP_S = 0.8;
 const VOICE_GAIN = 0.8;
 /** An announcement still waiting after this long is out of date: drop it. */
 const STALE_MS = 15000;
+/** An announcement that waited longer than this in the queue plays its short form. */
+const SHORT_AFTER_MS = 3000;
 const SOUND_SPEED = 343;
 
 type V3 = [number, number, number];
@@ -242,7 +244,7 @@ export interface SoundHandle {
 export function playAt(name: string, pos: () => V3 | null, opts: { loop?: boolean; gain?: number } = {}): SoundHandle {
   let a: Attached | null = null, stopped = false;
   if (live()) {
-    void load(`sfx/${name}`).then((buf) => {
+    void load(name.includes('/') ? name : `sfx/${name}`).then((buf) => {
       if (!buf || stopped || !ctx) return;
       const c = ctx;
       const p = panner(c, pos() ?? listener, 10, 1);
@@ -266,6 +268,27 @@ export function playAt(name: string, pos: () => V3 | null, opts: { loop?: boolea
       a.src.stop(ctx.currentTime + fadeS);
     },
   };
+}
+
+/** Clips back to back from one fixed spot (a platform door's own little speaker). */
+export function playSeqAt(paths: string[], at: V3, gain = 1) {
+  if (!live()) return;
+  void Promise.all(paths.map(load)).then((bufs) => {
+    if (!ctx) return;
+    const c = ctx;
+    const p = panner(c, at, 2, 1.8), g = c.createGain();
+    g.gain.value = gain;
+    g.connect(p).connect(trainBus);
+    let t = c.currentTime + 0.05;
+    for (const b of bufs) {
+      if (!b) continue;
+      const src = c.createBufferSource();
+      src.buffer = b;
+      src.connect(g);
+      src.start(t);
+      t += b.duration + 0.15;
+    }
+  });
 }
 
 /** A footstep: dry, straight to the player, with a little pitch and level spread. */
@@ -292,6 +315,8 @@ interface Speaker {
 interface Group {
   tag: string;
   items: string[];
+  /** Played instead when the group had to wait (the train is already coming in). */
+  short?: string[];
   at: number;
 }
 interface Channel {
@@ -303,13 +328,17 @@ interface Channel {
   busy: boolean;
   generation: number;
   current: AudioBufferSourceNode | null;
+  /** Straight to the output (the in-car PA). */
+  direct: boolean;
 }
 const channels = new Map<string, Channel>();
+/** The channel id of the PA inside the train being ridden. */
+export const CAR = 'car';
 
 function channel(id: string): Channel {
   let ch = channels.get(id);
   if (!ch) {
-    ch = { input: null, tone: null, speakers: [], want: [], queue: [], busy: false, generation: 0, current: null };
+    ch = { input: null, tone: null, speakers: [], want: [], queue: [], busy: false, generation: 0, current: null, direct: id === CAR };
     channels.set(id, ch);
     if (ctx) wireChannel(ch);
   }
@@ -346,11 +375,13 @@ function wireChannel(ch: Channel) {
   ch.input = c.createGain();
   ch.input.gain.value = vol.voice;
   ch.tone = speakerTone(c, ch.input);
-  placeSpeakers(ch);
+  // The in-car PA: the speakers are right overhead, so no position and no station echo.
+  if (ch.direct) ch.tone.connect(out);
+  else placeSpeakers(ch);
 }
 
 function placeSpeakers(ch: Channel) {
-  if (!ctx || !ch.tone) return;
+  if (!ctx || !ch.tone || ch.direct) return;
   const c = ctx;
   for (const s of ch.speakers) {
     ch.tone.disconnect(s.delay);
@@ -361,7 +392,14 @@ function placeSpeakers(ch: Channel) {
     delay.delayTime.value = dist(at, listener) / SOUND_SPEED;
     const g = c.createGain();
     g.gain.value = 1 / Math.sqrt(ch.want.length);
-    const p = panner(c, at, 3.5, 1.1);
+    // Zoned, downward-aimed speakers: loud beneath, falling off fast across the platform.
+    const p = panner(c, at, 3, 1.6);
+    p.orientationX.value = 0;
+    p.orientationY.value = -1;
+    p.orientationZ.value = 0;
+    p.coneInnerAngle = 100;
+    p.coneOuterAngle = 240;
+    p.coneOuterGain = 0.25;
     ch.tone!.connect(delay).connect(g).connect(p).connect(hearing);
     return { at, delay, panner: p };
   });
@@ -375,23 +413,33 @@ export function setSpeakers(id: string, at: V3[]) {
 }
 
 /**
- * Queue an announcement on a channel: paths under public/audio, played in order. A newer
- * group with the same `tag` replaces one still waiting. `preempt` cuts off whatever the
- * channel is playing (the departure melody must start on time).
+ * Queue an announcement on a channel (one set of platform speakers): paths under
+ * public/audio, played in order, one group at a time. A newer group with the same `tag`
+ * replaces one still waiting. `priority` (the departure melody and doors closing) cuts off
+ * whatever is playing and goes to the front; anything else waiting plays after it.
  */
-export function announce(channelId: string, tag: string, items: string[], preempt = false) {
+export function announce(channelId: string, tag: string, items: string[], opts: { priority?: boolean; short?: string[] } = {}) {
   if (!live() || vol.voice <= 0) return;
   const ch = channel(channelId);
-  if (preempt) hushChannel(ch);
-  const i = ch.queue.findIndex((g) => g.tag === tag);
-  if (i >= 0) ch.queue.splice(i, 1);
-  ch.queue.push({ tag, items, at: performance.now() });
-  for (const p of items) void load(p);
+  const g: Group = { tag, items, short: opts.short, at: performance.now() };
+  ch.queue = ch.queue.filter((q) => q.tag !== tag);
+  if (opts.priority) {
+    ch.queue.unshift(g);
+    if (ch.current) {
+      ch.generation++;
+      try {
+        ch.current.stop();
+      } catch {
+        /* already stopped */
+      }
+    }
+  } else ch.queue.push(g);
+  for (const p of [...items, ...(opts.short ?? [])]) void load(p);
   if (!ch.busy) void pump(ch);
 }
 
-/** True when no channel is playing or waiting. */
-export const paIdle = () => [...channels.values()].every((ch) => !ch.busy && ch.queue.length === 0);
+/** True when no platform channel is playing or waiting. */
+export const paIdle = () => [...channels.values()].every((ch) => ch.direct || (!ch.busy && ch.queue.length === 0));
 
 function hushChannel(ch: Channel) {
   ch.queue.length = 0;
@@ -402,18 +450,24 @@ function hushChannel(ch: Channel) {
     /* already stopped */
   }
 }
-/** Stop and forget everything on the PA (leaving a station, teleporting). */
+/** Stop and forget everything on the platform PA (leaving a station, teleporting). */
 export function hushVoice() {
-  for (const ch of channels.values()) hushChannel(ch);
+  for (const ch of channels.values()) if (!ch.direct) hushChannel(ch);
+}
+/** Stop the in-car PA (getting off). */
+export function hushCar() {
+  const ch = channels.get(CAR);
+  if (ch) hushChannel(ch);
 }
 
 async function pump(ch: Channel) {
   ch.busy = true;
   while (ch.queue.length) {
     const g = ch.queue.shift()!;
-    if (performance.now() - g.at > STALE_MS) continue;
+    const waited = performance.now() - g.at;
+    if (waited > STALE_MS) continue;
     const gen = ch.generation;
-    for (const p of g.items) {
+    for (const p of waited > SHORT_AFTER_MS && g.short ? g.short : g.items) {
       const buf = await load(p);
       if (gen !== ch.generation) break;
       if (buf) await play(ch, buf, p.startsWith('voice/') ? VOICE_GAIN : 1);
