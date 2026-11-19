@@ -9,7 +9,7 @@ import type { StationWorld } from '../stations';
 import { toWorld } from '../world/collision';
 import { lineById } from '../data/network';
 import { clock } from '../sim';
-import { input, player, where } from '../player/player';
+import { input, nearestStation, player, where } from '../player/player';
 import { platformNo, platformTrains, statusOf, type Status } from '../signs/departures';
 import { trains } from '../trains/system';
 import { announce, hushVoice, loopAt, paIdle, playAt, playSeqAt, type PosLoopHandle, playStep, setAmbience, setRoom, setSpeakers, tickListener, type Ambience, type Hearing, type SoundHandle } from './engine';
@@ -200,7 +200,7 @@ function placeRows(w: StationWorld, line: string) {
 function room(under: boolean, w: StationWorld | null, line: string | undefined) {
   if (!under || !w) return { decay: 0.7, wet: 0.08 };
   const z = where.zone;
-  const box = z?.kind === 'platform' && line ? platformBox(w, line) : z ? { min: z.min, max: z.max } : null;
+  const box = (z?.kind === 'platform' || where.train) && line ? platformBox(w, line) : z ? { min: z.min, max: z.max } : null;
   if (!box) return { decay: 1.6, wet: 0.3 };
   const [dx, dy, dz] = [0, 1, 2].map((i) => box.max[i] - box.min[i]);
   const volume = dx * Math.max(dy, 4) * dz;
@@ -208,11 +208,17 @@ function room(under: boolean, w: StationWorld | null, line: string | undefined) 
   return { decay, wet: 0.25 + (decay - 1.1) * 0.08 };
 }
 
+let atStation = false;
+function stationAround(x: number, z: number): StationWorld | null {
+  const n = nearestStation(x, z);
+  return n.dist < n.world.frame.radius ? n.world : null;
+}
+
 function ambience(playing: boolean, under: boolean): Ambience {
   const z = where.zone;
   if (!playing) return null;
   // On a train: the platform drifts in through open doors.
-  if (where.train) return where.train.state.speed === 0 && where.station ? (under ? 'amb-platform' : 'amb-outdoor') : null;
+  if (where.train) return where.train.state.speed === 0 && atStation ? (under ? 'amb-platform' : 'amb-outdoor') : null;
   if (!under) return 'amb-outdoor';
   return z?.kind === 'platform' ? 'amb-platform' : 'amb-concourse';
 }
@@ -240,7 +246,10 @@ function nearEnd(dir: Dir, p: V3 | null): () => V3 | null {
 
 export function tickStationAudio(dt: number, playing: boolean, cam: { x: number; y: number; z: number }, yaw: number) {
   const now = clock.time;
-  const zone = where.zone, st = where.station?.def;
+  const zone = where.zone;
+  // Riding, you're in the car, not in any station zone: use the station the train is at.
+  const stw = where.station ?? (where.train ? stationAround(cam.x, cam.z) : null), st = stw?.def;
+  atStation = !!stw;
   const under = cam.y < -1.2 && !zone?.sky;
   const h = playing ? hearing(under) : { level: 0, muffled: true, under: false };
   tickListener(cam.x, cam.y, cam.z, yaw, h);
@@ -255,19 +264,19 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
   // Which platform's sound we follow: the one stood on, the riding train's line, else the station's main line.
   const ride = where.train?.sim.geom.def;
   const rideLine = ride && st?.platforms[ride.shares?.line ?? ride.id] ? ride.shares?.line ?? ride.id : undefined;
-  const lineId = !playing || !st || clock.scale !== 1 ? undefined : zone?.kind === 'platform' && zone.line ? zone.line : rideLine ?? where.station!.primary;
+  const lineId = !playing || !st || clock.scale !== 1 ? undefined : zone?.kind === 'platform' && zone.line ? zone.line : rideLine ?? stw!.primary;
   // On a train, keep following the platform while stopped there, doors open or not, so the
   // melody and doors-closing call aren't cut off as the doors shut.
   const key = st && lineId && st.platforms[lineId] && (h.level > 0 || where.train) ? `${st.id}:${lineId}` : null;
   if (playing) {
-    const r = room(under, where.station, lineId);
+    const r = room(under, stw, lineId);
     // From inside the car the station's echo is heard but further off.
     setRoom(where.train ? { decay: r.decay, wet: r.wet * 0.6 } : r);
   }
   if (key !== here) {
     here = key;
     reset();
-    if (key) placeRows(where.station!, lineId!);
+    if (key) placeRows(stw!, lineId!);
     nextNotice = performance.now() + 20000 + Math.random() * 30000;
   }
   if (!key) return;
