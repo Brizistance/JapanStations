@@ -5,7 +5,7 @@ import { EYE, input, player, teleport, tickPlayer, nearestStation, where } from 
 import { clock } from '../sim';
 import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
-import { tickPlatformVoice } from '../audio/platform';
+import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
 import { HORIZON, Lighting } from './lighting';
@@ -66,10 +66,10 @@ function World() {
 
     if (useUI.getState().mode === 'play') {
       tickPlayer(dt);
-      tickPlatformVoice(clock.time);
       const p = player.body.pos;
       camera.position.set(p[0], player.eyeY + EYE, p[2]);
       camera.rotation.set(player.pitch, player.yaw, 0);
+      tickStationAudio(dt, true, camera.position, player.yaw);
     } else {
       // Menu backdrop: a slow pan on the elevated platform at Hibarino.
       const w = stationWorld('hibarino');
@@ -77,6 +77,7 @@ function World() {
       toWorld(w.frame, [-34, 9.5, 6.2], tmp);
       camera.position.set(tmp[0], tmp[1], tmp[2]);
       camera.rotation.set(-0.06, w.frame.yaw - Math.PI / 2 + 0.22 + Math.sin(t * 0.08) * 0.12, 0);
+      tickStationAudio(dt, false, camera.position, camera.rotation.y);
     }
 
     view.update(dt, camera.position);

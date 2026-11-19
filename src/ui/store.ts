@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, teleport } from '../player/player';
-import { setVoiceVolume } from '../audio/engine';
+import { setSfxVolume, setVoiceVolume } from '../audio/engine';
 import { fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
 
 export const dom = { canvas: null as HTMLCanvasElement | null };
@@ -17,16 +17,26 @@ function storage(): Storage | null {
   }
 }
 
-const VOICE_KEY = 'js.voiceVolume';
-const initialVoice = (() => {
+const VOICE_KEY = 'js.voiceVolume', SFX_KEY = 'js.sfxVolume';
+function loadVolume(key: string): number {
   try {
-    const v = Number(storage()?.getItem(VOICE_KEY) ?? NaN);
+    const raw = storage()?.getItem(key);
+    const v = raw == null ? NaN : Number(raw);
     return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8;
   } catch {
     return 0.8;
   }
-})();
+}
+function saveVolume(key: string, v: number) {
+  try {
+    storage()?.setItem(key, String(v));
+  } catch {
+    /* ignore */
+  }
+}
+const initialVoice = loadVolume(VOICE_KEY), initialSfx = loadVolume(SFX_KEY);
 setVoiceVolume(initialVoice);
+setSfxVolume(initialSfx);
 
 interface UI {
   mode: 'menu' | 'play';
@@ -38,6 +48,9 @@ interface UI {
   /** Announcement volume, 0…1. */
   voiceVolume: number;
   setVoiceVolume: (v: number) => void;
+  /** Trains, doors, footsteps, 0…1. */
+  sfxVolume: number;
+  setSfxVolume: (v: number) => void;
   /** The in-game graphics panel (G). */
   gfxOpen: boolean;
   setPreset: (p: Preset) => void;
@@ -70,12 +83,14 @@ export const useUI = create<UI>((set, get) => ({
   voiceVolume: initialVoice,
   setVoiceVolume: (v) => {
     setVoiceVolume(v);
-    try {
-      storage()?.setItem(VOICE_KEY, String(v));
-    } catch {
-      /* ignore */
-    }
+    saveVolume(VOICE_KEY, v);
     set({ voiceVolume: v });
+  },
+  sfxVolume: initialSfx,
+  setSfxVolume: (v) => {
+    setSfxVolume(v);
+    saveVolume(SFX_KEY, v);
+    set({ sfxVolume: v });
   },
   gfxOpen: false,
   setPreset: (p) => {
