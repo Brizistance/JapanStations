@@ -23,7 +23,7 @@ const SOUND_SPEED = 343;
 type V3 = [number, number, number];
 
 let ctx: AudioContext | null = null;
-let trainBus: GainNode, stepBus: GainNode, ambBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode, out: AudioNode;
+let trainBus: GainNode, carBus: GainNode, stepBus: GainNode, ambBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode, out: AudioNode;
 let echoIn: GainNode, stepEcho: GainNode, ambEcho: GainNode;
 const vol = { voice: 0.8, sfx: 0.8 };
 
@@ -94,6 +94,8 @@ function unlock() {
     muffle.connect(echoIn);
     trainBus = c.createGain();
     trainBus.connect(hearing);
+    carBus = c.createGain();
+    carBus.connect(out);
     stepBus = c.createGain();
     stepEcho = c.createGain();
     stepEcho.gain.value = 0;
@@ -120,6 +122,7 @@ function applyVolume() {
   const t = ctx.currentTime;
   for (const ch of channels.values()) ch.input?.gain.setTargetAtTime(vol.voice, t, 0.05);
   trainBus.gain.setTargetAtTime(vol.sfx, t, 0.05);
+  carBus.gain.setTargetAtTime(vol.sfx * 0.7, t, 0.05);
   stepBus.gain.setTargetAtTime(vol.sfx * 0.45, t, 0.05);
   ambBus.gain.setTargetAtTime(vol.sfx * 0.5, t, 0.05);
 }
@@ -288,6 +291,64 @@ export function playSeqAt(paths: string[], at: V3, gain = 1) {
       src.start(t);
       t += b.duration + 0.15;
     }
+  });
+}
+
+// ── Inside the car: looping layers steered live, and one-shots ──
+
+export interface LoopHandle {
+  /** Playback rate (pitch) and level, eased so changes never click. */
+  set(rate: number, gain: number): void;
+  stop(): void;
+}
+
+/** A looping layer in the car, silent until `set`. Starts at a random point so layers don't phase. */
+export function carLoop(name: string): LoopHandle {
+  let src: AudioBufferSourceNode | null = null, g: GainNode | null = null, stopped = false;
+  let want = { rate: 1, gain: 0 };
+  if (live()) {
+    void load(`sfx/${name}`).then((buf) => {
+      if (!buf || !ctx || stopped) return;
+      g = ctx.createGain();
+      g.gain.value = 0;
+      g.connect(carBus);
+      src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(g);
+      src.start(0, Math.random() * buf.duration);
+      apply();
+    });
+  }
+  function apply() {
+    if (!src || !g || !ctx) return;
+    src.playbackRate.setTargetAtTime(want.rate, ctx.currentTime, 0.15);
+    g.gain.setTargetAtTime(want.gain, ctx.currentTime, 0.12);
+  }
+  return {
+    set(rate, gain) {
+      want = { rate, gain };
+      apply();
+    },
+    stop() {
+      stopped = true;
+      if (!src || !g || !ctx) return;
+      g.gain.setTargetAtTime(0, ctx.currentTime, 0.2);
+      src.stop(ctx.currentTime + 1);
+    },
+  };
+}
+
+/** A one-shot inside the car (door chime, a passing train). */
+export function playCar(name: string, gain = 1) {
+  if (!live()) return;
+  void load(`sfx/${name}`).then((buf) => {
+    if (!buf || !ctx) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = buf;
+    g.gain.value = gain;
+    src.connect(g).connect(carBus);
+    src.start();
   });
 }
 
