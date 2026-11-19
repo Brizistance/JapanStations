@@ -10,7 +10,7 @@ describe('platform announcement triggers', () => {
     expect(edge('wait', 'approach')).toBe('approach');
     expect(edge('closing', 'approach')).toBe('approach');
     expect(edge('approach', 'boarding')).toBe('arrive');
-    expect(edge('boarding', 'closing')).toBe('closing');
+    expect(edge('boarding', 'closing')).toBeNull(); // timed by the departure melody instead
     expect(edge('approach', 'terminating')).toBe('terminating');
     expect(edge('closing', 'wait')).toBeNull();
   });

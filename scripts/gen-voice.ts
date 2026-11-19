@@ -3,7 +3,7 @@
 //   npm run voice            generate missing clips
 //   npm run voice -- --dry   list what would be generated, no API calls
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { allClips, type Clip } from '../src/audio/phrases';
 
@@ -24,6 +24,17 @@ type Manifest = Record<string, { voice: string; text: string }>;
 const manifest: Manifest = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
 
 const clips = allClips();
+// Drop clips the wording no longer uses.
+const keep = new Set(clips.map((c) => c.key));
+let pruned = 0;
+for (const k of Object.keys(manifest)) {
+  if (keep.has(k)) continue;
+  if (!dry) rmSync(join(OUT, `${k}.mp3`), { force: true });
+  delete manifest[k];
+  pruned++;
+}
+if (pruned && !dry) writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1));
+if (pruned) console.log(`${pruned} unused clips ${dry ? 'would be' : ''} removed.`);
 const todo = clips.filter((c) => !manifest[c.key] || !existsSync(join(OUT, `${c.key}.mp3`)));
 const chars = todo.reduce((n, c) => n + c.text.length, 0);
 console.log(`${clips.length} clips, ${todo.length} to generate, ${chars} characters.`);

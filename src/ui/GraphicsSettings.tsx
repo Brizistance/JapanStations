@@ -88,22 +88,26 @@ export function EffectSwitches() {
           ))}
         </div>
       </div>
-      <VoiceVolume />
+      <Volume which="voice" />
+      <Volume which="sfx" />
     </div>
   );
 }
 
-function VoiceVolume() {
-  const v = useUI((s) => s.voiceVolume);
-  const set = useUI((s) => s.setVoiceVolume);
+function Volume({ which }: { which: 'voice' | 'sfx' }) {
+  const v = useUI((s) => (which === 'voice' ? s.voiceVolume : s.sfxVolume));
+  const set = useUI((s) => (which === 'voice' ? s.setVoiceVolume : s.setSfxVolume));
+  const [ja, en, hint] = which === 'voice'
+    ? ['案内放送', 'Announcements', 'Platform voice and melodies']
+    : ['効果音', 'Sound effects', 'Trains, doors and footsteps'];
   return (
-    <div className="gfx-scale" role="group" aria-label="Announcement volume">
+    <div className="gfx-scale" role="group" aria-label={`${en} volume`}>
       <span>
-        <b>案内放送</b> Announcements
-        <small>Platform voice volume{v === 0 ? ' (muted)' : ''}</small>
+        <b>{ja}</b> {en}
+        <small>{hint}{v === 0 ? ' (muted)' : ''}</small>
       </span>
       <div>
-        <input type="range" min={0} max={1} step={0.05} value={v} aria-label="Announcement volume" onChange={(e) => set(Number(e.target.value))} />
+        <input type="range" min={0} max={1} step={0.05} value={v} aria-label={`${en} volume`} onChange={(e) => set(Number(e.target.value))} />
       </div>
     </div>
   );

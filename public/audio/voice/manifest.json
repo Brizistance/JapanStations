@@ -1,68 +1,4 @@
 {
- "M-0a7104f5": {
-  "voice": "M",
-  "text": "まもなく、1番線に、なんこうだい行きが参ります。"
- },
- "M-ab66ec12": {
-  "voice": "M",
-  "text": "A train bound for Nankōdai will soon arrive at track 1."
- },
- "M-61d54a8a": {
-  "voice": "M",
-  "text": "危ないですから、ホームドアから離れてお待ちください。"
- },
- "M-80f3cb00": {
-  "voice": "M",
-  "text": "For your safety, please stand back from the platform doors."
- },
- "M-233e790e": {
-  "voice": "M",
-  "text": "1番線は、やなぎすじせん、なんこうだい行きです。"
- },
- "M-b1319fb7": {
-  "voice": "M",
-  "text": "This is a Yanagisuji Line train bound for Nankōdai."
- },
- "F-6931068d": {
-  "voice": "F",
-  "text": "電車をご利用の際は、降りる方を先にお通しください。"
- },
- "F-fabbf23d": {
-  "voice": "F",
-  "text": "Please let passengers off the train first."
- },
- "M-980acb02": {
-  "voice": "M",
-  "text": "ドアが閉まります。ご注意ください。"
- },
- "M-2b2c8030": {
-  "voice": "M",
-  "text": "The doors are closing. Please stand clear."
- },
- "M-55801be2": {
-  "voice": "M",
-  "text": "駆け込み乗車は危険ですので、おやめください。"
- },
- "M-903fe1b9": {
-  "voice": "M",
-  "text": "Please do not rush onto the train."
- },
- "F-1b3d0a85": {
-  "voice": "F",
-  "text": "まもなく、2番線に、当駅止まりの電車が参ります。"
- },
- "F-d742f843": {
-  "voice": "F",
-  "text": "A train terminating at this station will soon arrive at track 2."
- },
- "F-da346f52": {
-  "voice": "F",
-  "text": "2番線の電車は、当駅止まりです。ご乗車になれません。"
- },
- "F-aed80e57": {
-  "voice": "F",
-  "text": "This train terminates here. Please do not board."
- },
  "F-a4c169f6": {
   "voice": "F",
   "text": "お忘れ物のないよう、ご注意ください。"
@@ -71,388 +7,676 @@
   "voice": "F",
   "text": "Please make sure you have all your belongings."
  },
- "F-702f4474": {
-  "voice": "F",
-  "text": "まもなく、2番線に、しんみどりがおか行きが参ります。"
- },
- "F-62541d13": {
-  "voice": "F",
-  "text": "A train bound for Shin-Midorigaoka will soon arrive at track 2."
- },
- "F-42bfe6cf": {
-  "voice": "F",
-  "text": "2番線は、やなぎすじせん、しんみどりがおか行きです。"
- },
- "F-c5d708e1": {
-  "voice": "F",
-  "text": "This is a Yanagisuji Line train bound for Shin-Midorigaoka."
- },
- "M-f9766d09": {
+ "M-0e669ced": {
   "voice": "M",
-  "text": "まもなく、3番線に、しおんだい行きが参ります。"
+  "text": "まもなく、1番線に、みどりざか方面、なんこうだい行きが到着します。"
  },
- "M-9275def6": {
+ "M-d0815baa": {
   "voice": "M",
-  "text": "A train bound for Shiondai will soon arrive at track 3."
+  "text": "The train for Nankōdai is now arriving on track 1."
  },
- "M-48fa40ac": {
+ "M-40788295": {
   "voice": "M",
-  "text": "3番線は、あかねすじせん、しおんだい行きです。"
+  "text": "ホームドアから、手や顔を出したり、もたれたりしないでください。"
  },
- "M-04a9fae0": {
+ "M-afe5b858": {
   "voice": "M",
-  "text": "This is a Akanesuji Line train bound for Shiondai."
+  "text": "Please do not lean on the platform doors."
  },
- "F-d4ea6d81": {
+ "M-3f06f661": {
+  "voice": "M",
+  "text": "しんみどりがおか、しんみどりがおかです。"
+ },
+ "M-a3af984c": {
+  "voice": "M",
+  "text": "This is Shin-Midorigaoka."
+ },
+ "M-2c697a9c": {
+  "voice": "M",
+  "text": "1番線、ドアが閉まります。無理なご乗車は、おやめください。"
+ },
+ "F-7c1fa22e": {
   "voice": "F",
-  "text": "まもなく、4番線に、しんかもめ行きが参ります。"
+  "text": "まもなく、2番線に、電車が到着します。この電車は、当駅止まりです。"
  },
- "F-f5f92e3e": {
+ "F-2c224883": {
   "voice": "F",
-  "text": "A train bound for Shin-Kamome will soon arrive at track 4."
+  "text": "A train terminating at this station is now arriving on track 2."
  },
- "F-a334a296": {
+ "F-fd98f238": {
   "voice": "F",
-  "text": "4番線は、あかねすじせん、しんかもめ行きです。"
+  "text": "しんみどりがおか、しんみどりがおか、終点です。ご乗車、ありがとうございました。"
  },
- "F-5347a60f": {
+ "F-251e4c91": {
   "voice": "F",
-  "text": "This is a Akanesuji Line train bound for Shin-Kamome."
+  "text": "This is Shin-Midorigaoka, the last stop. Thank you for riding the Kawaminato Metro."
  },
- "M-12940c9e": {
+ "M-bdf6c065": {
   "voice": "M",
-  "text": "まもなく、5番線に、うみのもり行きが参ります。"
+  "text": "あおばだい、あおばだいです。"
  },
- "M-819a2ae4": {
+ "M-b60ce509": {
   "voice": "M",
-  "text": "A train bound for Uminomori will soon arrive at track 5."
+  "text": "This is Aobadai."
  },
- "M-5002bdfc": {
-  "voice": "M",
-  "text": "5番線は、しおかぜせん、うみのもり行きです。"
- },
- "M-4048cb39": {
-  "voice": "M",
-  "text": "This is a Shiokaze Line train bound for Uminomori."
- },
- "F-a777894f": {
+ "F-c8d1bf29": {
   "voice": "F",
-  "text": "まもなく、6番線に、しおみ行きが参ります。"
+  "text": "まもなく、2番線に、しんみどりがおか行きが到着します。"
  },
- "F-033d187e": {
+ "F-61847007": {
   "voice": "F",
-  "text": "A train bound for Shiomi will soon arrive at track 6."
+  "text": "The train for Shin-Midorigaoka is now arriving on track 2."
  },
- "F-35d5dc71": {
+ "F-22fc95dc": {
   "voice": "F",
-  "text": "6番線は、しおかぜせん、しおみ行きです。"
+  "text": "あおばだい、あおばだいです。"
  },
- "F-c2c99184": {
+ "F-db81b4f0": {
   "voice": "F",
-  "text": "This is a Shiokaze Line train bound for Shiomi."
+  "text": "This is Aobadai."
  },
- "M-ac1bd6ed": {
+ "M-3c207fb1": {
   "voice": "M",
-  "text": "まもなく、5番線に、はるのだい行きが参ります。"
+  "text": "2番線、ドアが閉まります。無理なご乗車は、おやめください。"
  },
- "M-08f594de": {
+ "M-3652e26f": {
   "voice": "M",
-  "text": "A train bound for Harunodai will soon arrive at track 5."
+  "text": "まもなく、1番線に、きたおおどおり方面、なんこうだい行きが到着します。"
  },
- "M-cbba3e61": {
+ "M-fbd66439": {
   "voice": "M",
-  "text": "5番線は、すみれせん、はるのだい行きです。"
+  "text": "みどりざか、みどりざかです。"
  },
- "M-2035e302": {
+ "M-44761e2b": {
   "voice": "M",
-  "text": "This is a Sumire Line train bound for Harunodai."
+  "text": "This is Midorizaka."
  },
- "F-b675c044": {
+ "F-8339cba0": {
   "voice": "F",
-  "text": "まもなく、6番線に、せいらん行きが参ります。"
+  "text": "みどりざか、みどりざかです。"
  },
- "F-93813c39": {
+ "F-a9055854": {
   "voice": "F",
-  "text": "A train bound for Seiran will soon arrive at track 6."
+  "text": "This is Midorizaka."
  },
- "F-e901ad76": {
+ "M-bb22130f": {
+  "voice": "M",
+  "text": "まもなく、1番線に、つむぎばし方面、なんこうだい行きが到着します。"
+ },
+ "M-84f44b1f": {
+  "voice": "M",
+  "text": "きたおおどおり、きたおおどおりです。あかねすじせん、しおかぜせんは、お乗り換えです。"
+ },
+ "M-b0eeb77a": {
+  "voice": "M",
+  "text": "This is Kita-Ōdōri. Please transfer here for the Akanesuji Line and the Shiokaze Line."
+ },
+ "F-4a304e2a": {
   "voice": "F",
-  "text": "6番線は、すみれせん、せいらん行きです。"
+  "text": "まもなく、2番線に、みどりざか方面、しんみどりがおか行きが到着します。"
  },
- "F-d8e83710": {
+ "F-7268595a": {
   "voice": "F",
-  "text": "This is a Sumire Line train bound for Seiran."
+  "text": "きたおおどおり、きたおおどおりです。あかねすじせん、しおかぜせんは、お乗り換えです。"
  },
- "M-c132f66f": {
-  "voice": "M",
-  "text": "まもなく、3番線に、いずみがおか行きが参ります。"
- },
- "M-6f14a5d0": {
-  "voice": "M",
-  "text": "A train bound for Izumigaoka will soon arrive at track 3."
- },
- "M-06d41b46": {
-  "voice": "M",
-  "text": "3番線は、なぎさせん、いずみがおか行きです。"
- },
- "M-beea5372": {
-  "voice": "M",
-  "text": "This is a Nagisa Line train bound for Izumigaoka."
- },
- "F-c2eae0bd": {
+ "F-2e006567": {
   "voice": "F",
-  "text": "まもなく、4番線に、みなとせんたー行きが参ります。"
+  "text": "This is Kita-Ōdōri. Please transfer here for the Akanesuji Line and the Shiokaze Line."
  },
- "F-4d83be20": {
+ "M-166ea132": {
+  "voice": "M",
+  "text": "まもなく、3番線に、しおんだい行きが到着します。"
+ },
+ "M-4dc95366": {
+  "voice": "M",
+  "text": "The train for Shiondai is now arriving on track 3."
+ },
+ "M-a828bb3d": {
+  "voice": "M",
+  "text": "きたおおどおり、きたおおどおりです。やなぎすじせん、しおかぜせんは、お乗り換えです。"
+ },
+ "M-81c849f9": {
+  "voice": "M",
+  "text": "This is Kita-Ōdōri. Please transfer here for the Yanagisuji Line and the Shiokaze Line."
+ },
+ "M-5612e7a6": {
+  "voice": "M",
+  "text": "3番線、ドアが閉まります。無理なご乗車は、おやめください。"
+ },
+ "F-e565d42d": {
   "voice": "F",
-  "text": "A train bound for Minato Center will soon arrive at track 4."
+  "text": "まもなく、4番線に、あいぞめちょう方面、しんかもめ行きが到着します。"
  },
- "F-50b94e22": {
+ "F-20745018": {
   "voice": "F",
-  "text": "4番線は、なぎさせん、みなとせんたー行きです。"
+  "text": "The train for Shin-Kamome is now arriving on track 4."
  },
- "F-0035352b": {
+ "F-b6054b2c": {
   "voice": "F",
-  "text": "This is a Nagisa Line train bound for Minato Center."
+  "text": "きたおおどおり、きたおおどおりです。やなぎすじせん、しおかぜせんは、お乗り換えです。"
  },
- "M-20650a47": {
-  "voice": "M",
-  "text": "まもなく、5番線に、しんひばりの行きが参ります。"
- },
- "M-3d681784": {
-  "voice": "M",
-  "text": "A train bound for Shin-Hibarino will soon arrive at track 5."
- },
- "M-f1a645ac": {
-  "voice": "M",
-  "text": "5番線は、ききょうせん、しんひばりの行きです。"
- },
- "M-eb6b9bbe": {
-  "voice": "M",
-  "text": "This is a Kikyō Line train bound for Shin-Hibarino."
- },
- "F-0788deac": {
+ "F-1a6a782a": {
   "voice": "F",
-  "text": "まもなく、6番線に、しんしお行きが参ります。"
+  "text": "This is Kita-Ōdōri. Please transfer here for the Yanagisuji Line and the Shiokaze Line."
  },
- "F-ea6c0b20": {
+ "M-a7918c3b": {
+  "voice": "M",
+  "text": "4番線、ドアが閉まります。無理なご乗車は、おやめください。"
+ },
+ "M-3e15aa2f": {
+  "voice": "M",
+  "text": "まもなく、5番線に、かわみなとだいがくまえ方面、うみのもり行きが到着します。"
+ },
+ "M-248900d4": {
+  "voice": "M",
+  "text": "The train for Uminomori is now arriving on track 5."
+ },
+ "M-9a1fbd92": {
+  "voice": "M",
+  "text": "きたおおどおり、きたおおどおりです。やなぎすじせん、あかねすじせんは、お乗り換えです。"
+ },
+ "M-d5ccbdce": {
+  "voice": "M",
+  "text": "This is Kita-Ōdōri. Please transfer here for the Yanagisuji Line and the Akanesuji Line."
+ },
+ "M-9ae738c0": {
+  "voice": "M",
+  "text": "5番線、ドアが閉まります。無理なご乗車は、おやめください。"
+ },
+ "F-10501c18": {
   "voice": "F",
-  "text": "A train bound for Shinshio will soon arrive at track 6."
+  "text": "まもなく、6番線に、しおみ行きが到着します。"
  },
- "F-6fb431fb": {
+ "F-e387403c": {
   "voice": "F",
-  "text": "6番線は、ききょうせん、しんしお行きです。"
+  "text": "The train for Shiomi is now arriving on track 6."
  },
- "F-54166ed1": {
+ "F-f4d59531": {
   "voice": "F",
-  "text": "This is a Kikyō Line train bound for Shinshio."
+  "text": "きたおおどおり、きたおおどおりです。やなぎすじせん、あかねすじせんは、お乗り換えです。"
  },
- "M-8eb51265": {
-  "voice": "M",
-  "text": "まもなく、1番線に、当駅止まりの電車が参ります。"
- },
- "M-b4544c55": {
-  "voice": "M",
-  "text": "A train terminating at this station will soon arrive at track 1."
- },
- "M-f0b7f6d0": {
-  "voice": "M",
-  "text": "1番線の電車は、当駅止まりです。ご乗車になれません。"
- },
- "M-cef6ed6e": {
-  "voice": "M",
-  "text": "This train terminates here. Please do not board."
- },
- "M-6e6df709": {
-  "voice": "M",
-  "text": "まもなく、1番線に、いずみがおか行きが参ります。"
- },
- "M-ef0f5f22": {
-  "voice": "M",
-  "text": "A train bound for Izumigaoka will soon arrive at track 1."
- },
- "M-36beef10": {
-  "voice": "M",
-  "text": "1番線は、なぎさせん、いずみがおか行きです。"
- },
- "F-59fa460b": {
+ "F-b8d44eff": {
   "voice": "F",
-  "text": "まもなく、2番線に、みなとせんたー行きが参ります。"
+  "text": "This is Kita-Ōdōri. Please transfer here for the Yanagisuji Line and the Akanesuji Line."
  },
- "F-6d886dae": {
-  "voice": "F",
-  "text": "A train bound for Minato Center will soon arrive at track 2."
- },
- "F-e9167fe4": {
-  "voice": "F",
-  "text": "2番線は、なぎさせん、みなとせんたー行きです。"
- },
- "M-dde29f75": {
+ "M-8a3dfd35": {
   "voice": "M",
-  "text": "まもなく、3番線に、しんひばりの行きが参ります。"
+  "text": "6番線、ドアが閉まります。無理なご乗車は、おやめください。"
  },
- "M-5d593f5a": {
+ "M-c8dad2b2": {
   "voice": "M",
-  "text": "A train bound for Shin-Hibarino will soon arrive at track 3."
+  "text": "まもなく、5番線に、かわみなとだいがくまえ方面、はるのだい行きが到着します。"
  },
- "M-90fabaee": {
+ "M-fb0cccb6": {
   "voice": "M",
-  "text": "3番線は、ききょうせん、しんひばりの行きです。"
+  "text": "The train for Harunodai is now arriving on track 5."
  },
- "F-595f195a": {
+ "F-b6b2af06": {
   "voice": "F",
-  "text": "まもなく、4番線に、しんしお行きが参ります。"
+  "text": "まもなく、6番線に、みどりざか方面、せいらん行きが到着します。"
  },
- "F-6a66c472": {
+ "F-67aa7c85": {
   "voice": "F",
-  "text": "A train bound for Shinshio will soon arrive at track 4."
+  "text": "The train for Seiran is now arriving on track 6."
  },
- "F-e2f733f9": {
-  "voice": "F",
-  "text": "4番線は、ききょうせん、しんしお行きです。"
- },
- "M-dcdd64a0": {
+ "M-d51447de": {
   "voice": "M",
-  "text": "まもなく、3番線に、うみのもり行きが参ります。"
+  "text": "まもなく、1番線に、なんこうだい行きが到着します。"
  },
- "M-a18b52ba": {
+ "M-fb6fed22": {
   "voice": "M",
-  "text": "A train bound for Uminomori will soon arrive at track 3."
+  "text": "つむぎばし、つむぎばしです。なぎさせん、ききょうせんは、お乗り換えです。"
  },
- "M-377fced6": {
+ "M-47f377c4": {
   "voice": "M",
-  "text": "3番線は、しおかぜせん、うみのもり行きです。"
+  "text": "This is Tsumugibashi. Please transfer here for the Nagisa Line and the Kikyō Line."
  },
- "F-31d2bef5": {
+ "F-87d89584": {
   "voice": "F",
-  "text": "まもなく、4番線に、しおみ行きが参ります。"
+  "text": "まもなく、2番線に、きたおおどおり方面、しんみどりがおか行きが到着します。"
  },
- "F-83425f2c": {
+ "F-6e33db23": {
   "voice": "F",
-  "text": "A train bound for Shiomi will soon arrive at track 4."
+  "text": "つむぎばし、つむぎばしです。なぎさせん、ききょうせんは、お乗り換えです。"
  },
- "F-12fda6eb": {
+ "F-7ef06191": {
   "voice": "F",
-  "text": "4番線は、しおかぜせん、しおみ行きです。"
+  "text": "This is Tsumugibashi. Please transfer here for the Nagisa Line and the Kikyō Line."
  },
- "M-801a600f": {
+ "M-fc9505c8": {
   "voice": "M",
-  "text": "まもなく、3番線に、はるのだい行きが参ります。"
+  "text": "まもなく、3番線に、かわみなとだいがくまえ方面、いずみがおか行きが到着します。"
  },
- "M-a8f08090": {
+ "M-3b0b6268": {
   "voice": "M",
-  "text": "A train bound for Harunodai will soon arrive at track 3."
+  "text": "The train for Izumigaoka is now arriving on track 3."
  },
- "M-cfabf7df": {
+ "M-7512237c": {
   "voice": "M",
-  "text": "3番線は、すみれせん、はるのだい行きです。"
+  "text": "つむぎばし、つむぎばしです。やなぎすじせん、ききょうせんは、お乗り換えです。"
  },
- "F-2af9cf9a": {
-  "voice": "F",
-  "text": "まもなく、4番線に、せいらん行きが参ります。"
- },
- "F-937cbf0b": {
-  "voice": "F",
-  "text": "A train bound for Seiran will soon arrive at track 4."
- },
- "F-e53586dc": {
-  "voice": "F",
-  "text": "4番線は、すみれせん、せいらん行きです。"
- },
- "M-7e808263": {
+ "M-13d09f95": {
   "voice": "M",
-  "text": "まもなく、1番線に、しおんだい行きが参ります。"
+  "text": "This is Tsumugibashi. Please transfer here for the Yanagisuji Line and the Kikyō Line."
  },
- "M-f27af344": {
+ "F-51495015": {
+  "voice": "F",
+  "text": "まもなく、4番線に、あいぞめちょう方面、みなとせんたー行きが到着します。"
+ },
+ "F-991d981a": {
+  "voice": "F",
+  "text": "The train for Minato Center is now arriving on track 4."
+ },
+ "F-9240b039": {
+  "voice": "F",
+  "text": "つむぎばし、つむぎばしです。やなぎすじせん、ききょうせんは、お乗り換えです。"
+ },
+ "F-6ef8ffa0": {
+  "voice": "F",
+  "text": "This is Tsumugibashi. Please transfer here for the Yanagisuji Line and the Kikyō Line."
+ },
+ "M-476101de": {
   "voice": "M",
-  "text": "A train bound for Shiondai will soon arrive at track 1."
+  "text": "まもなく、5番線に、とうみょうぼり方面、しんひばりの行きが到着します。"
  },
- "M-0b75ccde": {
+ "M-84f6f5f4": {
   "voice": "M",
-  "text": "1番線は、あかねすじせん、しおんだい行きです。"
+  "text": "The train for Shin-Hibarino is now arriving on track 5."
  },
- "F-78dfd93b": {
-  "voice": "F",
-  "text": "まもなく、2番線に、しんかもめ行きが参ります。"
- },
- "F-95f419f0": {
-  "voice": "F",
-  "text": "A train bound for Shin-Kamome will soon arrive at track 2."
- },
- "F-e8f400ac": {
-  "voice": "F",
-  "text": "2番線は、あかねすじせん、しんかもめ行きです。"
- },
- "M-388fd37a": {
+ "M-795c28b6": {
   "voice": "M",
-  "text": "まもなく、1番線に、うみのもり行きが参ります。"
+  "text": "つむぎばし、つむぎばしです。やなぎすじせん、なぎさせんは、お乗り換えです。"
  },
- "M-21909968": {
+ "M-25b41993": {
   "voice": "M",
-  "text": "A train bound for Uminomori will soon arrive at track 1."
+  "text": "This is Tsumugibashi. Please transfer here for the Yanagisuji Line and the Nagisa Line."
  },
- "M-495548d0": {
+ "F-d7750c9c": {
+  "voice": "F",
+  "text": "まもなく、6番線に、わたやまち方面、しんしお行きが到着します。"
+ },
+ "F-ece96386": {
+  "voice": "F",
+  "text": "The train for Shinshio is now arriving on track 6."
+ },
+ "F-42db07bd": {
+  "voice": "F",
+  "text": "つむぎばし、つむぎばしです。やなぎすじせん、なぎさせんは、お乗り換えです。"
+ },
+ "F-c328fedc": {
+  "voice": "F",
+  "text": "This is Tsumugibashi. Please transfer here for the Yanagisuji Line and the Nagisa Line."
+ },
+ "M-578b65fd": {
   "voice": "M",
-  "text": "1番線は、しおかぜせん、うみのもり行きです。"
+  "text": "ひょうたんぼり、ひょうたんぼりです。"
  },
- "F-1f5c8283": {
-  "voice": "F",
-  "text": "まもなく、2番線に、しおみ行きが参ります。"
- },
- "F-a3338702": {
-  "voice": "F",
-  "text": "A train bound for Shiomi will soon arrive at track 2."
- },
- "F-23b5270d": {
-  "voice": "F",
-  "text": "2番線は、しおかぜせん、しおみ行きです。"
- },
- "M-12e38ee9": {
+ "M-b22a0f87": {
   "voice": "M",
-  "text": "まもなく、1番線に、はるのだい行きが参ります。"
+  "text": "This is Hyōtanbori."
  },
- "M-28eb39e2": {
+ "F-e803b264": {
+  "voice": "F",
+  "text": "まもなく、2番線に、つむぎばし方面、しんみどりがおか行きが到着します。"
+ },
+ "F-e3554bdc": {
+  "voice": "F",
+  "text": "ひょうたんぼり、ひょうたんぼりです。"
+ },
+ "F-a1ee6acc": {
+  "voice": "F",
+  "text": "This is Hyōtanbori."
+ },
+ "M-16cd4f29": {
   "voice": "M",
-  "text": "A train bound for Harunodai will soon arrive at track 1."
+  "text": "つるまつ、つるまつです。"
  },
- "M-b10e01cd": {
+ "M-9f4f9769": {
   "voice": "M",
-  "text": "1番線は、すみれせん、はるのだい行きです。"
+  "text": "This is Tsurumatsu."
  },
- "F-b6f32618": {
+ "F-22793e68": {
   "voice": "F",
-  "text": "まもなく、2番線に、せいらん行きが参ります。"
+  "text": "つるまつ、つるまつです。"
  },
- "F-1377785d": {
+ "F-33209cce": {
   "voice": "F",
-  "text": "A train bound for Seiran will soon arrive at track 2."
+  "text": "This is Tsurumatsu."
  },
- "F-ab3f8a7a": {
-  "voice": "F",
-  "text": "2番線は、すみれせん、せいらん行きです。"
- },
- "M-541ac373": {
+ "M-3e14f821": {
   "voice": "M",
-  "text": "まもなく、1番線に、しんひばりの行きが参ります。"
+  "text": "みなみほりえ、みなみほりえです。"
  },
- "M-5d5dbc88": {
+ "M-84c5880e": {
   "voice": "M",
-  "text": "A train bound for Shin-Hibarino will soon arrive at track 1."
+  "text": "This is Minamihorie."
  },
- "M-da5445e0": {
+ "F-c024a3b4": {
+  "voice": "F",
+  "text": "みなみほりえ、みなみほりえです。"
+ },
+ "F-3d3d1ac7": {
+  "voice": "F",
+  "text": "This is Minamihorie."
+ },
+ "M-14cc66f5": {
   "voice": "M",
-  "text": "1番線は、ききょうせん、しんひばりの行きです。"
+  "text": "かいせいちょう、かいせいちょうです。"
  },
- "F-7c88fe88": {
-  "voice": "F",
-  "text": "まもなく、2番線に、しんしお行きが参ります。"
+ "M-01effc82": {
+  "voice": "M",
+  "text": "This is Kaiseichō."
  },
- "F-8a76015c": {
+ "F-90ec8324": {
   "voice": "F",
-  "text": "A train bound for Shinshio will soon arrive at track 2."
+  "text": "かいせいちょう、かいせいちょうです。"
  },
- "F-57762faf": {
+ "F-62d67c23": {
   "voice": "F",
-  "text": "2番線は、ききょうせん、しんしお行きです。"
+  "text": "This is Kaiseichō."
+ },
+ "M-61a1e54e": {
+  "voice": "M",
+  "text": "まもなく、1番線に、電車が到着します。この電車は、当駅止まりです。"
+ },
+ "M-2846805b": {
+  "voice": "M",
+  "text": "A train terminating at this station is now arriving on track 1."
+ },
+ "M-1ddfaeb1": {
+  "voice": "M",
+  "text": "なんこうだい、なんこうだい、終点です。ご乗車、ありがとうございました。"
+ },
+ "M-89b5a7b7": {
+  "voice": "M",
+  "text": "This is Nankōdai, the last stop. Thank you for riding the Kawaminato Metro."
+ },
+ "F-ae31020e": {
+  "voice": "F",
+  "text": "なんこうだい、なんこうだいです。"
+ },
+ "F-5c4325fe": {
+  "voice": "F",
+  "text": "This is Nankōdai."
+ },
+ "M-9d3f6c88": {
+  "voice": "M",
+  "text": "まもなく、1番線に、かわみなとこう方面、いずみがおか行きが到着します。"
+ },
+ "M-bb061bba": {
+  "voice": "M",
+  "text": "The train for Izumigaoka is now arriving on track 1."
+ },
+ "M-59b8fce1": {
+  "voice": "M",
+  "text": "みなとせんたー、みなとせんたーです。"
+ },
+ "M-74502beb": {
+  "voice": "M",
+  "text": "This is Minato Center."
+ },
+ "F-d55d24b0": {
+  "voice": "F",
+  "text": "みなとせんたー、みなとせんたー、終点です。ご乗車、ありがとうございました。"
+ },
+ "F-544fb14c": {
+  "voice": "F",
+  "text": "This is Minato Center, the last stop. Thank you for riding the Kawaminato Metro."
+ },
+ "M-5ead6d0f": {
+  "voice": "M",
+  "text": "うみべしやくしょまえ、うみべしやくしょまえです。"
+ },
+ "M-ca4983cf": {
+  "voice": "M",
+  "text": "This is Umibe-shiyakusho-mae."
+ },
+ "F-815964b4": {
+  "voice": "F",
+  "text": "まもなく、2番線に、みなとせんたー行きが到着します。"
+ },
+ "F-792c7044": {
+  "voice": "F",
+  "text": "The train for Minato Center is now arriving on track 2."
+ },
+ "F-05570466": {
+  "voice": "F",
+  "text": "うみべしやくしょまえ、うみべしやくしょまえです。"
+ },
+ "F-41bd7200": {
+  "voice": "F",
+  "text": "This is Umibe-shiyakusho-mae."
+ },
+ "M-4e6ab75f": {
+  "voice": "M",
+  "text": "まもなく、1番線に、あいぞめちょう方面、いずみがおか行きが到着します。"
+ },
+ "M-eaa282d6": {
+  "voice": "M",
+  "text": "かわみなとこう、かわみなとこうです。ききょうせんは、お乗り換えです。"
+ },
+ "M-6dcee4cd": {
+  "voice": "M",
+  "text": "This is Kawaminato-kō. Please transfer here for the Kikyō Line."
+ },
+ "F-6eab69ef": {
+  "voice": "F",
+  "text": "かわみなとこう、かわみなとこうです。ききょうせんは、お乗り換えです。"
+ },
+ "F-d255bb22": {
+  "voice": "F",
+  "text": "This is Kawaminato-kō. Please transfer here for the Kikyō Line."
+ },
+ "M-cec70e73": {
+  "voice": "M",
+  "text": "まもなく、3番線に、わたやまち方面、しんひばりの行きが到着します。"
+ },
+ "M-64e7b90a": {
+  "voice": "M",
+  "text": "The train for Shin-Hibarino is now arriving on track 3."
+ },
+ "M-83b60f5c": {
+  "voice": "M",
+  "text": "かわみなとこう、かわみなとこうです。なぎさせんは、お乗り換えです。"
+ },
+ "M-d376fc6b": {
+  "voice": "M",
+  "text": "This is Kawaminato-kō. Please transfer here for the Nagisa Line."
+ },
+ "F-8c02c4af": {
+  "voice": "F",
+  "text": "まもなく、4番線に、しんしお行きが到着します。"
+ },
+ "F-0cee1314": {
+  "voice": "F",
+  "text": "The train for Shinshio is now arriving on track 4."
+ },
+ "F-7589b71f": {
+  "voice": "F",
+  "text": "かわみなとこう、かわみなとこうです。なぎさせんは、お乗り換えです。"
+ },
+ "F-2d9ec4ce": {
+  "voice": "F",
+  "text": "This is Kawaminato-kō. Please transfer here for the Nagisa Line."
+ },
+ "M-65f8a04b": {
+  "voice": "M",
+  "text": "まもなく、1番線に、つむぎばし方面、いずみがおか行きが到着します。"
+ },
+ "M-5b57d6fc": {
+  "voice": "M",
+  "text": "あいぞめちょう、あいぞめちょうです。あかねすじせんは、お乗り換えです。"
+ },
+ "M-c3dc9e47": {
+  "voice": "M",
+  "text": "This is Aizomechō. Please transfer here for the Akanesuji Line."
+ },
+ "F-fa559e82": {
+  "voice": "F",
+  "text": "まもなく、2番線に、かわみなとこう方面、みなとせんたー行きが到着します。"
+ },
+ "F-b7fbacc7": {
+  "voice": "F",
+  "text": "あいぞめちょう、あいぞめちょうです。あかねすじせんは、お乗り換えです。"
+ },
+ "F-7da17804": {
+  "voice": "F",
+  "text": "This is Aizomechō. Please transfer here for the Akanesuji Line."
+ },
+ "M-4b5b5ca1": {
+  "voice": "M",
+  "text": "まもなく、3番線に、きたおおどおり方面、しおんだい行きが到着します。"
+ },
+ "M-6de2c18c": {
+  "voice": "M",
+  "text": "あいぞめちょう、あいぞめちょうです。なぎさせんは、お乗り換えです。"
+ },
+ "M-a1dfce95": {
+  "voice": "M",
+  "text": "This is Aizomechō. Please transfer here for the Nagisa Line."
+ },
+ "F-504c1385": {
+  "voice": "F",
+  "text": "まもなく、4番線に、わたやまち方面、しんかもめ行きが到着します。"
+ },
+ "F-2b160ba7": {
+  "voice": "F",
+  "text": "あいぞめちょう、あいぞめちょうです。なぎさせんは、お乗り換えです。"
+ },
+ "F-3a204998": {
+  "voice": "F",
+  "text": "This is Aizomechō. Please transfer here for the Nagisa Line."
+ },
+ "M-df4c2194": {
+  "voice": "M",
+  "text": "まもなく、1番線に、ひばりの方面、いずみがおか行きが到着します。"
+ },
+ "M-3d4c31b7": {
+  "voice": "M",
+  "text": "かわみなとだいがくまえ、かわみなとだいがくまえです。しおかぜせんは、お乗り換えです。"
+ },
+ "M-63ead9f4": {
+  "voice": "M",
+  "text": "This is Kawaminato-daigaku-mae. Please transfer here for the Shiokaze Line."
+ },
+ "F-28cdf6bb": {
+  "voice": "F",
+  "text": "まもなく、2番線に、つむぎばし方面、みなとせんたー行きが到着します。"
+ },
+ "F-e42c9f22": {
+  "voice": "F",
+  "text": "かわみなとだいがくまえ、かわみなとだいがくまえです。しおかぜせんは、お乗り換えです。"
+ },
+ "F-1591b2db": {
+  "voice": "F",
+  "text": "This is Kawaminato-daigaku-mae. Please transfer here for the Shiokaze Line."
+ },
+ "M-b0706b57": {
+  "voice": "M",
+  "text": "まもなく、3番線に、とうみょうぼり方面、うみのもり行きが到着します。"
+ },
+ "M-847a8d6a": {
+  "voice": "M",
+  "text": "The train for Uminomori is now arriving on track 3."
+ },
+ "M-a7c8ac1c": {
+  "voice": "M",
+  "text": "かわみなとだいがくまえ、かわみなとだいがくまえです。なぎさせんは、お乗り換えです。"
+ },
+ "M-b0700b33": {
+  "voice": "M",
+  "text": "This is Kawaminato-daigaku-mae. Please transfer here for the Nagisa Line."
+ },
+ "F-f670f865": {
+  "voice": "F",
+  "text": "まもなく、4番線に、きたおおどおり方面、しおみ行きが到着します。"
+ },
+ "F-e382c30e": {
+  "voice": "F",
+  "text": "The train for Shiomi is now arriving on track 4."
+ },
+ "F-5ae6c45f": {
+  "voice": "F",
+  "text": "かわみなとだいがくまえ、かわみなとだいがくまえです。なぎさせんは、お乗り換えです。"
+ },
+ "F-f773fe30": {
+  "voice": "F",
+  "text": "This is Kawaminato-daigaku-mae. Please transfer here for the Nagisa Line."
+ },
+ "M-c3436593": {
+  "voice": "M",
+  "text": "まもなく、3番線に、はなみずき方面、はるのだい行きが到着します。"
+ },
+ "M-7b078608": {
+  "voice": "M",
+  "text": "The train for Harunodai is now arriving on track 3."
+ },
+ "F-4e2ac666": {
+  "voice": "F",
+  "text": "まもなく、4番線に、きたおおどおり方面、せいらん行きが到着します。"
+ },
+ "F-67a5ff57": {
+  "voice": "F",
+  "text": "The train for Seiran is now arriving on track 4."
+ },
+ "M-160e9332": {
+  "voice": "M",
+  "text": "まもなく、1番線に、いずみがおか行きが到着します。"
+ },
+ "M-0ed821b8": {
+  "voice": "M",
+  "text": "ひばりの、ひばりのです。ききょうせんは、お乗り換えです。"
+ },
+ "M-f86b1af0": {
+  "voice": "M",
+  "text": "This is Hibarino. Please transfer here for the Kikyō Line."
+ },
+ "F-146bf350": {
+  "voice": "F",
+  "text": "まもなく、2番線に、かわみなとだいがくまえ方面、みなとせんたー行きが到着します。"
+ },
+ "F-4a729451": {
+  "voice": "F",
+  "text": "ひばりの、ひばりのです。ききょうせんは、お乗り換えです。"
+ },
+ "F-ea242031": {
+  "voice": "F",
+  "text": "This is Hibarino. Please transfer here for the Kikyō Line."
+ },
+ "M-c08fbf5e": {
+  "voice": "M",
+  "text": "まもなく、3番線に、しんひばりの行きが到着します。"
+ },
+ "M-c0c7063a": {
+  "voice": "M",
+  "text": "ひばりの、ひばりのです。なぎさせんは、お乗り換えです。"
+ },
+ "M-5858d1cc": {
+  "voice": "M",
+  "text": "This is Hibarino. Please transfer here for the Nagisa Line."
+ },
+ "F-cb53e7b1": {
+  "voice": "F",
+  "text": "まもなく、4番線に、とうみょうぼり方面、しんしお行きが到着します。"
+ },
+ "F-4fb75a25": {
+  "voice": "F",
+  "text": "ひばりの、ひばりのです。なぎさせんは、お乗り換えです。"
+ },
+ "F-074548cf": {
+  "voice": "F",
+  "text": "This is Hibarino. Please transfer here for the Nagisa Line."
+ },
+ "M-6d3575c1": {
+  "voice": "M",
+  "text": "あさひの、あさひのです。"
+ },
+ "M-cdc24b87": {
+  "voice": "M",
+  "text": "This is Asahino."
+ },
+ "F-009be0c6": {
+  "voice": "F",
+  "text": "まもなく、2番線に、ひばりの方面、みなとせんたー行きが到着します。"
  }
 }
