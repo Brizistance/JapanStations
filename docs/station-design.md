@@ -184,6 +184,8 @@ Passenger guidance away from the platforms. All of it is generated: nothing is t
 
 ## Per-station identity (`src/stations/specs.ts`)
 
+Entry areas (rule 9): `src/stations/entry-specs.ts` gives each non-hero station a street-entrance form (vault, portal, open, pavilion, brick, slab, louvre, glassbox) in its own colours, its own stairwell cladding, rails and lamps, and ticket-hall finishes; `entry.ts` draws them, `entry.test.ts` forbids repeats. Plans vary too: per gate end `exits` (doorway 4.6–11.8 m past the gates, which walls, climbing out or back over the station; exits.ts mirrors it) and `split` (two unjoined halls); `plans.test.ts` forbids two stations sharing a whole plan. Done: Ichō Line; Sumire Line (Seiran, Midorizaka, Hanamizuki, Minami-Sakuragawa). Deep exit stairs run covered under the street; only their top `EXIT_OPEN` (9.5 m) is open (kit.ts `exit`). Ticket halls are filled per station from `fill` (fill.ts: shops, islands, waiting room, a local display case or photo gallery); `fill.test.ts` checks every item found room and no feature repeats. `floorLines` (fill.ts) paints a line-colour stripe from each gate to each stair head beside the tactile path.
+
 | Station | Finish | Distinctive feature | Outside |
 |---|---|---|---|
 | Midorizaka | Warm brick | Leaf mural | Park, houses, utility poles |

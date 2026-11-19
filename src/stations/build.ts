@@ -20,6 +20,7 @@ import { buildStacked } from './stacked';
 import { ADIT_X, buildAdit } from './adit';
 import { buildMidLevel } from './midlevel';
 import { TUNNEL_DOOR, buildTransfer } from './transfer';
+import { endNums, exitAt, exitClimb, exitSides, type ExitPlan } from './exits';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
 import type { ConcInfo, ConcRoom, ExitDoor, StairInfo, Stairwell, WallFace } from './looks/types';
@@ -106,27 +107,56 @@ export function platformStairs(c: Ctx, units: { x: number; up: 1 | -1 }[], pf: n
   return out;
 }
 
-interface GateEnd {
+export interface GateEnd {
   g: number;
   hi: boolean;
+  /** Exit numbers on the −z and +z walls ('' where there is none: see endNums). */
   nums: [string, string];
+  exits?: ExitPlan;
+}
+
+/** The two gate ends of an interchange-type concourse at ±g: exits 1… from the +x end. */
+export function twoEnds(g: number, plans?: [ExitPlan, ExitPlan]): GateEnd[] {
+  const nums = endNums([plans?.[0], plans?.[1]]);
+  return [{ g, hi: true, nums: nums[0], exits: plans?.[0] }, { g: -g, hi: false, nums: nums[1], exits: plans?.[1] }];
+}
+
+/** Doorway of each exit off a gate end, in the station frame. */
+export function endDoors(e: GateEnd, end: number): ExitDoor[] {
+  return exitSides(e.exits).map((s): ExitDoor => {
+    const at = exitAt(e.exits, s);
+    return { num: e.nums[s > 0 ? 1 : 0], s, x0: e.hi ? e.g + at : e.g - at - 4, x1: e.hi ? e.g + at + 4 : e.g - at, end };
+  });
 }
 
 /** Unpaid end of a concourse. Canonical: gate line at x = 0, unpaid area x ∈ [0, 16]. */
-function unpaidEnd(c: Ctx, cf: number, cw: number, nums: [string, string], lines: string[], ext: number) {
+function unpaidEnd(c: Ctx, cf: number, cw: number, e: GateEnd, lines: string[], ext: number) {
   const { b, style } = c;
+  const sides = exitSides(e.exits);
+  // A doorway by the gates (before 8.6 m) pushes the machines or lockers on its wall past it.
+  const early = (s: -1 | 1) => sides.includes(s) && exitAt(e.exits, s) < 8.6;
   gateLine(c, cf, cw, lines);
-  ticketMachines(c, cf, 3, -cw, 5);
-  b.box('flat:#e9e4d8', 3.2, cf, cw - 0.6, 6.4, cf + 1.9, cw);
-  b.sign({ k: 'machine', v: 'locker' }, 4.8, cf + 0.95, cw - 0.61, [0, -1], 3.2, 1.9);
-  vending(b, 7.5, cf, cw - 0.36, [0, -1], 'vending2');
+  ticketMachines(c, cf, early(-1) ? 9.4 : 3, -cw, 5);
+  const lx = early(1) ? 9.4 : 3.2;
+  b.box('flat:#e9e4d8', lx, cf, cw - 0.6, lx + 3.2, cf + 1.9, cw);
+  b.sign({ k: 'machine', v: 'locker' }, lx + 1.6, cf + 0.95, cw - 0.61, [0, -1], 3.2, 1.9);
+  vending(b, lx + 4.3, cf, cw - 0.36, [0, -1], 'vending2');
   b.sign({ k: 'mural', ...style.mural }, 15.98, cf + 1.55, 0, [-1, 0], Math.min(2 * cw - 6, 16), 2.1);
   b.box('flat:#3b4046', 15.4, cf, -3, 15.9, cf + 0.42, 3);
-  b.with({ t: [13, 0, cw] }, () => exit(c, cf, nums[1], ext));
-  b.with({ mz: true, t: [13, 0, -cw] }, () => exit(c, cf, nums[0], ext));
+  for (const s of sides) {
+    const at = exitAt(e.exits, s), num = e.nums[s > 0 ? 1 : 0];
+    // kit.ts exit() climbs +x from x = 0 with its doorway at −4 … 0 on the z = 0 wall.
+    // 'out': as is, at at + 4. 'back': mirrored in x, at at (doorway at … at + 4, climbing −x).
+    const xf = exitClimb(e.exits, s) === 'back'
+      ? { rot: 2 as const, mz: s > 0, t: [at, 0, s * cw] as [number, number, number] }
+      : { mz: s < 0, t: [at + 4, 0, s * cw] as [number, number, number] };
+    b.with(xf, () => exit(c, cf, num, ext));
+  }
 }
 
 export interface ShellOpts {
+  /** Zone name (default 改札階コンコース / Concourse). */
+  name?: { ja: string; en: string };
   cf: number;
   cw: number;
   x0: number;
@@ -218,8 +248,7 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   const ceil = cf + CONC_CLEAR;
   const ceilMat = look.finishes?.ceil ?? 'ceil';
   const lines = linesAt(station.id).map((l) => l.id);
-  const exits: ExitDoor[] = o.ends.flatMap((e, end) =>
-    ([-1, 1] as const).map((s): ExitDoor => ({ num: e.nums[s > 0 ? 1 : 0], s, x0: e.hi ? e.g + 9 : e.g - 13, x1: e.hi ? e.g + 13 : e.g - 9, end })));
+  const exits: ExitDoor[] = o.ends.flatMap((e, end) => endDoors(e, end));
   const plan = planWalls(x0, x1, cw, 0.4, exits, rooms, o.wallGaps);
 
   // Floor where people walk (the spine, the rooms, and the floor in the mouths between them).
@@ -336,9 +365,9 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   b.sign({ k: 'machine', v: 'door' }, tx - 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
   b.sign({ k: 'machine', v: 'door' }, tx + 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
   for (const e of o.ends) {
-    b.with(e.hi ? { t: [e.g, 0, 0] } : { ...MIRROR_X, t: [e.g, 0, 0] }, () => unpaidEnd(c, cf, cw, e.nums, lines, o.ext ?? 0));
+    b.with(e.hi ? { t: [e.g, 0, 0] } : { ...MIRROR_X, t: [e.g, 0, 0] }, () => unpaidEnd(c, cf, cw, e, lines, o.ext ?? 0));
   }
-  b.zone('concourse', x0, cf - 0.3, -cw, x1, cf + CONC_CLEAR, cw, '改札階コンコース', 'Concourse');
+  b.zone('concourse', x0, cf - 0.3, -cw, x1, cf + CONC_CLEAR, cw, o.name?.ja ?? '改札階コンコース', o.name?.en ?? 'Concourse');
   for (const r of rooms) {
     b.zone(r.zone, r.rect[0], cf - 0.3, r.rect[1], r.rect[2], ceil, r.rect[3], r.ja, r.en);
     roomLights(b, r.rect, ceil);
@@ -405,7 +434,14 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
   const open = spec.cavern ? d.pf + spec.cavern : style.vault ? d.pf + 5.0 : vault ? d.pf + 4.4 : d.pf + 4.2;
   const ceil: CeilSeg[] = [];
   if (cx0 > -HALL_HALF) ceil.push({ x0: -HALL_HALF, x1: cx0, y: open, emit: true, vault });
-  ceil.push({ x0: cx0, x1: cx1, y: cf - SLAB, emit: false });
+  // A split station has two halls with open platform roof between them.
+  const halls: [number, number][] = spec.split ? [[cx0, spec.split[0]], [spec.split[1], cx1]] : [[cx0, cx1]];
+  if (spec.split) {
+    if (spec.gates.length !== 2) throw new Error(`${station.id}: a split concourse needs a gate line at each end`);
+    ceil.push({ x0: cx0, x1: spec.split[0], y: cf - SLAB, emit: false });
+    ceil.push({ x0: spec.split[0], x1: spec.split[1], y: open, emit: true, vault });
+    ceil.push({ x0: spec.split[1], x1: cx1, y: cf - SLAB, emit: false });
+  } else ceil.push({ x0: cx0, x1: cx1, y: cf - SLAB, emit: false });
   if (cx1 < HALL_HALF) ceil.push({ x0: cx1, x1: HALL_HALF, y: open, emit: true, vault });
 
   const st = platformStairs(c, spec.stairs, d.pf, cf, d.wallZ);
@@ -413,7 +449,7 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
   if (d.island) {
     // Lift shaft (not operable) beside the stairs.
     const ex = Math.max(...st.blocks.map((q) => q[1])) + 3;
-    if (ex + 2.2 < cx1 - 18) {
+    if (ex + 2.2 < cx1 - 18 && halls.some(([a, e]) => ex > a + 1 && ex + 2.2 < e - 1)) {
       b.box('flat:#b9bec4', ex, d.pf, -1.1, ex + 2.2, cf + CONC_CLEAR, 1.1);
       for (const y of [d.pf, cf]) {
         b.sign({ k: 'machine', v: 'elevator' }, ex + 2.22, y + 1.15, 0, [1, 0], 1.8, 2.3);
@@ -429,10 +465,12 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
   if (spec.stub) stubSiding(c, d.wallZ, stub);
   for (const v of voids) voidRail(b, v, cf);
 
-  const ends = spec.gates.map((g, i) => ({
+  const nums = endNums(spec.gates.map((_, i) => spec.exits?.[i]));
+  const ends: GateEnd[] = spec.gates.map((g, i) => ({
     g: g === 'hi' ? cx1 - 16 : cx0 + 16,
     hi: g === 'hi',
-    nums: [String(i * 2 + 1), String(i * 2 + 2)] as [string, string],
+    nums: nums[i],
+    exits: spec.exits?.[i],
   }));
   // The street does not move: a narrower concourse reaches the same entrances by longer corridors.
   // A hillside adit leaves the +z wall for the valley (Narukozaka).
@@ -441,7 +479,19 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
   // A line crossing further along, reached by a transfer tunnel (Shin-Hibarino).
   if (spec.transfer && !further) throw new Error(`${station.id}: a transfer tunnel needs a second line`);
   if (spec.transfer && further) buildTransfer(c, cf, cw, further);
-  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: [...st.holes, ...voids], ends, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info, ...adit });
+  const shell = { cf, cw, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, ...adit };
+  if (!spec.split) concourse(c, { ...shell, x0: cx0, x1: cx1, holes: [...st.holes, ...voids], ends, stairs: st.info });
+  else {
+    // Each hall takes the gate end at its outer end and the stairs that come up inside it.
+    const inside = (r: Rect, [a, e]: [number, number]) => r[0] >= a && r[2] <= e;
+    halls.forEach((h, k) => {
+      const holes = [...st.holes, ...voids].filter((r) => inside(r, h));
+      const stairs = st.info.filter((i) => inside(i.rect, h));
+      if (!stairs.length) throw new Error(`${station.id}: split hall ${k} has no stair down`);
+      const name = k === 0 ? { ja: '西改札', en: 'West concourse' } : { ja: '東改札', en: 'East concourse' };
+      concourse(c, { ...shell, x0: h[0], x1: h[1], holes, ends: ends.filter((e) => e.hi === (k === 1)), stairs, name });
+    });
+  }
   if (spec.adit) buildAdit(c, cf, cw);
   surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
@@ -732,10 +782,7 @@ function buildInterchange(
   const kiosk = !dN.island;
   concourse(c, {
     cf, cw: sw, x0: cx0, x1: cx1, holes, pillarZ: dN.island ? islandPillarZ(sw) : 3.4, solids: kiosk ? [[-2.4, -1.4, 2.4, 1.4]] : [], stairs: stairsTo,
-    ends: [
-      { g: 29, hi: true, nums: ['1', '2'] },
-      { g: -29, hi: false, nums: ['3', '4'] },
-    ],
+    ends: twoEnds(29, spec.exits),
     // The street does not move: the exits keep their old places by corridors through the structure.
     ext: outer - sw, footprint: outer, rooms: [...rooms, ...bays],
   });
@@ -832,14 +879,18 @@ function buildElevated(c: Ctx, spec: ElevatedSpec, under?: { ctx: Ctx; dir: [num
     platHoles: [[sx0, holeZ0, sx1, d.wallZ + 0.01], [sx0, -d.wallZ - 0.01, sx1, -holeZ0]],
   });
 
+  // Ground-level concourse under the viaduct: 9 m each side, or wide enough to take the stairs up
+  // beside side platforms' outer walls (Nanohanadai), which must rise inside it.
+  const cx0 = -26, cx1 = 26, cw = spec.width ?? 9;
+  if (d.wallZ + 0.4 > cw) throw new Error(`${station.id}: the stairs up (to z = ${d.wallZ.toFixed(1)}) stand outside the concourse (±${cw}): set ElevatedSpec.width`);
+
   // Viaduct piers.
   for (let x = -54; x <= 54; x += 13.5) {
     for (const z of [-4.6, 4.6]) b.box('concrete', x - 0.55, 0, z - 0.55, x + 0.55, deckUnder, z + 0.55);
-    b.deco('concrete', x - 0.7, deckUnder - 0.9, -9, x + 0.7, deckUnder, 9);
+    // Cross beam under the deck, except where it would cross a stairwell.
+    if (x + 0.7 < sx0 - 0.5 || x - 0.7 > sx1 + 0.5) b.deco('concrete', x - 0.7, deckUnder - 0.9, -cw, x + 0.7, deckUnder, cw);
   }
 
-  // Ground-level concourse under the viaduct.
-  const cx0 = -26, cx1 = 26, cw = 9;
   b.slab(style.floor, cx0, -cw, cx1, cw, 0.1, fl, floorHole);
   const glassWall = (x0: number, x1: number, z0: number, z1: number) => {
     b.block(x0, fl, z0, x1, deckUnder, z1);
@@ -874,8 +925,9 @@ function buildElevated(c: Ctx, spec: ElevatedSpec, under?: { ctx: Ctx; dir: [num
       stairs(b, { x0: sx0, x1: sx1, z0: d.wallZ - 2.5, z1: d.wallZ - 0.1, yLow: fl, yHigh: pf });
       rail(b, sx0 - 0.1, holeZ0 - 0.08, sx1 - 1.5, holeZ0, pf);
       rail(b, sx0 - 0.1, holeZ0 - 0.08, sx0 - 0.02, d.wallZ, pf);
-      b.sign({ k: 'dir', station: station.id, line: line.id, dir: s > 0 ? 'up' : 'down', arrow: 'up' }, sx0 - 0.6, fl + 3.3, d.wallZ - 1.3, [-1, 0], 4.2, 0.5);
-      b.deco('flat:#22262b', sx0 - 0.58, fl + 3.02, d.wallZ - 3.45, sx0 - 0.5, fl + 3.58, d.wallZ + 0.85);
+      // Over the stair's foot, its outer end at the stair's outer side (not through the hall's wall).
+      b.sign({ k: 'dir', station: station.id, line: line.id, dir: s > 0 ? 'up' : 'down', arrow: 'up' }, sx0 - 0.6, fl + 3.3, d.wallZ - 2.0, [-1, 0], 4.2, 0.5);
+      b.deco('flat:#22262b', sx0 - 0.58, fl + 3.02, d.wallZ - 4.15, sx0 - 0.5, fl + 3.58, d.wallZ + 0.15);
       b.sign({ k: 'guide', ja: '出口・改札', en: 'Exit / Ticket gates', bg: 'yellow', arrow: 'up' }, sx1 + 0.4, pf + 2.6, d.wallZ - 1.3, [1, 0], 2.4, 0.42);
     });
   }

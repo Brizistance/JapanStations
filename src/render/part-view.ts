@@ -6,6 +6,7 @@ import type { Build, GatePart } from '../world/builder';
 import { boxesToGeometry, groupBy, meshesToGeometry, skyAt, type EnvMode } from './geometry';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
+import { separateCoplanar } from './zfight';
 import type { SignContent } from '../signs/content';
 
 const geoCache = new Map<string, THREE.Group>();
@@ -41,7 +42,7 @@ function makeStatic(build: Build, mode: EnvMode): THREE.Group {
     m.receiveShadow = litOpaque;
     group.add(m);
   };
-  for (const [mat, boxes] of groupBy(build.boxes)) add(boxesToGeometry(boxes, mode), mat);
+  for (const [mat, boxes] of groupBy(separateCoplanar(build.boxes))) add(boxesToGeometry(boxes, mode), mat);
   for (const [mat, parts] of groupBy(build.meshes)) add(meshesToGeometry(parts, mode), mat);
   return group;
 }

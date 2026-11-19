@@ -12,7 +12,7 @@
 //   B3     pfL    Ichō island platform
 
 import { HALL_HALF } from '../sim/geometry';
-import { MIRROR_X, concourse, islandUnit, quarterTurns, stairInfo, type Rect } from './build';
+import { MIRROR_X, concourse, islandUnit, quarterTurns, stairInfo, twoEnds, type Rect } from './build';
 import { MID, midCf } from './exits';
 import { CONC_CLEAR, SLAB, hall, hallDims, type Ctx } from './kit';
 import type { InterchangeSpec } from './specs';
@@ -102,10 +102,7 @@ export function buildMidLevel(c: Ctx, spec: InterchangeSpec, other: Other) {
     // The upper line's flights stand in the hall: keep them and their feet clear.
     solids: upHoles.map((r, i) => upFoot(r, up[i].dir)),
     stairs: downInfo,
-    ends: [
-      { g: MID.g, hi: true, nums: ['1', '2'] },
-      { g: -MID.g, hi: false, nums: ['3', '4'] },
-    ],
+    ends: twoEnds(MID.g, spec.exits),
   });
   surface(b, spec.surface, MID.cw, { ja: station.nameJa, en: station.nameRomaji });
 }

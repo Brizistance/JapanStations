@@ -1822,24 +1822,27 @@ function areaElevated(ctx: Ctx, st: StationDef, exits: StationExit[], m: MapCtx)
   // The viaduct, in the line's colour, and the station under it.
   R(-X, -5.2, X, 5.2, '#c3c7cc');
   R(-X, -1, X, 1, line.color);
-  const [c0, c1, cw] = E.concourse;
+  const [c0, c1, cw0] = E.concourse, sp = SPECS[st.id], cw = sp.kind === 'elevated' ? sp.width ?? cw0 : cw0;
   R(c0, -cw, c1, cw, '#dfe6ef');
   R(-26, cw, 60, E.road[0], '#f3f1ea'); // station plaza
   R(E.store[0], E.store[1], E.store[2], E.store[3], '#0b8f6a');
   for (const [a, b] of E.bikes) R(a, E.bikeZ[0], b, E.bikeZ[1], '#9aa0a6');
+  // Icons after the station and its exits, each stepping aside off anything already placed.
   const icon = (v: Picto, x: number, z: number) => {
-    const [px, pz] = P(x, z), s = Math.max(lp * 1.4, sc * 6);
+    const [px0, pz0] = P(x, z), s = Math.max(lp * 1.4, sc * 6);
+    const hit = (a: number, b: number) => m.placed.some((q) => a - s / 2 < q[2] && a + s / 2 > q[0] && b - s / 2 < q[3] && b + s / 2 > q[1]);
+    const [px, pz] = [[0, 0], [s, 0], [-s, 0], [0, s], [s, s], [-s, s]].map(([dx, dz]) => [px0 + dx, pz0 + dz]).find(([a, b]) => !hit(a, b)) ?? [px0, pz0];
     pictogram(ctx, v, px - s / 2, pz - s / 2, s);
     m.placed.push([px - s / 2, pz - s / 2, px + s / 2, pz + s / 2]);
   };
-  icon('bus', (E.bus[0] + E.bus[2]) / 2, (E.bus[1] + E.bus[3]) / 2);
-  icon('taxi', (E.taxi[0] + E.taxi[2]) / 2, (E.taxi[1] + E.taxi[3]) / 2);
   const label = (n: Named, x: number, z: number) => {
     const [px, pz] = P(x, z);
     mapLabel(ctx, n, px, pz, lp, 70 * sc, m.box, m.placed);
   };
   areaStation(ctx, st, [c0, -cw, c1, cw], m);
   areaExits(ctx, exits, m);
+  icon('bus', (E.bus[0] + E.bus[2]) / 2, (E.bus[1] + E.bus[3]) / 2);
+  icon('taxi', (E.taxi[0] + E.taxi[2]) / 2, (E.taxi[1] + E.taxi[3]) / 2);
   label(PLACE.mart, (E.store[0] + E.store[2]) / 2, (E.store[1] + E.store[3]) / 2);
   label(PLACE.bikes, (E.bikes[1][0] + E.bikes[1][1]) / 2, -12);
   label(PLACE.plaza, 20, 17);

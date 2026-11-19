@@ -11,7 +11,9 @@ createRoot(document.getElementById('root')!).render(<App />);
 
 // Debug handle for poking at the sim from the console.
 if (import.meta.env.DEV) {
-  Object.assign(window as unknown as Record<string, unknown>, {
-    __sim: { clock, NET, trains, player, where, teleport, stations: STATION_WORLDS, ui: useUI },
-  });
+  void import('./dev/look').then((dev) =>
+    Object.assign(window as unknown as Record<string, unknown>, {
+      __sim: { clock, NET, trains, player, where, teleport, stations: STATION_WORLDS, ui: useUI, ...dev },
+    }),
+  );
 }

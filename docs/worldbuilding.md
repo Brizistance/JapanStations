@@ -81,6 +81,7 @@ Invented brands that appear on shop fronts in concourses (`SHOPS` in `src/statio
 | Tanpopo Cleaning | クリーニング たんぽぽ | Dry cleaner |
 | Ginnan-dō Rice Crackers | せんべい 銀杏堂 | Rice crackers |
 | Mizuha Mobile | みずはモバイル | Mobile phone shop |
+| Naruko Farm Market | 産直市 なるこ | Farm produce stall (Narukozaka) |
 
 The Japanese spellings in the code are the source of truth.
 

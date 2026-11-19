@@ -22,7 +22,7 @@ import { linesAt } from '../data/network';
 import { HALL_HALF } from '../sim/geometry';
 import type { SignContent } from '../signs/content';
 import { rng, type V2 } from '../world/builder';
-import { concStyle, concourse, islandUnit, platformStairs, quarterTurns, type Rect } from './build';
+import { concStyle, concourse, islandUnit, platformStairs, quarterTurns, twoEnds, type Rect } from './build';
 import { ATRIUM } from './exits';
 import {
   CONC_CLEAR, CONC_RISE, SLAB, ceilingLight, exit, gateLine, hall, hallDims, pillar, rail, stairs, ticketMachines,
@@ -165,10 +165,7 @@ export function buildAtrium(c: Ctx, spec: AtriumSpec, other: Other) {
   });
   concourse(c, {
     cf, cw: CW, x0: -45, x1: 45, holes: [...st.holes, [-VX, VZ0, VX, CW]], pillarZ: 3.2, stairs: st.info, ways,
-    ends: [
-      { g: 29, hi: true, nums: ['1', '2'] },
-      { g: -29, hi: false, nums: ['3', '4'] },
-    ],
+    ends: twoEnds(29, spec.exits),
     wallGaps: [{ s: 1, x0: -GX, x1: GX }],
     claims: [[-GX, 4, GX, CW]],
   });

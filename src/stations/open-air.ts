@@ -127,7 +127,12 @@ function buildCutting(c: Ctx, spec: ElevatedSpec) {
     const inset = k * 1.8;
     b.deco(`flat:${slate}`, bx0 - 0.8 + inset, roofY + 0.3 + k * 0.32, bz0 - 0.8, bx1 + 0.8 - inset, roofY + 0.62 + k * 0.32, bz1 + 0.8);
   }
-  b.deco(`paint:${line.color}`, bx0 - 0.62, roofY - 0.2, bz0 - 0.62, bx1 + 0.62, roofY, bz1 + 0.62);
+  // (Only outside the walls: inside, the white roof is the ceiling.)
+  const band = `paint:${line.color}`, e = 0.62, w = 0.25;
+  b.deco(band, bx0 - e, roofY - 0.2, bz0 - e, bx0 - w, roofY, bz1 + e);
+  b.deco(band, bx1 + w, roofY - 0.2, bz0 - e, bx1 + e, roofY, bz1 + e);
+  b.deco(band, bx0 - w, roofY - 0.2, bz0 - e, bx1 + w, roofY, bz0 - w);
+  b.deco(band, bx0 - w, roofY - 0.2, bz1 + w, bx1 + w, roofY, bz1 + e);
   for (let x = bx0 + 1.5; x + 2.2 <= bx1; x += 4.2) for (let z = bz0 + 2; z < bz1 - 1; z += 4.5) ceilingLight(b, x, x + 2.2, z - 0.2, z + 0.2, roofY);
 
   // Paid area round the stair head (x < 8, |z| < 6); the gates face the free passage.

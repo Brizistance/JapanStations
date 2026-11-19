@@ -18,6 +18,11 @@ export interface BoxPart {
   solid: boolean;
   /** Set on parts that are open to the sky although they sit below street level (canals, the sea). */
   open?: boolean;
+  /**
+   * Render-only shear for slopes (stair ceilings, cladding, handrails): every vertex is raised by
+   * (its coordinate on `axis` − `from`) · k. min/max are the unsheared box. Decoration only.
+   */
+  slope?: { axis: 0 | 2; from: number; k: number };
 }
 
 export interface RampPart {
@@ -99,6 +104,8 @@ export interface Build {
   plot: { x: number; z: number };
   /** Volumes nobody may be able to walk into (track beds, closed-off shells). Checked by the walk test. */
   keepOut: { min: V3; max: V3; en: string }[];
+  /** Areas outside the plot (frame x0, z0, x1, z1) the backdrop city keeps off (a valley's hillsides). */
+  clear?: [number, number, number, number][];
 }
 
 export interface Xf {
@@ -244,6 +251,17 @@ export class Builder {
   deco(mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
     this.box(mat, x0, y0, z0, x1, y1, z1, false);
   }
+  /**
+   * Visual only: a box laid on a slope, its heights given at the x0 end and rising by `rise`
+   * over x0 … x1 (local x), as along a stair.
+   */
+  slant(mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, rise: number) {
+    const n = this.out.boxes.length;
+    this.box(mat, x0, y0, z0, x1, y1, z1, false);
+    if (this.out.boxes.length === n || Math.abs(x1 - x0) < 1e-6) return;
+    const d = this.dir([1, 0]), axis = d[0] !== 0 ? 0 : 2, s = d[0] !== 0 ? d[0] : d[1];
+    this.out.boxes[n].slope = { axis, from: this.pt(x0, 0, z0)[axis], k: (rise / (x1 - x0)) * s };
+  }
   /** Invisible collider. */
   block(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
     this.box('none', x0, y0, z0, x1, y1, z1, true);
@@ -321,6 +339,11 @@ export class Builder {
   }
 
   /** Declare a volume that must not be reachable on foot. */
+  /** Keep the backdrop city off this area (it is the station's own scenery). */
+  clearScenery(x0: number, z0: number, x1: number, z1: number) {
+    const p = this.pt(x0, 0, z0), q = this.pt(x1, 0, z1);
+    (this.out.clear ??= []).push([Math.min(p[0], q[0]), Math.min(p[2], q[2]), Math.max(p[0], q[0]), Math.max(p[2], q[2])]);
+  }
   keepOut(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, en: string) {
     const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
     this.out.keepOut.push({

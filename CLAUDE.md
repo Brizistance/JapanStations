@@ -22,8 +22,8 @@ The owner hits usage limits fast. These are defaults, not suggestions:
 
 - **Do not read docs or source up front.** Use the code map below to pick the one file a task touches. Never read all of `docs/` or browse `src/` "for context".
 - **Search before reading.** Many files are 30–85 KB. Grep for the symbol, then Read only that range with `offset`/`limit`. Never read a whole file over ~15 KB unless the task truly needs all of it.
-- **No subagents or extra sessions** unless the owner asks. They re-read everything.
-- **No browser checks or screenshots** unless the owner asks. The owner looks at it themself. Say what to look at and where.
+- **No subagents or extra sessions** unless the owner asks, except the one below. They re-read everything.
+- **After building or changing stations, run the `station-checker` subagent once** (`.claude/agents/station-checker.md`, Opus, medium effort), with every station from that build in one request, never one agent per station. Continue the same agent with SendMessage for re-checks after fixes. It views them in the browser and reports errors; fix what it reports, then report to the owner. No other browser checks unless the owner asks.
 - **Verify narrowly.** Run `npm run typecheck`, plus only the test file near the change (`npx vitest run <file>`). Run the full suite only for changes to `src/data/`, `src/sim/` or shared station code (`build.ts`, `kit.ts`, `parts.ts`, `specs.ts`).
 - **Reply very short.** What changed and where to look, in a few lines. No code walkthroughs or option surveys.
 - **Docs upkeep is one line.** After a real decision, add or fix one line in the one relevant doc. Update the Status paragraph above only when lines or station counts change.
@@ -80,4 +80,5 @@ To work on one station, open only its look file and, if needed, its line's theme
 6. **No fake information.** Departure boards, in-car displays, the HUD and the map read the timetable; never show invented times.
 7. **Every new line gets its own era and theme.** An invented opening year and a platform architecture unlike any other line's.
 8. **Every new station gets its own layout and theme. Strict.** No new station falls back to the default look or reuses another station's arrangement.
+9. **Every station's entry area is its own too.** Street entrances, the stairwells down and the ticket hall differ from station to station, not only the platform.
 9. **Keep this file short.** Details go in `docs/`.

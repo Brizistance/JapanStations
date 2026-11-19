@@ -7,6 +7,7 @@
 //
 // Frame: +x along the line, both tracks at z = +STACK_LATERAL; platforms z ∈ [−W, pe].
 
+import { endNums } from './exits';
 import { HALL_HALF, PLATFORM_HALF, STACK_DY, STACK_LATERAL } from '../sim/geometry';
 import { BED, CONC_RISE, PF_H, SLAB, ceilingLight, psd, rail, stairs, type Ctx } from './kit';
 import { STREET_CW, concourse, stairInfo, type Rect } from './build';
@@ -132,10 +133,12 @@ export function buildStacked(c: Ctx, spec: UndergroundSpec) {
   const info = stairInfo(b, line, 'platform', [...nums], up, up[2] + 0.8, (up[1] + up[3]) / 2, [-1, 0]);
 
   // ── Concourse and street ──
+  const enums = endNums(spec.gates.map((_, i) => spec.exits?.[i]));
   const ends = spec.gates.map((g, i) => ({
     g: g === 'hi' ? cx1 - 16 : cx0 + 16,
     hi: g === 'hi',
-    nums: [String(i * 2 + 1), String(i * 2 + 2)] as [string, string],
+    nums: enums[i],
+    exits: spec.exits?.[i],
   }));
   const cw = spec.width ?? STREET_CW;
   concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: [up], ends, pillarZ: 3.4, ext: STREET_CW - cw, solids: [], stairs: [info] });

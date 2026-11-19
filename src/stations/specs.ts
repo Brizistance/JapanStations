@@ -5,6 +5,7 @@
 import type { StationId } from '../data/types';
 import type { StationStyle } from './kit';
 import type { SurfaceSpec } from './surface';
+import type { ExitPlan } from './exits';
 
 export interface UndergroundSpec {
   kind: 'underground';
@@ -14,6 +15,13 @@ export interface UndergroundSpec {
   gates: ('lo' | 'hi')[];
   /** Platform ↔ concourse stairs: x of the foot, and direction of ascent. */
   stairs: { x: number; up: 1 | -1 }[];
+  /** Where each gate end's exits are (same order as `gates`); default both walls, 9 m out. */
+  exits?: ExitPlan[];
+  /**
+   * Two separate ticket halls, one per gate end, not joined over the platforms: no concourse
+   * over this x-range. Every platform stair must come up inside one of the halls.
+   */
+  split?: [number, number];
   /** Half width of the concourse; by default it follows the line's age (build.ts). */
   width?: number;
   /** Railed openings in the concourse floor looking down onto an island platform, [x0, z0, x1, z1]. */
@@ -39,6 +47,8 @@ export interface UndergroundSpec {
 }
 export interface InterchangeSpec {
   kind: 'interchange';
+  /** Exits at the +x gate end, then the −x one (default both walls, 9 m out). */
+  exits?: [ExitPlan, ExitPlan];
   /** Line whose direction the station frame follows. */
   primary: string;
   /**
@@ -58,6 +68,8 @@ export interface InterchangeSpec {
  */
 export interface AtriumSpec {
   kind: 'atrium';
+  /** Exits 1… at the +x gate end, then the −x one; exit 5 stays. */
+  exits?: [ExitPlan, ExitPlan];
   /** Line whose direction the station frame follows (the upper one). */
   primary: string;
   style: StationStyle;
@@ -65,6 +77,11 @@ export interface AtriumSpec {
 }
 export interface ElevatedSpec {
   kind: 'elevated';
+  /**
+   * Default layout only: half width of the street-level concourse (default 9). Wide side
+   * platforms put their stairs further out, and the stairs must rise inside the concourse.
+   */
+  width?: number;
   /**
    * Open-air layouts of their own (open-air.ts). Default: the viaduct station with a concourse
    * under the deck and a stair to each side platform. 'cutting': an island in an open cutting
@@ -103,6 +120,7 @@ export const SPECS: Record<StationId, StationSpec> = {
   midorizaka: {
     kind: 'interchange',
     primary: 'Y',
+    exits: [{ at: 4.6 }, { sides: [1], at: 11.8 }],
     style: {
       wall: 'brick:#b98a66', concWall: 'tile:#efe7d6', floor: 'floor:#cfc8b8', pillar: 'tile:#e9dfc9',
       accent: '#7a9a4a', mural: { v: 'leaves', color: '#3f8f4f' },
@@ -386,6 +404,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     kind: 'interchange',
     primary: 'Y',
     well: true,
+    exits: [{ at: 11.8 }, { sides: [-1] }],
     style: {
       wall: 'panel:#d5dbe0', concWall: 'panel:#e6eaee', floor: 'floor:#c8cdd0', pillar: 'panel:#5c6b78',
       accent: '#d9822b', mural: { v: 'gulls', color: '#33546e' },
@@ -510,7 +529,7 @@ export const SPECS: Record<StationId, StationSpec> = {
       accent: '#2f7a74', mural: { v: 'waves', color: '#2f8f86' },
     },
     surface: {
-      seed: 233, roadHalf: 7, cross: [-66, 62], left: 'apartment', right: 'park', trees: true,
+      seed: 233, roadHalf: 7, cross: [-74, 62], left: 'apartment', right: 'park', trees: true,
       parkName: { ja: '潮騒公園', en: 'Shiosai Park' }, treeLeaf: 'leaf2',
     },
   },
@@ -592,9 +611,11 @@ export const SPECS: Record<StationId, StationSpec> = {
   // Dogwood avenue: white panels with pink trim, dogwood mural, white-blossom street trees.
   hanamizuki: {
     kind: 'underground',
-    concourse: [-34, 34],
-    gates: ['lo', 'hi'],
-    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    // One gate end, a shorter hall, both exits climbing back over it.
+    concourse: [-26, 30],
+    gates: ['hi'],
+    stairs: [{ x: -6, up: 1 }],
+    exits: [{ climb: 'back' }],
     style: {
       wall: 'panel:#f5f2ee', concWall: 'panel:#f8f6f3', floor: 'floor:#d5d0ca', pillar: 'tile:#d98aa0',
       accent: '#c45a78', mural: { v: 'dogwood', color: '#e9a3b6' },
@@ -621,6 +642,7 @@ export const SPECS: Record<StationId, StationSpec> = {
   uminomori: {
     kind: 'atrium',
     primary: 'S',
+    exits: [{ at: 4.6 }, { at: 11.8 }],
     style: {
       wall: 'tile:#3e5f4a', concWall: 'tile:#ebf0ec', floor: 'floor:#cbccc4', pillar: 'tile:#3e5f4a',
       accent: '#9cc45a', mural: { v: 'leaves', color: '#2f7a4a' },
@@ -666,6 +688,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     concourse: [-30, 30],
     gates: ['hi'],
     stairs: [{ x: -6, up: 1 }],
+    exits: [{ at: 4.6, climb: 'back' }],
     transfer: true,
     style: {
       wall: 'panel:#f1ecdc', concWall: 'panel:#f5f2e8', floor: 'floor:#d4d0c3', pillar: 'panel:#f1ecdc',
@@ -684,6 +707,8 @@ export const SPECS: Record<StationId, StationSpec> = {
     concourse: [-20, 34],
     gates: ['hi'],
     stairs: [{ x: -2, up: 1 }],
+    // −z: far corner, climbing back; +z (the temple wood): right by the gates.
+    exits: [{ at: [11.8, 4.6], climb: ['back', 'out'] }],
     style: {
       wall: 'panel:#efe6ef', concWall: 'panel:#f5f0f5', floor: 'floor:#d2cdd2', pillar: 'tile:#8a2a66',
       accent: '#c2368f', mural: { v: 'violet', color: '#8a3fa0' },
@@ -696,9 +721,11 @@ export const SPECS: Record<StationId, StationSpec> = {
   // Lower Sakura-gawa: river-blue tile, waves, a canal bridge and the rowing club's bank.
   'minami-sakuragawa': {
     kind: 'underground',
-    concourse: [-34, 34],
+    // The hall shifted west towards the old town, the east exit on the −z side only.
+    concourse: [-40, 28],
     gates: ['lo', 'hi'],
-    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    stairs: [{ x: -8, up: 1 }, { x: -10, up: -1 }],
+    exits: [{}, { sides: [-1], at: 11.8 }],
     style: {
       wall: 'tile:#d6e2ea', concWall: 'tile:#edf2f5', floor: 'floor:#cdd0d2', pillar: 'tile:#c2368f',
       accent: '#c2368f', mural: { v: 'sakura', color: '#d97aa6' },
@@ -714,6 +741,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     kind: 'interchange',
     primary: 'M',
     mid: true,
+    exits: [{ sides: [1], climb: 'back' }, { sides: [-1], climb: 'back' }],
     style: {
       wall: 'panel:#f6f0d9', concWall: 'panel:#f8f5e8', floor: 'floor:#d6d2c3', pillar: 'panel:#f6f0d9',
       accent: '#c2368f', mural: { v: 'hills', color: '#9cbf4a' },
@@ -727,7 +755,11 @@ export const SPECS: Record<StationId, StationSpec> = {
     kind: 'underground',
     concourse: [-34, 34],
     gates: ['lo', 'hi'],
-    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    // Two separate halls: the west one with a single exit climbing back over the station.
+    split: [-4, 4],
+    stairs: [{ x: -4.5, up: -1 }, { x: 4.5, up: 1 }],
+    // Any stair climbing out of the east hall would come up in the side street at x = 70.
+    exits: [{ sides: [1], climb: 'back' }, { sides: [-1], at: 4.6, climb: 'back' }],
     style: {
       wall: 'tile:#6b4f3a', concWall: 'tile:#ece6dd', floor: 'floor:#c9c4bb', pillar: 'tile:#2f3e56',
       accent: '#c99a06', mural: { v: 'gulls', color: '#2f3e56' },
@@ -738,9 +770,11 @@ export const SPECS: Record<StationId, StationSpec> = {
   // White enamel, harbour-blue trim, sea mist.
   'todai-dori': {
     kind: 'underground',
-    concourse: [-22, 24],
+    // A short hall: the cavern opens up again past the stairs.
+    concourse: [-22, 16],
     gates: ['lo'],
     stairs: [{ x: 12, up: -1 }],
+    exits: [{ at: 11.5, climb: 'back' }],
     cavern: 11.5,
     style: {
       wall: 'panel:#f3f4f2', concWall: 'panel:#f7f8f6', floor: 'floor:#cfd2d0', pillar: 'panel:#2d5f8a',
@@ -752,8 +786,11 @@ export const SPECS: Record<StationId, StationSpec> = {
   hotarugawa: {
     kind: 'underground',
     concourse: [-22, 34],
-    gates: ['hi'],
+    // A through hall: gates at both ends, the stair between them.
+    gates: ['lo', 'hi'],
     stairs: [],
+    // The east +z exit climbs back: out, it would come up on the Hotaru-bashi bridge.
+    exits: [{}, { at: [4.6, 11.8], climb: ['out', 'back'] }],
     stacked: true,
     style: {
       wall: 'tile:#1f3a32', concWall: 'tile:#e8eee9', floor: 'floor:#c8cbc4', pillar: 'tile:#1f3a32',
@@ -768,9 +805,11 @@ export const SPECS: Record<StationId, StationSpec> = {
   // fields, besides the exits up to the hilltop. Straw-gold panels, rolling hills, the college.
   narukozaka: {
     kind: 'underground',
-    concourse: [-34, 34],
+    // Ends just past the valley tunnel's doorway.
+    concourse: [-34, 28],
     gates: ['lo'],
     stairs: [{ x: 4, up: -1 }],
+    exits: [{ sides: [-1] }],
     adit: true,
     style: {
       wall: 'panel:#efe2bf', concWall: 'panel:#f4eedc', floor: 'floor:#d3cdbd', pillar: 'tile:#8a6a2e',
@@ -811,6 +850,8 @@ export const SPECS: Record<StationId, StationSpec> = {
   // platforms, the concourse under the deck. Bright yellow panels, yellow-leaved trees.
   nanohanadai: {
     kind: 'elevated',
+    // Side platforms: their stairs come up 11.3 m out, so the hall under the viaduct is wider.
+    width: 12,
     style: {
       wall: 'panel:#f7e27a', concWall: 'panel:#faf3d2', floor: 'floor:#d6d0bd', pillar: 'concrete',
       accent: '#c2368f', mural: { v: 'hills', color: '#e3c22a' },

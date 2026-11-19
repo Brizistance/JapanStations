@@ -6,13 +6,13 @@ import { describe, expect, it } from 'vitest';
 // The registry first: it pulls in the looks before any single station module (import order).
 import { STATION_WORLDS } from './index';
 import { SPECS } from './specs';
-import { stationExits } from './exits';
+import { STREET, stationExits, stationStreet } from './exits';
 
 const exitZones = (w: (typeof STATION_WORLDS)[number]) =>
   w.build.zones
     .map((z) => ({ z, m: /^Exit (\d+)$/.exec(z.en) }))
     .filter((q) => q.m)
-    .map(({ z, m }) => ({ num: m![1], cx: (z.min[0] + z.max[0]) / 2, cz: (z.min[2] + z.max[2]) / 2 }))
+    .map(({ z, m }) => ({ num: m![1], x0: z.min[0], x1: z.max[0], cz: (z.min[2] + z.max[2]) / 2 }))
     .sort((a, b) => Number(a.num) - Number(b.num));
 
 describe('station exits', () => {
@@ -29,10 +29,28 @@ describe('station exits', () => {
       expect(exits.map((e) => e.num)).toEqual(zones.map((z) => z.num));
       for (const e of exits) {
         const z = zones.find((q) => q.num === e.num)!;
-        // Same side of the road, and the opening within the exit passage's extent along it.
+        // Same side of the road, the opening within the exit passage's extent along it, and a
+        // hole really cut in the street there (the stair's open top, not its covered run).
         expect(e.side, `exit ${e.num} side`).toBe(Math.sign(z.cz));
-        expect(Math.abs((e.rect[0] + e.rect[2]) / 2 - z.cx), `exit ${e.num} x`).toBeLessThan(3);
+        expect(e.rect[0], `exit ${e.num} x0`).toBeGreaterThan(z.x0 - 3);
+        expect(e.rect[2], `exit ${e.num} x1`).toBeLessThan(z.x1 + 3);
         expect(Math.abs((e.rect[1] + e.rect[3]) / 2 - z.cz), `exit ${e.num} z`).toBeLessThan(3);
+        // On the sidewalk: not in a cross street (plus its corner), nor over a canal.
+        const street = stationStreet(id);
+        if (street.kind === 'street') {
+          const s = street.surface;
+          const keep: [number, number][] = [
+            ...(s.cross ?? []).map((c): [number, number] => [c - STREET.crossHalf - 0.5, c + STREET.crossHalf + 0.5]),
+            ...(s.canalAt !== undefined ? [[s.canalAt - STREET.canalHalf - 1, s.canalAt + STREET.canalHalf + 1] as [number, number]] : []),
+          ];
+          for (const [a, b] of keep) {
+            expect(e.rect[2] <= a || e.rect[0] >= b, `exit ${e.num} opens at x ${e.rect[0].toFixed(1)}…${e.rect[2].toFixed(1)}, onto the street at ${a}…${b}`).toBe(true);
+          }
+        }
+        if (spec.kind !== 'hub') {
+          const hit = w.build.holes.some((h) => Math.abs(h[0] - e.rect[0]) < 0.6 && Math.abs(h[2] - e.rect[2]) < 0.6 && h[1] < e.rect[3] && h[3] > e.rect[1]);
+          expect(hit, `exit ${e.num}: street hole at ${e.rect.map((v) => v.toFixed(1))}`).toBe(true);
+        }
       }
     });
 

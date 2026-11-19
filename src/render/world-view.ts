@@ -156,7 +156,9 @@ function buildBackdrop(): THREE.Group {
     plots.some(({ w }) => {
       const dx = x - w.frame.x, dz = z - w.frame.z;
       const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
-      return Math.abs(dx * c - dz * s) < w.build.plot.x + m && Math.abs(dx * s + dz * c) < w.build.plot.z + m;
+      const lx = dx * c - dz * s, lz = dx * s + dz * c;
+      if (Math.abs(lx) < w.build.plot.x + m && Math.abs(lz) < w.build.plot.z + m) return true;
+      return (w.build.clear ?? []).some(([x0, z0, x1, z1]) => lx > x0 - m && lx < x1 + m && lz > z0 - m && lz < z1 + m);
     });
 
   // Open-air track: holes in the ground for the cut, and a keep-clear corridor for buildings.

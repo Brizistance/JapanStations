@@ -47,7 +47,8 @@ export function boxesToGeometry(boxes: BoxPart[], mode: EnvMode): THREE.BufferGe
         }
       }
       for (const c of f.c) {
-        const x = m[c[0]][0], y = m[c[1]][1], z = m[c[2]][2];
+        const x = m[c[0]][0], z = m[c[2]][2];
+        const sl = b.slope, y = m[c[1]][1] + (sl ? ((sl.axis === 0 ? x : z) - sl.from) * sl.k : 0);
         pos[p] = x; pos[p + 1] = y; pos[p + 2] = z;
         nor[p] = f.n[0]; nor[p + 1] = f.n[1]; nor[p + 2] = f.n[2];
         p += 3;

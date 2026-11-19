@@ -39,6 +39,15 @@ function runs(h: HallInfo, a: number, b: number, ok: (x0: number, x1: number) =>
   return out;
 }
 
+/**
+ * How far above the hall's ceiling at x a lining or pylon may run to close the gaps behind it:
+ * well up into an open vault, but only into a ticket hall's floor slab, never through it.
+ */
+const fillTo = (h: HallInfo, x: number, top: number) => {
+  const s = h.o.ceil.find((q) => x >= q.x0 && x <= q.x1);
+  return s && !s.emit ? top + 0.2 : top + 1.8;
+};
+
 /** Height of a half-ellipse lining across [z0, z1] that springs at `spring` and peaks at CROWN. */
 const rise = (z: number, z0: number, z1: number, spring: number) => {
   const zc = (z0 + z1) / 2, a = (z1 - z0) / 2;
@@ -52,7 +61,7 @@ function lining(h: HallInfo, rs: [number, number, number][], z0: number, z1: num
   for (let k = 0; k < STRIPS; k++) {
     const za = z0 + k * w, zb = za + w, y = pf + rise((za + zb) / 2, z0, z1, spring);
     for (const [xa, xb, top] of rs) {
-      b.deco(mat, xa, y, za, xb, top + 1.8, zb);
+      b.deco(mat, xa, y, za, xb, fillTo(h, (xa + xb) / 2, top), zb);
       for (const x of ribs) if (x - 0.1 >= xa && x + 0.1 <= xb) b.deco(RING, x - 0.1, y - 0.06, za, x + 0.1, y, zb);
     }
   }
@@ -75,7 +84,7 @@ function platform(h: HallInfo) {
     for (const s of [-1, 1]) {
       const [za, zb] = s > 0 ? [PY_IN, PY_OUT] : [-PY_OUT, -PY_IN];
       b.box(style.pillar, x0, pf, za, x1, top, zb);
-      b.deco(style.pillar, x0, top, za, x1, top + 1.8, zb);
+      b.deco(style.pillar, x0, top, za, x1, fillTo(h, c, top), zb);
       // Dark plinth, and a gold band at shoulder height on both faces.
       b.deco('flat:#23262b', x0 - 0.01, pf, za - 0.01, x1 + 0.01, pf + 0.15, zb + 0.01);
       b.deco(`paint:${line.color}`, x0 - 0.01, pf + 2.15, za - 0.01, x1 + 0.01, pf + 2.27, zb + 0.01);
@@ -89,7 +98,7 @@ function platform(h: HallInfo) {
     const xa = pylons[i - 1] + PY_HALF, xb = pylons[i] - PY_HALF, top = h.ceilAt((xa + xb) / 2);
     for (const s of [-1, 1]) {
       const [za, zb] = s > 0 ? [PY_IN, PY_OUT] : [-PY_OUT, -PY_IN];
-      b.deco(LINING, xa, pf + 3.2, za, xb, top + 1.8, zb);
+      b.deco(LINING, xa, pf + 3.2, za, xb, fillTo(h, (xa + xb) / 2, top), zb);
       b.deco(RING, xa, pf + 3.14, za, xb, pf + 3.2, zb);
     }
   }

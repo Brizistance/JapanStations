@@ -17,6 +17,12 @@ export const CONC_RISE = 4.9; // platform floor → concourse floor
 export const SLAB = 0.8;
 export const CONC_CLEAR = 3.0;
 export const STAIR_RUN = 8.4; // horizontal run of a platform ↔ concourse stair
+/**
+ * Longest stretch of an exit stair left open to the sky (about 5.5 m of rise). Below that a
+ * deep station's exit stair runs on under the street in a covered, lit tunnel; only its top is
+ * cut into the sidewalk. exits.ts mirrors it.
+ */
+export const EXIT_OPEN = 9.5;
 export const GROUND_Y = 0.15; // sidewalk level
 export const DOOR_OFFSETS = [-5.8, 0, 5.8];
 export const BED = 0.2; // track bed top is this far below rail level
@@ -579,15 +585,21 @@ export function stairs(b: Builder, o: StairOpts) {
 }
 
 function balustrade(b: Builder, o: StairOpts, mat: string, rails: [boolean, boolean]) {
-  const chunks = 7;
+  // Walls you cannot step over: stepped invisible blocks. What you see: one solid panel per side
+  // sloping with the flight, 0.95 m over the nosings, a stainless cap along its top.
+  const chunks = 7, rise = o.yHigh - o.yLow;
   for (let k = 0; k < chunks; k++) {
     const xa = o.x0 + ((o.x1 - o.x0) * k) / chunks, xb = o.x0 + ((o.x1 - o.x0) * (k + 1)) / chunks;
-    const top = o.yLow + ((o.yHigh - o.yLow) * (k + 1)) / chunks + 0.95;
-    if (rails[0]) b.box(mat, xa, o.yLow, o.z0 - 0.08, xb, top, o.z0);
-    if (rails[1]) b.box(mat, xa, o.yLow, o.z1, xb, top, o.z1 + 0.08);
-    // Stainless handrail cap following the slope in steps.
-    if (rails[0]) b.deco('metal:#b9bdc2', xa, top, o.z0 - 0.1, xb, top + 0.05, o.z0 + 0.02);
-    if (rails[1]) b.deco('metal:#b9bdc2', xa, top, o.z1 - 0.02, xb, top + 0.05, o.z1 + 0.1);
+    const top = o.yLow + (rise * (k + 1)) / chunks + 0.95;
+    if (rails[0]) b.block(xa, o.yLow, o.z0 - 0.08, xb, top, o.z0);
+    if (rails[1]) b.block(xa, o.yLow, o.z1, xb, top, o.z1 + 0.08);
+  }
+  for (const [on, z0, z1, c0, c1] of [[rails[0], o.z0 - 0.08, o.z0, o.z0 - 0.1, o.z0 + 0.02], [rails[1], o.z1, o.z1 + 0.08, o.z1 - 0.02, o.z1 + 0.1]] as const) {
+    if (!on) continue;
+    // The panel reaches down to the floor at the foot, so no gap shows under it.
+    b.slant(mat, o.x0, o.yLow - 0.6, z0, o.x1, o.yLow + 0.95, z1, rise);
+    b.deco(mat, o.x0 - 0.02, o.yLow, z0, o.x0 + 0.6, o.yLow + 0.95, z1);
+    b.slant('metal:#b9bdc2', o.x0, o.yLow + 0.95, c0, o.x1, o.yLow + 1.0, c1, rise);
   }
 }
 
@@ -687,30 +699,48 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
     }
     b.zone('passage', -4, cf - 0.2, 0, 0, cf + 2.5, ext, `${num}番出口 通路`, `Exit ${num} passage`);
   }
+  // Only the last EXIT_OPEN m of the stair is open to the sky; before that it is roofed under the
+  // street, its ceiling stepping up with the stair 2.7 m above the nosings.
+  const xo = Math.max(0, run - EXIT_OPEN), sy = (x: number) => cf + (rise * x) / run;
   b.with({ t: [0, 0, ext] }, () => {
     b.box(style.floor, -4, cf - 0.5, 0, 0, cf, 4.0);
     stairs(b, { x0: 0, x1: run, z0: 1.2, z1: 4.0, yLow: cf, yHigh: GY, rails: [false, false], mat: 'flat:#aaa79f' });
     b.box(wall, -4.3, cf, 4.0, 0, cf + 3.2, 4.3);
-    b.box(wall, 0, cf - 0.5, 4.0, run, GY + 1.0, 4.3);
     b.box(wall, -4.3, cf, 0, -4, cf + 3.2, 4.0);
-    b.box(wall, 0, cf - 0.5, 0.9, run, GY + 1.0, 1.2);
     b.box(wall, 0, cf, 0, 0.3, cf + 3.2, 0.9);
-    b.box(wall, -0.3, cf + 2.7, 1.2, 0, GY + 1.0, 4.0);
+    for (const [z0, z1] of [[0.9, 1.2], [4.0, 4.3]]) {
+      if (xo > 0) b.box(wall, 0, cf - 0.5, z0, xo, GY - 0.05, z1);
+      b.box(wall, xo, cf - 0.5, z0, run, GY + 1.0, z1);
+    }
+    if (xo > 0) {
+      const k = rise / run;
+      b.slant(ceil, 0, cf + 2.7, 0.9, xo, cf + 3.1, 4.3, xo * k);
+      for (let x = 1; x + 1.2 < xo; x += 3) b.slant('light', x, sy(x) + 2.64, 2.35, x + 1.2, sy(x) + 2.7, 2.85, 1.2 * k);
+      // The street slab's edge where the open part begins.
+      b.box(wall, xo - 0.3, sy(xo) + 2.7, 0.9, xo, GY + 1.0, 4.3);
+    }
+    b.box(wall, -0.3, cf + 2.7, 1.2, 0, xo > 0 ? cf + 3.1 : GY + 1.0, 4.0);
     b.box(ceil, -4.3, cf + 2.7, 0, -0.3, cf + 3.2, 4.3);
     ceilingLight(b, -3.2, -1, 1.6, 2.2, cf + 2.7);
     b.deco('flat:#4b4d50', -4, cf, 3.975, 0, cf + 0.13, 4.0);
-    b.hole(0, 1.2, run, 4.0);
+    b.hole(xo, 1.2, run, 4.0);
+  });
+  // The street end, in a frame starting where the stair comes out into the open: `top` long.
+  const top = run - xo;
+  b.with({ t: [xo, 0, ext] }, () => {
     if (!look.canopy) {
       // Street-level canopy.
-      b.deco('flat:#eef0f2', -0.6, GY + 2.5, 0.6, run + 0.7, GY + 2.64, 4.6);
-      b.deco('glass', 0, GY + 1.0, 4.12, run, GY + 2.5, 4.18);
-      b.deco('glass', 0, GY + 1.0, 1.02, run, GY + 2.5, 1.08);
-      for (const [px, pz] of [[0, 1.05], [0, 4.15], [run, 1.05], [run, 4.15]]) {
+      b.deco('flat:#eef0f2', -0.6, GY + 2.5, 0.6, top + 0.7, GY + 2.64, 4.6);
+      b.deco('glass', 0, GY + 1.0, 4.12, top, GY + 2.5, 4.18);
+      b.deco('glass', 0, GY + 1.0, 1.02, top, GY + 2.5, 1.08);
+      for (const [px, pz] of [[0, 1.05], [0, 4.15], [top, 1.05], [top, 4.15]]) {
         b.box('metal:#9aa0a6', px - 0.07, GY, pz - 0.07, px + 0.07, GY + 2.5, pz + 0.07);
       }
-      b.deco('flat:#22262b', run - 0.04, GY + 1.88, 1.1, run + 0.05, GY + 2.52, 4.1);
+      b.deco('flat:#22262b', top - 0.04, GY + 1.88, 1.1, top + 0.05, GY + 2.52, 4.1);
     }
-    b.sign({ k: 'entrance', station: station.id, exit: num }, run + 0.06, GY + 2.2, 2.6, [1, 0], 2.9, 0.6);
+    b.sign({ k: 'entrance', station: station.id, exit: num }, top + 0.06, GY + 2.2, 2.6, [1, 0], 2.9, 0.6);
+  });
+  b.with({ t: [0, 0, ext] }, () => {
     // Signs inside.
     b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num, arrow: 'up' }, -0.31, cf + 2.95, 2.6, [-1, 0], 2.4, 0.42);
     b.sign({ k: 'poster', v: num.charCodeAt(0) + station.id.length }, -2, cf + 1.5, 3.98, [0, -1], 1.2, 1.7);
@@ -718,11 +748,12 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
   });
   b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num }, -2, cf + (ext > 0 ? 2.25 : 2.72), -0.02, [0, -1], 2.6, 0.5);
   b.protect(-3.4, cf + (ext > 0 ? 1.95 : 2.42), -0.4, -0.6, cf + 3.0, 0.02);
-  const info: ExitInfo = { b, station, style, wall, floor: style.floor, cf, gy: GY, num, ext, run };
+  const info: ExitInfo = { b, station, style, wall, floor: style.floor, cf, gy: GY, num, ext, run, open: xo };
   wayfindExit(info);
   floorExit(info);
   b.guard(() => {
-    look.canopy?.(info);
+    // The entrance is drawn over the open part only: the look sees it as a stair `top` long.
+    if (look.canopy) b.with({ t: [xo, 0, 0] }, () => look.canopy!({ ...info, run: top, open: 0 }));
     look.exit?.(info);
   });
 }

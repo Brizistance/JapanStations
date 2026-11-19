@@ -18,6 +18,7 @@ import { look as yamabukidai } from './yamabukidai';
 import { look as tsumugibashi } from './tsumugibashi';
 import { look as tsurumatsu } from './tsurumatsu';
 import type { StationLook } from './types';
+import { withEntry } from '../entry';
 
 const LOOKS: Record<string, StationLook> = {
   aizomecho, 'daigaku-mae': daigakuMae, hoshimine, hyotanbori, kamomehama, kurayashiki, tomyobori, tsumugibashi, tsurumatsu,
@@ -25,8 +26,13 @@ const LOOKS: Record<string, StationLook> = {
   ikarimachi, 'todai-dori': todaiDori,
 };
 
+const cache = new Map<string, StationLook>();
+
+/** The station's look, with its entry area (entry.ts) layered on. */
 export function lookFor(stationId: string): StationLook {
-  return LOOKS[stationId] ?? defaultLook;
+  let l = cache.get(stationId);
+  if (!l) cache.set(stationId, (l = withEntry(stationId, LOOKS[stationId] ?? defaultLook)));
+  return l;
 }
 
 export type { ConcInfo, ExitInfo, PassageInfo, StationLook } from './types';

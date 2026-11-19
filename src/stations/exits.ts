@@ -37,6 +37,7 @@ export interface StationExit {
 const GROUND_Y = 0.15; // kit.ts
 const PF_H = 1.1; // kit.ts
 const CONC_RISE = 4.9; // kit.ts
+const EXIT_OPEN = 9.5; // kit.ts: only the top of a deep exit stair is open to the street
 const STREET_CW = 12; // build.ts: where an ordinary station's exits come up
 const INTERCHANGE_CW = 14; // build.ts buildInterchange, without a line beside the primary
 const UNDER_MEZZ_Y = -4.2; // build.ts: B1 mezzanine under an elevated station
@@ -328,17 +329,58 @@ function interchangeHalf(st: StationDef, primary: string): number {
 }
 
 /**
- * One end's pair of exits. The doorway is at x = door in the concourse wall; the stair climbs
- * away from the station (dir) by `run` and comes up between z = half + 1.2 and half + 4.
- * nums[0] is the −z exit, nums[1] the +z one.
+ * Where one gate end's exits are (specs.ts `exits`). Distances run from the gate line out into
+ * the unpaid hall (16 m long). Pairs are [−z wall, +z wall].
  */
-function exitPair(door: number, dir: 1 | -1, half: number, run: number, nums: [string, string]) {
-  const x0 = Math.min(door, door + dir * run), x1 = Math.max(door, door + dir * run);
-  return ([-1, 1] as const).map((s) => ({
-    num: nums[s < 0 ? 0 : 1],
-    side: s,
-    rect: [x0, s < 0 ? -half - 4 : half + 1.2, x1, s < 0 ? -half - 1.2 : half + 4] as PlanRect,
-  }));
+export interface ExitPlan {
+  /** Doorway's near edge past the gate line: 4.6 (by the gates) … 11.8 (far corner). Default 9. */
+  at?: number | [number, number];
+  /** Which long walls have an exit. Default both. */
+  sides?: (-1 | 1)[];
+  /** 'out': the stair climbs away from the station (default); 'back': back over the concourse. */
+  climb?: 'out' | 'back' | ['out' | 'back', 'out' | 'back'];
+}
+const pick = <T>(v: T | [T, T] | undefined, s: -1 | 1, d: T): T => (v === undefined ? d : Array.isArray(v) ? v[s < 0 ? 0 : 1] : v);
+export const exitAt = (p: ExitPlan | undefined, s: -1 | 1) => pick(p?.at, s, 9);
+export const exitClimb = (p: ExitPlan | undefined, s: -1 | 1) => pick(p?.climb, s, 'out' as const);
+export const exitSides = (p: ExitPlan | undefined): (-1 | 1)[] => p?.sides ?? [-1, 1];
+
+/** Exit numbers for each gate end in order, −z wall before +z; '' where a wall has none. */
+export function endNums(plans: (ExitPlan | undefined)[]): [string, string][] {
+  let n = 1;
+  return plans.map((p) => {
+    const has = exitSides(p);
+    const nums: [string, string] = ['', ''];
+    for (const s of [-1, 1] as const) if (has.includes(s)) nums[s < 0 ? 0 : 1] = String(n++);
+    return nums;
+  });
+}
+
+/**
+ * One gate end's exits. The gate line is at x = g, the unpaid hall on its +x side if `hi`. Each
+ * doorway is at..at+4 past the gate; the stair starts at its far edge climbing away from the
+ * station ('out') or at its near edge climbing back ('back'), and comes up between
+ * |z| = half + 1.2 and half + 4.
+ */
+function endExits(g: number, hi: boolean, half: number, run: number, plan: ExitPlan | undefined, nums: [string, string]) {
+  const o = hi ? 1 : -1;
+  return exitSides(plan).map((s) => {
+    const at = exitAt(plan, s), back = exitClimb(plan, s) === 'back';
+    const start = g + o * (back ? at : at + 4), dir = back ? -o : o;
+    // Where it opens: the last EXIT_OPEN m of the stair.
+    const a = start + dir * Math.max(0, run - EXIT_OPEN), e = start + dir * run;
+    return {
+      num: nums[s < 0 ? 0 : 1],
+      side: s,
+      rect: [Math.min(a, e), s < 0 ? -half - 4 : half + 1.2, Math.max(a, e), s < 0 ? -half - 1.2 : half + 4] as PlanRect,
+    };
+  });
+}
+
+/** Both ends of an interchange-type concourse: gate lines at ±g, exits 1… from the +x end. */
+function twoEnds(g: number, half: number, run: number, plans?: [ExitPlan, ExitPlan]) {
+  const nums = endNums([plans?.[0], plans?.[1]]);
+  return [...endExits(g, true, half, run, plans?.[0], nums[0]), ...endExits(-g, false, half, run, plans?.[1], nums[1])];
 }
 
 /** Everything on the street around an ordinary or interchange station (surface.ts). */
@@ -439,11 +481,10 @@ function derive(id: StationId): StationStreet {
   switch (spec.kind) {
     case 'underground': {
       const [cx0, cx1] = spec.concourse;
-      // Gate ends in spec order, numbered 1–2 then 3–4 (build.ts buildUnderground).
-      const es = spec.gates.flatMap((g, i) => {
-        const nums: [string, string] = [String(i * 2 + 1), String(i * 2 + 2)];
-        return g === 'hi' ? exitPair(cx1 - 16 + 13, 1, STREET_CW, run, nums) : exitPair(cx0 + 16 - 13, -1, STREET_CW, run, nums);
-      });
+      // Gate ends in spec order, exits numbered on through them (build.ts buildUnderground).
+      const nums = endNums(spec.gates.map((_, i) => spec.exits?.[i]));
+      const es = spec.gates.flatMap((g, i) =>
+        endExits(g === 'hi' ? cx1 - 16 : cx0 + 16, g === 'hi', STREET_CW, run, spec.exits?.[i], nums[i]));
       // The concourse's width follows the line's age (build.ts concourseHalf); 10 m is its usual.
       const cw = spec.width ?? 10;
       return { kind: 'street', surface: spec.surface, box: [cx0, -cw, cx1, cw], swOut: STREET_CW + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
@@ -451,12 +492,12 @@ function derive(id: StationId): StationStreet {
     case 'interchange': {
       if (spec.mid) {
         // midlevel.ts: gates at ±MID.g, exits 1–2 east, 3–4 west, from the hall's long walls.
-        const es = [...exitPair(MID.g + 13, 1, MID.cw, run, ['1', '2']), ...exitPair(-MID.g - 13, -1, MID.cw, run, ['3', '4'])];
+        const es = twoEnds(MID.g, MID.cw, run, spec.exits);
         return { kind: 'street', surface: spec.surface, box: [MID.x0, -MID.cw, MID.x1, MID.cw], swOut: MID.cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
       }
       const cw = interchangeHalf(st, spec.primary);
       // Exits 1–2 at the +x end, 3–4 at the −x end (gate lines at x = ±29).
-      const es = [...exitPair(42, 1, cw, run, ['1', '2']), ...exitPair(-42, -1, cw, run, ['3', '4'])];
+      const es = twoEnds(29, cw, run, spec.exits);
       return { kind: 'street', surface: spec.surface, box: [-45, -cw, 45, cw], swOut: cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'atrium': {
@@ -465,8 +506,8 @@ function derive(id: StationId): StationStreet {
       const cw = INTERCHANGE_CW;
       const { door, wallZ, num } = ATRIUM.exit5;
       const es: Omit<StationExit, 'near'>[] = [
-        ...exitPair(42, 1, cw, run, ['1', '2']), ...exitPair(-42, -1, cw, run, ['3', '4']),
-        { num, side: 1, rect: [door, wallZ - 4, door + run, wallZ - 1.2] },
+        ...twoEnds(29, cw, run, spec.exits),
+        { num, side: 1, rect: [door + Math.max(0, run - EXIT_OPEN), wallZ - 4, door + run, wallZ - 1.2] },
       ];
       return { kind: 'street', surface: spec.surface, box: [-45, -cw, 45, cw], swOut: cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
@@ -474,13 +515,14 @@ function derive(id: StationId): StationStreet {
       // Exits 1–4 in the east wing (−z then +z at each passage), 5–8 mirrored west.
       let n = 1;
       const es = ([1, -1] as const).flatMap((dir) =>
-        HUB.exits.flatMap((x) => exitPair(dir * x, dir, HUB.bar, run, [String(n++), String(n++)])));
+        // A pair climbing out from a doorway ending at x: as a gate end 13 m before it.
+        HUB.exits.flatMap((x) => endExits(dir * (x - 13), dir > 0, HUB.bar, run, undefined, [String(n++), String(n++)])));
       return { kind: 'hub', exits: withNear(hubFeatures(), es) };
     }
     case 'elevated': {
       if (spec.layout) return { kind: 'elevated', exits: OPEN_AIR[spec.layout].exits.map((e) => ({ num: '', ...e })) };
       // Two street entrances: the wide south front onto the plaza, and the west end.
-      const [x0, , cw] = ELEVATED.concourse;
+      const [x0, , cw0] = ELEVATED.concourse, cw = spec.width ?? cw0;
       return {
         kind: 'elevated',
         exits: [

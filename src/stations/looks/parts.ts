@@ -95,6 +95,8 @@ export const SHOPS = {
   tanpopo: { ja: 'クリーニング たんぽぽ', en: 'Tanpopo Cleaning', bg: '#f6d743', fg: '#1b3a5c', kind: 'goods' },
   ginnando: { ja: 'せんべい 銀杏堂', en: 'Ginnan-dō Rice Crackers', bg: '#8a5a2b', fg: '#fbe9d0', kind: 'sweets' },
   mizuha: { ja: 'みずはモバイル', en: 'Mizuha Mobile', bg: '#00897b', fg: '#fff', kind: 'goods' },
+  // Ichō Line halls (entry-specs.ts fill).
+  narukoMarket: { ja: '産直市 なるこ', en: 'Naruko Farm Market', bg: '#6b8e23', fg: '#fff', kind: 'bento' },
 } satisfies Record<string, Brand>;
 
 /** All brands of one kind. */
@@ -1373,24 +1375,18 @@ export function exitDado(e: ExitInfo, o: { mat: string; top?: number; cap?: stri
   if (o.cap) flat(top, top + 0.05, o.cap, 0.014);
   // Stair walls, stepped up the slope: near wall (face at ext + 1.2, facing +z) and far wall
   // (face at L, facing −z). No cap here: a stepped cap reads as a staircase on the wall.
-  const n = o.steps ?? Math.max(4, Math.round(run / 1.4));
-  for (let k = 0; k < n; k++) {
-    const xa = (run * k) / n, xb = (run * (k + 1)) / n;
-    const y0 = stairY(e, xa) - 0.05, y1 = stairY(e, xb) + top;
-    b.deco(o.mat, xa, y0, ext + 1.2, xb, y1, ext + 1.208);
-    b.deco(o.mat, xa, y0, L - 0.008, xb, y1, L);
-  }
+  // One sloping band per wall, its top edge parallel to the stair.
+  const rise = e.gy - e.cf;
+  b.slant(o.mat, 0, e.cf - 0.05, ext + 1.2, run, e.cf + top, ext + 1.208, rise);
+  b.slant(o.mat, 0, e.cf - 0.05, L - 0.008, run, e.cf + top, L, rise);
 }
 
 /** Handrails along an exit's stair walls (`walls`: which; default both), stepped up the slope. */
 export function exitHandrails(e: ExitInfo, walls: ('near' | 'far')[] = ['near', 'far']) {
-  const { b, ext, run } = e, n = Math.max(6, Math.round(run / 0.8));
+  const { b, ext, run } = e;
   for (const w of walls) {
     const z = w === 'near' ? ext + 1.2 : ext + 4, f = w === 'near' ? 1 : -1;
-    for (let k = 0; k < n; k++) {
-      const xa = (run * k) / n, xb = (run * (k + 1)) / n, y = stairY(e, (xa + xb) / 2) + 0.85;
-      b.deco('metal:#b9bdc2', xa, y, Math.min(z + f * 0.05, z + f * 0.1), xb, y + 0.05, Math.max(z + f * 0.05, z + f * 0.1));
-    }
+    b.slant('metal:#b9bdc2', 0, e.cf + 0.85, Math.min(z + f * 0.05, z + f * 0.1), run, e.cf + 0.9, Math.max(z + f * 0.05, z + f * 0.1), e.gy - e.cf);
     for (let k = 1; k < 4; k++) {
       const x = (run * k) / 4, y = stairY(e, x) + 0.85;
       b.deco('metal:#9da2a8', x - 0.02, y - 0.04, Math.min(z, z + f * 0.08), x + 0.02, y, Math.max(z, z + f * 0.08));

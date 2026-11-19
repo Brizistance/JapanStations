@@ -274,6 +274,8 @@ export interface ExitInfo {
   num: string;
   ext: number;
   run: number;
+  /** Where the stair comes out from under the street (0 for a stair open all the way up). */
+  open: number;
 }
 
 /**
