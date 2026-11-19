@@ -11,6 +11,8 @@
 
 const BASE = `${import.meta.env.BASE_URL}audio/`;
 const CLIP_GAP_S = 0.3, GROUP_GAP_S = 0.8;
+/** Voice sits a little under the jingles. */
+const VOICE_GAIN = 0.8;
 /** An announcement still waiting after this long is out of date: drop it. */
 const STALE_MS = 15000;
 
@@ -253,7 +255,7 @@ async function pump() {
     for (const p of g.items) {
       const buf = await load(p);
       if (gen !== generation) break;
-      if (buf) await play(buf);
+      if (buf) await play(buf, p.startsWith('voice/') ? VOICE_GAIN : 1);
       if (gen !== generation) break;
       await wait(CLIP_GAP_S);
     }
@@ -262,11 +264,12 @@ async function pump() {
   busy = false;
 }
 
-function play(buf: AudioBuffer): Promise<void> {
+function play(buf: AudioBuffer, gain: number): Promise<void> {
   return new Promise((resolve) => {
-    const src = ctx!.createBufferSource();
+    const src = ctx!.createBufferSource(), g = ctx!.createGain();
     src.buffer = buf;
-    src.connect(paBus);
+    g.gain.value = gain;
+    src.connect(g).connect(paBus);
     src.onended = () => {
       if (current === src) current = null;
       resolve();
