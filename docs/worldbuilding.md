@@ -76,6 +76,10 @@ Invented brands that appear on shop fronts in concourses (`SHOPS` in `src/statio
 | Omusubi Komeya | おむすび こめ屋 | Rice balls and bento |
 | Shirasagi Tea Room | 白鷺茶房 | Café |
 | Tsubaki Shobō | つばき書房 | Bookshop |
+| Kawasemi Shoe Repair | くつ修理 かわせみ | Shoe repair |
+| Tanpopo Cleaning | クリーニング たんぽぽ | Dry cleaner |
+| Ginnan-dō Rice Crackers | せんべい 銀杏堂 | Rice crackers |
+| Mizuha Mobile | みずはモバイル | Mobile phone shop |
 
 The Japanese spellings in the code are the source of truth.
 
@@ -111,10 +115,10 @@ Invented with each station's look (`src/stations/looks/<station>.ts`), 2026-11-1
 | Kurayashiki | 蔵カフェ 白壁 (Kura Café Shirakabe), 酒・醤油 かわくら屋 (Kawakuraya), 工芸 しろつち (Kōgei Shirotsuchi); sake labels 川湊 and 湊誉 (Minato-homare) |
 | Kamomehama | The home team at Kawaminato Dome: **川湊ガルズ (Kawaminato Gulls)**, baseball, gull orange `#f47a20` and navy `#14284b`. ガルズ オフィシャルショップ (Gulls Official Shop), スタジアムめし かもめ亭 (Kamome-tei) |
 | Hoshimine | 星の窓 (Hoshi no Mado, observatory shop), 三日月珈琲 (Mikazuki Coffee). The ceiling's constellations (Fox, Lantern, Kite, Crane) are invented and unlabelled |
-| Tōmyōbori | 提灯 ひより屋 (Chōchin Hiyoriya, lantern maker), 茶房 ともしび (Sabō Tomoshibi), 立呑 かわべり (Tachinomi Kawaberi); the festival **灯明堀 万灯まつり (Tōmyōbori Mantō Matsuri)** |
-| Aizomechō | 藍染処 つゆ草 (Aizome Tsuyukusa, dye works), 手ぬぐい 波千鳥 (Tenugui Namichidori), 呉服 糸よし (Gofuku Itoyoshi), 日本茶 しずく園 (Shizuku-en); the dyers' crest 三つ波丸 (Mitsunami-maru, three waves in a ring) |
-| Tsumugibashi | The streets of **紬橋地下街 (Tsumugibashi Chikagai)**: 経糸通り Tateito-dōri (Warp Street, gate to gate), 綾織通り Ayaori-dōri (Twill Street), 平織通り Hiraori-dōri (Plain-weave Street), 緯糸小路 Yokoito-kōji (Weft Lane), 綛通り Kase-dōri (Skein Street), 糸巻通り Itomaki-dōri (Bobbin Street), 杼の辻 Hi-no-tsuji (Shuttle Crossing, where the loom 紬の機 stands), 糸屋横丁 Itoya-yokochō, 筬小路 Osa-kōji (Reed Lane), 紬小路 Tsumugi-kōji. Shops: 紬織物 はたや (Hataya Tsumugi Silks), 糸屋 よりいと (Yoriito Yarn & Thread), きもの 綾衣 (Kimono Ayaginu), ふろしき 包み屋 (Tsutsumiya Furoshiki), 染め見本 そめいろ (Someiro Dye Bar) |
-| Daigaku-mae | 喫茶 れんが (Kissa Renga), 古書 文蔵 (Fumikura Old Books), めし処 はるにれ (Harunire), the university co-op 大学生協; clubs on the noticeboards: rowing, astronomy, light music, photography, rakugo, mountaineering, tea ceremony |
+| Tōmyōbori | 提灯 ひより屋 (Chōchin Hiyoriya, lantern maker), 茶房 ともしび (Sabō Tomoshibi), 立呑 かわべり (Tachinomi Kawaberi); the festival **灯明堀 万灯まつり (Tōmyōbori Mantō Matsuri)**. Added with the spine frontage: 和ろうそく 灯芯堂 (Warōsoku Tōshindō, candles and incense), 筆墨 すずり屋 (Hitsuboku Suzuriya, paper and brushes), 酒房 ほたる (Shubō Hotaru, sake bar), うなぎ 堀端 (Unagi Horibata, eel counter), 灯絵工房 あかり (Tōe Kōbō Akari, lantern-painting workshop), 甘味処 ゆうなぎ (Kanmidokoro Yūnagi, sweet house), 手ぬぐい 川染 (Tenugui Kawazome), 湯葉 かわぎり (Yuba Kawagiri) |
+| Aizomechō | 藍染処 つゆ草 (Aizome Tsuyukusa, dye works), 手ぬぐい 波千鳥 (Tenugui Namichidori), 呉服 糸よし (Gofuku Itoyoshi), 日本茶 しずく園 (Shizuku-en); the dyers' crest 三つ波丸 (Mitsunami-maru, three waves in a ring). Added with the spine frontage: 刺し子糸 ひと針 (Sashiko Hitohari, sashiko thread), ふろしき 結び屋 (Furoshiki Musubiya, indigo furoshiki and bags) |
+| Tsumugibashi | The streets of **紬橋地下街 (Tsumugibashi Chikagai)**, which are its corridors, named on plates at their corners. Spines: 経糸通り Tateito-dōri (Warp Street, the Nagisa spine, gate to gate), 綾織通り Ayaori-dōri (Twill Street, the Kikyō spine). Cross passages: 筬小路 Osa-kōji (Reed Lane, west), 緯糸小路 Yokoito-kōji (Weft Lane, middle), 綜絖小路 Sōkō-kōji (Heddle Lane, east). Transfer bays: 糸屋横丁 Itoya-yokochō (off Tateito-dōri), 真綿小路 Mawata-kōji (off Ayaori-dōri). Exit corridors: 糸巻通り Itomaki-dōri (Bobbin Street, exit 1), 綛通り Kase-dōri (Skein Street, exit 2), 平織通り Hiraori-dōri (Plain-weave Street, exit 3), 絣小路 Kasuri-kōji (Ikat Lane, exit 4). 杼の辻 Hi-no-tsuji (Shuttle Crossing) is where the loom 紬の機 (The Tsumugi Loom) stands in Tateito-dōri; the tapestry facing the middle cross passage is labelled 綾織の紬 (Tsumugi twill). Shops: 紬織物 はたや (Hataya Tsumugi Silks), 糸屋 よりいと (Yoriito Yarn & Thread), きもの 綾衣 (Kimono Ayaginu), ふろしき 包み屋 (Tsutsumiya Furoshiki), 染め見本 そめいろ (Someiro Dye Bar) |
+| Daigaku-mae | 喫茶 れんが (Kissa Renga), 古書 文蔵 (Fumikura Old Books), めし処 はるにれ (Harunire), the university co-op 大学生協; clubs on the noticeboards: rowing, astronomy, light music, photography, rakugo, mountaineering, tea ceremony. Added with the spine frontage: カレー くすのき (Curry Kusunoki), 中古レコード 音の葉 (Oto-no-Ha Records & Instruments) |
 
 ## Stations
 

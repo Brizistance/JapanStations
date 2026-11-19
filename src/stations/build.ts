@@ -14,10 +14,12 @@ import {
 import { buildHub } from './hub';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
-import type { ConcInfo, ExitDoor, StairInfo } from './looks/types';
+import type { ConcInfo, ConcRoom, ExitDoor, StairInfo, Stairwell, WallFace } from './looks/types';
 import { themeFor } from './themes';
 import { car, surface, tree, PLOT_X, PLOT_Z } from './surface';
 import { wayfindConcourse, wayfindElevated, wayfindPassage } from './wayfinding';
+import { floorConcourse, floorPassage } from './floor';
+import { bayName, planStairwells, planWalls, type RoomSpec, type StairwellPlan } from './rooms';
 
 export type Rect = [number, number, number, number];
 const rect = (b: Builder, x0: number, z0: number, x1: number, z1: number): Rect => {
@@ -131,6 +133,53 @@ interface ShellOpts {
   solids?: Rect[];
   /** Where each opening in `holes` leads. */
   stairs: StairInfo[];
+  /**
+   * Half width of the structural box (the old outer wall), when the walkable spine (±cw) is
+   * narrower: the slab and ceiling still span it, for the halls below and the exit corridors.
+   */
+  footprint?: number;
+  /** Walkable rooms outside the spine, entered through gaps in its long walls (interchanges). */
+  rooms?: RoomSpec[];
+}
+
+/** A finished face's band, `d` deep, from y0 to y1 (decoration along a wall). */
+function faceBand(b: Builder, f: WallFace, mat: string, y0: number, y1: number, d: number) {
+  const lo = Math.min(f.at, f.at + f.n * d), hi = Math.max(f.at, f.at + f.n * d);
+  if (f.axis === 'x') b.deco(mat, f.u0, y0, lo, f.u1, y1, hi);
+  else b.deco(mat, lo, y0, f.u0, hi, y1, f.u1);
+}
+
+/**
+ * Walls and portals round the stair openings. A stairwell's walls are solid; a portal's jambs
+ * and fascia are in the line's colour (platform stairs) or white with a line-colour stripe
+ * (transfer stairs), and leave the opening clear to cf + 2.35.
+ */
+function buildStairwells(b: Builder, plans: StairwellPlan[], wall: string, cf: number, ceil: number) {
+  for (const p of plans) {
+    for (const r of p.walls) b.box(wall, r[0], cf, r[1], r[2], ceil, r[3]);
+    const mat = `paint:${p.color}`;
+    for (const r of p.portal.jambs) b.box(mat, r[0], cf, r[1], r[2], ceil, r[3]);
+    const f = p.fasciaRect, fa = p.portal.fascia;
+    b.box(mat, f[0], fa.y0, f[1], f[2], ceil, f[3]);
+    if (p.stripe) faceBand(b, fa, `paint:${p.stripe}`, fa.y0, fa.y0 + 0.12, 0.012);
+  }
+}
+
+/** Kit lighting for a room outside the spine: strip lights along its length, one or two rows. */
+function roomLights(b: Builder, r: Rect, y: number) {
+  const along = r[2] - r[0] >= r[3] - r[1] ? 'x' : 'z';
+  const [a0, a1, c0, c1] = along === 'x' ? [r[0], r[2], r[1], r[3]] : [r[1], r[3], r[0], r[2]];
+  if (a1 - a0 < 3 || c1 - c0 < 2) return;
+  const rows = c1 - c0 > 7 ? [c0 + (c1 - c0) / 4, c1 - (c1 - c0) / 4] : [(c0 + c1) / 2];
+  const n = Math.max(1, Math.floor((a1 - a0 - 1) / 4.2));
+  const pitch = (a1 - a0) / n;
+  for (let k = 0; k < n; k++) {
+    const p = a0 + pitch * (k + 0.5);
+    for (const q of rows) {
+      if (along === 'x') ceilingLight(b, p - 1.2, p + 1.2, q - 0.22, q + 0.22, y);
+      else ceilingLight(b, q - 0.22, q + 0.22, p - 1.2, p + 1.2, y);
+    }
+  }
 }
 
 /** A station's style with its look's concourse finishes applied. */
@@ -145,35 +194,41 @@ function concourse(c0: Ctx, o: ShellOpts) {
   const c: Ctx = { ...c0, style: concStyle(c0) };
   const { b, style, station } = c;
   const { cf, cw, x0, x1 } = o;
+  const fw = o.footprint ?? cw;
+  const rooms = o.rooms ?? [];
+  const ceil = cf + CONC_CLEAR;
   const ceilMat = look.finishes?.ceil ?? 'ceil';
   const lines = linesAt(station.id).map((l) => l.id);
-  b.slab(style.floor, x0, -cw, x1, cw, cf - SLAB, cf, o.holes);
-  b.box(ceilMat, x0 - 0.4, cf + CONC_CLEAR, -cw - 0.4, x1 + 0.4, cf + CONC_CLEAR + 0.5, cw + 0.4);
-  const gaps = o.ends.map((e) => (e.hi ? [e.g + 9, e.g + 13] : [e.g - 13, e.g - 9]));
-  b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, cw, cw + 0.4, cf, cf + CONC_CLEAR, gaps);
-  b.wallX(style.concWall, x0 - 0.4, x1 + 0.4, -cw - 0.4, -cw, cf, cf + CONC_CLEAR, gaps);
-  b.box(style.concWall, x0 - 0.4, cf, -cw, x0, cf + CONC_CLEAR, cw);
-  b.box(style.concWall, x1, cf, -cw, x1 + 0.4, cf + CONC_CLEAR, cw);
-  // Accent skirting.
+  const exits: ExitDoor[] = o.ends.flatMap((e, end) =>
+    ([-1, 1] as const).map((s): ExitDoor => ({ num: e.nums[s > 0 ? 1 : 0], s, x0: e.hi ? e.g + 9 : e.g - 13, x1: e.hi ? e.g + 13 : e.g - 9, end })));
+  const plan = planWalls(x0, x1, cw, 0.4, exits, rooms);
+
+  // Floor where people walk (the spine, the rooms, and the floor in the mouths between them).
+  // The rest of the old footprint is bare structure, a hair lower so that the floors of exit
+  // corridors laid over it do not fight it; it still roofs the halls below.
+  const walk: Rect[] = [[x0, -cw, x1, cw], ...rooms.map((r) => r.rect), ...plan.floor];
+  for (const r of walk) b.slab(style.floor, r[0], r[1], r[2], r[3], cf - SLAB, cf, o.holes);
+  if (fw > cw) b.slab('concrete', x0, -fw, x1, fw, cf - SLAB, cf - 0.02, [...o.holes, ...walk]);
+  b.box(ceilMat, x0 - 0.4, ceil, -fw - 0.4, x1 + 0.4, ceil + 0.5, fw + 0.4);
+  for (const r of plan.walls) b.box(style.concWall, r[0], cf, r[1], r[2], ceil, r[3]);
+  // Accent skirting along the spine's long walls and round the rooms.
   if (look.skirting !== false) {
-    const runs: number[][] = [];
-    let from = x0;
-    for (const [ga, gb] of [...gaps].sort((p, q) => p[0] - q[0])) {
-      runs.push([from, ga]);
-      from = gb;
-    }
-    runs.push([from, x1]);
-    for (const s of [-1, 1]) {
-      for (const [ra, rb] of runs) {
-        b.deco(`paint:${style.accent}`, ra, cf + 0.9, s * cw - 0.015, rb, cf + 1.0, s * cw + 0.015);
-        b.deco('flat:#4b4d50', ra, cf, s * cw - 0.02, rb, cf + 0.13, s * cw + 0.02);
-      }
+    const faces = [...plan.faces[0].filter((f) => f.axis === 'x'), ...plan.faces.slice(1).flat()];
+    for (const f of faces) {
+      faceBand(b, f, `paint:${style.accent}`, cf + 0.9, cf + 1.0, 0.015);
+      faceBand(b, f, 'flat:#4b4d50', cf, cf + 0.13, 0.02);
     }
   }
 
+  // Stairwells: walls round every stair opening, a portal at its head.
+  const stairRoom = (st: StairInfo) => rooms.findIndex((r) => r.stairs.includes(st));
+  const wells = planStairwells(o.stairs, plan.faces.flat(), stairRoom, (st) => rooms[stairRoom(st)]?.kind === 'transfer bay', cf, ceil);
+  buildStairwells(b, wells, style.concWall, cf, ceil);
+
   const paid0 = Math.max(x0, ...o.ends.filter((e) => !e.hi).map((e) => e.g));
   const paid1 = Math.min(x1, ...o.ends.filter((e) => e.hi).map((e) => e.g));
-  const inHole = (x: number, z: number) => o.holes.some((h) => x > h[0] - 0.8 && x < h[2] + 0.8 && z > h[1] - 0.8 && z < h[3] + 0.8);
+  const inWell = (x: number, z: number, m: number) => wells.some(({ footprint: f }) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
+  const inHole = (x: number, z: number) => o.holes.some((h) => x > h[0] - 0.8 && x < h[2] + 0.8 && z > h[1] - 0.8 && z < h[3] + 0.8) || inWell(x, z, 0.5);
   const pillars: [number, number][] = [];
   // Rows beside the stairs, and in a wide hall further rows every 7 m out towards the walls,
   // kept off the foot and head of every stair.
@@ -191,11 +246,44 @@ function concourse(c0: Ctx, o: ShellOpts) {
       }
     }
   }
-  const tx = (paid0 + paid1) / 2 + 3;
+  // Toilets on the −z wall in the paid area: midway, unless a stairwell or a mouth is there.
+  const toiletOk = (x: number) =>
+    x - 1.6 > paid0 + 0.5 && x + 1.6 < paid1 - 0.5 && !o.ends.some((e) => Math.abs(x - e.g) < 5.5)
+    && !wells.some(({ footprint: f, room }) => room < 0 && x + 1.9 > f[0] && x - 1.9 < f[2] && f[1] < -cw + 2.2)
+    && !plan.openings.some((p) => p.s < 0 && x + 1.9 > p.x0 && x - 1.9 < p.x1);
+  let tx = (paid0 + paid1) / 2 + 3;
+  for (let d = 0; d < x1 - x0 && !toiletOk(tx); d += 0.5) {
+    const t = [tx + d, tx - d].find(toiletOk);
+    if (t !== undefined) {
+      tx = t;
+      break;
+    }
+  }
 
   // What a look may not build on: everything the kit puts in the concourse, with room to use it.
   const taken: Rect[] = [...(o.solids ?? []).map((q): Rect => [q[0] - 0.9, q[1] - 0.9, q[2] + 0.9, q[3] + 0.9])];
-  for (const h of o.holes) taken.push([h[0] - 3, h[1] - 0.9, h[2] + 3, h[3] + 0.9]);
+  // Each stair's reservations stay in the area it stands in (the spine, or its room): a stair in a
+  // transfer bay keeps nothing on the spine side of the bay's wall. Round the opening: 0.9 m
+  // either side along its length, the 3 m approach in front of its portal, and beyond the closed
+  // end only 0.5 m past the stairwell's end wall (nobody walks into a closed end).
+  const spineRect: Rect = [x0, -cw, x1, cw];
+  const areaRect = (room: number): Rect => (room >= 0 ? rooms[room].rect : spineRect);
+  const keepIn = (r: Rect, a: Rect) => {
+    const q: Rect = [Math.max(r[0], a[0]), Math.max(r[1], a[1]), Math.min(r[2], a[2]), Math.min(r[3], a[3])];
+    if (q[2] - q[0] > 1e-6 && q[3] - q[1] > 1e-6) taken.push(q);
+  };
+  for (const h of o.holes) {
+    const well = wells.find((w) => w.stair.rect === h);
+    if (!well) {
+      taken.push([h[0] - 3, h[1] - 0.9, h[2] + 3, h[3] + 0.9]);
+      continue;
+    }
+    const [nx, nz] = well.portal.n, f = well.footprint, a = areaRect(well.room);
+    if (Math.abs(nx) > 0.5) keepIn(nx > 0 ? [f[0] - 0.5, h[1] - 0.9, h[2] + 3, h[3] + 0.9] : [h[0] - 3, h[1] - 0.9, f[2] + 0.5, h[3] + 0.9], a);
+    else keepIn(nz > 0 ? [h[0] - 0.9, f[1] - 0.5, h[2] + 0.9, h[3] + 3] : [h[0] - 0.9, h[1] - 3, h[2] + 0.9, f[3] + 0.5], a);
+  }
+  for (const { footprint: f, room } of wells) keepIn([f[0] - 0.3, f[1] - 0.3, f[2] + 0.3, f[3] + 0.3], areaRect(room));
+  for (const p of plan.openings) if (p.kind === 'bay') taken.push([p.x0 - 0.3, p.s > 0 ? cw - 2.5 : -cw, p.x1 + 0.3, p.s > 0 ? cw : -cw + 2.5]);
   for (const [x, z] of pillars) taken.push([x - 0.6, z - 0.6, x + 0.6, z + 0.6]);
   taken.push([tx - 1.6, -cw, tx + 1.6, -cw + 1.6]);
   for (const e of o.ends) {
@@ -206,13 +294,15 @@ function concourse(c0: Ctx, o: ShellOpts) {
   }
   let seed = 0;
   for (const ch of station.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
-  const exits: ExitDoor[] = o.ends.flatMap((e, end) =>
-    ([-1, 1] as const).map((s): ExitDoor => ({ num: e.nums[s > 0 ? 1 : 0], s, x0: e.hi ? e.g + 9 : e.g - 13, x1: e.hi ? e.g + 13 : e.g - 9, end })));
+  const concRooms: ConcRoom[] = rooms.map((r, k) => ({
+    kind: r.kind, rect: r.rect, ja: r.ja, en: r.en, mouths: plan.mouths[k], stairs: r.stairs, faces: plan.faces[k + 1],
+  }));
   const info: ConcInfo = {
     b, station, line: c.line, era: themeFor(c.line.id).opened ?? 2000, style,
     wall: style.concWall, floor: style.floor, pillar: style.pillar, ceil: ceilMat,
-    cf, cw, clear: CONC_CLEAR, x0, x1, ends: o.ends.map((e) => ({ g: e.g, hi: e.hi })), paid: [paid0, paid1], holes: o.holes, pillars,
-    stairs: o.stairs, exits,
+    cf, cw, footprint: fw, clear: CONC_CLEAR, x0, x1, ends: o.ends.map((e) => ({ g: e.g, hi: e.hi })), paid: [paid0, paid1], holes: o.holes, pillars,
+    stairs: o.stairs, exits, openings: plan.openings, rooms: concRooms, toilets: tx,
+    stairwells: wells.map((w): Stairwell => ({ stair: w.stair, walls: w.walls, footprint: w.footprint, room: w.room, portal: w.portal })),
     free: (a, z0, d, z1, m = 0) =>
       a - m >= x0 && d + m <= x1 && z0 - m >= -cw && z1 + m <= cw && !taken.some((q) => d + m > q[0] && a - m < q[2] && z1 + m > q[1] && z0 - m < q[3]),
     claim: (a, z0, d, z1) => void taken.push([a, z0, d, z1]),
@@ -229,9 +319,14 @@ function concourse(c0: Ctx, o: ShellOpts) {
     b.with(e.hi ? { t: [e.g, 0, 0] } : { ...MIRROR_X, t: [e.g, 0, 0] }, () => unpaidEnd(c, cf, cw, e.nums, lines, o.ext ?? 0));
   }
   b.zone('concourse', x0, cf - 0.3, -cw, x1, cf + CONC_CLEAR, cw, '改札階コンコース', 'Concourse');
+  for (const r of rooms) {
+    b.zone(r.zone, r.rect[0], cf - 0.3, r.rect[1], r.rect[2], ceil, r.rect[3], r.ja, r.en);
+    roomLights(b, r.rect, ceil);
+  }
   const first = o.ends[0];
   b.setSpawn(first.g + (first.hi ? 11 : -11), cf, 0, [first.hi ? -1 : 1, 0]);
   wayfindConcourse(info);
+  floorConcourse(info);
 
   b.guard(() => {
     if (look.lights) look.lights(info);
@@ -256,8 +351,17 @@ function concourse(c0: Ctx, o: ShellOpts) {
       }
     }
     look.concourse?.(info);
+    concRooms.forEach((r, index) => look.bay?.({
+      ...r, b, station, line: c.line, era: info.era, style, wall: style.concWall, floor: style.floor, ceil: ceilMat, cf, clear: CONC_CLEAR, index, conc: info,
+    }));
   });
 }
+
+/**
+ * Pillar rows beside island stairs: 3.4 m in from the walls, at most 6 m out, but always leaving
+ * a 2.4 m aisle beside the stairwell walls (|z| 2.12), which a 16 m concourse would not.
+ */
+const islandPillarZ = (cw: number) => Math.min(6, Math.max(cw - 3.4, 4.9));
 
 /** Half width of an ordinary station's concourse: the older the line, the smaller the station. */
 const STREET_CW = 12;
@@ -304,9 +408,12 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec) {
     nums: [String(i * 2 + 1), String(i * 2 + 2)] as [string, string],
   }));
   // The street does not move: a narrower concourse reaches the same entrances by longer corridors.
-  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: st.holes, ends, pillarZ: d.island ? Math.min(6, cw - 3.4) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info });
+  concourse(c, { cf, cw, x0: cx0, x1: cx1, holes: st.holes, ends, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, stairs: st.info });
   surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
+
+/** Width of the mouth into a transfer bay, beside (or just past) the head of its stair. */
+const BAY_MOUTH = 4.9;
 
 /** Quarter turns from the frame's +x to another line's direction. */
 export function quarterTurns(from: [number, number], to: [number, number]): 0 | 1 | 2 | 3 {
@@ -320,8 +427,13 @@ export function quarterTurns(from: [number, number], to: [number, number]): 0 | 
  * Two lines crossing at right angles: the primary on top with the concourse over it, and an
  * island-platform line crossing below, reached by transfer passages outside the primary's
  * side walls. With `beside`, a third line runs alongside the primary at the same depth, in its
- * own hall on the +z side (Tsumugibashi: K beside N). Its island stairs rise into a concourse
- * widened to cover both halls, and the +z transfer passage moves out past its far wall.
+ * own hall on the +z side (Tsumugibashi: K beside N), and the +z transfer passage moves out past
+ * its far wall.
+ *
+ * The concourse is a spine over the primary, as narrow as an ordinary station's; each transfer
+ * stair comes up in a walled bay off it. A beside line gets a second spine over its own hall,
+ * joined to the first by three cross passages. The structure keeps the old width (14 m half
+ * width, or out past the beside line's passage), so the exits come up where they always did.
  */
 function buildInterchange(
   c: Ctx, spec: InterchangeSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, beside?: { ctx: Ctx; z: number },
@@ -341,10 +453,19 @@ function buildInterchange(
     const zc0 = s > 0 && beside ? beside.z + dK!.wallZ + 0.5 : dN.wallZ + 0.5;
     return { s, zc0, zc1: zc0 + 4.3, atPrimary: !(s > 0 && beside) };
   });
-  const cw = beside ? Math.ceil(passages[0].zc1 + 1.7) : 14;
+  // The old outer wall: the structure, and where the exits come up in the street.
+  const outer = beside ? Math.ceil(passages[0].zc1 + 1.7) : 14;
 
   // ── Primary line hall + stairs to the concourse ──
   const st = platformStairs(c, [{ x: 6, up: 1 }, { x: -6, up: -1 }], pfN, cf, dN.wallZ);
+  // The walkable concourse is a spine over the primary, just wide enough for its own stairs (its
+  // long walls stand outside their rails), never under 8 m half width; whatever falls outside
+  // (the transfer stairs, and at Tsumugibashi the beside line's stairs) gets a room of its own.
+  const railZ = Math.max(...st.holes.map((h) => Math.max(Math.abs(h[1]), Math.abs(h[3])))) + 0.08;
+  const sw = Math.max(8, Math.ceil((railZ + 0.2) * 10 - 1e-6) / 10);
+  if (sw > dN.wallZ + 0.5 - 0.1) throw new Error(`${station.id}: no room for the spine wall before the transfer stairs`);
+  const rooms: RoomSpec[] = [];
+  const kz = beside ? [beside.z - 5.5, beside.z + 5.5] : null;
   // Doorways from a side platform straight into the transfer passages. An island primary has
   // track along its walls, so there the passages are reached only from the concourse.
   const gapXs: [number, number][] = dN.island ? [] : [[-24, -20], [-3, 1]];
@@ -361,6 +482,8 @@ function buildInterchange(
   // ── Transfer corridors, one outside each side wall, with stairs down to the deeper line ──
   const holes = [...st.holes];
   const stairsTo: StairInfo[] = [...st.info];
+  const besideStairs: StairInfo[] = [];
+  const bays: RoomSpec[] = [];
 
   // ── The line beside the primary: its own hall, island stairs up into the concourse ──
   if (beside) {
@@ -376,7 +499,19 @@ function buildInterchange(
       });
       holes.push(...sk.holes);
       stairsTo.push(...sk.info);
+      besideStairs.push(...sk.info);
     });
+    // Its own spine over its hall, closed at both ends, joined to the primary's by three cross
+    // passages inside the paid area (just inside each gate line, and one in the middle).
+    const [k0, k1] = kz!;
+    const K = beside.ctx.line;
+    rooms.push({ kind: 'spine', rect: [-26, k0, 26, k1], ja: `改札階コンコース（${K.nameJa}）`, en: `Concourse: ${K.nameEn}`, zone: 'concourse', mouths: [], stairs: besideStairs });
+    for (const xc of [-22, 0, 22]) {
+      rooms.push({
+        kind: 'cross passage', rect: [xc - 2.5, sw + 0.2, xc + 2.5, k0], ja: '連絡通路', en: 'Connecting passage', zone: 'passage',
+        mouths: [{ axis: 'x', at: sw + 0.2, u0: xc - 2.5, u1: xc + 2.5, to: -1 }], stairs: [],
+      });
+    }
   }
 
   for (const { s, zc0, zc1, atPrimary } of passages) {
@@ -401,7 +536,21 @@ function buildInterchange(
       rail(b, 4, zc0 + 0.02, 4 + STAIR_RUN - 1.4, zc0 + 0.1, cf);
       const tr = rect(b, 4, zc0 + 0.1, 4 + STAIR_RUN, zc0 + 3.7);
       holes.push(tr);
-      stairsTo.push(stairInfo(b, o.line, 'transfer', [...o.station.platforms[o.line.id]], tr, 4 + STAIR_RUN + 0.8, zc0 + 1.9, [-1, 0]));
+      const ti = stairInfo(b, o.line, 'transfer', [...o.station.platforms[o.line.id]], tr, 4 + STAIR_RUN + 0.8, zc0 + 1.9, [-1, 0]);
+      stairsTo.push(ti);
+      // Its bay on the concourse level: the stair (rails just inside the walls) and a lobby at its
+      // head, entered by a mouth in the wall beside the head. Off the primary's spine, its wall
+      // being the spine wall (sw … zc0); past the beside line's hall, off that line's spine.
+      // The mouth starts past the primary's own stairwell on this wall (side platforms).
+      const inner = atPrimary ? zc0 : kz![1] + 0.2;
+      const heads = atPrimary ? st.holes.filter((h) => s * (h[1] + h[3]) > 6).map((h) => h[2] + 0.35) : [];
+      const m0 = Math.max(4 + STAIR_RUN + 0.1, ...heads), m1 = m0 + BAY_MOUTH;
+      const br = rect(b, 3.9, inner, m1, zc0 + 3.8);
+      const m = rect(b, m0, inner, m1, inner);
+      bays.push({
+        kind: 'transfer bay', rect: br, ...bayName(o.line), zone: 'passage',
+        mouths: [{ axis: 'x', at: m[1], u0: m[0], u1: m[2], to: atPrimary ? -1 : 0 }], stairs: [ti],
+      });
       // Stairs + escalator down to the other line's island platform.
       b.with({ rot: 3, t: [0, 0, zc1 + runY] }, () => islandUnit(b, pfY, pfN, runY, null));
       const shaftTop = pfN + 2.8, shaftBase = pfY + 4.5 + SLAB;
@@ -426,7 +575,9 @@ function buildInterchange(
       const pi = { b, station, style: cs, wall, floor: cs.floor, pf: pfN, zc0, zc1, other: o.line };
       b.protect(-1.9, pfN + 2.3, zc1 - 0.3, 1.9, pfN + 2.8, zc1);
       b.protect(2.5, pfN + 2.2, zc0, 3.5, pfN + 2.8, zc1);
-      wayfindPassage(pi, { primary: line, doorways: atPrimary ? gapXs : [] });
+      const pc = { primary: line, doorways: atPrimary ? gapXs : [] };
+      wayfindPassage(pi, pc);
+      floorPassage(pi, pc);
       b.guard(() => lookFor(station.id).passage?.(pi));
     });
   }
@@ -449,20 +600,26 @@ function buildInterchange(
   });
 
   // ── Concourse ──
+  // A kiosk in the middle of the paid area where the spine has room round it (over side
+  // platforms; over an island the stairs are on the axis).
+  const kiosk = !dN.island;
   concourse(c, {
-    cf, cw, x0: cx0, x1: cx1, holes, pillarZ: 3.2, solids: [[-2.4, -1.4, 2.4, 1.4]], stairs: stairsTo,
+    cf, cw: sw, x0: cx0, x1: cx1, holes, pillarZ: dN.island ? islandPillarZ(sw) : 3.4, solids: kiosk ? [[-2.4, -1.4, 2.4, 1.4]] : [], stairs: stairsTo,
     ends: [
       { g: 29, hi: true, nums: ['1', '2'] },
       { g: -29, hi: false, nums: ['3', '4'] },
     ],
+    // The street does not move: the exits keep their old places by corridors through the structure.
+    ext: outer - sw, footprint: outer, rooms: [...rooms, ...bays],
   });
-  // Kiosk in the paid area.
-  b.box('flat:#f4f1e6', -2.4, cf, -1.4, 2.4, cf + 2.5, 1.4);
-  for (const s of [-1, 1] as const) {
-    b.sign({ k: 'shop', ja: 'マルホシ キオスク', en: 'Maruhoshi Kiosk', bg: '#0b8f6a', fg: '#fff' }, 0, cf + 2.2, s * 1.42, [0, s], 4.6, 0.55);
-    b.deco('glassDark', -2.2, cf + 0.9, s * 1.41, 2.2, cf + 1.9, s * 1.43);
+  if (kiosk) {
+    b.box('flat:#f4f1e6', -2.4, cf, -1.4, 2.4, cf + 2.5, 1.4);
+    for (const s of [-1, 1] as const) {
+      b.sign({ k: 'shop', ja: 'マルホシ キオスク', en: 'Maruhoshi Kiosk', bg: '#0b8f6a', fg: '#fff' }, 0, cf + 2.2, s * 1.42, [0, s], 4.6, 0.55);
+      b.deco('glassDark', -2.2, cf + 0.9, s * 1.41, 2.2, cf + 1.9, s * 1.43);
+    }
   }
-  surface(b, spec.surface, cw, { ja: station.nameJa, en: station.nameRomaji });
+  surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji });
 }
 
 /**

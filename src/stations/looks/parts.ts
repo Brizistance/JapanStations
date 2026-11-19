@@ -13,6 +13,9 @@
 //   Everything overhead and on walls is decoration only.
 // - Wall finishes stack at small insets so nothing is coplanar: dado 0.008, trims 0.014, the
 //   kit's posters and fare board 0.02, our posters 0.03.
+// - Any other wall (a room's `faces`, a stairwell's outer walls from `stairwellFaces`) is dressed
+//   with `faceDado` / `facePosters` / `dressFace`. Service elements (`serviceDoor`, `shutter`,
+//   `ventGrille`, `hoseCabinet`, `meterCupboard`) go on a long wall or any `Face`.
 
 import type { StationDef } from '../../data/types';
 import { linesAt } from '../../data/network';
@@ -21,7 +24,7 @@ import { vending } from '../kit';
 import { SPECS } from '../specs';
 import { themeFor } from '../themes';
 import { hash, shade } from '../themes/types';
-import type { ConcInfo, ExitInfo, PassageInfo } from './types';
+import type { ConcInfo, ExitInfo, PassageInfo, Rect, Stairwell, WallFace } from './types';
 
 type Has = { b: Builder };
 export type Wall = 1 | -1;
@@ -87,6 +90,11 @@ export const SHOPS = {
   komeya: { ja: 'おむすび こめ屋', en: 'Omusubi Komeya', bg: '#f4efe2', fg: '#2f3a2c', kind: 'bento' },
   shirasagi: { ja: '白鷺茶房', en: 'Shirasagi Tea Room', bg: '#4a5d3a', fg: '#f1ead8', kind: 'cafe' },
   tsubakiShobo: { ja: 'つばき書房', en: 'Tsubaki Shobō', bg: '#7a2a32', fg: '#fbe9d0', kind: 'books' },
+  // Corridor frontage (default look at interchange spines).
+  kawasemi: { ja: 'くつ修理 かわせみ', en: 'Kawasemi Shoe Repair', bg: '#2b5d7c', fg: '#fff', kind: 'goods' },
+  tanpopo: { ja: 'クリーニング たんぽぽ', en: 'Tanpopo Cleaning', bg: '#f6d743', fg: '#1b3a5c', kind: 'goods' },
+  ginnando: { ja: 'せんべい 銀杏堂', en: 'Ginnan-dō Rice Crackers', bg: '#8a5a2b', fg: '#fbe9d0', kind: 'sweets' },
+  mizuha: { ja: 'みずはモバイル', en: 'Mizuha Mobile', bg: '#00897b', fg: '#fff', kind: 'goods' },
 } satisfies Record<string, Brand>;
 
 /** All brands of one kind. */
@@ -133,11 +141,11 @@ export function cut(span: Span, gaps: Span[] = []): Span[] {
   return out.filter(([a, c]) => c - a > 0.05);
 }
 
-/** Exit doorways in the long walls, as x-ranges (both walls; see ConcInfo.ends). */
-export const doorways = (i: ConcInfo): Span[] => i.ends.map((e): Span => (e.hi ? [e.g + 9, e.g + 13] : [e.g - 13, e.g - 9]));
+/** Every gap in the long walls (exit doorways and room mouths), as x-ranges, either wall (see ConcInfo.openings). */
+export const doorways = (i: ConcInfo): Span[] => i.openings.map((o): Span => [o.x0, o.x1]);
 
-/** Where the kit puts the toilets: centred on x on the −z wall. */
-export const toiletX = (i: ConcInfo) => (i.paid[0] + i.paid[1]) / 2 + 3;
+/** Where the kit put the toilets: centred on x on the −z wall (moved off any stairwell or mouth). */
+export const toiletX = (i: ConcInfo) => i.toilets;
 
 /**
  * Try `tryAt(s, x0)` along the walls until it returns true: both walls (the first chosen by
@@ -185,6 +193,8 @@ export interface ShopOpts {
   goods?: string[];
   /** Room kept free in front, checked and claimed (default 1.2). */
   clear?: number;
+  /** Fewer shelves and larger goods (long runs of shops, to keep the part count down). */
+  lite?: boolean;
 }
 
 /** Fascia sign widths come from a few sizes, so sign textures are shared. */
@@ -1038,6 +1048,308 @@ export function posterRow(i: ConcInfo, s: Wall, x0: number, x1: number, o: { pit
       i.b.sign({ k: 'poster', v: v++ % 8 }, x, y, s * (i.cw - 0.03), [0, -s], w, h);
     }
   }
+}
+
+// ── Any wall face: dado and posters ──────────────────────────────────────────────────────────
+//
+// The long-wall helpers above only know the spine's two long walls. These dress any finished
+// vertical face given as a `WallFace` (types.ts: `axis`, `at`, `n` as in `Face`, plus its extent
+// u0 … u1 along `axis`): a room's `faces`, the outer faces of a stairwell (`stairwellFaces`), an
+// end wall, the side of a kiosk. All decoration, nothing checked or claimed; the caller decides
+// where. The insets stack as on the long walls: skirting 0.018, dado 0.008, cap 0.014, frieze
+// 0.012, poster frames 0.008 … 0.022 and posters 0.03 proud.
+
+/** Anything with a builder and a floor height (a ConcInfo, a RoomInfo, an ExitInfo with `cf`…). */
+type Floored = Has & { cf: number };
+
+/**
+ * Skirting, dado, cap rail and an optional frieze along face `f` (as `wallDado` does on a long
+ * wall), from `o.from` … `o.to` within the face, leaving out `o.gaps` (spans along the face, e.g.
+ * where it runs beside a stair opening or a portal's jamb).
+ */
+export function faceDado(i: Floored, f: WallFace, o: DadoOpts & { gaps?: Span[] }) {
+  const top = o.top ?? 1.0, { b, cf } = i;
+  const a = Math.max(f.u0, o.from ?? -Infinity), c = Math.min(f.u1, o.to ?? Infinity);
+  if (c - a < 0.1) return;
+  for (const [p, q] of cut([a, c], o.gaps)) {
+    fbox(b, f, o.skirting ?? 'flat:#4b4d50', p, q, cf, cf + 0.13, 0, 0.018);
+    fbox(b, f, o.mat, p, q, cf + 0.13, cf + top, 0, 0.008);
+    if (o.cap) fbox(b, f, o.cap, p, q, cf + top, cf + top + 0.05, 0, 0.014);
+    if (o.frieze) fbox(b, f, o.frieze, p, q, cf + (o.friezeY?.[0] ?? 2.48), cf + (o.friezeY?.[1] ?? 2.56), 0, 0.012);
+  }
+}
+
+export interface FacePosterOpts {
+  /** Centre-to-centre spacing (default 3). */
+  pitch?: number;
+  /** Poster size (default 1.25 × 1.75) and centre height above the floor (1.55). */
+  w?: number;
+  h?: number;
+  y?: number;
+  /** Dark bezel and a lit top edge (new lines). */
+  digital?: boolean;
+  /** First poster design (0 … 7); the next ones follow on. */
+  v0?: number;
+  /** At most this many (default no limit). */
+  max?: number;
+  /** Spans along the face to keep clear (each grown 0.2). */
+  gaps?: Span[];
+  /** Keep this far in from the face's ends (default 0.3). */
+  margin?: number;
+}
+
+/**
+ * Framed posters along face `f`, every `pitch` m, centred as a group on the face, skipping
+ * `gaps`. Returns how many were placed.
+ */
+export function facePosters(i: Floored, f: WallFace, o: FacePosterOpts = {}): number {
+  const { b, cf } = i;
+  const pitch = o.pitch ?? 3, w = o.w ?? 1.25, h = o.h ?? 1.75, y = cf + (o.y ?? 1.55), m = o.margin ?? 0.3;
+  const a = f.u0 + m + w / 2, c = f.u1 - m - w / 2;
+  if (c < a - 1e-6) return 0;
+  const n = Math.min(o.max ?? Infinity, Math.floor((c - a) / pitch) + 1);
+  const start = (a + c) / 2 - ((n - 1) * pitch) / 2;
+  let v = o.v0 ?? Math.floor(hash(Math.round(f.at * 7 + f.u0 * 3)) * 8), placed = 0;
+  for (let k = 0; k < n; k++) {
+    const u = start + k * pitch;
+    if ((o.gaps ?? []).some(([p, q]) => u + w / 2 > p - 0.2 && u - w / 2 < q + 0.2)) continue;
+    const [px, pz] = fpt(f, u, o.digital ? 0.05 : 0.03);
+    if (o.digital) {
+      fbox(b, f, 'flat:#16181b', u - w / 2 - 0.07, u + w / 2 + 0.07, y - h / 2 - 0.07, y + h / 2 + 0.12, 0.008, 0.045);
+      fbox(b, f, 'glow:#9fd3ff', u - w / 2, u + w / 2, y + h / 2 + 0.05, y + h / 2 + 0.08, 0.045, 0.05);
+    } else fbox(b, f, 'flat:#c9c9c4', u - w / 2 - 0.04, u + w / 2 + 0.04, y - h / 2 - 0.04, y + h / 2 + 0.04, 0.008, 0.022);
+    b.sign({ k: 'poster', v: v++ % 8 }, px, y, pz, fnormal(f), w, h);
+    placed++;
+  }
+  return placed;
+}
+
+/**
+ * Dress a whole wall face the way the station's long walls are dressed: `faceDado` with the
+ * dado options, then `facePosters` unless `posters` is false. The usual call for a room's faces:
+ * `for (const f of r.faces) dressFace(r, f, { ...dado, posters: { pitch: 3.5, max: 2 } })`.
+ * Returns the number of posters placed.
+ */
+export function dressFace(i: Floored, f: WallFace, o: DadoOpts & { gaps?: Span[]; posters?: FacePosterOpts | false }): number {
+  faceDado(i, f, o);
+  if (o.posters === false) return 0;
+  return facePosters(i, f, { ...o.posters, gaps: [...(o.posters?.gaps ?? []), ...(o.gaps ?? [])] });
+}
+
+/**
+ * The outer faces of a stairwell's own walls that someone in the concourse (or its room) can
+ * see: for each wall box, its face away from the stair, cut to the stretches with open floor in
+ * front (not another stairwell, a stair opening, or outside the area) and kept 0.3 m clear of the
+ * portal's jambs. `end` marks the closed end (across the stair); the others run along it. Empty
+ * where the stairwell uses the concourse's or a room's walls. Never includes the portal or fascia.
+ */
+export function stairwellFaces(i: ConcInfo, w: Stairwell): (WallFace & { end: boolean })[] {
+  const st = w.stair.rect, cx = (st[0] + st[2]) / 2, cz = (st[1] + st[3]) / 2;
+  const alongX = Math.abs(w.stair.down[0]) > 0.5;
+  const area: Rect | undefined = w.room < 0 ? [i.x0, -i.cw, i.x1, i.cw] : i.rooms[w.room]?.rect;
+  if (!area) return [];
+  const inside = (r: Rect, x: number, z: number, m = 0) => x > r[0] - m && x < r[2] + m && z > r[1] - m && z < r[3] + m;
+  const open = (x: number, z: number) =>
+    inside(area, x, z, -0.05) && !i.stairwells.some((q) => inside(q.footprint, x, z)) && !i.holes.some((h) => inside(h, x, z, 0.1));
+  const out: (WallFace & { end: boolean })[] = [];
+  for (const r of w.walls) {
+    const axis: Axis = r[2] - r[0] >= r[3] - r[1] ? 'x' : 'z';
+    const [lo, hi, mid] = axis === 'x' ? [r[1], r[3], cz] : [r[0], r[2], cx];
+    const n: Wall = Math.abs(hi - mid) >= Math.abs(lo - mid) ? 1 : -1;
+    const at = n > 0 ? hi : lo;
+    const [a, d] = axis === 'x' ? [r[0], r[2]] : [r[1], r[3]];
+    // Jambs beside this face, as spans along it, grown 0.3.
+    const jam = w.portal.jambs
+      .filter((j) => (axis === 'x' ? Math.min(Math.abs(j[1] - at), Math.abs(j[3] - at)) : Math.min(Math.abs(j[0] - at), Math.abs(j[2] - at))) < 0.6)
+      .map((j): Span => (axis === 'x' ? [j[0] - 0.3, j[2] + 0.3] : [j[1] - 0.3, j[3] + 0.3]));
+    let s0: number | null = null;
+    const spans: Span[] = [];
+    for (let u = a + 0.125; u < d; u += 0.25) {
+      const [px, pz] = axis === 'x' ? [u, at + n * 0.2] : [at + n * 0.2, u];
+      const ok = open(px, pz) && !jam.some(([p, q]) => u > p && u < q);
+      if (ok && s0 === null) s0 = u - 0.125;
+      if (s0 !== null && (!ok || u + 0.25 >= d)) {
+        spans.push([s0, ok ? d : u - 0.125]);
+        s0 = null;
+      }
+    }
+    const end = (axis === 'x') !== alongX;
+    for (const [p, q] of spans) if (q - p >= 0.8) out.push({ axis, at, n, u0: p, u1: q, end });
+  }
+  return out;
+}
+
+// ── Service elements: what stands between the shops on a busy wall ────────────────────────────
+//
+// Staff doors, closed roller shutters, ventilation grilles, fire-hose cabinets and meter
+// cupboards. All decoration, 0.12 m proud at most, so they can line a corridor without narrowing
+// it. Each goes on a `Face` (or long wall `s` of a ConcInfo) from `u0` along it, and returns
+// false (building nothing) if it does not fit. Where the info object can say what is free (a
+// ConcInfo), it checks the wall strip and `room` m in front of it (default 0.6) and claims the
+// wall strip 0.15 m deep, so later parts (posters, other shops) skip it. Pass `check: false`, or
+// an info object without `free` (a RoomInfo, an ExitInfo), to place it without checks.
+
+type SvcInfo = Has & { cf: number; clear: number; cw?: number; free?: ConcInfo['free']; claim?: ConcInfo['claim'] };
+
+export interface SvcOpts {
+  /** Check `free()` and claim the strip (default true where the info object has `free`). */
+  check?: boolean;
+  /** Floor kept free in front, beyond the 0.12 m it stands out (default 0.6). */
+  room?: number;
+}
+
+const faceOf = (i: SvcInfo, at: Face | Wall): Face | null => (typeof at === 'number' ? (i.cw === undefined ? null : wallFace({ cw: i.cw }, at)) : at);
+
+/** Check and claim a service element's strip on face f, u0 … u1. */
+function svcSpot(i: SvcInfo, f: Face, u0: number, u1: number, o: SvcOpts): boolean {
+  if (o.check === false || !i.free) return true;
+  const [ax, az] = fpt(f, u0, 0), [cx, cz] = fpt(f, u1, 0.12 + (o.room ?? 0.6));
+  if (!i.free(Math.min(ax, cx), Math.min(az, cz), Math.max(ax, cx), Math.max(az, cz))) return false;
+  const [px, pz] = fpt(f, u1, 0.15);
+  i.claim?.(Math.min(ax, px), Math.min(az, pz), Math.max(ax, px), Math.max(az, pz));
+  return true;
+}
+
+/** Labels for staff doors: what is behind them (no fake information: just rooms a station has). */
+export const STAFF_ROOMS: { text: string; sub: string }[] = [
+  { text: '機械室', sub: 'Machine room' },
+  { text: '電気室', sub: 'Electrical room' },
+  { text: '倉庫', sub: 'Store room' },
+  { text: '清掃員控室', sub: 'Cleaning staff' },
+  { text: '駅務室', sub: 'Station staff' },
+  { text: '店舗搬入口', sub: 'Shop deliveries' },
+];
+
+/**
+ * Staff door: a steel frame, one or two flush leaves with the 'staff only' notice (`machine:
+ * 'door'` sign), and optionally a small label above naming the room. `w` is the clear width
+ * (default 1.0, or 1.8 for two leaves); the whole thing is w + 0.16 long, 0.06 proud.
+ */
+export function serviceDoor(
+  i: SvcInfo, at: Face | Wall, u0: number,
+  o: SvcOpts & { w?: number; leaves?: 1 | 2; color?: string; frame?: string; label?: { text: string; sub?: string } | null } = {},
+): boolean {
+  const f = faceOf(i, at);
+  if (!f) return false;
+  const leaves = o.leaves ?? 1, w = o.w ?? (leaves === 2 ? 1.8 : 1.0), u1 = u0 + w + 0.16;
+  if (!svcSpot(i, f, u0, u1, o)) return false;
+  const { b, cf } = i, h = 2.1, frame = o.frame ?? 'metal:#8f959c';
+  const a = u0 + 0.08, c = u1 - 0.08;
+  fbox(b, f, frame, u0, a, cf, cf + h + 0.08, 0, 0.06);
+  fbox(b, f, frame, c, u1, cf, cf + h + 0.08, 0, 0.06);
+  fbox(b, f, frame, a, c, cf + h, cf + h + 0.08, 0, 0.06);
+  fbox(b, f, o.color ?? 'paint:#c9ccd0', a, c, cf, cf + h, 0, 0.03);
+  const lw = (c - a) / leaves;
+  for (let k = 0; k < leaves; k++) {
+    const [sx, sz] = fpt(f, a + (k + 0.5) * lw, 0.036);
+    b.sign({ k: 'machine', v: 'door' }, sx, cf + h / 2, sz, fnormal(f), lw - 0.03, h - 0.02);
+  }
+  if (o.label) {
+    const [lx, lz] = fpt(f, (u0 + u1) / 2, 0.02);
+    b.sign({ k: 'label', text: o.label.text, sub: o.label.sub, fg: '#fff', bg: '#5b6168' }, lx, cf + h + 0.26, lz, fnormal(f), Math.min(1.2, u1 - u0), 0.26);
+  }
+  return true;
+}
+
+/**
+ * Closed shop: a roller shutter pulled down, u0 … u1 (2 m or more), in a shop's opening: the
+ * shutter box at the fascia's foot, ribbed slats down to a bottom bar, guide rails, pilasters,
+ * and the fascia up to the ceiling (or `top`) with the brand's sign, a 'unit to let' notice
+ * (`lease`), or nothing. 0.12 proud.
+ */
+export function shutter(
+  i: SvcInfo, at: Face | Wall, u0: number, u1: number,
+  o: SvcOpts & { brand?: Brand; lease?: boolean; body?: string; slat?: string; top?: number } = {},
+): boolean {
+  const f = faceOf(i, at);
+  if (!f || u1 - u0 < 2) return false;
+  if (!svcSpot(i, f, u0, u1, o)) return false;
+  const { b, cf } = i, fy = cf + FASCIA, top = o.top ?? cf + i.clear;
+  const body = o.body ?? 'flat:#ebe8e0', slat = o.slat ?? 'metal:#b9bdc2';
+  const a = u0 + 0.12, c = u1 - 0.12;
+  // Pilasters and fascia, a brand stripe under it.
+  fbox(b, f, body, u0, a, cf, fy, 0, 0.12);
+  fbox(b, f, body, c, u1, cf, fy, 0, 0.12);
+  fbox(b, f, body, u0, u1, fy, top, 0, 0.12);
+  if (o.brand) fbox(b, f, `flat:${o.brand.bg}`, u0, u1, fy, fy + 0.05, 0.12, 0.128);
+  // Shutter box, curtain, ribs every 0.4 m, bottom bar, guide rails.
+  fbox(b, f, 'metal:#9da2a8', a, c, fy - 0.28, fy, 0, 0.1);
+  fbox(b, f, slat, a, c, cf, fy - 0.28, 0, 0.04);
+  for (let y = cf + 0.4; y < fy - 0.35; y += 0.4) fbox(b, f, 'metal:#a7acb1', a, c, y, y + 0.025, 0.04, 0.05);
+  fbox(b, f, 'flat:#3a3d41', a, c, cf, cf + 0.07, 0.04, 0.07);
+  for (const u of [a, c - 0.06]) fbox(b, f, 'metal:#8f959c', u, u + 0.06, cf, fy - 0.28, 0.04, 0.08);
+  const [sx, sz] = fpt(f, (u0 + u1) / 2, 0.135);
+  const sh = Math.max(0.2, Math.min(0.5, top - fy - 0.12));
+  if (o.brand) {
+    b.sign({ k: 'shop', ja: o.brand.ja, en: o.brand.en, bg: o.brand.bg, fg: o.brand.fg }, sx, (fy + 0.05 + top) / 2, sz, fnormal(f), fasciaW(u1 - u0), sh);
+  } else if (o.lease) {
+    const [lx, lz] = fpt(f, (u0 + u1) / 2, 0.055);
+    b.sign({ k: 'label', text: 'テナント募集', sub: 'Unit to let', fg: '#1b3a5c', bg: '#f4f1e6' }, lx, cf + 1.45, lz, fnormal(f), 1.1, 0.34);
+  }
+  return true;
+}
+
+/**
+ * Ventilation grille in the wall: a frame and slats over a dark opening, `w` × `h` (default
+ * 1.0 × 0.5) with its foot `y` above the floor (default 0.25; a high one sits at about 2.0).
+ * 0.04 proud.
+ */
+export function ventGrille(i: SvcInfo, at: Face | Wall, u0: number, o: SvcOpts & { w?: number; h?: number; y?: number; mat?: string } = {}): boolean {
+  const f = faceOf(i, at);
+  if (!f) return false;
+  const w = o.w ?? 1.0, h = o.h ?? 0.5, y0 = i.cf + (o.y ?? 0.25), mat = o.mat ?? 'metal:#a7acb1';
+  if (!svcSpot(i, f, u0, u0 + w, o)) return false;
+  const { b } = i;
+  // The dark opening sits over any dado (0.008) and cap (0.014); the slats in front of it.
+  fbox(b, f, 'flat:#2b2d30', u0 + 0.04, u0 + w - 0.04, y0 + 0.04, y0 + h - 0.04, 0, 0.018);
+  fbox(b, f, mat, u0, u0 + w, y0, y0 + 0.04, 0, 0.04);
+  fbox(b, f, mat, u0, u0 + w, y0 + h - 0.04, y0 + h, 0, 0.04);
+  fbox(b, f, mat, u0, u0 + 0.04, y0, y0 + h, 0, 0.04);
+  fbox(b, f, mat, u0 + w - 0.04, u0 + w, y0, y0 + h, 0, 0.04);
+  for (let y = y0 + 0.1; y < y0 + h - 0.06; y += 0.08) fbox(b, f, mat, u0 + 0.04, u0 + w - 0.04, y, y + 0.025, 0.018, 0.034);
+  return true;
+}
+
+/**
+ * Fire-hose cabinet (消火栓): a red steel box `w` (0.75) wide from 0.45 to 1.55 above the floor
+ * with its label, a red lamp and an alarm button above. 0.12 proud.
+ */
+export function hoseCabinet(i: SvcInfo, at: Face | Wall, u0: number, o: SvcOpts & { w?: number } = {}): boolean {
+  const f = faceOf(i, at);
+  if (!f) return false;
+  const w = o.w ?? 0.75;
+  if (!svcSpot(i, f, u0, u0 + w, o)) return false;
+  const { b, cf } = i, um = u0 + w / 2;
+  fbox(b, f, 'paint:#c62828', u0, u0 + w, cf + 0.45, cf + 1.55, 0, 0.12);
+  fbox(b, f, 'metal:#9da2a8', um - 0.012, um + 0.012, cf + 0.5, cf + 1.5, 0.12, 0.125);
+  fbox(b, f, 'metal:#9da2a8', u0 + w - 0.12, u0 + w - 0.08, cf + 0.9, cf + 1.1, 0.12, 0.15);
+  const [sx, sz] = fpt(f, um, 0.127);
+  b.sign({ k: 'label', text: '消火栓', sub: 'Fire hose', fg: '#fff', bg: '#c62828' }, sx, cf + 1.32, sz, fnormal(f), w - 0.1, 0.3);
+  // The lamp and the alarm button over it.
+  fbox(b, f, 'glow:#ff3b30', um - 0.07, um + 0.07, cf + 1.7, cf + 1.84, 0, 0.08);
+  fbox(b, f, 'paint:#c62828', um - 0.09, um + 0.09, cf + 1.9, cf + 2.08, 0, 0.06);
+  fbox(b, f, 'flat:#f4f1e6', um - 0.04, um + 0.04, cf + 1.95, cf + 2.03, 0.06, 0.065);
+  return true;
+}
+
+/**
+ * Meter / distribution-board cupboard: a grey steel cupboard `w` (0.9) wide from 0.2 to 1.9
+ * above the floor, two doors, louvres at the foot, a handle and a small label. 0.1 proud.
+ */
+export function meterCupboard(i: SvcInfo, at: Face | Wall, u0: number, o: SvcOpts & { w?: number; mat?: string; label?: { text: string; sub?: string } } = {}): boolean {
+  const f = faceOf(i, at);
+  if (!f) return false;
+  const w = o.w ?? 0.9;
+  if (!svcSpot(i, f, u0, u0 + w, o)) return false;
+  const { b, cf } = i, um = u0 + w / 2, mat = o.mat ?? 'paint:#c9ccd0';
+  fbox(b, f, mat, u0, u0 + w, cf + 0.2, cf + 1.9, 0, 0.1);
+  fbox(b, f, 'flat:#7f858b', um - 0.006, um + 0.006, cf + 0.22, cf + 1.88, 0.1, 0.104);
+  for (const y of [0.32, 0.42, 0.52]) fbox(b, f, 'flat:#7f858b', u0 + 0.1, u0 + w - 0.1, cf + y, cf + y + 0.03, 0.1, 0.106);
+  fbox(b, f, 'metal:#7f858b', um + 0.05, um + 0.08, cf + 1.0, cf + 1.15, 0.1, 0.13);
+  const lab = o.label ?? { text: '分電盤', sub: 'Switchboard' };
+  const [sx, sz] = fpt(f, um, 0.106);
+  b.sign({ k: 'label', text: lab.text, sub: lab.sub, fg: '#1b1b1b', bg: '#f2d16b' }, sx, cf + 1.72, sz, fnormal(f), Math.min(0.7, w - 0.1), 0.2);
+  return true;
 }
 
 // ── Exits (ExitInfo frame: corridor x −4 … 0, z 0 … ext; lobby z ext … ext + 4) ────────────────
