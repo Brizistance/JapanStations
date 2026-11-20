@@ -4,6 +4,7 @@
 
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
 import { CAR_PARK, KONBINI, konbini, type ChainId } from './konbini';
+import { PLACES, place, type PlaceKind } from './places';
 import { kerbGaps, kerbRail, poleLine, roadKit, streetLamp, type LampKind } from './roads';
 import { BUILDING_MODELS } from './buildings';
 import { GROUND_Y, vending } from './kit';
@@ -37,6 +38,8 @@ export interface SurfaceSpec {
    * the main road: `x0` is the lot's low-x edge. A 'ground' shop stands in the base of a block.
    */
   konbini?: { type: 'corner' | 'ground' | 'roadside'; chain: ChainId; side: -1 | 1; x0: number }[];
+  /** Small street places (stations/places.ts), each on its own lot on one side of the main road: `x0` is the lot's low-x edge. */
+  places?: { kind: PlaceKind; side: -1 | 1; x0: number; ja: string; en: string }[];
   /** Blender-built buildings on the lots (stations/buildings.ts) in place of the box ones: business blocks, old shophouses by a canal. */
   models?: boolean;
   /**
@@ -601,6 +604,12 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
             b.model('city', 'mid_k', xm, GY, swOut, 3);
           }
           b.with({ t: [xm, 0, swOut + back] }, () => konbini(b, { type: k.type, chain: k.chain }));
+        }
+        for (const k of spec.places ?? []) {
+          const kw = PLACES[k.kind].w + 0.6;
+          if (k.side !== side || k.x0 < xa || k.x0 + kw > xb) continue;
+          kept.push([k.x0, k.x0 + kw]);
+          b.with({ t: [k.x0 + kw / 2, 0, swOut] }, () => place(b, k));
         }
         if (kept.length) {
           kept.sort((p, q) => p[0] - q[0]);

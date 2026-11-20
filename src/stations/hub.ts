@@ -31,6 +31,9 @@ import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from '.
 import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, stairs, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
 import { BUILDING_MODELS } from './buildings';
+import { fitting } from './fittings';
+import { PLACES, place } from './places';
+import { posterWall, shopAlcove, shopFits, shopPreset, shopRoom } from './shopfronts';
 import { KONBINI, konbini } from './konbini';
 import { kerbGaps, kerbRail, poleLine, roadKit, roadModel, streetLamp } from './roads';
 import { SHOPS, crosswalk, fillModelLots, type Shop } from './surface';
@@ -531,20 +534,161 @@ function floorLines(h: H) {
 
 // ───────────────────────── B1 ─────────────────────────
 
+/** Counts the hub's fronts, to pick the shut ones. */
+let shopN = 0;
 /** A shop front on a wall along x at z, facing `n`, its floor at `y`. */
-function shopFront(h: H, xa: number, xb: number, z: number, n: 1 | -1, s: Shop, y = h.cf) {
+function shopFront(h: H, xa: number, xb: number, z: number, n: 1 | -1, s: Shop, y = h.cf, island = false) {
   const { b } = h;
   // `d` metres out from the wall face, as an ordered z range.
   const dz = (mat: string, x0: number, y0: number, d0: number, x1: number, y1: number, d1: number) =>
     b.deco(mat, x0, y0, Math.min(z + n * d0, z + n * d1), x1, y1, Math.max(z + n * d0, z + n * d1));
-  dz('glow:#f6ead0', xa + 0.45, y + 0.12, 0, xb - 0.45, y + 2.5, 0.02);
-  for (const dy of [0.85, 1.45, 2.05]) dz('flat:#6b5a48', xa + 0.6, y + dy, 0.02, xb - 2.1, y + dy + 0.06, 0.05);
-  dz('flat:#3a2f28', xb - 1.8, y, 0.02, xb - 0.6, y + 2.2, 0.05);
-  dz('glass', xa + 0.45, y + 0.12, 0.08, xb - 0.45, y + 2.5, 0.1);
-  for (const x of [xa + 0.3, xb - 0.45]) dz(TIMBER, x, y, 0, x + 0.15, y + 2.5, 0.14);
-  dz(GOLD, xa + 0.2, y + 2.46, 0, xb - 0.2, y + 2.5, 0.15);
-  dz(`flat:${s.bg}`, xa + 0.2, y + 2.5, 0, xb - 0.2, y + 3.3, 0.14);
-  b.sign({ k: 'shop', ...s }, (xa + xb) / 2, y + 2.9, z + n * 0.15, [0, n], Math.min(xb - xa - 0.9, 6.4), 0.66);
+  // The front is the preset for the shop's kind (shopfronts.ts), standing D out from the wall;
+  // about one in nine is shut behind its roller shutter.
+  const D = 0.5, k = shopN++, shut = k % 9 === 5;
+  // Decided once everything else stands: posters where no shop could be behind the wall (a stair,
+  // a passage); else a room to walk into, a counter set back into the wall, or the plain front.
+  b.later(() => {
+    const f = { axis: 'x', at: z, n } as const, u0 = xa + 0.45, u1 = xb - 0.45;
+    // (An island of stalls back to back in the middle of a mall is its own depth: always a shop.)
+    if (!island && !shopFits(b, f, xa, xb, y)) return wallFill(h, f, xa, xb, y, k);
+    for (const x of [xa + 0.3, xb - 0.45]) dz(TIMBER, x, y, 0, x + 0.15, y + 2.5, D + 0.04);
+    dz(GOLD, xa + 0.2, y + 2.46, 0, xb - 0.2, y + 2.5, D + 0.05);
+    dz(`flat:${s.bg}`, xa + 0.2, y + 2.5, 0, xb - 0.2, y + 3.3, D + 0.04);
+    b.sign({ k: 'shop', ...s }, (xa + xb) / 2, y + 2.9, z + n * (D + 0.05), [0, n], Math.min(xb - xa - 0.9, 6.4), 0.66);
+    if (!shut && (shopRoom(b, f, u0, u1, y, 2.46, D, s) || shopAlcove(b, f, u0, u1, y, 2.46, s))) return;
+    shopPreset(b, f, u0, u1, y, 2.46, D, s, shut);
+  });
+}
+
+/**
+ * What a wall gets where no shop could be behind it (a stair or a passage is there): things that
+ * need no depth, one per slot with stone left either side. Services, a lit advert box, a bench
+ * alcove, a pop-up stall a metre out from the wall, or a framed mural, in turn by `k`.
+ */
+function wallFill(h: H, f: { axis: 'x'; at: number; n: 1 | -1 }, xa: number, xb: number, y: number, k: number) {
+  const { b, c } = h, n = f.n, um = (xa + xb) / 2, w = xb - xa;
+  const z = (d: number) => f.at + n * d, N: [number, number] = [0, n];
+  const box = (mat: string, u0: number, u1: number, y0: number, y1: number, d0: number, d1: number) =>
+    b.deco(mat, u0, y + y0, Math.min(z(d0), z(d1)), u1, y + y1, Math.max(z(d0), z(d1)));
+  const solid = (u0: number, u1: number, hh: number, d0: number, d1: number) => b.block(u0, y, Math.min(z(d0), z(d1)), u1, y + hh, Math.max(z(d0), z(d1)));
+  const shopsProp = (id: string, u: number, d: number) => {
+    const dir = b.dir(N);
+    b.out.models.push({ kind: 'shops', id, pos: b.pt(u, y, z(d)), yaw: Math.atan2(-dir[0], -dir[1]) + 0, seed: 0, merge: true });
+  };
+  const label = (text: string, sub: string, bg: string, u: number, yy: number, d: number, lw: number, lh = 0.3) =>
+    b.sign({ k: 'label', text, sub, fg: '#fff', bg }, u, y + yy, z(d), N, lw, lh);
+  if (w < 4.5) return posterWall(b, f, xa + 0.3, xb - 0.3, y, k);
+  switch (k % 7) {
+    case 0: {
+      // Coin lockers.
+      for (const u of [um - 0.8, um + 0.8]) {
+        fitting(b, 'lock_mid', u, y, z(0.3), N);
+        b.sign({ k: 'machine', v: 'locker', era: 'mid' }, u, y + 0.95, z(0.61), N, 1.58, 1.88);
+      }
+      solid(um - 1.6, um + 1.6, 1.9, 0, 0.6);
+      label('コインロッカー', 'Coin lockers', '#2b4c7e', um, 2.25, 0.03, 1.8);
+      break;
+    }
+    case 1: {
+      // Drinks machines and bins.
+      for (const [i, u] of [um - 1.6, um - 0.55, um + 0.5].entries()) vending(b, u, y, z(0.36), N, i % 2 ? 'vending2' : 'vending', 'mid');
+      fitting(b, 'bins_mid', um + 1.75, y, z(0.25), N);
+      solid(um + 1.1, um + 2.4, 0.96, 0.05, 0.45);
+      break;
+    }
+    case 2:
+    case 5: {
+      // A wide lit advert box: three posters in one dark frame (case 5: a framed mural of the district).
+      const hw = Math.min(2.7, w / 2 - 0.8);
+      box('flat:#16181b', um - hw - 0.1, um + hw + 0.1, 0.55, 2.6, 0, 0.07);
+      box('glow:#fff1d6', um - hw, um + hw, 2.5, 2.54, 0.07, 0.08);
+      box(GOLD, um - hw - 0.14, um + hw + 0.14, 0.5, 0.55, 0, 0.09);
+      if (k % 7 === 5) b.sign({ k: 'mural', ...c.style.mural }, um, y + 1.5, z(0.08), N, hw * 2 - 0.1, 1.8);
+      else for (const i of [-1, 0, 1]) b.sign({ k: 'poster', v: Math.abs(k + i + 8) % 8 }, um + (i * hw * 2) / 3, y + 1.5, z(0.08), N, Math.min(1.25, (hw * 2) / 3 - 0.15), 1.75);
+      break;
+    }
+    case 3: {
+      // A bench alcove between two planters.
+      for (const u of [um - 1.0, um + 1.0]) fitting(b, 'cbench_mid', u, y, z(0.45), N);
+      solid(um - 1.9, um + 1.9, 0.45, 0.2, 0.7);
+      for (const u of [um - 2.6, um + 2.6]) prop(b, 'planter', u, y, z(0.65), 0, [0.6, 0.6], 1.2);
+      box(TIMBER, um - 2.0, um + 2.0, 0.9, 2.3, 0, 0.04);
+      box(GOLD, um - 2.0, um + 2.0, 2.3, 2.34, 0, 0.05);
+      b.sign({ k: 'poster', v: Math.abs(k) % 8 }, um, y + 1.6, z(0.05), N, 1.0, 1.3);
+      break;
+    }
+    case 4: {
+      // A pop-up stall a metre out from the wall: it needs no room behind it.
+      const pick = [['cart', '季節の和菓子', 'Seasonal sweets', '#6a1b3a', 0.8, 2.1], ['lotto', '宝くじ', 'Lottery', '#c62828', 1.0, 2.3], ['bentotable', '駅弁', 'Station bento', '#8a2b18', 0.7, 2.0]] as const;
+      const [id, ja, en, bg, dp, hh] = pick[Math.floor(k / 7) % 3];
+      shopsProp(id, um, 1.1);
+      solid(um - 0.95, um + 0.95, hh, 1.1 - dp / 2, 1.1 + dp / 2);
+      if (id === 'lotto') label(ja, en, bg, um, 2.15, 1.1 + dp / 2 + 0.03, 1.2, 0.26);
+      else if (id === 'cart') label(ja, en, bg, um, 1.35, 1.1 + dp / 2 + 0.01, 1.2, 0.24);
+      else label(ja, en, bg, um, 1.8, 1.1 - dp / 2 + 0.06, 1.6, 0.34);
+      posterWall(b, f, um - 1.2, um + 1.2, y, k);
+      break;
+    }
+    default: {
+      // Cash machines.
+      box('flat:#f4f4f0', um - 1.3, um + 1.3, 0, 2.5, 0, 0.5);
+      box('flat:#0d3b66', um - 1.3, um + 1.3, 2.2, 2.5, 0.5, 0.51);
+      label('川湊信用金庫 ATM', 'Kawaminato Shinkin Bank', '#0d3b66', um, 2.35, 0.515, 2.2, 0.24);
+      for (const u of [um - 0.7, um + 0.7]) {
+        box('paint:#c9ccd0', u - 0.4, u + 0.4, 0, 1.0, 0.5, 0.95);
+        box('paint:#c9ccd0', u - 0.4, u + 0.4, 1.0, 1.6, 0.5, 0.7);
+        box('glow:#bfe4ff', u - 0.28, u + 0.28, 1.1, 1.45, 0.7, 0.71);
+        box('flat:#3a3d41', u - 0.2, u + 0.2, 0.98, 1.0, 0.72, 0.9);
+      }
+      for (const u of [um - 1.3, -0.04 + um, um + 1.22]) box('flat:#d6d9dc', u, u + 0.08, 0, 2.2, 0.5, 1.0);
+      solid(um - 1.3, um + 1.3, 2.5, 0, 0.95);
+    }
+  }
+}
+
+/**
+ * More islands of stalls back to back, wherever a passage or hall on B1 is wide enough to keep 3 m
+ * of walkway either side: nothing solid, no stair, no floor guide line and no hanging sign in the
+ * way. Run at the end of the build (Builder.later), when all of that exists.
+ */
+function moreIslands(h: H) {
+  const { b, cf } = h, top = cf + H1, L = 7, W = 3, side = 3.2, endGap = 3.5;
+  const hit = (lo: number[], hi: number[], mn: number[], mx: number[]) => [0, 1, 2].every((a) => mn[a] < hi[a] && mx[a] > lo[a]);
+  const clear = (x0: number, z0: number, x1: number, z1: number, alongX: boolean) => {
+    const g: [number, number, number, number] = alongX ? [x0 - endGap, z0 - side, x1 + endGap, z1 + side] : [x0 - side, z0 - endGap, x1 + side, z1 + endGap];
+    const lo = [g[0], cf - 0.005, g[1]], hi = [g[2], cf + 2.6, g[3]];
+    // Solids above the floor, floor decals (guide lines, tactile paving), stairs, signs.
+    if (b.out.boxes.some((q) => hit(lo, hi, q.min, q.max) && (q.solid ? q.max[1] > cf + 0.1 : q.max[1] < cf + 0.06))) return false;
+    if (b.out.ramps.some((r) => r.x0 < hi[0] && r.x1 > lo[0] && r.z0 < hi[2] && r.z1 > lo[2] && r.yLow < cf + 3 && r.yHigh > cf - 1)) return false;
+    if (b.out.models.some((m) => [0, 2].every((a) => m.pos[a] > lo[a] && m.pos[a] < hi[a]) && Math.abs(m.pos[1] - cf) < 3)) return false;
+    return !b.out.signs.some((s) => s.pos[0] > x0 - 1 && s.pos[0] < x1 + 1 && s.pos[2] > z0 - 1 && s.pos[2] < z1 + 1 && s.pos[1] > cf - 0.1 && s.pos[1] < top + 1);
+  };
+  let made = 0;
+  for (const zn of [...b.out.zones]) {
+    if (zn.kind === 'platform' || zn.kind === 'street' || Math.abs(zn.min[1] - (cf - 0.2)) > 0.4 || made >= 8) continue;
+    const dx = zn.max[0] - zn.min[0], dz = zn.max[2] - zn.min[2], alongX = dx >= dz;
+    if (Math.min(dx, dz) < W + 2 * side || Math.max(dx, dz) < L + 2 * endGap) continue;
+    const a0 = alongX ? zn.min[0] : zn.min[2], a1 = alongX ? zn.max[0] : zn.max[2];
+    const centre = alongX ? (zn.min[2] + zn.max[2]) / 2 : (zn.min[0] + zn.max[0]) / 2, half = Math.min(dx, dz) / 2;
+    // Down the middle if it is free, else to one side of it (the middle often carries the tactile path).
+    const offs = [0, 4.5, -4.5, 6, -6].filter((o) => Math.abs(o) + W / 2 + side <= half);
+    for (let a = a0 + endGap; a + L <= a1 - endGap && made < 8; a += 2) {
+      const at = (o: number): [number, number, number, number] => (alongX ? [a, centre + o - W / 2, a + L, centre + o + W / 2] : [centre + o - W / 2, a, centre + o + W / 2, a + L]);
+      const off = offs.find((o) => clear(...at(o), alongX));
+      if (off === undefined) continue;
+      const mid = centre + off;
+      made++;
+      const build = () => {
+        b.box(TIMBER, 0, cf, -W / 2, L, top, W / 2);
+        b.deco(BORDER, -0.5, cf, -W / 2 - 0.5, L + 0.5, cf + 0.006, W / 2 + 0.5);
+        shopFront(h, 0, L, W / 2, 1, SHOPS[shopK++ % SHOPS.length], cf, true);
+        shopFront(h, 0, L, -W / 2, -1, SHOPS[shopK++ % SHOPS.length], cf, true);
+      };
+      if (alongX) b.with({ t: [a, 0, mid] }, build);
+      else b.with({ rot: 1, t: [mid, 0, a] }, build);
+      a += L + 9;
+    }
+  }
 }
 
 /** Shop counter shared by every row, so no two neighbours repeat. */
@@ -568,10 +712,8 @@ function gates(h: H, n: number, z0: number, z1: number, screen = true) {
   const first = (-(n - 1) / 2) * 1.05, edge = -first + 0.12;
   for (let i = 0; i < n; i++) {
     const z = first + i * 1.05;
-    b.box('metal:#c4c8cc', -0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
-    b.deco('flat:#3a3f45', -0.8, cf + 1.0, z - 0.13, 0.8, cf + 1.03, z + 0.13);
-    b.deco('glow:#29a9ff', 0.42, cf + 1.03, z - 0.1, 0.72, cf + 1.05, z + 0.1);
-    b.deco('glow:#29a9ff', -0.72, cf + 1.03, z - 0.1, -0.42, cf + 1.05, z + 0.1);
+    b.block(-0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
+    fitting(b, 'gatecab', 0, cf, z);
     b.deco(i % 3 === 0 ? 'glow:#e53935' : 'glow:#32c86a', 0.78, cf + 0.72, z - 0.06, 0.81, cf + 0.86, z + 0.06);
   }
   for (const [a, e] of [[z0, -edge], [edge, z1]]) {
@@ -873,8 +1015,8 @@ function concourseLevel(h: H, holes: Rect[]) {
       b.box(TIMBER, x, cf, -1.5, x + 7, top, 1.5);
       b.deco(BORDER, x - 0.5, cf, -2, x + 7.5, cf + 0.006, 2);
       b.deco(GOLD, x - 0.01, cf + 3.3, -1.51, x + 7.01, cf + 3.36, 1.51);
-      shopFront(h, x, x + 7, 1.5, 1, SHOPS[shopK++ % SHOPS.length]);
-      shopFront(h, x, x + 7, -1.5, -1, SHOPS[shopK++ % SHOPS.length]);
+      shopFront(h, x, x + 7, 1.5, 1, SHOPS[shopK++ % SHOPS.length], h.cf, true);
+      shopFront(h, x, x + 7, -1.5, -1, SHOPS[shopK++ % SHOPS.length], h.cf, true);
     }
     prop(b, 'totem', 84.5, cf, 0, 0, [0.75, 0.2], 2.2);
     for (const s of [-1, 1] as const) b.sign({ k: 'areamap', station: st.id }, 84.5, cf + 1.31, s * 0.07, [0, s], 1.2, 1.62);
@@ -1361,7 +1503,18 @@ function street(h: H, seed: number, dir: [number, number]) {
     building(b, id, x0 + w / 2, S_FRONT, false);
   };
   const [bk, hq, dp] = [LANDMARKS.bank, LANDMARKS.hq, LANDMARKS.depato];
-  fillModelLots(b, r, -X + 1, hq.x0 - 1, S_FRONT, Z, { tower: true, noBack: true });
+  // West of the tower: a pocket park, the police box and a vending corner on lots of their own.
+  let pe = hq.x0 - 1.5;
+  for (const p of [
+    { kind: 'koban', ja: '北大通交番', en: 'Kita-Ōdōri' }, { kind: 'park', ja: '柳筋ポケットパーク', en: 'Yanagisuji Pocket Park' },
+    { kind: 'vending', ja: 'ドリンクコーナー', en: 'Drinks corner' },
+  ] as const) {
+    const pw = PLACES[p.kind].w;
+    if (pe - pw < -X + 40) break;
+    b.with({ t: [pe - pw / 2, 0, S_FRONT] }, () => place(b, p));
+    pe -= pw + 0.8;
+  }
+  fillModelLots(b, r, -X + 1, pe - 0.5, S_FRONT, Z, { tower: true, noBack: true });
   landmark('hq', hq.x0, hq.w, hq.d, hq.h);
   // A block with a convenience store you can walk into in its base.
   {
@@ -1527,4 +1680,5 @@ export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number,
   details(h);
   shells(h);
   street(h, spec.seed, other.primaryDir);
+  b.later(() => moreIslands(h));
 }

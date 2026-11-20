@@ -21,6 +21,8 @@ import type { StationDef } from '../../data/types';
 import { linesAt } from '../../data/network';
 import type { Builder } from '../../world/builder';
 import { vending } from '../kit';
+import { posterWall, shopExtras, shopFits, shopPreset, shopRoom } from '../shopfronts';
+import { eraOf as fitEra, era as curEra, fitting } from '../fittings';
 import { SPECS } from '../specs';
 import { themeFor } from '../themes';
 import { hash, shade } from '../themes/types';
@@ -251,6 +253,12 @@ type FaceShop = Omit<ShopOpts, 's' | 'clear'> & {
   top?: number;
   /** Fewer shelves and larger goods (islands, to keep the part count down). */
   lite?: boolean;
+  /** The face is a wall with ground behind it, so the shop may become a room (shopfronts.ts shopRoom). */
+  wallBehind?: boolean;
+  /** Internal: the fascia and pilasters are drawn already. */
+  restOnly?: boolean;
+  /** Internal: the wall is known to have room for a shop behind it. */
+  fits?: boolean;
 };
 
 /**
@@ -261,6 +269,15 @@ type FaceShop = Omit<ShopOpts, 's' | 'clear'> & {
 function shopFace(i: Has & { cf: number; clear: number }, f: Face, o: FaceShop) {
   const { b, cf } = i;
   const { x0, x1, brand } = o;
+  // On a wall, the shop stands only if one could be behind it (no stair or passage within 3 m);
+  // otherwise posters. Settled when the build ends, when every stair and passage exists.
+  if (o.wallBehind && !o.fits) {
+    b.later(() => {
+      if (shopFits(b, f, x0, x1, cf)) shopFace(i, f, { ...o, fits: true });
+      else posterWall(b, f, x0 + 0.3, x1 - 0.3, cf, Math.round(x0));
+    });
+    return;
+  }
   const d = o.depth ?? 0.3, front = o.front ?? 'glazed';
   const top = o.top ?? cf + i.clear, fy = cf + FASCIA;
   const body = o.body ?? 'flat:#ebe8e0';
@@ -269,6 +286,7 @@ function shopFace(i: Has & { cf: number; clear: number }, f: Face, o: FaceShop) 
   const box = (mat: string, u0: number, u1: number, y0: number, y1: number, d0: number, d1: number, solid = false) => fbox(b, f, mat, u0, u1, y0, y1, d0, d1, solid);
   const lite = !!o.lite, pitch = lite ? 1.4 : 0.9;
 
+  if (!o.restOnly) {
   // Fascia and sign, a brand-colour stripe under it, pilasters at both ends.
   box(body, x0, x1, fy, top, 0, d);
   box(`flat:${brand.bg}`, x0, x1, fy, fy + 0.06, d, d + 0.01);
@@ -278,11 +296,23 @@ function shopFace(i: Has & { cf: number; clear: number }, f: Face, o: FaceShop) 
   b.sign({ k: 'shop', ja: brand.ja, en: brand.en, bg: brand.bg, fg: brand.fg }, sx, sy, sz, fnormal(f), fasciaW(x1 - x0), sh);
   box(body, x0, xa, cf, fy, 0, d, true);
   box(body, xb, x1, cf, fy, 0, d, true);
+  }
+  // A wide glazed shop on a wall may become a room to walk into; that is settled when the build ends.
+  if (!o.restOnly && o.wallBehind && front === 'glazed' && !lite && !o.goods && o.door !== false && xb - xa >= 5.5) {
+    b.later(() => {
+      if (!shopRoom(b, f, xa, xb, cf, FASCIA, d, brand)) shopFace(i, f, { ...o, restOnly: true });
+    });
+    return;
+  }
   // The back wall inside, and a warm strip light under the fascia.
   box('flat:#f1ebdd', xa, xb, cf, fy, 0, 0.02);
   if (o.glow !== false) box('glow:#fff1d6', xa + 0.1, xb - 0.1, fy - 0.06, fy - 0.02, 0.02, Math.min(0.3, d - 0.06));
 
-  if (front === 'glazed') {
+  if (front === 'glazed' && d >= 0.45 && !o.goods && !lite && o.door !== false) {
+    // Deep enough for the full preset of the shop's kind (shopfronts.ts).
+    shopPreset(b, f, xa, xb, cf, FASCIA, d, brand);
+  } else if (front === 'glazed') {
+    if (!lite) shopExtras(b, f, xa, xb, cf, FASCIA, d, brand, o.door === false ? null : (o.door ?? xb - 0.7));
     box('none', xa, xb, cf, fy, 0, d, true);
     shelves(b, f, xa + 0.1, xb - 0.1, lite ? [cf + 0.7, cf + 1.4] : [cf + 0.55, cf + 1.1, cf + 1.65], 0.02, Math.min(0.45, d - 0.06), goods, 0.3, pitch);
     const door = o.door === false ? null : (o.door ?? xb - 0.7);
@@ -347,7 +377,7 @@ export function shopFront(i: ConcInfo, o: ShopOpts): boolean {
   const [za, zb] = band(i, o.s, 0, d + clear);
   if (o.x1 - o.x0 < 1.2 || !i.free(o.x0, za, o.x1, zb)) return false;
   i.claim(o.x0, za, o.x1, zb);
-  shopFace(i, wallFace(i, o.s), o);
+  shopFace(i, wallFace(i, o.s), { ...o, wallBehind: true });
   return true;
 }
 
@@ -398,9 +428,12 @@ export function lockers(i: ConcInfo, s: Wall, x0: number, n = 2): boolean {
   if (!i.free(x0, za, x0 + w, zb)) return false;
   i.claim(x0, za, x0 + w, zb);
   const { b, cf } = i;
-  wbox(i, s, 'flat:#e9e4d8', x0, x0 + w, cf, cf + 1.9, 0, 0.6, true);
-  wbox(i, s, 'flat:#c9c3b4', x0 - 0.02, x0 + w + 0.02, cf + 1.9, cf + 1.96, 0, 0.62);
-  for (let k = 0; k < n; k++) b.sign({ k: 'machine', v: 'locker' }, x0 + 0.8 + k * 1.6, cf + 0.95, s * (i.cw - 0.61), [0, -s], 1.58, 1.88);
+  const e = fitEra(i.era), [la, lb] = band(i, s, 0, 0.6);
+  b.block(x0, cf, la, x0 + w, cf + 1.9, lb);
+  for (let k = 0; k < n; k++) {
+    fitting(b, `lock_${e}`, x0 + 0.8 + k * 1.6, cf, s * (i.cw - 0.3), [0, -s]);
+    b.sign({ k: 'machine', v: 'locker', era: e }, x0 + 0.8 + k * 1.6, cf + 0.95, s * (i.cw - 0.61), [0, -s], 1.58, 1.88);
+  }
   b.sign({ k: 'label', text: 'コインロッカー', sub: 'Coin lockers', fg: '#fff', bg: '#2b4c7e' }, x0 + w / 2, cf + 2.15, s * (i.cw - 0.03), [0, -s], 1.6, 0.3);
   return true;
 }
@@ -424,8 +457,8 @@ export function vendingRow(i: ConcInfo, s: Wall, x0: number, n = 2, bins = true)
   const w = n * 1.05 + (bins ? 1.4 : 0), [za, zb] = band(i, s, 0, 1.9);
   if (!i.free(x0, za, x0 + w, zb)) return false;
   i.claim(x0, za, x0 + w, zb);
-  for (let k = 0; k < n; k++) vending(i.b, x0 + 0.525 + k * 1.05, i.cf, s * (i.cw - 0.36), [0, -s], (k + Math.round(x0)) % 2 ? 'vending2' : 'vending');
-  if (bins) binSet(i.b, i.cf, x0 + n * 1.05 + 0.75, s * (i.cw - 0.3), 'x');
+  for (let k = 0; k < n; k++) vending(i.b, x0 + 0.525 + k * 1.05, i.cf, s * (i.cw - 0.36), [0, -s], (k + Math.round(x0)) % 2 ? 'vending2' : 'vending', fitEra(i.era));
+  if (bins) binSet(i.b, i.cf, x0 + n * 1.05 + 0.75, s * (i.cw - 0.3), 'x', [0, -s], fitEra(i.era));
   return true;
 }
 
@@ -477,11 +510,23 @@ export function kiosk(i: ConcInfo, x: number, z: number, o: { w?: number; d?: nu
   if (!i.free(x0, z0, x1, z1, m)) return false;
   i.claim(x0 - 1, z0 - 1, x1 + 1, z1 + 1);
   const { b, cf } = i;
-  b.box('flat:#f4f1e6', x0, cf, z0 + 0.15, x1, cf + 2.4, z1 - 0.15);
-  b.deco('flat:#3a3d41', x0 - 0.02, cf, z0 + 0.13, x1 + 0.02, cf + 0.1, z1 - 0.13);
+  const model = w === 3 && d === 1.6;
+  if (model) {
+    // The standard stall is a model (fittings.ts): counters, racks of goods, shelves behind.
+    b.block(x0, cf, z0, x1, cf + 1.0, z1);
+    b.block(x0, cf, z0 + 0.15, x1, cf + 2.4, z1 - 0.15);
+    fitting(b, 'kiosk', x, cf, z);
+  } else {
+    b.box('flat:#f4f1e6', x0, cf, z0 + 0.15, x1, cf + 2.4, z1 - 0.15);
+    b.deco('flat:#3a3d41', x0 - 0.02, cf, z0 + 0.13, x1 + 0.02, cf + 0.1, z1 - 0.13);
+  }
   b.deco(`flat:${brand.bg}`, x0 - 0.05, cf + 1.95, z0 - 0.05, x1 + 0.05, cf + 2.45, z1 + 0.05);
   for (const sd of [-1, 1] as const) {
     const zf = sd > 0 ? z1 : z0;
+    if (model) {
+      b.sign({ k: 'shop', ja: brand.ja, en: brand.en, bg: brand.bg, fg: brand.fg }, x, cf + 2.2, zf + sd * 0.06, [0, sd], fasciaW(w), 0.45);
+      continue;
+    }
     // Counter ledge and the goods racks under it.
     b.box('wood:#9a7650', x0, cf + 0.95, Math.min(zf, zf - sd * 0.15), x1, cf + 1.0, Math.max(zf, zf - sd * 0.15));
     for (let k = 0; k < 4; k++) {
@@ -515,6 +560,11 @@ export function bench(i: ConcInfo, x: number, z: number, o: { axis?: Axis; len?:
   i.claim(x - hx - 0.5, z - hz - 0.5, x + hx + 0.5, z + hz + 0.5);
   const { b, cf } = i, col = o.color ?? '#7f858b';
   b.block(x - hx, cf, z - hz, x + hx, cf + 0.45, z + hz);
+  // The standard length is a model in the line's era, unless the station asked for its own colour.
+  if (len === 1.8 && !o.color) {
+    fitting(b, `cbench_${fitEra(i.era)}`, x, cf, z, ax === 'x' ? [0, -1] : [1, 0]);
+    return true;
+  }
   b.deco(`paint:${col}`, x - hx, cf + 0.4, z - hz, x + hx, cf + 0.46, z + hz);
   for (const k of [-1, 1]) {
     const lx = ax === 'x' ? x + k * (hx - 0.15) : x, lz = ax === 'x' ? z : z + k * (hz - 0.15);
@@ -524,14 +574,10 @@ export function bench(i: ConcInfo, x: number, z: number, o: { axis?: Axis; len?:
 }
 
 /** Three recycling bins in a row (cans, bottles, other), no checks. */
-function binSet(b: Builder, cf: number, x: number, z: number, axis: Axis) {
-  const lids = ['#1565c0', '#2e7d32', '#c62828'];
-  for (let k = 0; k < 3; k++) {
-    const o = (k - 1) * 0.42;
-    const [cx, cz] = axis === 'x' ? [x + o, z] : [x, z + o];
-    b.box('flat:#9aa0a6', cx - 0.19, cf, cz - 0.19, cx + 0.19, cf + 0.9, cz + 0.19);
-    b.deco(`paint:${lids[k]}`, cx - 0.2, cf + 0.9, cz - 0.2, cx + 0.2, cf + 0.96, cz + 0.2);
-  }
+function binSet(b: Builder, cf: number, x: number, z: number, axis: Axis, face?: [number, number], e = curEra()) {
+  const hx = axis === 'x' ? 0.65 : 0.2, hz = axis === 'x' ? 0.2 : 0.65;
+  b.block(x - hx, cf, z - hz, x + hx, cf + 0.96, z + hz);
+  fitting(b, `bins_${e}`, x, cf, z, face ?? (axis === 'x' ? [0, -1] : [1, 0]));
 }
 
 /** Recycling bins (three in a row along `axis`, 1.3 × 0.4), solid. Needs 0.6 m clear. */
@@ -539,7 +585,7 @@ export function bin(i: ConcInfo, x: number, z: number, axis: Axis = 'x'): boolea
   const hx = axis === 'x' ? 0.65 : 0.2, hz = axis === 'x' ? 0.2 : 0.65;
   if (!i.free(x - hx, z - hz, x + hx, z + hz, 0.6)) return false;
   i.claim(x - hx - 0.4, z - hz - 0.4, x + hx + 0.4, z + hz + 0.4);
-  binSet(i.b, i.cf, x, z, axis);
+  binSet(i.b, i.cf, x, z, axis, undefined, fitEra(i.era));
   return true;
 }
 
@@ -1046,7 +1092,8 @@ export function posterRow(i: ConcInfo, s: Wall, x0: number, x1: number, o: { pit
       wbox(i, s, 'glow:#9fd3ff', x - w / 2, x + w / 2, y + h / 2 + 0.05, y + h / 2 + 0.08, 0.045, 0.05);
       i.b.sign({ k: 'poster', v: v++ % 8 }, x, y, s * (i.cw - 0.05), [0, -s], w, h);
     } else {
-      wbox(i, s, 'flat:#c9c9c4', x - w / 2 - 0.04, x + w / 2 + 0.04, y - h / 2 - 0.04, y + h / 2 + 0.04, 0.008, 0.022);
+      if (w === 1.25 && h === 1.75) fitting(i.b, `adframe_${fitEra(i.era)}`, x, y, s * (i.cw - 0.008), [0, -s]);
+      else wbox(i, s, 'flat:#c9c9c4', x - w / 2 - 0.04, x + w / 2 + 0.04, y - h / 2 - 0.04, y + h / 2 + 0.04, 0.008, 0.022);
       i.b.sign({ k: 'poster', v: v++ % 8 }, x, y, s * (i.cw - 0.03), [0, -s], w, h);
     }
   }
@@ -1322,15 +1369,23 @@ export function hoseCabinet(i: SvcInfo, at: Face | Wall, u0: number, o: SvcOpts 
   const w = o.w ?? 0.75;
   if (!svcSpot(i, f, u0, u0 + w, o)) return false;
   const { b, cf } = i, um = u0 + w / 2;
-  fbox(b, f, 'paint:#c62828', u0, u0 + w, cf + 0.45, cf + 1.55, 0, 0.12);
-  fbox(b, f, 'metal:#9da2a8', um - 0.012, um + 0.012, cf + 0.5, cf + 1.5, 0.12, 0.125);
-  fbox(b, f, 'metal:#9da2a8', u0 + w - 0.12, u0 + w - 0.08, cf + 0.9, cf + 1.1, 0.12, 0.15);
-  const [sx, sz] = fpt(f, um, 0.127);
+  // The cabinet, its lamp and alarm button are one model (fittings.ts) when it is the standard width.
+  if (w === 0.75) {
+    const [mx, mz] = fpt(f, um, 0.008);
+    fitting(b, 'hose', mx, cf, mz, fnormal(f));
+  } else {
+    fbox(b, f, 'paint:#c62828', u0, u0 + w, cf + 0.45, cf + 1.55, 0, 0.12);
+    fbox(b, f, 'metal:#9da2a8', um - 0.012, um + 0.012, cf + 0.5, cf + 1.5, 0.12, 0.125);
+    fbox(b, f, 'glow:#ff3b30', um - 0.07, um + 0.07, cf + 1.7, cf + 1.84, 0, 0.08);
+  }
+  const [sx, sz] = fpt(f, um, 0.136);
   b.sign({ k: 'label', text: '消火栓', sub: 'Fire hose', fg: '#fff', bg: '#c62828' }, sx, cf + 1.32, sz, fnormal(f), w - 0.1, 0.3);
-  // The lamp and the alarm button over it.
-  fbox(b, f, 'glow:#ff3b30', um - 0.07, um + 0.07, cf + 1.7, cf + 1.84, 0, 0.08);
-  fbox(b, f, 'paint:#c62828', um - 0.09, um + 0.09, cf + 1.9, cf + 2.08, 0, 0.06);
-  fbox(b, f, 'flat:#f4f1e6', um - 0.04, um + 0.04, cf + 1.95, cf + 2.03, 0.06, 0.065);
+  // A defibrillator cabinet beside it where the wall is free.
+  if (o.check !== false && svcSpot(i, f, u0 + w + 0.2, u0 + w + 0.62, o)) {
+    const [ax, az] = fpt(f, u0 + w + 0.41, 0.008), [lx, lz] = fpt(f, u0 + w + 0.41, 0.215);
+    fitting(b, 'aed', ax, cf, az, fnormal(f));
+    b.sign({ k: 'label', text: 'AED', sub: '自動体外式除細動器', fg: '#fff', bg: '#e8791c' }, lx, cf + 1.53, lz, fnormal(f), 0.4, 0.07);
+  }
   return true;
 }
 

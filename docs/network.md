@@ -155,3 +155,7 @@ interface StationDef {
 ```
 
 What a station **looks like** (layout, finishes, neighbourhood) is separate: `src/stations/specs.ts`.
+
+## Women-only car
+
+`ServicePattern.womenOnly` names the car (1 is the car at the low-x end of the platform) and its hours in seconds of the day. Every line: car 1, 07:00 to 09:30. Signs print "weekdays" as real ones do, but the game clock has no day of the week, so the rule follows the hours every day. Display only: it changes nothing in the simulation, and the trains themselves carry no sticker yet.

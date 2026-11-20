@@ -246,3 +246,5 @@ Shops and posters use invented names only, defined in `src/stations/surface.ts` 
 - **East hills**: university and suburbs — Kawaminato-daigaku-mae (also on the Shiokaze Line), Hibarino
 - **North hills**: residential — Midorizaka
 - **North-east hills**: hillside housing and a new town — Tsukimizaka, Yamabukidai
+
+- Street places (2026-11-20, names not web-checked): 柳筋ポケットパーク Yanagisuji Pocket Park (Kita-Ōdōri), 紬稲荷神社 Tsumugi Inari Shrine (Tsumugibashi), 北大通交番 and 紬橋交番 police boxes.

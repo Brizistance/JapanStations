@@ -249,3 +249,23 @@ To open a shell later: add the line to the network data, replace the hoarding wi
 ## Per-station plans
 
 Every new station gets `Plans/stations/<station-id>/plan.md` before it's built, proposing its layout and its look (see Design rules).
+
+## Default fittings (station kit)
+
+Vending machines, ticket and IC charge machines, coin lockers, benches and bins are Blender models in three eras by the year the line opened (old before 1970, mid to 2005, new after): `tools/blender/build_station.py`, placed by `src/stations/fittings.ts` from the shared parts, so every station gets them. A machine's face is still a drawn sign (`machine`, with `era`). IC card posts (`icPost`) and the slim charge machine (`icCharge`) are modelled but not placed yet.
+
+Also from the kit: ticket gate cabinets with IC pads, fire-hose cabinet with an AED cabinet beside it, platform emergency stop posts, the standard kiosk, poster frames, lift fronts and escalator handrails. Toilets are a room you can walk into (`src/stations/toilets.ts`) behind the concourse's −z wall wherever the ground there is free and the concourse is underground (25 stations); elsewhere the two doors stay. Waiting rooms are unchanged.
+
+## Shop fronts
+
+A shop's front follows what it sells, taken from its name (`frontKind` in `src/stations/shopfronts.ts`): izakaya, noodle bar, cafe, bakery, sweets and bento counter, bookshop, drugstore, florist, gifts, karaoke, convenience store, and offices or banks. Props are models from `tools/blender/build_shops.py`. Kita-Ōdōri's fronts stand 0.5 m out from the wall and about one in nine is shut behind a roller shutter; the shared `shopFace` uses the full preset for glazed fronts at least 0.45 m deep and otherwise adds only the props outside. Where the ground behind the wall is free (underground, nothing solid there), decided at the end of the build (`Builder.later`, `Builder.carve`): one standing noodle bar, one cafe and one bookshop per station become rooms 5 m deep that you walk into (`shopRoom`; fronts at least 5.5 m wide), and at Kita-Ōdōri noodle and sweets counters are set back 1.5 m into the wall (`shopAlcove`).
+
+A shop front stands only where a shop could be behind it (`shopFits`): if a stair, a passage, another hall or anything else you can walk in lies within 3 m behind the wall, the front is replaced by framed posters (`posterWall`). Islands of stalls back to back in a mall are exempt. Decided at the end of the build, for every station.
+
+Tsumugibashi's own shop builder (`deepShop`, `showcase` in `looks/tsumugibashi.ts`) uses the same presets and rules. The silk quarter's trades have their own kinds (silk, kimono, thread, furoshiki, dye). A flat front wide enough for a door is set 0.6 m into the wall (`shopInset`) so the full preset fits; narrower ones are show windows filled with metre-wide display models (`showWindow`, `showWindowFor`). A walk-in silk shop is allowed for (`shopRoom`, kind silk) but no front there is wide enough with free ground yet.
+
+At Kita-Ōdōri a wall that loses its shop gets one thing that needs no depth per slot, stone left either side (`wallFill` in `hub.ts`): lockers, drinks machines, cash machines, a lit advert box or framed mural, a bench alcove with planters, or a pop-up stall a metre out from the wall. `moreIslands` adds islands of stalls only where 3.2 m of walkway stays clear either side and no tactile path, guide line, stair or sign is in the way (one spot today, in Willow Court). The hub's passages use a warm white colour grade (`WARM_HUB` in `render/grade.ts`); its platforms keep their line's grade.
+
+## Platform markings and boards
+
+Every platform door has queue marks on the floor in its line's era (white lines and footprints, yellow boxed lanes, or lanes in the line's colour with chevrons), with the car and door number (`queue` sign, drawn in `src/signs/draw.ts`, placed in `psd()` in `kit.ts`). A car-number sign hangs over each edge per car. Three printed boards stand down the middle of an island platform or hang on a side platform's wall: the timetable by hour, the line's strip map with minutes ahead, and the car guide showing which cars stop by a stair (`src/signs/boards.ts`). All times are read from the timetable. The women-only car's marks and signs are pink and a live notice says whether the rule is in force.

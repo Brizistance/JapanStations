@@ -1,5 +1,6 @@
 // Canvas drawing for every sign type. All text comes from the network data.
 
+import { drawCarGuide, drawStrip, drawTimetable, drawWomenOnly } from './boards';
 import { LINES, OPERATOR, STATIONS, diagramRuns, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
@@ -338,12 +339,91 @@ function drawPoster(ctx: Ctx, W: number, H: number, v: number) {
   ctx.strokeRect(0, 0, W, H);
 }
 
-function drawMachine(ctx: Ctx, W: number, H: number, v: string) {
+function drawMachine(ctx: Ctx, W: number, H: number, v: string, era: 'old' | 'mid' | 'new') {
   const fill = (c: string, x: number, y: number, w: number, h: number) => {
     ctx.fillStyle = c;
     ctx.fillRect(x * W, y * H, w * W, h * H);
   };
-  if (v === 'ticket' || v === 'charge') {
+  if ((v === 'ticket' || v === 'charge') && era !== 'mid') {
+    // Old: a beige front with a grid of fare buttons. New: a dark bezel round one large screen.
+    const old = era === 'old';
+    fill(old ? '#cfc8ad' : '#eceeef', 0, 0, 1, 1);
+    fill(v === 'ticket' ? (old ? '#3d5a47' : '#0d3b66') : '#c2185b', 0, 0, 1, 0.12);
+    text(ctx, v === 'ticket' ? 'きっぷ  Tickets' : 'チャージ  IC Charge', W / 2, H * 0.06, H * 0.055, { align: 'center', color: '#fff', maxW: W * 0.9 });
+    if (old) {
+      fill('#8d8a78', 0.08, 0.17, 0.84, 0.33);
+      for (let i = 0; i < 24; i++) {
+        fill(i % 7 === 3 ? '#e2574c' : '#f3efe0', 0.11 + (i % 6) * 0.135, 0.19 + Math.floor(i / 6) * 0.075, 0.105, 0.055);
+      }
+    } else {
+      fill('#17181b', 0.06, 0.16, 0.88, 0.36);
+      fill('#1f6fd0', 0.08, 0.175, 0.84, 0.33);
+      for (let i = 0; i < 8; i++) fill('#ffffff', 0.11 + (i % 4) * 0.2, 0.24 + Math.floor(i / 4) * 0.12, 0.17, 0.09);
+      fill('#ffd100', 0.08, 0.175, 0.84, 0.035);
+    }
+    fill('#30343a', 0.12, 0.55, 0.3, 0.05);
+    fill('#30343a', 0.55, 0.55, 0.32, 0.03);
+    fill(old ? '#b8b29a' : '#ffd100', 0.55, 0.6, 0.32, 0.02);
+    fill('#1b1e22', 0.2, 0.72, 0.6, 0.1);
+    fill(old ? '#b8b29a' : '#d3d6d9', 0, 0.9, 1, 0.1);
+  } else if ((v === 'vending' || v === 'vending2') && era !== 'mid') {
+    const old = era === 'old';
+    const body = old ? (v === 'vending' ? '#b3392f' : '#e6dcc0') : '#30343a';
+    const cols = ['#e53935', '#fdd835', '#43a047', '#1e88e5', '#6d4c41', '#fb8c00', '#00acc1', '#8e24aa'];
+    fill(body, 0, 0, 1, 1);
+    if (old) {
+      // A small window with two rows of bottles, a row of round buttons, a coin plate.
+      fill('#f1e9d2', 0.06, 0.04, 0.88, 0.1);
+      text(ctx, v === 'vending' ? 'のみもの' : 'たばこ・ガム', W / 2, H * 0.09, H * 0.05, { align: 'center', color: '#5a2a22', maxW: W * 0.8 });
+      fill('#2a2622', 0.08, 0.18, 0.84, 0.34);
+      fill('#f6f1e2', 0.1, 0.195, 0.8, 0.31);
+      for (let r = 0; r < 2; r++) {
+        for (let i = 0; i < 6; i++) fill(cols[(i * 3 + r * 5) % cols.length], 0.13 + i * 0.13, 0.215 + r * 0.15, 0.09, 0.12);
+      }
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = '#d9d2bd';
+        ctx.beginPath();
+        ctx.arc((0.175 + i * 0.13) * W, 0.57 * H, 0.035 * W, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      fill('#c9c2aa', 0.62, 0.64, 0.26, 0.1);
+      fill('#2a2622', 0.7, 0.67, 0.1, 0.012);
+      fill('#2a2622', 0.14, 0.8, 0.72, 0.13);
+    } else {
+      fill('#f6f9fb', 0.05, 0.04, 0.9, 0.52);
+      for (let r = 0; r < 3; r++) {
+        for (let i = 0; i < 9; i++) {
+          fill(cols[(i * 5 + r * 3) % cols.length], 0.075 + i * 0.096, 0.06 + r * 0.165, 0.07, 0.115);
+          fill(r === 2 ? '#e53935' : '#1e88e5', 0.075 + i * 0.096, 0.18 + r * 0.165, 0.07, 0.012);
+        }
+      }
+      fill(v === 'vending' ? '#c62828' : '#1565c0', 0, 0, 1, 0.025);
+      fill('#111', 0.62, 0.6, 0.26, 0.1);
+      fill('#2a7de1', 0.66, 0.62, 0.18, 0.06);
+      fill('#eceeef', 0.12, 0.6, 0.4, 0.1);
+      text(ctx, v === 'vending' ? 'つめた〜い' : 'あったか〜い', W * 0.32, H * 0.65, H * 0.04, { align: 'center', color: '#1b1e22' });
+      fill('#17181b', 0.12, 0.8, 0.76, 0.12);
+    }
+  } else if (v === 'locker' && era !== 'mid') {
+    const old = era === 'old';
+    fill(old ? '#7c8a80' : '#eceeef', 0, 0, 1, 1);
+    const cols4 = old ? 4 : 5, rows = old ? 4 : 3;
+    for (let r = 0; r < rows; r++) {
+      for (let i = 0; i < cols4; i++) {
+        if (!old && i === 2 && r === 1) continue;
+        ctx.strokeStyle = old ? '#4f5b53' : '#aeb3b8';
+        ctx.lineWidth = W * 0.008;
+        ctx.strokeRect((0.02 + (i * 0.98) / cols4) * W, (0.03 + (r * 0.96) / rows) * H, (0.9 / cols4) * W, (0.88 / rows) * H);
+        fill(old ? '#d9d2bd' : '#2a7de1', 0.02 + (i * 0.98) / cols4 + 0.72 / cols4, 0.03 + (r * 0.96) / rows + 0.4 / rows, old ? 0.03 : 0.012, old ? 0.04 : 0.08);
+      }
+    }
+    if (!old) {
+      // The pay panel in the middle door's place: a screen and a card pad.
+      fill('#2b2e33', 0.02 + 1.96 / 5, 0.03 + 0.96 / 3, 0.9 / 5, 0.88 / 3);
+      fill('#1f6fd0', 0.02 + 1.96 / 5 + 0.02, 0.03 + 0.96 / 3 + 0.03, 0.9 / 5 - 0.04, 0.14);
+      fill('#2a7de1', 0.02 + 1.96 / 5 + 0.05, 0.03 + 0.96 / 3 + 0.2, 0.9 / 5 - 0.1, 0.05);
+    }
+  } else if (v === 'ticket' || v === 'charge') {
     fill('#d7dade', 0, 0, 1, 1);
     fill(v === 'ticket' ? '#0d3b66' : '#c2185b', 0, 0, 1, 0.12);
     text(ctx, v === 'ticket' ? 'きっぷ  Tickets' : 'チャージ  IC Charge', W / 2, H * 0.06, H * 0.055, { align: 'center', color: '#fff', maxW: W * 0.9 });
@@ -1949,6 +2029,83 @@ function drawLcd(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'l
  * のりかえ, then the small Japanese and English. Square or wide: the same in a row, or just the
  * arrow and badge (the small badge repeated along a band).
  */
+/**
+ * Queue marks at a platform door (top of the image = the door). The middle third is the way off the
+ * train and stays clear; people wait in a lane either side. Old lines: white lines and footprints.
+ * The years between: yellow boxed lanes. New lines: lanes filled in the line's colour with chevrons,
+ * and arrows in the middle for those getting off. A women-only car's marks are pink.
+ */
+function drawQueue(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'queue' }>) {
+  ctx.clearRect(0, 0, W, H);
+  const pink = '#e85a9b';
+  const col = c.women ? pink : c.era === 'old' ? '#f1f0ea' : c.era === 'mid' ? '#f2c200' : c.color;
+  const lanes: [number, number][] = [[0.03, 0.31], [0.69, 0.97]];
+  const lw = Math.max(2, H * (c.era === 'old' ? 0.055 : 0.035));
+  const num = `${c.car}-${c.door}`;
+  if (c.era === 'old') {
+    ctx.fillStyle = col;
+    for (const [a, e] of lanes) {
+      // Two lines to stand between, and two pairs of footprints.
+      for (const x of [a, e]) ctx.fillRect(W * x - lw / 2, H * 0.08, lw, H * 0.84);
+      for (const y of [0.3, 0.68]) {
+        for (const k of [-1, 1]) {
+          ctx.beginPath();
+          ctx.ellipse(W * ((a + e) / 2) + k * W * 0.022, H * y, W * 0.013, H * 0.075, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    text(ctx, num, W / 2, H * 0.86, H * 0.16, { align: 'center', color: col, weight: 700 });
+    return;
+  }
+  for (const [a, e] of lanes) {
+    if (c.era === 'new') {
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = col;
+      ctx.fillRect(W * a, H * 0.06, W * (e - a), H * 0.88);
+      ctx.globalAlpha = 1;
+      // Chevrons towards the door.
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = lw * 1.3;
+      ctx.lineJoin = 'miter';
+      for (const y of [0.34, 0.56, 0.78]) {
+        ctx.beginPath();
+        ctx.moveTo(W * (a + 0.06), H * (y + 0.07));
+        ctx.lineTo(W * ((a + e) / 2), H * (y - 0.07));
+        ctx.lineTo(W * (e - 0.06), H * (y + 0.07));
+        ctx.stroke();
+      }
+    } else {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = lw;
+      ctx.strokeRect(W * a + lw / 2, H * 0.06 + lw / 2, W * (e - a) - lw, H * 0.88 - lw);
+      ctx.beginPath();
+      ctx.moveTo(W * ((a + e) / 2), H * 0.06);
+      ctx.lineTo(W * ((a + e) / 2), H * 0.94);
+      ctx.stroke();
+    }
+  }
+  if (c.era === 'new') {
+    // Getting off comes first: arrows away from the door down the middle.
+    ctx.fillStyle = '#f1f0ea';
+    for (const y of [0.2, 0.5]) {
+      ctx.beginPath();
+      ctx.moveTo(W * 0.5, H * (y + 0.2));
+      ctx.lineTo(W * 0.43, H * (y + 0.06));
+      ctx.lineTo(W * 0.475, H * (y + 0.06));
+      ctx.lineTo(W * 0.475, H * (y - 0.06));
+      ctx.lineTo(W * 0.525, H * (y - 0.06));
+      ctx.lineTo(W * 0.525, H * (y + 0.06));
+      ctx.lineTo(W * 0.57, H * (y + 0.06));
+      ctx.fill();
+    }
+  }
+  // The car and door number in a plate at the back of the middle.
+  ctx.fillStyle = c.era === 'new' ? '#1b1e22' : col;
+  ctx.fillRect(W * 0.41, H * 0.77, W * 0.18, H * 0.19);
+  text(ctx, num, W / 2, H * 0.865, H * 0.14, { align: 'center', color: c.era === 'new' ? '#ffffff' : '#1b1e22', weight: 700 });
+}
+
 function drawFloormark(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'floormark' }>) {
   const line = c.line ? lineById(c.line) : null;
   const m = Math.min(W, H);
@@ -2009,7 +2166,7 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'faremap': return drawFareMap(ctx, W, H, c);
     case 'shop': return drawShop(ctx, W, H, c);
     case 'poster': return drawPoster(ctx, W, H, c.v);
-    case 'machine': return drawMachine(ctx, W, H, c.v);
+    case 'machine': return drawMachine(ctx, W, H, c.v, c.era ?? 'mid');
     case 'mural': return drawMural(ctx, W, H, c);
     case 'label':
       ctx.fillStyle = c.bg;
@@ -2027,6 +2184,11 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'dest': return drawDest(ctx, W, H, c);
     case 'lcd': return drawLcd(ctx, W, H, c);
     case 'floormark': return drawFloormark(ctx, W, H, c);
+    case 'queue': return drawQueue(ctx, W, H, c);
+    case 'timetable': return drawTimetable(ctx, W, H, c);
+    case 'strip': return drawStrip(ctx, W, H, c);
+    case 'carguide': return drawCarGuide(ctx, W, H, c);
+    case 'womenonly': return drawWomenOnly(ctx, W, H, c);
     case 'signal': return drawSignal(ctx, W, H, c);
     case 'roadsign': return drawRoadSign(ctx, W, H, c.v);
     case 'roadboard': return drawRoadBoard(ctx, W, H, c.rows);
@@ -2058,14 +2220,21 @@ export { isLed, platformTrains } from './departures';
 /** Length of the signal cycle in seconds, and where each road's green, yellow and red fall in it. */
 export const SIGNAL_CYCLE = 60;
 /**
- * State of the signals of one road at sim time t. Main road (axis 0): green 0–25, yellow 25–28,
- * red to 60; the roads crossing it (axis 1) the same, half a cycle later, so there are 2 s of
- * all-red between them. `walk` is the pedestrian head that goes with that traffic: green for the
- * first 20 s, flashing for 5, then red.
+ * State of the signals of one road at sim time t. Main road (axis 0): green 0–25, yellow 25–28, then
+ * its right-turn arrow 28.5–32.5 with red, red to 60. The roads crossing it (axis 1) run half a cycle
+ * later and wait 3 s for that arrow: green 33–55, yellow 55–58, so there are 2 s of all-red before the
+ * main road's green. `walk` is the pedestrian head that goes with that traffic: green until 20 s into
+ * the phase, flashing for 5, then red. `left` is the share of the current walk or wait still to run
+ * (the countdown bars).
  */
-export function signalState(axis: 0 | 1, t: number): { car: 'green' | 'yellow' | 'red'; walk: 'go' | 'flash' | 'stop' } {
+export function signalState(axis: 0 | 1, t: number): { car: 'green' | 'yellow' | 'red'; walk: 'go' | 'flash' | 'stop'; arrow: boolean; left: number } {
   const u = (((t + (axis ? SIGNAL_CYCLE / 2 : 0)) % SIGNAL_CYCLE) + SIGNAL_CYCLE) % SIGNAL_CYCLE;
-  return { car: u < 25 ? 'green' : u < 28 ? 'yellow' : 'red', walk: u < 20 ? 'go' : u < 25 ? 'flash' : 'stop' };
+  const g0 = axis ? 3 : 0;
+  const car = u < g0 ? 'red' : u < 25 ? 'green' : u < 28 ? 'yellow' : 'red';
+  const walk = u < g0 ? 'stop' : u < 20 ? 'go' : u < 25 ? 'flash' : 'stop';
+  const wait = SIGNAL_CYCLE - 25 + g0;
+  const left = walk === 'go' ? (20 - u) / (20 - g0) : walk === 'flash' ? 0 : (u < g0 ? g0 - u : SIGNAL_CYCLE - u + g0) / wait;
+  return { car, walk, arrow: axis === 0 && u >= 28.5 && u < 32.5, left };
 }
 
 function drawSignal(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'signal' }>) {
@@ -2082,6 +2251,55 @@ function drawSignal(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k:
       ctx.fill();
     });
     return;
+  }
+  if (c.v === 'carv') {
+    // Standing head: red on top, yellow, green at the foot.
+    const lamps: [string, string, boolean][] = [['#ff3524', '#2e0c0a', st.car === 'red'], ['#ffc21a', '#2e2608', st.car === 'yellow'], ['#19f0a8', '#0b2a22', st.car === 'green']];
+    const R = Math.min(W * 0.4, H / 7.4);
+    lamps.forEach(([on, off, lit], i) => {
+      ctx.fillStyle = lit ? on : off;
+      ctx.beginPath();
+      ctx.arc(W / 2, H * (0.18 + i * 0.32), R, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    return;
+  }
+  if (c.v === 'arrow') {
+    // The right-turn arrow: a green arrow on a dark lens, lit for its own short phase.
+    const R = Math.min(W, H) * 0.42;
+    ctx.fillStyle = '#0b2a22';
+    ctx.beginPath();
+    ctx.arc(W / 2, H / 2, R, 0, Math.PI * 2);
+    ctx.fill();
+    if (st.arrow) {
+      ctx.strokeStyle = '#19f0a8';
+      ctx.fillStyle = '#19f0a8';
+      ctx.lineWidth = R * 0.24;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.moveTo(W / 2 - R * 0.62, H / 2);
+      ctx.lineTo(W / 2 + R * 0.2, H / 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + R * 0.68, H / 2);
+      ctx.lineTo(W / 2 + R * 0.12, H / 2 - R * 0.42);
+      ctx.lineTo(W / 2 + R * 0.12, H / 2 + R * 0.42);
+      ctx.fill();
+    }
+    return;
+  }
+  if (c.bars) {
+    // Countdown bars down the left edge: red ones count the wait, green ones the time left to cross.
+    const n = 8, lit = Math.ceil(st.left * n);
+    for (const [y0, on, off, active] of [[0.04, '#ff3a28', '#3a1210', st.walk === 'stop'], [0.52, '#19f0a8', '#0c2a20', st.walk === 'go']] as const) {
+      for (let k = 0; k < n; k++) {
+        ctx.fillStyle = active && n - k <= lit ? on : off;
+        ctx.fillRect(W * 0.04, H * (y0 + 0.012 + (k * 0.44) / n), W * 0.13, (H * 0.44) / n - H * 0.012);
+      }
+    }
+    ctx.save();
+    ctx.translate(W * 0.2, 0);
+    ctx.scale(0.8, 1);
   }
   // Pedestrian head: the standing man (red) over the walking man (green), each lit in its colour.
   const blink = Math.floor(clock.time * 2) % 2 === 0;
@@ -2119,6 +2337,7 @@ function drawSignal(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k:
   ctx.fillRect(W * 0.08, H * 0.52, W * 0.84, H * 0.44);
   man(H * 0.27, st.walk === 'stop' ? '#ff3a28' : '#3a1210', false);
   man(H * 0.75, st.walk === 'go' || (st.walk === 'flash' && blink) ? '#19f0a8' : '#0c2a20', true);
+  if (c.bars) ctx.restore();
 }
 
 function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { k: 'roadsign' }>['v']) {

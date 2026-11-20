@@ -33,6 +33,9 @@ export const OUTDOOR: Grade = { warmth: 0.25, tint: 0, sat: 1.06, contrast: 0.08
 /** Generic underground: cool fluorescent, a little more contrast. */
 export const UNDERGROUND: Grade = { warmth: -0.3, tint: -0.1, sat: 0.97, contrast: 0.14, fade: 0.008, shadow: [0, 0.004, 0.01], exposure: 1 };
 
+/** Kita-Ōdōri's own passages and halls: warm white light on stone and brass. */
+export const WARM_HUB: Grade = { warmth: 0.34, tint: 0.02, sat: 1.0, contrast: 0.1, fade: 0.004, shadow: [0.006, 0.003, 0], exposure: 1 };
+
 const lineGrades = new Map<string, Grade>();
 /** The underground grade on line `id`'s platforms and trains. */
 export function lineGrade(id: string): Grade {

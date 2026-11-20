@@ -2,6 +2,7 @@
 // "hall-local" coords: +x along the track towards the last stop, origin at the
 // station centre at street level (y = 0).
 
+import type { SignContent } from '../signs/content';
 import type { LineDef, StationDef } from '../data/types';
 import { CAR_PITCH, HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
 import type { Builder } from '../world/builder';
@@ -12,6 +13,7 @@ import { wayfindExit } from './wayfinding';
 import { floorExit } from './floor';
 import { throughExit } from './through';
 import type { HallInfo } from './themes/types';
+import { era, eraOf, fitting, setEra, type Era } from './fittings';
 
 export const PF_H = 1.1; // platform height above rail
 export const CONC_RISE = 4.9; // platform floor → concourse floor
@@ -153,6 +155,11 @@ export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up',
       b.deco(`paint:${line.color}`, xd - half, pf + PSD_FULL_H - 0.14, z - 0.11, xd + half, pf + PSD_FULL_H, z + 0.11);
       b.block(xd - half, pf + 2.12, z - 0.09, xd + half, pf + PSD_FULL_H, z + 0.09);
     }
+    // Queue marks on the floor behind the tactile strip: car and door number, in the line's era.
+    const di = xs.indexOf(xd);
+    const car = Math.floor(di / DOOR_OFFSETS.length) + 1;
+    b.sign({ k: 'queue', car, door: (di % DOOR_OFFSETS.length) + 1, era: eraOf(themeFor(line.id).opened ?? 2000), color: line.color, women: line.service.womenOnly?.car === car },
+      xd, pf + 0.012, zEdge + inward * 1.62, null, 2.7, 1.35, { top: [0, -inward] });
     b.gate({
       x: xd, y: pf, z, along: [1, 0], width: half * 2, height: full ? 2.1 : 1.22, thick: 0.07,
       mat: 'paint:#f3f2ec', window: full, line: line.id, stop: c.stop, track,
@@ -190,6 +197,8 @@ export function ceilingLight(b: Builder, x0: number, x1: number, z0: number, z1:
 }
 
 function bench(b: Builder, x: number, y: number, z: number, color: string) {
+  // Old and new lines have a modelled bench; the years between keep moulded seats in the line's colour.
+  if (era() !== 'mid') return fitting(b, `pbench_${era()}`, x, y, z);
   // Back-to-back seats on a steel beam, the usual island-platform bench.
   b.deco('metal:#7f858b', x - 0.9, y + 0.3, z - 0.04, x + 0.9, y + 0.38, z + 0.04);
   for (const lx of [-0.75, 0.75]) {
@@ -206,12 +215,22 @@ function bench(b: Builder, x: number, y: number, z: number, color: string) {
   }
 }
 
-export function vending(b: Builder, x: number, y: number, z: number, face: [number, number], v: 'vending' | 'vending2' = 'vending') {
-  // Box 1.0 wide, 0.7 deep, 1.83 tall, front towards `face`.
+/** Platform emergency stop button on a yellow post, a staff telephone under it, facing `face`. Solid. */
+function stopPost(b: Builder, x: number, y: number, z: number, face: [number, number]) {
+  fitting(b, 'estop', x, y, z, face);
+  b.block(x - 0.13, y, z - 0.13, x + 0.13, y + 1.6, z + 0.13);
+  b.sign({ k: 'label', text: '非常停止ボタン', sub: 'Emergency stop', fg: '#fff', bg: '#c62828' }, x + face[0] * 0.136, y + 1.565, z + face[1] * 0.136, face, 0.26, 0.09);
+}
+
+export function vending(b: Builder, x: number, y: number, z: number, face: [number, number], v: 'vending' | 'vending2' = 'vending', e: Era = era()) {
+  // 1.0 wide, 0.7 deep, 1.83 tall, front towards `face`: a model (fittings.ts) with its face drawn.
   const [fx, fz] = face;
   const hw = fx !== 0 ? 0.35 : 0.5, hd = fx !== 0 ? 0.5 : 0.35;
-  b.box(v === 'vending' ? 'paint:#c62828' : 'paint:#1565c0', x - hw, y, z - hd, x + hw, y + 1.83, z + hd);
-  b.sign({ k: 'machine', v }, x + fx * 0.36, y + 0.915, z + fz * 0.36, face, 0.98, 1.8);
+  b.block(x - hw, y, z - hd, x + hw, y + 1.83, z + hd);
+  fitting(b, `vend_${v === 'vending' ? 'a' : 'b'}_${e}`, x, y, z, face);
+  // The old cabinet has a rounded top and stands on legs: its face is a panel inside the enamel.
+  if (e === 'old') b.sign({ k: 'machine', v, era: e }, x + fx * 0.36, y + 0.97, z + fz * 0.36, face, 0.9, 1.62);
+  else b.sign({ k: 'machine', v, era: e }, x + fx * 0.36, y + 0.915, z + fz * 0.36, face, 0.98, 1.8);
 }
 
 /** Platform level: track bed, platforms, screen doors, walls, ceiling, signage and furniture. */
@@ -223,6 +242,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   const H = HALL_HALF, P = PLATFORM_HALF;
   const bedY = railY - BED;
   const th = themeFor(line.id);
+  setEra(th.opened ?? 2000);
   // Visible ceiling underside of a segment. Under a concourse it is a hung ceiling, which an
   // old line's theme can drop well below the slab.
   const vis = (s: CeilSeg) => (s.emit || o.elevated ? s.y : Math.min(s.y - 0.05, th.lowCeil ? pf + th.lowCeil : Infinity));
@@ -485,6 +505,44 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       b.hang({ k: 'dir', station: station.id, line: line.id, dir: sd.dir }, x, signY, zc, w, 0.46, { ceil: hangCeil(x) });
     }
   }
+  // Car numbers hung over each platform edge, between a car's second and third doors.
+  for (let k = 0; k < line.service.cars; k++) {
+    const x = (k - (line.service.cars - 1) / 2) * CAR_PITCH + 2.9;
+    if (inBlocks(x, o.blocks, 1.2)) continue;
+    const women = line.service.womenOnly?.car === k + 1;
+    for (const s of [-1, 1]) {
+      const zc = s * (island ? pe - 1.0 : pe + 1.0);
+      b.hang({ k: 'label', text: `${k + 1}号車`, sub: `Car ${k + 1}`, fg: '#fff', bg: women ? '#e85a9b' : '#14233b' }, x, pf + 2.5, zc, 0.62, 0.36, { ceil: hangCeil(x) });
+      // The women-only car's notice, by its first door: its hours and whether it is in force now.
+      if (women && !inBlocks(x - 4.5, o.blocks, 1.2)) b.hang({ k: 'womenonly', line: line.id }, x - 4.5, pf + 2.5, zc, 1.5, 0.42, { ceil: hangCeil(x - 4.5), dynamic: true });
+    }
+  }
+  // Printed boards: the timetable, the line's strip map and the car guide. On an island they stand
+  // back to back down the middle between the benches; on side platforms they hang on the wall.
+  {
+    const cars = line.service.cars;
+    const stairCars = [...new Set(o.blocks.map(([a, e]) => Math.min(cars, Math.max(1, Math.round((a + e) / 2 / CAR_PITCH + (cars - 1) / 2) + 1))))].sort((p, q) => p - q);
+    const spots = [-38.25, -21.25, 21.25, 38.25, -29.75, 29.75].filter((x) => !inBlocks(x, o.blocks, 1.8)).slice(0, 3);
+    const boards: ((dir: 'down' | 'up') => SignContent)[] = [
+      (dir) => ({ k: 'timetable', line: line.id, station: station.id, dir }),
+      (dir) => ({ k: 'strip', line: line.id, station: station.id, dir }),
+      () => ({ k: 'carguide', line: line.id, station: station.id, stairs: stairCars }),
+    ];
+    spots.forEach((x, i) => {
+      const make = boards[i], bw = i === 0 ? 1.7 : 2.5, bh = i === 0 ? 1.5 : 1.15, y0 = pf + (i === 0 ? 0.55 : 0.8);
+      for (const sd of sides) {
+        const s = Math.sign(sd.z);
+        // The face towards this platform's edge (island), or on this platform's wall (side platforms).
+        const zf = island ? s * 0.07 : s * (wallZ - 0.06), n: [number, number] = [0, island ? s : -s];
+        b.deco('flat:#22262b', x - bw / 2 - 0.05, y0 - 0.05, Math.min(zf, zf - n[1] * 0.06), x + bw / 2 + 0.05, y0 + bh + 0.05, Math.max(zf, zf - n[1] * 0.06));
+        b.sign(make(sd.dir), x, y0 + bh / 2, zf + n[1] * 0.006, n, bw, bh);
+      }
+      if (island) {
+        for (const lx of [x - bw / 2 + 0.1, x + bw / 2 - 0.16]) b.deco('metal:#7f858b', lx, pf, -0.03, lx + 0.06, y0, 0.03);
+        b.block(x - bw / 2 - 0.05, pf, -0.1, x + bw / 2 + 0.05, y0 + bh, 0.1);
+      }
+    });
+  }
   // Departure boards: in a deep case and hung lower than the printed signs, so the two never
   // read alike.
   for (const x of [-38, 38, 0]) {
@@ -518,6 +576,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         vending(b, x - 0.55, pf, 0, [0, -1], 'vending');
         vending(b, x + 0.55, pf, 0, [0, 1], 'vending2');
       } else {
+        if (i % 3 === 0 && !inBlocks(x + 1.3, o.blocks, 0.6)) stopPost(b, x + 1.3, pf, 0, [0, i % 2 ? 1 : -1]);
         b.block(x - 0.9, pf, -0.5, x + 0.9, pf + 0.46, 0.5);
         if (th.bench) th.bench(info, x, pf, 0, 0);
         else bench(b, x, pf, 0, style.accent);
@@ -531,6 +590,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         const z = s * (wallZ - 0.45);
         if (i % 4 === 2) vending(b, x, pf, z, [0, -s], s > 0 ? 'vending' : 'vending2');
         else {
+          if (i % 4 === 0 && !inBlocks(x + 1.4, o.blocks, 0.6) && !inGap(s, x + 1.4, 0.6)) stopPost(b, x + 1.4, pf, s * (wallZ - 0.3), [0, -s]);
           b.block(x - 0.9, pf, z - 0.28, x + 0.9, pf + 0.4, z + 0.28);
           if (th.bench) th.bench(info, x, pf, z, s as 1 | -1);
           else {
@@ -617,6 +677,14 @@ export function escalator(b: Builder, o: StairOpts & { dir: 1 | -1 }) {
     b.deco('flat:#e2b100', xa, top - 0.01, o.z0, xa + 0.03, top + 0.004, o.z1);
   }
   balustrade(b, o, 'metal:#b4b9be', o.rails ?? [true, true]);
+  // A black handrail over each balustrade, turning down over a newel at the foot and the head.
+  const rails = o.rails ?? [true, true];
+  for (const [on, zc] of [[rails[0], o.z0 - 0.04], [rails[1], o.z1 + 0.04]] as const) {
+    if (!on) continue;
+    b.slant('flat:#17181b', o.x0, o.yLow + 1.0, zc - 0.045, o.x1, o.yLow + 1.05, zc + 0.045, rise);
+    fitting(b, 'newel', o.x0, o.yLow, zc, [0, -1]);
+    fitting(b, 'newel', o.x1, o.yHigh, zc, [0, 1]);
+  }
   // Direction marker at the boarding end.
   const xb = o.dir > 0 ? o.x0 - 0.5 : o.x1 + 0.1, yb = o.dir > 0 ? o.yLow : o.yHigh;
   b.deco('flat:#1f9d55', xb, yb, o.z0, xb + 0.4, yb + 0.006, o.z1);
@@ -644,10 +712,8 @@ export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear 
   const oz = narrow ? 3.7 : 5.0;
   for (let i = 0; i < n; i++) {
     const z = first + i * 1.05;
-    b.box('metal:#c4c8cc', -0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
-    b.deco('flat:#3a3f45', -0.8, cf + 1.0, z - 0.13, 0.8, cf + 1.03, z + 0.13);
-    b.deco('glow:#29a9ff', 0.42, cf + 1.03, z - 0.1, 0.72, cf + 1.05, z + 0.1);
-    b.deco('glow:#29a9ff', -0.72, cf + 1.03, z - 0.1, -0.42, cf + 1.05, z + 0.1);
+    b.block(-0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
+    fitting(b, 'gatecab', 0, cf, z);
     b.deco(i % 3 === 0 ? 'glow:#e53935' : 'glow:#32c86a', 0.78, cf + 0.72, z - 0.06, 0.81, cf + 0.86, z + 0.06);
   }
   // Fences either side.
@@ -772,9 +838,14 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
 /** Wall-mounted row of ticket machines with the fare board above, along a wall facing +z. */
 export function ticketMachines(c: Ctx, cf: number, x0: number, z: number, count: number) {
   const { b, station } = c;
-  b.box('metal:#b9bdc2', x0 - 0.2, cf, z, x0 + count * 1.05 + 0.2, cf + 1.95, z + 0.6);
+  // Models (fittings.ts): one per machine, the last an IC charge machine with a reader pad, an end panel each side.
+  const e = eraOf(themeFor(c.line.id).opened ?? 2000);
+  b.block(x0 - 0.2, cf, z, x0 + count * 1.05 + 0.2, cf + 1.95, z + 0.6);
+  for (const ex of [x0 - 0.1, x0 + count * 1.05 + 0.1]) fitting(b, `tixend_${e}`, ex, cf, z + 0.3, [0, 1]);
   for (let i = 0; i < count; i++) {
-    b.sign({ k: 'machine', v: i === count - 1 ? 'charge' : 'ticket' }, x0 + 0.525 + i * 1.05, cf + 1.0, z + 0.61, [0, 1], 0.98, 1.8);
+    const ic = i === count - 1;
+    fitting(b, `${ic ? 'tixic' : 'tix'}_${e}`, x0 + 0.525 + i * 1.05, cf, z + 0.3, [0, 1]);
+    b.sign({ k: 'machine', v: ic ? 'charge' : 'ticket', era: e }, x0 + 0.525 + i * 1.05, cf + 1.0, z + 0.61, [0, 1], 0.98, 1.8);
   }
   b.sign({ k: 'faremap', station: station.id }, x0 + (count * 1.05) / 2, cf + 2.46, z + 0.02, [0, 1], count * 1.05 + 0.4, 0.95);
 }

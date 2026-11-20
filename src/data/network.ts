@@ -13,6 +13,8 @@ export const OPERATOR: Operator = {
 };
 
 const baseService: ServicePattern = {
+  // Car 1 is women-only in the morning rush on every line (printed as weekdays; the clock has no weekday).
+  womenOnly: { car: 1, fromS: 7 * 3600, toS: 9.5 * 3600 },
   headwayS: 300,
   dwellS: 25,
   terminalArrivalDwellS: 30,

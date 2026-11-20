@@ -17,7 +17,7 @@ export type SignContent =
   | { k: 'faremap'; station: StationId }
   | { k: 'shop'; ja: string; en?: string; bg: string; fg: string; vertical?: boolean }
   | { k: 'poster'; v: number }
-  | { k: 'machine'; v: 'ticket' | 'vending' | 'vending2' | 'locker' | 'charge' | 'elevator' | 'door' | 'window' }
+  | { k: 'machine'; v: 'ticket' | 'vending' | 'vending2' | 'locker' | 'charge' | 'elevator' | 'door' | 'window'; era?: 'old' | 'mid' | 'new' }
   | { k: 'mural'; v: string; color: string }
   | { k: 'label'; text: string; sub?: string; fg: string; bg: string }
   /**
@@ -46,6 +46,17 @@ export type SignContent =
    * numbers that way (`nums`, のりば / Platforms) or, with `transfer`, のりかえ / Transfer. With
    * neither, a small badge repeated along a line band. `text` / `sub` are free text instead.
    */
+  /**
+   * Where to queue at a platform door, painted on the floor (the image's top is the door): two lanes
+   * either side of the way off the train, the car and door number. The style follows the line's era.
+   */
+  | { k: 'queue'; car: number; door: number; era: 'old' | 'mid' | 'new'; color: string; women?: boolean }
+  /** Printed platform boards (signs/boards.ts): departures by hour, the line as a strip, and which car stops by the stairs. */
+  | { k: 'timetable'; line: LineId; station: StationId; dir: 'down' | 'up' }
+  | { k: 'strip'; line: LineId; station: StationId; dir: 'down' | 'up' }
+  | { k: 'carguide'; line: LineId; station: StationId; stairs: number[] }
+  /** The women-only car notice, live: its hours and whether it is in force now. */
+  | { k: 'womenonly'; line: LineId }
   | { k: 'floormark'; arrow?: Arrow; line?: LineId; text?: string; sub?: string; nums?: number[]; transfer?: boolean }
   /**
    * The lenses of a traffic signal (stations/roads.ts), live from the sim clock: a horizontal
@@ -53,7 +64,11 @@ export type SignContent =
    * `axis` is the road whose traffic it goes with: 0 the main road, 1 the roads crossing it. A
    * pedestrian head has the axis of the traffic that runs parallel to its crosswalk.
    */
-  | { k: 'signal'; v: 'car' | 'ped'; axis: 0 | 1 }
+  /**
+   * Traffic signal lamps, live: a vehicle head lying down ('car') or standing ('carv'), the right-turn
+   * arrow lamp under a main-road head ('arrow'), or a pedestrian head ('ped', with countdown bars if `bars`).
+   */
+  | { k: 'signal'; v: 'car' | 'carv' | 'arrow' | 'ped'; axis: 0 | 1; bars?: boolean }
   /** A road sign's face (the `back-…` ones are the grey backs of the three shapes). Cut out to its shape. */
   | { k: 'roadsign'; v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 'nostopping' | 'crossing' | 'school' | 'hydrant' | 'back-tri' | 'back-round' | 'back-penta' | 'back-diamond' }
   /**

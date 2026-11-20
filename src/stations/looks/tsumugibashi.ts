@@ -27,6 +27,7 @@
 // Everything is derived from the concourse info (rooms, mouths, stairwells, signs already hung);
 // anything that does not fit is left out.
 
+import { posterWall, shopFits, shopInset, shopPreset, shopRoom, showWindow, showWindowFor } from '../shopfronts';
 import type { Builder } from '../../world/builder';
 import {
   cut, exitDado, exitHandrails, faceDado, facePosters, FASCIA, fbox, fnormal, fpt, hash, hoseCabinet, kiosk, meterCupboard,
@@ -363,52 +364,33 @@ function districtGoods(t: T, f: Face, a: number, c: number, sp: Special, d0: num
  * district shops' own displays. Solid over its footprint (the caller has checked and claimed it).
  */
 function deepShop(t: T, f: Face, u0: number, u1: number, s: Shop, era: Era) {
+  const { b, cf } = t;
+  // Settled when the build ends (every stair and passage stands): a blank wall with posters where no
+  // shop could be behind it, else the unit, whose front is the preset for what it sells (shopfronts.ts).
+  b.later(() => b.guard(() => {
+    if (shopFits(b, f, u0, u1, cf)) return deepShopNow(t, f, u0, u1, s, era);
+    fbox(b, f, STYLE[era].fascia, u0, u1, cf, cf + t.clear, 0, 1.0, true);
+    posterWall(b, { ...f, at: f.at + f.n * 1.0 }, u0 + 0.2, u1 - 0.2, cf, Math.round(u0));
+  }));
+}
+function deepShopNow(t: T, f: Face, u0: number, u1: number, s: Shop, era: Era) {
   const { b, cf } = t, top = cf + t.clear, fy = cf + FASCIA, D = 1.0, st = STYLE[era];
   const box = (mat: string, a: number, c: number, y0: number, y1: number, d0: number, d1: number) => fbox(b, f, mat, a, c, y0, y1, Math.max(0.004, d0), d1);
   const w = u1 - u0, a = u0 + 0.12, c = u1 - 0.12;
-  const goods = PALETTES[s.brand.kind];
-  fbox(b, f, 'none', u0, u1, cf, fy, 0, D, true);
   box(st.fascia, u0, u1, fy, top, 0, D);
   box(st.pilaster, u0, a, cf, fy, 0, D);
   box(st.pilaster, c, u1, cf, fy, 0, D);
   box('flat:#f1ebdd', a, c, cf, fy, 0, 0.02);
   const [sx, sz] = fpt(f, (u0 + u1) / 2, D + 0.016);
   b.sign({ k: 'shop', ja: s.brand.ja, en: s.brand.en, bg: s.brand.bg, fg: s.brand.fg }, sx, fy + 0.33, sz, fnormal(f), signW(w), 0.48);
-  if (era === 'old') box('glow:#fff1d6', a + 0.1, c - 0.1, fy - 0.05, fy, 0.6, 0.75);
-  if (s.front === 'glazed') {
-    const door = c - 0.6;
-    for (const [p, q] of cut([a, c], [[door - 0.5, door + 0.5]])) {
-      box('flat:#3a3d41', p, q, cf, cf + 0.3, D - 0.06, D);
-      box('glass', p, q, cf + 0.3, fy, D - 0.024, D - 0.012);
-    }
-    box(st.pilaster, door - 0.5, door + 0.5, cf + 2.1, fy, D - 0.05, D);
-    box('glassTint', door - 0.47, door + 0.47, cf, cf + 2.1, D - 0.027, D - 0.015);
-    if (s.special) districtGoods(t, f, a, door - 0.55, s.special, 0.02, D - 0.03);
-    else shelves(b, f, a + 0.05, door - 0.6, [cf + 1.0], 0.02, 0.45, goods, 0.7);
-  } else if (s.front === 'counter') {
-    box(st.counter, a, c, cf, cf + 0.95, D - 0.5, D);
-    box('wood:#9a7650', a, c, cf + 0.95, cf + 1.0, D - 0.55, D + 0.05);
-    if (s.special) districtGoods(t, f, a, c, s.special, 0.02, 0.4);
-    else shelves(b, f, a + 0.05, c - 0.05, [cf + 1.2, cf + 1.7], 0.02, 0.35, goods, 0.28);
-    if (s.noren) {
-      // Noren inside the front, under the fascia.
-      const n = Math.max(3, Math.round(w / 0.7)), nw = (c - a) / n;
-      box('wood:#5a4636', a, c, fy - 0.04, fy, D - 0.05, D - 0.02);
-      for (let k = 0; k < n; k++) box(`flat:${s.noren}`, a + k * nw + 0.015, a + (k + 1) * nw - 0.015, fy - 0.55, fy - 0.04, D - 0.045, D - 0.03);
-    }
-  } else {
-    box('flat:#6b5a48', a, c, cf, cf + 0.5, D - 0.7, D);
-    box('flat:#6b5a48', a, c, cf + 0.5, cf + 0.85, D - 0.7, D - 0.35);
-    if (s.special) districtGoods(t, f, a, c, s.special, 0.02, D - 0.72);
-    else if (s.brand.kind === 'flowers') {
-      const n = Math.min(7, Math.floor((c - a - 0.3) / 0.45));
-      for (let k = 0; k < n; k++) {
-        const [x, z] = fpt(f, a + 0.3 + k * 0.45, D - 0.18);
-        b.mesh(`flat:${PALETTES.flowers[k % PALETTES.flowers.length]}`, 'sphere', x, cf + 0.68, z, 0.36, 0.3, 0.36);
-      }
-    } else shelves(b, f, a + 0.05, c - 0.05, [cf + 0.5], D - 0.67, D - 0.37, goods, 0.22);
-    if (!s.special) shelves(b, f, a + 0.05, c - 0.05, [cf + 1.3], 0.02, 0.3, goods, 0.3);
+  // A wide front with free ground behind becomes a room to walk into; otherwise the 1 m unit.
+  if (shopRoom(b, f, a, c, cf, FASCIA, D, s.brand)) {
+    fbox(b, f, 'none', u0, a, cf, fy, 0, D, true);
+    fbox(b, f, 'none', c, u1, cf, fy, 0, D, true);
+    return;
   }
+  fbox(b, f, 'none', u0, u1, cf, fy, 0, D, true);
+  shopPreset(b, f, a, c, cf, FASCIA, D, s.brand);
 }
 
 /**
@@ -418,6 +400,14 @@ function deepShop(t: T, f: Face, u0: number, u1: number, s: Shop, era: Era) {
  * the wall (over a dado). `lite` keeps the goods to one shelf.
  */
 function showcase(t: T, f: Face, u0: number, u1: number, s: Shop, era: Era, o: { door?: boolean; top?: number; k?: number; lite?: boolean; depth?: number } = {}) {
+  const { b, cf } = t;
+  // Like the deep units: posters instead where there is no room for a shop behind the wall.
+  b.later(() => b.guard(() => {
+    if (shopFits(b, f, u0, u1, cf)) showcaseNow(t, f, u0, u1, s, era, o);
+    else posterWall(b, { ...f, at: f.at + f.n * (o.k ?? 0) }, u0 + 0.1, u1 - 0.1, cf, Math.round(u0));
+  }));
+}
+function showcaseNow(t: T, f: Face, u0: number, u1: number, s: Shop, era: Era, o: { door?: boolean; top?: number; k?: number; lite?: boolean; depth?: number } = {}) {
   const { b, cf } = t, fy = cf + FASCIA, top = o.top ?? cf + t.clear, k = o.k ?? 0, st = STYLE[era], P = o.depth ?? 0.14;
   const box = (mat: string, a: number, c: number, y0: number, y1: number, d0: number, d1: number) => fbox(b, f, mat, a, c, y0, y1, k + d0, k + d1);
   const a = u0 + 0.1, c = u1 - 0.1;
@@ -426,6 +416,8 @@ function showcase(t: T, f: Face, u0: number, u1: number, s: Shop, era: Era, o: {
   b.sign({ k: 'shop', ja: s.brand.ja, en: s.brand.en, bg: s.brand.bg, fg: s.brand.fg }, sx, (fy + top) / 2, sz, fnormal(f), signW(u1 - u0), Math.max(0.2, Math.min(0.48, top - fy - 0.14)));
   box(st.pilaster, u0, a, cf, fy, 0, P);
   box(st.pilaster, c, u1, cf, fy, 0, P);
+  // A front wide enough for a door is a real shop: a room to walk into, or its front set into the wall.
+  if (!k && o.door && c - a >= 2.4 && (shopRoom(b, f, a, c, cf, FASCIA, P, s.brand) || shopInset(b, f, a, c, cf, FASCIA, s.brand))) return;
   box('flat:#f1ebdd', a, c, cf + 0.3, fy, 0, 0.006);
   if (!o.lite) box('glow:#fff1d6', a + 0.05, c - 0.05, fy - 0.05, fy - 0.02, 0.01, P - 0.04);
   const door = o.door && c - a >= 2.2 ? c - 0.55 : null;
@@ -442,7 +434,10 @@ function showcase(t: T, f: Face, u0: number, u1: number, s: Shop, era: Era, o: {
   }
   const wc = door === null ? c : door - 0.55;
   if (wc - a < 0.6) return;
+  // The silk quarter's trades show their goods as modelled window displays, a metre each.
+  if (s.special && showWindow(b, f, a, wc, cf, s.special, k + 0.006)) return;
   if (s.special) districtGoods(t, f, a + 0.05, wc - 0.05, s.special, k + 0.006, k + P - 0.03);
+  else if (showWindowFor(b, f, a, wc, cf, s.brand, k + 0.006)) return;
   else {
     const goods = PALETTES[s.brand.kind];
     const food = s.brand.kind === 'soba' || s.brand.kind === 'bento';

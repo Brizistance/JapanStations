@@ -238,6 +238,65 @@ export class Builder {
     }));
   }
 
+  private queued: { m: M; open: boolean; fn: () => void }[] = [];
+  /** Run `fn` at the end of the build (finish()), in the frame that is current now. */
+  later(fn: () => void) {
+    this.queued.push({ m: this.m, open: this.isOpen, fn });
+  }
+  /** Run everything put off with later(), then hand back the build. */
+  finish(): Build {
+    for (let i = 0; i < this.queued.length; i++) {
+      const q = this.queued[i], pm = this.m, po = this.isOpen;
+      this.m = q.m;
+      this.isOpen = q.open;
+      q.fn();
+      this.m = pm;
+      this.isOpen = po;
+    }
+    this.queued = [];
+    return this.out;
+  }
+  private world(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): { min: V3; max: V3 } {
+    const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
+    return { min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])], max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])] };
+  }
+  /** Whether any solid box built so far reaches into the volume. */
+  solidIn(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+    const k = this.world(x0, y0, z0, x1, y1, z1);
+    return this.out.boxes.some((q) => q.solid && [0, 1, 2].every((a) => q.min[a] < k.max[a] - 0.01 && q.max[a] > k.min[a] + 0.01));
+  }
+  /**
+   * Cut the volume out of every box built so far, solid or not (a doorway through a finished
+   * wall), and take down the signs that hung in it.
+   */
+  carve(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+    const k = this.world(x0, y0, z0, x1, y1, z1);
+    const next: BoxPart[] = [];
+    for (const part of this.out.boxes) {
+      if (![0, 1, 2].every((a) => part.min[a] < k.max[a] && part.max[a] > k.min[a])) {
+        next.push(part);
+        continue;
+      }
+      const lo: V3 = [...part.min], hi: V3 = [...part.max];
+      for (const ax of [0, 1, 2] as const) {
+        if (lo[ax] < k.min[ax]) {
+          const mx: V3 = [...hi];
+          mx[ax] = k.min[ax];
+          next.push({ ...part, min: [...lo], max: mx });
+          lo[ax] = k.min[ax];
+        }
+        if (hi[ax] > k.max[ax]) {
+          const mn: V3 = [...lo];
+          mn[ax] = k.max[ax];
+          next.push({ ...part, min: mn, max: [...hi] });
+          hi[ax] = k.max[ax];
+        }
+      }
+    }
+    this.out.boxes = next.filter((q) => q.max[0] - q.min[0] > 1e-4 && q.max[1] - q.min[1] > 1e-4 && q.max[2] - q.min[2] > 1e-4);
+    this.out.signs = this.out.signs.filter((s) => ![0, 1, 2].every((a) => s.pos[a] > k.min[a] && s.pos[a] < k.max[a]));
+  }
+
   /** Parts added inside `fn` are daylit even below street level. */
   open(fn: () => void) {
     const prev = this.isOpen;

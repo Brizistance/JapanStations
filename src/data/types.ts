@@ -22,6 +22,8 @@ export interface ServicePattern {
   accel: number; // m/s²
   decel: number; // m/s²
   cars: number;
+  /** The women-only car: which car (1 = the first car at the low-x end of the platform) and its hours, seconds of the day. */
+  womenOnly?: { car: number; fromS: number; toS: number };
 }
 
 /** A named place: a station, or a city beyond the edge of the map. */

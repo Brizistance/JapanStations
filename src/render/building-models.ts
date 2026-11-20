@@ -32,9 +32,9 @@ interface Proto {
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places'];
 /** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
 const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */

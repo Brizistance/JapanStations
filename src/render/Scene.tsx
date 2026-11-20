@@ -10,7 +10,7 @@ import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
 import { HORIZON, Lighting } from './lighting';
-import { lineGrade, OUTDOOR, UNDERGROUND, type Grade } from './grade';
+import { lineGrade, OUTDOOR, UNDERGROUND, WARM_HUB, type Grade } from './grade';
 import { needsPost } from './graphics';
 import { Post } from './post';
 import { WorldView } from './world-view';
@@ -118,7 +118,8 @@ function gradeFor(under: boolean): Grade {
   if (!under) return OUTDOOR;
   if (useUI.getState().mode !== 'play') return UNDERGROUND;
   const line = where.train?.sim.geom.def.id ?? where.zone?.line;
-  return line ? lineGrade(line) : UNDERGROUND;
+  if (line) return lineGrade(line);
+  return where.station?.def.id === 'kita-odori' ? WARM_HUB : UNDERGROUND;
 }
 
 const KEYS: Record<string, keyof typeof input> = {

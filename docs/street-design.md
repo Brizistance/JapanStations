@@ -71,7 +71,7 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 ## Ideas for later (the owner's picks)
 
-- A ramen or soba counter you can enter; a small shrine or pocket park between buildings.
+- A ramen or soba counter you can enter; a small shrine or pocket park between buildings. (Built inside stations: `shopRoom` in `src/stations/shopfronts.ts`.)
 - Vending machine corners.
 - Night mode: a time of day in which lamps, shop fronts, lit windows and signals glow.
 
@@ -80,3 +80,13 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 - New model sets have no simplified copies for distance. `plaza.glb` is about 5 MB and `city.glb` about 8 MB; frame rate has not been measured.
 - The backdrop is only modelled round stations that set a district. Others still show plain boxes.
 - Utility poles come only with the kit's narrow side streets.
+
+## Traffic signals
+
+Three mountings (`src/stations/roads.ts`, models in `tools/blender/build_road.py`): a tapered pole with a curved arm and stay (`vehicleSignal`), a standing head on a straight pole as a repeater at the stop line of wide junctions (`sideSignal`), and a head on a bracket from a concrete utility pole (`poleSignal`), which gives every other narrow side street its own signal instead of a stop sign. Heads are separate models: the hooded 300 mm type with a back board, and the thin 250 mm LED type on avenues (main road half width 8 m or more). Avenues also get a right-turn arrow lamp at wide junctions, pedestrian heads with countdown bars and audible-signal speakers; push-button crossings get button boxes; each junction has a control cabinet. The arrow has its own 4 s after the main road's yellow (`signalState` in `src/signs/draw.ts`).
+
+References (2026-11-20): the 2017 National Police Agency change to flat heads with 250 mm lenses (newswitch.jp/p/10304, kuruma-news.jp/post/107499); a maker's flat head of about 1050 x 350 x 88 mm, tilted 15 degrees; pole types from Maruichi Steel Tube's signal pole catalogue. Not verified: mounting heights (4.5 m over the road and 2.5 m for pedestrian heads are the commonly quoted clearances). The game's flat heads hang upright, not tilted, because signs cannot lean.
+
+## Small street places
+
+Four kinds, each on its own lot on a street front (`src/stations/places.ts`, models in `tools/blender/build_places.py`): a pocket park (14 x 12 m), a neighbourhood shrine (9 x 14 m), a vending corner (6 m) and a police box (kōban). Stations built by `surface.ts` list them in the spec field `places` like the konbini lots; Kita-Ōdōri reserves three lots west of the tower in `hub.ts`. Placed so far: Kita-Ōdōri has the kōban, Yanagisuji Pocket Park and a vending corner; Tsumugibashi has Tsumugi Inari Shrine, its kōban and a vending corner.

@@ -250,16 +250,41 @@ export function kerbRail(b: Builder, x: number, z: number) {
 }
 
 /**
- * A vehicle signal for traffic travelling h: mast at (mx, mz) on the left kerb at the far side,
- * head `reach` m out over the lanes, facing the traffic.
+ * A vehicle signal head with its lamps, its middle at (x, y, z), facing f. `flat` is the thin LED type
+ * (250 mm lenses, no hoods) of the newer avenues; otherwise the hooded 300 mm head with its back board.
  */
-function vehicleSignal(b: Builder, mx: number, mz: number, h: V2, reach: number, axis: 0 | 1, name?: { ja: string; en: string }) {
+function carHead(b: Builder, x: number, y: number, z: number, f: V2, axis: 0 | 1, flat: boolean, vertical = false) {
+  put(b, `head_${flat ? 'flat' : vertical ? 'v' : 'h'}${flat && vertical ? '_v' : ''}`, x, y, z, f);
+  const [w, hh, dz] = flat ? [1.03, 0.33, 0.052] : [1.3, 0.44, 0.15];
+  const [ox, oz] = off(f, 0, -dz);
+  b.sign({ k: 'signal', v: vertical ? 'carv' : 'car', axis }, x + ox, y, z + oz, f, vertical ? hh : w, vertical ? w : hh);
+}
+
+interface SignalOpts {
+  /** Thin LED heads (avenues). */
+  flat?: boolean;
+  /** A right-turn arrow lamp under the head's red lens. */
+  arrow?: boolean;
+}
+
+/**
+ * A vehicle signal for traffic travelling h: a tapered pole at (mx, mz) on the left kerb at the far
+ * side, its curved arm reaching `reach` m out over the lanes, the head facing the traffic.
+ */
+function vehicleSignal(b: Builder, mx: number, mz: number, h: V2, reach: number, axis: 0 | 1, name?: { ja: string; en: string }, o: SignalOpts = {}) {
   const f: V2 = [-h[0], -h[1]];
   const [id, arm] = ARMS.find(([, a]) => a - HEAD_IN >= reach - 0.6) ?? ARMS[ARMS.length - 1];
   put(b, id, mx, GY, mz, f);
   b.block(mx - 0.16, GY, mz - 0.16, mx + 0.16, GY + 3, mz + 0.16);
-  const [ox, oz] = off(f, -(arm - HEAD_IN), -0.15);
-  b.sign({ k: 'signal', v: 'car', axis }, mx + ox, GY + HEAD_Y, mz + oz, f, 1.3, 0.44);
+  const [ox, oz] = off(f, -(arm - HEAD_IN), 0);
+  carHead(b, mx + ox, GY + HEAD_Y, mz + oz, f, axis, !!o.flat);
+  if (o.arrow) {
+    // Under the red lens (the head's right as the driver sees it).
+    const [ax, az] = off(f, -(arm - HEAD_IN) - (o.flat ? 0.35 : 0.42), 0), ay = GY + HEAD_Y - (o.flat ? 0.36 : 0.5);
+    put(b, o.flat ? 'head_flat_arrow' : 'head_arrow', mx + ax, ay, mz + az, f);
+    const [dx, dz] = off(f, 0, -(o.flat ? 0.052 : 0.15)), sz = o.flat ? 0.33 : 0.44;
+    b.sign({ k: 'signal', v: 'arrow', axis: 0 }, mx + ax + dx, ay, mz + az + dz, f, sz, sz);
+  }
   // The junction's name plate on the arm, between the mast and the head (where the arm is long enough).
   if (name && arm - HEAD_IN >= 3.2) {
     const [nx, nz] = off(f, -(arm - HEAD_IN) + 1.75, -0.12);
@@ -267,12 +292,44 @@ function vehicleSignal(b: Builder, mx: number, mz: number, h: V2, reach: number,
   }
 }
 
-/** A pedestrian signal at (x, z) facing f (towards the people crossing to it). */
-function pedSignal(b: Builder, x: number, z: number, f: V2, axis: 0 | 1) {
-  put(b, 'ped', x, GY, z, f);
+/** A standing head on a short bracket at the side of a straight pole at (x, z): a repeater at the stop line. */
+function sideSignal(b: Builder, x: number, z: number, h: V2, axis: 0 | 1, flat: boolean) {
+  const f: V2 = [-h[0], -h[1]];
+  put(b, 'sigside', x, GY, z, f);
+  b.block(x - 0.12, GY, z - 0.12, x + 0.12, GY + 3, z + 0.12);
+  const [ox, oz] = off(f, -(0.42 + (flat ? 0.175 : 0.24)), 0);
+  carHead(b, x + ox, GY + 3.6, z + oz, f, axis, flat, true);
+}
+
+/** A hooded head carried on a bracket from a concrete utility pole at (x, z): the side street's own signal. */
+function poleSignal(b: Builder, x: number, z: number, h: V2, axis: 0 | 1) {
+  const f: V2 = [-h[0], -h[1]];
+  put(b, 'upole_l', x, GY, z, f);
+  b.block(x - 0.18, GY, z - 0.18, x + 0.18, GY + 3, z + 0.18);
+  put(b, 'sigbracket', x, GY + 4.9, z, f);
+  const [ox, oz] = off(f, -1.5, 0);
+  carHead(b, x + ox, GY + 4.9, z + oz, f, axis, false);
+}
+
+/**
+ * A pedestrian signal at (x, z) facing f (towards the people crossing to it). `flat` is the thin head
+ * with countdown bars; `button` adds the push-button box, `speaker` the audible signal.
+ */
+function pedSignal(b: Builder, x: number, z: number, f: V2, axis: 0 | 1, o: { flat?: boolean; button?: boolean; speaker?: boolean } = {}) {
+  put(b, 'pedpole', x, GY, z, f);
   b.block(x - 0.1, GY, z - 0.1, x + 0.1, GY + 2.2, z + 0.1);
-  const [ox, oz] = off(f, 0, -0.345);
-  b.sign({ k: 'signal', v: 'ped', axis }, x + ox, GY + 2.65, z + oz, f, 0.36, 0.74);
+  const [hx, hz] = off(f, 0, -0.24);
+  put(b, o.flat ? 'pedhead_flat' : 'pedhead', x + hx, GY + 2.65, z + hz, f);
+  const [ox, oz] = off(f, 0, -(0.24 + (o.flat ? 0.047 : 0.105)));
+  b.sign({ k: 'signal', v: 'ped', axis, bars: !!o.flat }, x + ox, GY + 2.65, z + oz, f, 0.42, 0.74);
+  if (o.button) {
+    const [bx, bz] = off(f, 0, -0.07);
+    put(b, 'pushbtn', x + bx, GY + 1.2, z + bz, f);
+  }
+  if (o.speaker) {
+    const [sx, sz] = off(f, 0, -0.06);
+    put(b, 'speaker', x + sx, GY + 3.1, z + sz, f);
+  }
 }
 
 type SignV = Extract<SignContent, { k: 'roadsign' }>['v'];
@@ -360,15 +417,23 @@ export function roadKit(b: Builder, g: RoadGeo) {
   const nameOf = (i: number) => g.junctions?.[i] ?? (streets.length > 1 ? { ja: `${g.name.ja}${KANJI[i] ?? i + 1}丁目`, en: `${g.name.en} ${i + 1}` } : { ja: g.name.ja, en: g.name.en });
   for (const [a, c] of streets) {
     const mid = (a + c) / 2, half = (c - a) / 2, wide = half >= 5;
-    const jname = nameOf(streets.findIndex((q) => q[0] === a));
+    const ji = streets.findIndex((q) => q[0] === a), jname = nameOf(ji);
+    // An avenue has the thin LED heads, arrow lamps and audible signals; every other narrow junction
+    // gives its side street a signal of its own on a utility pole instead of a stop sign.
+    const avenue = rw >= 8, sideLit = !wide && ji % 2 === 0;
+    // The junction's control cabinet, on the pavement at a corner.
+    put(b, 'sigbox', a - 1.5, GY, -(rw + 2.7), [0, 1]);
+    b.block(a - 1.86, GY, -(rw + 2.96), a - 1.14, GY + 1.56, -(rw + 2.44));
     zones.push([a - 9, c + 9]);
     // Main road: far-side signals, heads over the general and bus lanes.
     for (const sx of [1, -1] as const) {
       const h: V2 = [sx, 0], l = left(h);
       const mx = sx > 0 ? c + 1.2 : a - 1.2, mz = l[1] * (rw + 0.7);
-      vehicleSignal(b, mx, mz, h, rw + 0.7 - (GEN + LANE) / 2, 0, jname);
+      vehicleSignal(b, mx, mz, h, rw + 0.7 - (GEN + LANE) / 2, 0, jname, { flat: avenue, arrow: avenue && wide });
       // Queue at the stop line (x = a − 7 going +x, c + 7 going −x).
       const stop = sx > 0 ? a - 7.4 : c + 7.4;
+      // A repeater on the near side at the stop line of a wide junction.
+      if (wide) sideSignal(b, stop - sx * 0.8, l[1] * (rw + 0.7), h, 0, avenue);
       let q = stop - sx * 2.6;
       for (let k = 0; k < 2; k++) {
         const id = anyCar();
@@ -386,8 +451,9 @@ export function roadKit(b: Builder, g: RoadGeo) {
     // Pedestrian signals on the crosswalks over the main road (at a − 4 and c + 4): walk with the cross traffic.
     for (const xw of [a - 4, c + 4]) {
       const e = xw < mid ? -2.4 : 2.4;
-      pedSignal(b, xw + e, -(rw + 0.8), [0, 1], 1);
-      pedSignal(b, xw + e, rw + 0.8, [0, -1], 1);
+      const po = { flat: avenue, button: !wide, speaker: avenue };
+      pedSignal(b, xw + e, -(rw + 0.8), [0, 1], 1, po);
+      pedSignal(b, xw + e, rw + 0.8, [0, -1], 1, po);
       // Bollards at the crosswalk mouths.
       for (const s of [-1, 1]) for (const dx of [-1.6, 0, 1.6]) {
         put(b, 'bollard', xw + dx, GY, s * (rw + 0.35), [0, -1]);
@@ -417,12 +483,15 @@ export function roadKit(b: Builder, g: RoadGeo) {
         mark(b, 'ahead-left', lx(half * 0.74), stopZ - sz * 16, h, 1.3, 5);
         // Pedestrian signals on the crosswalk over this road: walk with the main road's traffic.
         const zc = -sz * (rw + 3.2);
-        pedSignal(b, a - 0.8, zc - sz * 2.4, [1, 0], 0);
-        pedSignal(b, c + 0.8, zc - sz * 2.4, [-1, 0], 0);
+        pedSignal(b, a - 0.8, zc - sz * 2.4, [1, 0], 0, { flat: avenue, speaker: avenue });
+        pedSignal(b, c + 0.8, zc - sz * 2.4, [-1, 0], 0, { flat: avenue, speaker: avenue });
       } else {
         // A side street: stop sign on the left kerb, 止まれ on the road, a mirror at the far corner.
-        roadSign(b, 'stop', lx(half + 0.55), stopZ - sz * 0.6, [0, -sz], 0.8);
-        mark(b, 'stop', lx(half / 2), stopZ - sz * 4.6, h, 1.9, 5.6);
+        if (sideLit) poleSignal(b, lx(half + 0.9), sz * (rw + 1.3), h, 1);
+        else {
+          roadSign(b, 'stop', lx(half + 0.55), stopZ - sz * 0.6, [0, -sz], 0.8);
+          mark(b, 'stop', lx(half / 2), stopZ - sz * 4.6, h, 1.9, 5.6);
+        }
         put(b, 'mirror', lx(-(half + 0.7)) , GY, sz * (rw + 1.2), [0, -sz]);
         if (r() < 0.8) vehicle(r() < 0.5 ? 'kei_w' : 'kei_y', lx(half / 2), stopZ - sz * 2.4, h);
         // Delineator posts at the corner on its left as you turn in.

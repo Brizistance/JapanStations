@@ -62,38 +62,149 @@ def tube(p, mat, a, b, r, seg=8):
 
 # ── Signals and sign furniture ──
 
+def taper(p, mat, y0, y1, r0, r1, n=4, seg=10):
+    """A tapering round pole standing on y0."""
+    for k in range(n):
+        ya, yb = y0 + (y1 - y0) * k / n, y0 + (y1 - y0) * (k + 1) / n
+        p.cyl(mat, (0, (ya + yb) / 2, 0), 1, r0 + (r1 - r0) * (k + 0.5) / n, yb - ya, seg=seg, caps=False)
+
+
+def base(p, r):
+    """Base plate with four anchor bolts and a collar."""
+    p.box(POLE_DK, -r, 0, -r, r, 0.03, r)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            p.cyl(POLE, (sx * (r - 0.06), 0.05, sz * (r - 0.06)), 1, 0.022, 0.05, seg=6)
+    p.cyl(POLE_DK, (0, 0.13, 0), 1, r * 0.62, 0.2, seg=10)
+
+
 def signal(p, arm):
-    # Mast with a base, a tapering shaft and a control box; arm braced from above.
-    p.cyl(POLE_DK, (0, 0.2, 0), 1, 0.2, 0.4, seg=10)
-    p.cyl(POLE, (0, 3.3, 0), 1, 0.11, 6.2, seg=10)
-    p.cyl(POLE_DK, (0, 6.42, 0), 1, 0.13, 0.06, seg=10)
-    p.box(POLE, -0.2, 1.0, 0.1, 0.2, 1.7, 0.34)
-    tube(p, POLE, (0, 5.9, 0), (-arm, 6.0, 0), 0.06)
-    tube(p, POLE, (0, 6.35, 0), (-arm * 0.55, 5.98, 0), 0.025, seg=5)
-    # Horizontal three-lens housing hung under the arm, with a visor over each lens.
+    """Signal pole: tapered steel, a curved arm over the road with a stay rod; the heads are separate
+    models hung at x = -(arm - HEAD_IN), y = HEAD_Y (src/stations/roads.ts)."""
+    base(p, 0.3)
+    taper(p, POLE, 0.03, 6.75, 0.15, 0.095)
+    p.cyl(POLE_DK, (0, 6.77, 0), 1, 0.105, 0.05, seg=10)
+    # Terminal box with a conduit to the ground, and the pole's number plate.
+    p.box(POLE, -0.18, 1.05, 0.13, 0.18, 1.6, 0.33)
+    p.box(POLE_DK, -0.19, 1.6, 0.12, 0.19, 1.63, 0.34)
+    tube(p, POLE_DK, (0.1, 0.03, 0.2), (0.1, 1.05, 0.2), 0.025, seg=5)
+    p.box('flat:#f1f0ea', -0.07, 1.9, -0.156, 0.07, 2.12, -0.15)
+    # The arm leaves the pole rising in a curve, then runs nearly level to its tip.
+    pts = [(0, 5.35), (-0.25, 5.6), (-0.6, 5.85), (-1.1, 6.0), (-arm, 6.06)]
+    for a, b in zip(pts, pts[1:]):
+        tube(p, POLE, (a[0], a[1], 0), (b[0], b[1], 0), 0.065 if b[0] > -1.2 else 0.055)
+    p.cyl(POLE_DK, (0, 5.35, 0), 1, 0.135, 0.22, seg=10)
+    p.cyl(POLE_DK, (-arm, 6.06, 0), 0, 0.06, 0.03, seg=8)
+    tube(p, POLE, (0, 6.65, 0), (-arm * 0.5, 6.05, 0), 0.02, seg=5)
+    # Hangers for the head, and for the junction's name plate on the longer arms.
     hx = -(arm - HEAD_IN)
     for sx in (-0.4, 0.4):
-        tube(p, POLE, (hx + sx, 5.97, 0), (hx + sx, HEAD_Y + 0.24, 0), 0.02, seg=5)
-    p.box(HOUSING, hx - 0.68, HEAD_Y - 0.24, -0.14, hx + 0.68, HEAD_Y + 0.24, 0.14)
-    for k in (-1, 0, 1):
-        cx = hx + k * 0.42
-        p.box(HOUSING, cx - 0.2, HEAD_Y + 0.17, -0.34, cx + 0.2, HEAD_Y + 0.2, -0.14)
-        for s in (-1, 1):
-            p.box(HOUSING, cx + s * 0.2 - 0.012, HEAD_Y - 0.02, -0.3, cx + s * 0.2 + 0.012, HEAD_Y + 0.2, -0.14)
-    # White back board with a border, as on wide roads.
-    p.box(WHITE, hx - 0.78, HEAD_Y - 0.34, 0.14, hx + 0.78, HEAD_Y + 0.34, 0.16)
+        tube(p, POLE, (hx + sx, 6.05, 0), (hx + sx, HEAD_Y + 0.2, 0), 0.02, seg=5)
+    if arm - HEAD_IN >= 3.2:
+        for sx in (1.0, 2.5):
+            tube(p, POLE, (hx + sx, 6.04, -0.02), (hx + sx, HEAD_Y + 0.31, -0.02), 0.015, seg=5)
+        p.box(POLE_DK, hx + 0.78, HEAD_Y - 0.33, -0.1, hx + 2.72, HEAD_Y + 0.33, -0.085)
 
 
-def ped(p):
-    """Pedestrian signal: a post with a vertical two-lens housing."""
-    p.cyl(POLE_DK, (0, 0.12, 0), 1, 0.11, 0.24, seg=8)
-    p.cyl(POLE, (0, 1.6, 0), 1, 0.07, 3.2, seg=8)
-    p.box(POLE, -0.03, 2.55, -0.14, 0.03, 2.75, 0)
-    p.box(HOUSING, -0.2, 2.26, -0.34, 0.2, 3.04, -0.14)
-    p.box(HOUSING, -0.22, 3.02, -0.46, 0.22, 3.05, -0.14)
-    p.box(HOUSING, -0.22, 2.63, -0.44, 0.22, 2.66, -0.14)
-    # Push-button box.
-    p.box('flat:#e8c020', -0.09, 1.05, -0.13, 0.09, 1.3, -0.06)
+def head(p, flat, vertical=False, n=3):
+    """Vehicle signal head, its middle at the origin, lenses facing -z. The lamps are a game sign.
+    Visored: 300 mm lenses, a hood over each, a white back board. Flat: the thin 250 mm type."""
+    def box(mat, a0, b0, z0, a1, b1, z1):
+        if vertical:
+            p.box(mat, -b1, a0, z0, -b0, a1, z1)
+        else:
+            p.box(mat, a0, b0, z0, a1, b1, z1)
+    if flat:
+        L = 0.35 * n
+        box('flat:#3a3e42', -L / 2, -0.175, -0.045, L / 2, 0.175, 0.045)
+        box(HOUSING, -L / 2 + 0.01, -0.165, -0.05, L / 2 - 0.01, 0.165, -0.045)
+        box(POLE, -0.06, -0.06, 0.045, 0.06, 0.06, 0.11)
+        return
+    L = 0.4533 * n
+    box(HOUSING, -L / 2, -0.24, -0.14, L / 2, 0.24, 0.14)
+    for k in range(n):
+        c = -L / 2 + 0.2267 + k * 0.4533
+        if n == 3:
+            c = (k - 1) * 0.42
+        box(HOUSING, c - 0.2, 0.17, -0.34, c + 0.2, 0.2, -0.14)
+        for s_ in (-1, 1):
+            box(HOUSING, c + s_ * 0.2 - 0.012, -0.02, -0.3, c + s_ * 0.2 + 0.012, 0.2, -0.14)
+    if n == 3:
+        box(WHITE, -L / 2 - 0.1, -0.34, 0.14, L / 2 + 0.1, 0.34, 0.16)
+        box('flat:#2f8f5a', -L / 2 - 0.1, -0.34, 0.139, L / 2 + 0.1, -0.31, 0.141)
+
+
+def pedpole(p):
+    """Pedestrian signal post: the head (a separate model) hangs at y 2.65, z -0.24."""
+    base(p, 0.18)
+    taper(p, POLE, 0.03, 3.25, 0.075, 0.06, n=2, seg=8)
+    p.cyl(POLE_DK, (0, 3.26, 0), 1, 0.068, 0.03, seg=8)
+    p.box(POLE, -0.025, 2.45, -0.14, 0.025, 2.5, 0)
+    p.box(POLE, -0.025, 2.8, -0.14, 0.025, 2.85, 0)
+
+
+def pedhead(p, flat):
+    """Pedestrian head, its middle at the origin, facing -z: red figure over green, countdown bars beside them (the game's sign)."""
+    if flat:
+        p.box('flat:#3a3e42', -0.23, -0.39, -0.04, 0.23, 0.39, 0.04)
+        p.box(HOUSING, -0.22, -0.38, -0.045, 0.22, 0.38, -0.04)
+        return
+    p.box(HOUSING, -0.23, -0.39, -0.1, 0.23, 0.39, 0.1)
+    for y in (0.37, -0.02):
+        p.box(HOUSING, -0.24, y, -0.22, 0.24, y + 0.03, -0.1)
+        for sx in (-0.24, 0.215):
+            p.box(HOUSING, sx, y - 0.2, -0.18, sx + 0.025, y + 0.03, -0.1)
+
+
+def pushbtn(p):
+    """Push-button box on a pole (the pole behind it at +z): yellow box, button, the wait lamp."""
+    p.box('flat:#e8c020', -0.1, -0.16, -0.09, 0.1, 0.16, 0)
+    p.box(HOUSING, -0.07, 0.03, -0.094, 0.07, 0.11, -0.09)
+    p.cyl('flat:#c62828', (0, -0.06, -0.1), 2, 0.035, 0.02, seg=10)
+    p.box('flat:#2a7de1', -0.07, -0.145, -0.094, 0.07, -0.115, -0.09)
+
+
+def speaker(p):
+    """Audible-signal speaker on a short bracket (the pole at +z)."""
+    p.box(POLE, -0.02, -0.02, -0.16, 0.02, 0.02, 0)
+    p.cyl('flat:#d9dcdf', (0, 0, -0.2), 2, 0.09, 0.1, seg=10)
+    p.cyl(HOUSING, (0, 0, -0.252), 2, 0.07, 0.006, seg=10)
+
+
+def sigside(p):
+    """Straight pole for a side-mounted head: the head hangs at x -0.42, y 3.6."""
+    base(p, 0.24)
+    taper(p, POLE, 0.03, 4.5, 0.1, 0.075, n=3)
+    p.cyl(POLE_DK, (0, 4.52, 0), 1, 0.085, 0.04, seg=10)
+    for y in (3.25, 3.95):
+        tube(p, POLE, (0, y, 0), (-0.42, y, 0), 0.022, seg=5)
+        p.cyl(POLE_DK, (0, y, 0), 1, 0.1, 0.06, seg=10)
+    p.box(POLE, -0.14, 1.1, 0.09, 0.14, 1.5, 0.24)
+
+
+def sigbracket(p):
+    """Bracket that carries a signal head from a concrete utility pole (the pole at the origin, 0.16 m
+    radius at this height): two steel bands and an arm; the head hangs at x -1.5, y 0."""
+    for y in (0.55, 0.95):
+        p.cyl(POLE_DK, (0, y, 0), 1, 0.185, 0.07, seg=10, caps=False)
+    tube(p, POLE, (0, 0.95, 0), (-1.5, 0.62, 0), 0.04)
+    tube(p, POLE, (0, 0.55, 0), (-0.9, 0.74, 0), 0.025, seg=5)
+    for sx in (-0.4, 0.4):
+        tube(p, POLE, (-1.5 + sx, 0.66, 0), (-1.5 + sx, 0.2, 0), 0.02, seg=5)
+    p.box(POLE, -1.95, 0.6, -0.03, -1.05, 0.66, 0.03)
+    tube(p, HOUSING, (-0.2, 0.9, 0.05), (-0.2, -4.2, 0.17), 0.02, seg=5)
+
+
+def sigbox(p):
+    """Signal control cabinet at a corner: grey steel on a concrete plinth, a door with a handle and vents."""
+    p.box('flat:#b9b6ac', -0.36, 0, -0.26, 0.36, 0.12, 0.26)
+    p.box('flat:#c4c8cc', -0.32, 0.12, -0.22, 0.32, 1.5, 0.22)
+    p.prism('flat:#aeb3b8', [(-0.26, 1.5), (0.26, 1.5), (0.26, 1.56), (-0.26, 1.53)], 'x', -0.35, 0.35)
+    p.box('flat:#b4b9be', -0.29, 0.18, -0.226, 0.29, 1.44, -0.22)
+    p.box(HOUSING, 0.18, 0.75, -0.24, 0.22, 0.9, -0.226)
+    for k in range(4):
+        p.box(HOUSING, -0.2, 0.26 + k * 0.05, -0.23, 0.1, 0.28 + k * 0.05, -0.226)
+    p.box('flat:#f1f0ea', -0.2, 1.15, -0.23, 0.05, 1.32, -0.226)
 
 
 def signpole(p):
@@ -464,7 +575,11 @@ def bus(p):
 
 PROPS = {
     'signal9': (lambda p: signal(p, ARMS['signal9']), 10), 'signal7': (lambda p: signal(p, ARMS['signal7']), 8), 'signal3': (lambda p: signal(p, ARMS['signal3']), 4),
-    'ped': (ped, 1.5), 'signpole': (signpole, 1), 'gantry': (gantry, 9), 'busstop': (busstop, 1.5), 'shelter': (shelter, 5),
+    'pedpole': (pedpole, 1.5), 'pedhead': (lambda p: pedhead(p, False), 1), 'pedhead_flat': (lambda p: pedhead(p, True), 1),
+    'head_h': (lambda p: head(p, False), 2), 'head_flat': (lambda p: head(p, True), 2), 'head_v': (lambda p: head(p, False, True), 1),
+    'head_flat_v': (lambda p: head(p, True, True), 1), 'head_arrow': (lambda p: head(p, False, n=1), 1), 'head_flat_arrow': (lambda p: head(p, True, n=1), 1),
+    'pushbtn': (pushbtn, 1), 'speaker': (speaker, 1), 'sigside': (sigside, 1.5), 'sigbracket': (sigbracket, 3), 'sigbox': (sigbox, 1.5),
+    'signpole': (signpole, 1), 'gantry': (gantry, 9), 'busstop': (busstop, 1.5), 'shelter': (shelter, 5),
     'mirror': (mirror, 1.5), 'bollard': (bollard, 1), 'rail': (rail, 3), 'upole': (upole, 3), 'upole_l': (lambda p: upole(p, False), 3),
     'lamp_hw': (lamp_hw, 3), 'lamp_shop': (lamp_shop, 3), 'lamp_park': (lamp_park, 2), 'fingerpost': (fingerpost, 3), 'mapstand': (mapstand, 3), 'wand': (wand, 1),
     'xing_mast': (xing_mast, 3), 'xing_gate': (xing_gate, 2),

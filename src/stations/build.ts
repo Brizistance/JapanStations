@@ -25,6 +25,8 @@ import { endNums, exitAt, exitClimb, exitSides, type ExitPlan } from './exits';
 import type { ElevatedSpec, InterchangeSpec, StationSpec, UndergroundSpec } from './specs';
 import { lookFor } from './looks';
 import type { ConcInfo, ConcRoom, ExitDoor, StairInfo, Stairwell, WallFace } from './looks/types';
+import { eraOf, fitting, setEra } from './fittings';
+import { WC, toilets } from './toilets';
 import { themeFor } from './themes';
 import { car, surface, tree, PLOT_X, PLOT_Z } from './surface';
 import { wayfindConcourse, wayfindElevated, wayfindPassage } from './wayfinding';
@@ -260,15 +262,6 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   if (fw > cw) b.slab('concrete', x0, -fw, x1, fw, cf - SLAB, cf - 0.02, [...o.holes, ...walk]);
   if (o.ceilHoles?.length) b.slab(ceilMat, x0 - 0.4, -fw - 0.4, x1 + 0.4, fw + 0.4, ceil, ceil + 0.5, o.ceilHoles);
   else b.box(ceilMat, x0 - 0.4, ceil, -fw - 0.4, x1 + 0.4, ceil + 0.5, fw + 0.4);
-  for (const r of plan.walls) b.box(style.concWall, r[0], cf, r[1], r[2], ceil, r[3]);
-  // Accent skirting along the spine's long walls and round the rooms.
-  if (look.skirting !== false) {
-    const faces = [...plan.faces[0].filter((f) => f.axis === 'x'), ...plan.faces.slice(1).flat()];
-    for (const f of faces) {
-      faceBand(b, f, `paint:${style.accent}`, cf + 0.9, cf + 1.0, 0.015);
-      faceBand(b, f, 'flat:#4b4d50', cf, cf + 0.13, 0.02);
-    }
-  }
 
   // Stairwells: walls round every stair opening, a portal at its head.
   const stairRoom = (st: StairInfo) => rooms.findIndex((r) => r.stairs.includes(st));
@@ -310,6 +303,37 @@ export function concourse(c0: Ctx, o: ShellOpts) {
     }
   }
 
+  // The toilets are a room you can walk into (toilets.ts) where the ground behind the wall is free:
+  // underground, clear of every room beyond the wall and of anything already built there.
+  const wcRect: Rect = [tx - WC.half - 0.4, -cw - WC.wall - WC.depth - 0.4, tx + WC.half + 0.4, -cw - 0.01];
+  const wcWall = plan.walls.find((r) => Math.abs(r[3] + cw) < 0.01 && r[0] <= tx - WC.half && r[2] >= tx + WC.half);
+  const wcClear = () => {
+    const p = b.pt(wcRect[0], cf - 0.3, wcRect[1]), q = b.pt(wcRect[2], cf + WC.h + 0.2, wcRect[3]);
+    const lo = [0, 1, 2].map((k) => Math.min(p[k], q[k])), hi = [0, 1, 2].map((k) => Math.max(p[k], q[k]));
+    return !b.out.boxes.some((x) => x.solid && [0, 1, 2].every((k) => x.min[k] < hi[k] - 0.01 && x.max[k] > lo[k] + 0.01));
+  };
+  const wc = !!wcWall && toiletOk(tx) && ceil + 0.5 < GROUND_Y - 0.8
+    && !rooms.some((r) => r.rect[0] < wcRect[2] && r.rect[2] > wcRect[0] && r.rect[1] < wcRect[3] && r.rect[3] > wcRect[1])
+    && !(o.wallGaps ?? []).length && wcClear();
+  for (const r of plan.walls) {
+    if (wc && r === wcWall) {
+      b.box(style.concWall, r[0], cf, r[1], tx - WC.door, ceil, r[3]);
+      b.box(style.concWall, tx + WC.door, cf, r[1], r[2], ceil, r[3]);
+      b.box(style.concWall, tx - WC.door, cf + WC.lintel, r[1], tx + WC.door, ceil, r[3]);
+    } else b.box(style.concWall, r[0], cf, r[1], r[2], ceil, r[3]);
+  }
+  if (wc) b.protect(tx - WC.door, cf, -cw - 0.5, tx + WC.door, cf + WC.lintel, -cw + 0.2);
+  // Accent skirting along the spine's long walls and round the rooms.
+  if (look.skirting !== false) {
+    const faces = [...plan.faces[0].filter((f) => f.axis === 'x'), ...plan.faces.slice(1).flat()];
+    b.guard(() => {
+      for (const f of faces) {
+        faceBand(b, f, `paint:${style.accent}`, cf + 0.9, cf + 1.0, 0.015);
+        faceBand(b, f, 'flat:#4b4d50', cf, cf + 0.13, 0.02);
+      }
+    });
+  }
+
   // What a look may not build on: everything the kit puts in the concourse, with room to use it.
   const taken: Rect[] = [...(o.solids ?? []).map((q): Rect => [q[0] - 0.9, q[1] - 0.9, q[2] + 0.9, q[3] + 0.9]), ...(o.claims ?? [])];
   // Each stair's reservations stay in the area it stands in (the spine, or its room): a stair in a
@@ -347,6 +371,7 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   const concRooms: ConcRoom[] = rooms.map((r, k) => ({
     kind: r.kind, rect: r.rect, ja: r.ja, en: r.en, mouths: plan.mouths[k], stairs: r.stairs, faces: plan.faces[k + 1],
   }));
+  setEra(themeFor(c.line.id).opened ?? 2000);
   const info: ConcInfo = {
     b, station, line: c.line, era: themeFor(c.line.id).opened ?? 2000, style,
     wall: style.concWall, floor: style.floor, pillar: style.pillar, ceil: ceilMat,
@@ -363,8 +388,11 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   // decoration is cut back from every sign (Builder.guard), so signs stay readable.
   b.sign({ k: 'label', text: 'お手洗い', sub: 'Toilets', fg: '#fff', bg: '#14233b' }, tx, cf + 2.55, -cw + 0.03, [0, 1], 1.8, 0.5);
   b.protect(tx - 1.0, cf + 2.25, -cw, tx + 1.0, cf + 2.85, -cw + 0.3);
-  b.sign({ k: 'machine', v: 'door' }, tx - 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
-  b.sign({ k: 'machine', v: 'door' }, tx + 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
+  if (wc) b.with({ t: [tx, 0, -cw] }, () => toilets(b, { cf, era: eraOf(info.era), wall: style.concWall }));
+  else {
+    b.sign({ k: 'machine', v: 'door' }, tx - 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
+    b.sign({ k: 'machine', v: 'door' }, tx + 0.6, cf + 1.05, -cw + 0.03, [0, 1], 1.0, 2.1);
+  }
   for (const e of o.ends) {
     b.with(e.hi ? { t: [e.g, 0, 0] } : { ...MIRROR_X, t: [e.g, 0, 0] }, () => unpaidEnd(c, cf, cw, e, lines, o.ext ?? 0));
   }
@@ -453,7 +481,8 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
     if (ex + 2.2 < cx1 - 18 && halls.some(([a, e]) => ex > a + 1 && ex + 2.2 < e - 1)) {
       b.box('flat:#b9bec4', ex, d.pf, -1.1, ex + 2.2, cf + CONC_CLEAR, 1.1);
       for (const y of [d.pf, cf]) {
-        b.sign({ k: 'machine', v: 'elevator' }, ex + 2.22, y + 1.15, 0, [1, 0], 1.8, 2.3);
+        fitting(b, `lift_${eraOf(themeFor(line.id).opened ?? 2000)}`, ex + 2.2, y, 0, [1, 0]);
+        b.sign({ k: 'label', text: 'エレベーター', sub: 'Elevator', fg: '#fff', bg: '#0d3b66' }, ex + 2.245, y + 2.45, 0, [1, 0], 1.3, 0.13);
       }
       st.blocks.push([ex, ex + 2.2]);
       solids.push([ex, -1.1, ex + 2.2, 1.1]);
@@ -1073,7 +1102,7 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
       if (spec.mid) buildMidLevel(mk(p), spec, other);
       else buildInterchange(mk(p), spec, other, side && { ctx: mk(side), z: besideOffset(station, p, side) });
     }
-    return { build: b.out, primary: p.line.id };
+    return { build: b.finish(), primary: p.line.id };
   }
   const l = input.lines[0];
   if (spec.kind === 'elevated' && (spec.layout === 'arcade' || spec.layout === 'hillside' || spec.layout === 'railhead')) buildNagisaEast(mk(l), spec);
@@ -1092,7 +1121,7 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
     })() : undefined;
     buildUnderground(mk(l), spec as UndergroundSpec, further);
   }
-  return { build: b.out, primary: l.line.id };
+  return { build: b.finish(), primary: l.line.id };
 }
 
 export { lineById };
