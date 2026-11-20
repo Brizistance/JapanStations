@@ -43,6 +43,16 @@ The owner's rules for every street-level redesign, agreed 2026-11-19 after the T
 - Sizes used for lots and colliders are mirrored in code (`CITY`, `LANDMARKS` in `hub.ts`). Change both together.
 - Running a script rewrites `tools/blender/__pycache__/buildkit.cpython-313.pyc`, which is tracked. Restore it with `git checkout --` before committing.
 
+## Lights, signs and power lines (built 2026-11-19)
+
+All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and used by every street `surface.ts` builds, with or without `roadKit`.
+
+- **Streetlights by environment** (`streetLamp`): `lamp_hw` highway masts on avenues and by offices; `lamp_shop` by shops (`mixed`, `neon`); `lamp_park` by parks, campuses and the sea, and on forecourts. Where a street has `poles: true` and houses or apartments, the utility poles carry the lights instead.
+- **Power lines** (`poleLine`): poles with a crossarm, three high-voltage wires, three low-voltage wires and two telecom cables, all sagging between poles; drops to the buildings behind; lines crossing the road from every second pole; a transformer on every second pole; green address plates (station name plus a chōme number). Wires are generated in code so they follow the street.
+- **Where wires go** is the spec's `poles` flag (residential, old-town and hill streets) plus every narrow side street of a road-kit station. Business centres bury them on the main road: Kita-Ōdōri has them only in the back lane behind the avenue.
+- **Signs added**: junction name plates, 30 km/h over a school-route warning on narrow side streets, no-stopping at kerb bus stops, a hydrant sign, a finger post and a standing area map at every junction, delineator posts at side-street corners, shopping-street lamps along canal banks.
+- **Not built yet**: one-way and no-entry signs, pedestrian-only hours with time plates, street-name plates on walls, convex mirrors beyond the kit's own, school-zone road paint, evacuation signs.
+
 ## Known gaps
 
 - New model sets have no simplified copies for distance. `plaza.glb` is about 5 MB and `city.glb` about 8 MB; frame rate has not been measured.

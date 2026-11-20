@@ -174,20 +174,125 @@ def rail(p):
         tube(p, WHITE, (x, 0.3, 0), (x, 0.82, 0), 0.012, seg=4)
 
 
-def upole(p):
-    """Utility pole with crossarms, a transformer and a street light."""
-    p.cyl('flat:#8a8479', (0, 4.8, 0), 1, 0.16, 9.6, seg=10)
-    for y, w in ((9.0, 1.1), (8.3, 0.9)):
-        p.box('flat:#6f6a60', -w, y, -0.05, w, y + 0.1, 0.05)
-        for x in (-w + 0.1, -w / 2, w / 2, w - 0.1):
-            p.cyl('flat:#d9d5c8', (x, y + 0.2, 0), 1, 0.045, 0.2, seg=6)
-    p.cyl('flat:#9b9b9b', (0.36, 7.1, 0), 1, 0.24, 0.75, seg=10)
-    p.box('flat:#6f6a60', 0, 7.0, -0.04, 0.36, 7.08, 0.04)
-    tube(p, POLE, (0, 5.6, 0), (0, 5.9, -1.1), 0.03, seg=5)
-    p.box('light', -0.12, 5.82, -1.4, 0.12, 5.88, -0.9)
-    p.box(POLE_DK, -0.14, 5.88, -1.42, 0.14, 5.92, -0.88)
+# Where the wires hang on a utility pole, in its own frame (y, z): the pole's front (-z) faces the
+# road and the wires run along x. Shared with src/stations/roads.ts (HV, LV, TEL).
+HV = [(9.32, -1.35), (9.32, -0.8), (9.32, -0.2)]
+LV = [(7.45, -0.3), (7.25, -0.3), (7.05, -0.3)]
+TEL = [(5.95, -0.24), (5.6, -0.24)]
+
+
+def upole(p, transformer=True):
+    """Utility pole: a crossarm for the high-voltage wires reaching over the road side, a rack for
+    the low-voltage ones, a telecom splice box, a street light, and on some a transformer."""
+    conc, arm, ins = 'flat:#8a8479', 'flat:#6f6a60', 'flat:#d9d5c8'
+    p.cyl(conc, (0, 4.85, 0), 1, 0.16, 9.7, seg=10)
+    p.box(arm, -0.05, 9.0, -1.5, 0.05, 9.1, 0.3)
+    tube(p, arm, (0, 8.4, 0), (0, 9.0, -1.1), 0.025, seg=5)
+    for y, z in HV:
+        p.cyl(ins, (0, y - 0.12, z), 1, 0.045, 0.2, seg=6)
+    p.box(arm, -0.03, 6.95, -0.34, 0.03, 7.55, -0.16)
+    for y, z in LV:
+        p.box(ins, -0.05, y - 0.04, z - 0.05, 0.05, y + 0.04, z + 0.03)
+    p.box('flat:#2b2b2b', -0.4, 5.5, -0.32, 0.1, 5.72, -0.16)
+    for y, z in TEL:
+        p.box(arm, -0.03, y - 0.03, z - 0.02, 0.03, y + 0.03, -0.16)
+    if transformer:
+        p.box(arm, -0.04, 6.3, 0.1, 0.04, 6.38, 0.5)
+        p.cyl('flat:#9b9b9b', (0, 6.8, 0.44), 1, 0.25, 0.8, seg=10)
+        p.cyl('flat:#8a8a8a', (0, 7.22, 0.44), 1, 0.27, 0.05, seg=10)
+        for dx in (-0.1, 0.1):
+            p.cyl(ins, (dx, 7.34, 0.44), 1, 0.035, 0.2, seg=6)
+        tube(p, 'flat:#1b1b1d', (0.1, 7.44, 0.44), (0, 7.3, -0.3), 0.012, seg=4)
+    # The street light (防犯灯): a short arm over the road with a flat LED head.
+    tube(p, POLE, (0, 5.0, -0.16), (0, 5.3, -1.2), 0.03, seg=5)
+    p.box('light', -0.12, 5.22, -1.5, 0.12, 5.28, -1.0)
+    p.box(POLE_DK, -0.14, 5.28, -1.52, 0.14, 5.33, -0.98)
     for k in range(6):
         p.box('flat:#3a3a3a', 0.16, 1.0 + k * 0.45, -0.03, 0.2, 1.04 + k * 0.45, 0.03)
+
+
+def lamp_hw(p):
+    """Highway-style street light for main roads: a tall tapered mast curving out over the road."""
+    p.cyl(POLE_DK, (0, 0.25, 0), 1, 0.2, 0.5, seg=10)
+    tube(p, POLE, (0, 0.5, 0), (0, 8.2, 0), 0.1, seg=10)
+    prev = (0, 8.2, 0)
+    for k in range(1, 8):
+        t = k / 7 * math.pi / 2
+        q = (0, 8.2 + 1.9 * math.sin(t), -2.5 * (1 - math.cos(t)))
+        tube(p, POLE, prev, q, 0.07 - 0.003 * k, seg=8)
+        prev = q
+    p.box(POLE_DK, -0.2, prev[1] - 0.08, prev[2] - 0.95, 0.2, prev[1] + 0.06, prev[2] + 0.05)
+    p.box('light', -0.16, prev[1] - 0.11, prev[2] - 0.9, 0.16, prev[1] - 0.08, prev[2] - 0.05)
+
+
+def lamp_shop(p):
+    """Shopping-street lamp: a dark green post, twin lanterns on scroll arms, a banner arm."""
+    green, brass = 'flat:#1d3b2f', 'flat:#b08d3a'
+    p.cyl(green, (0, 0.3, 0), 1, 0.16, 0.6, seg=10)
+    p.cyl(brass, (0, 0.62, 0), 1, 0.13, 0.05, seg=10)
+    tube(p, green, (0, 0.6, 0), (0, 5.0, 0), 0.065, seg=8)
+    p.cyl(brass, (0, 5.08, 0), 1, 0.1, 0.16, seg=8)
+    for sx in (-1, 1):
+        tube(p, green, (0, 4.3, 0), (sx * 0.5, 4.75, 0), 0.03, seg=5)
+        tube(p, green, (sx * 0.5, 4.75, 0), (sx * 0.85, 4.6, 0), 0.03, seg=5)
+        p.box(green, sx * 0.85 - 0.17, 4.5, -0.17, sx * 0.85 + 0.17, 4.56, 0.17)
+        p.box('light', sx * 0.85 - 0.13, 4.1, -0.13, sx * 0.85 + 0.13, 4.5, 0.13)
+        p.box(green, sx * 0.85 - 0.15, 4.04, -0.15, sx * 0.85 + 0.15, 4.1, 0.15)
+        for dx, dz in ((-0.14, -0.14), (0.14, -0.14), (-0.14, 0.14), (0.14, 0.14)):
+            p.box(green, sx * 0.85 + dx - 0.012, 4.1, dz - 0.012, sx * 0.85 + dx + 0.012, 4.5, dz + 0.012)
+    # Banner arm towards the road, with a plain banner (the street's colours).
+    tube(p, green, (0, 3.7, 0), (0, 3.7, -0.75), 0.02, seg=4)
+    tube(p, green, (0, 2.4, 0), (0, 2.4, -0.75), 0.02, seg=4)
+    p.box('flat:#8f2020', -0.012, 2.45, -0.72, 0.012, 3.65, -0.1)
+    p.box('flat:#f3e3a0', -0.014, 2.45, -0.72, 0.014, 2.6, -0.1)
+
+
+def lamp_park(p):
+    """Low lantern for parks, promenades and station forecourts."""
+    dark = 'flat:#2b2f33'
+    p.cyl(dark, (0, 0.2, 0), 1, 0.13, 0.4, seg=8)
+    tube(p, dark, (0, 0.4, 0), (0, 3.1, 0), 0.05, seg=8)
+    p.box(dark, -0.2, 3.1, -0.2, 0.2, 3.16, 0.2)
+    p.box('light', -0.15, 3.16, -0.15, 0.15, 3.6, 0.15)
+    for dx, dz in ((-0.17, -0.17), (0.17, -0.17), (-0.17, 0.17), (0.17, 0.17)):
+        p.box(dark, dx - 0.015, 3.16, dz - 0.015, dx + 0.015, 3.6, dz + 0.015)
+    p.box(dark, -0.24, 3.6, -0.24, 0.24, 3.66, 0.24)
+    p.box(dark, -0.1, 3.66, -0.1, 0.1, 3.74, 0.1)
+
+
+# Finger post arms (shared with roads.ts FINGER): height of each arm's middle and which way it points along x.
+FINGER = [(2.5, 1), (2.26, -1), (2.02, 1)]
+
+
+def fingerpost(p):
+    """Pedestrian finger post: three blank arms for the game's wayfinding names."""
+    dark = 'flat:#2b2f33'
+    p.cyl(dark, (0, 0.06, 0), 1, 0.12, 0.12, seg=8)
+    p.cyl(dark, (0, 1.4, 0), 1, 0.045, 2.8, seg=8)
+    p.cyl('flat:#b08d3a', (0, 2.84, 0), 1, 0.07, 0.08, seg=8)
+    for y, sx in FINGER:
+        x0, x1 = (0.06, 1.06) if sx > 0 else (-1.06, -0.06)
+        p.box(BLUE, x0, y - 0.09, -0.02, x1, y + 0.09, 0.02)
+        tip = x1 if sx > 0 else x0
+        p.prism(BLUE, [(tip, y - 0.09), (tip + sx * 0.12, y), (tip, y + 0.09)], 'z', -0.02, 0.02)
+
+
+def mapstand(p):
+    """Standing area map: two legs and a board, its face left blank for the game's map."""
+    dark = 'flat:#2b2f33'
+    for sx in (-0.7, 0.7):
+        p.box(dark, sx - 0.04, 0, -0.04, sx + 0.04, 2.1, 0.04)
+    p.box(dark, -0.8, 0.85, -0.035, 0.8, 2.05, 0.035)
+    p.box('flat:#eeeeea', -0.74, 0.91, -0.045, 0.74, 1.99, -0.035)
+    p.box(dark, -0.86, 2.05, -0.12, 0.86, 2.1, 0.12)
+
+
+def wand(p):
+    """Orange delineator post with reflective bands."""
+    p.cyl(HOUSING, (0, 0.03, 0), 1, 0.11, 0.06, seg=8)
+    p.cyl(ORANGE, (0, 0.43, 0), 1, 0.04, 0.8, seg=8)
+    for y in (0.55, 0.7):
+        p.cyl(WHITE, (0, y, 0), 1, 0.043, 0.06, seg=8)
 
 
 # ── Vehicles: nose to -z ──
@@ -316,7 +421,8 @@ def bus(p):
 PROPS = {
     'signal9': (lambda p: signal(p, ARMS['signal9']), 10), 'signal7': (lambda p: signal(p, ARMS['signal7']), 8), 'signal3': (lambda p: signal(p, ARMS['signal3']), 4),
     'ped': (ped, 1.5), 'signpole': (signpole, 1), 'gantry': (gantry, 9), 'busstop': (busstop, 1.5), 'shelter': (shelter, 5),
-    'mirror': (mirror, 1.5), 'bollard': (bollard, 1), 'rail': (rail, 3), 'upole': (upole, 3),
+    'mirror': (mirror, 1.5), 'bollard': (bollard, 1), 'rail': (rail, 3), 'upole': (upole, 3), 'upole_l': (lambda p: upole(p, False), 3),
+    'lamp_hw': (lamp_hw, 3), 'lamp_shop': (lamp_shop, 3), 'lamp_park': (lamp_park, 2), 'fingerpost': (fingerpost, 3), 'mapstand': (mapstand, 3), 'wand': (wand, 1),
     'sedan_w': (lambda p: sedan(p, '#e6e6e2'), 3), 'sedan_k': (lambda p: sedan(p, '#2a2d32'), 3), 'sedan_r': (lambda p: sedan(p, '#8f2020'), 3),
     'sedan_b': (lambda p: sedan(p, '#27508a'), 3), 'sedan_s': (lambda p: sedan(p, '#9aa0a6'), 3),
     'taxi': (lambda p: sedan(p, '#1d4d2b', taxi=True), 3),

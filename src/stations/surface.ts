@@ -3,7 +3,7 @@
 // repeatable neighbourhood. Coordinates are station-frame metres (x along the line).
 
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
-import { kerbGaps, kerbRail, roadKit } from './roads';
+import { kerbGaps, kerbRail, poleLine, roadKit, streetLamp, type LampKind } from './roads';
 import { BUILDING_MODELS } from './buildings';
 import { GROUND_Y, vending } from './kit';
 
@@ -511,12 +511,16 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
       }
       x = to;
     }
-    for (let xl = -X + 12; xl < X; xl += 32) if (!nearStreet(xl, 9)) lamp(b, xl, s * (rw + 0.9), -s);
+    // Street lights by what stands on this side: highway masts on avenues and by offices, shopping-street
+    // lamps by shops, low lanterns by parks, campuses and the sea. Where the street has utility poles
+    // and houses, the poles carry the lights. (With the road kit, the kit places them.)
+    const style = s < 0 ? spec.left : spec.right;
+    const lampKind: LampKind | null = spec.avenue || style === 'office' ? 'lamp_hw' : style === 'mixed' || style === 'neon' ? 'lamp_shop'
+      : style === 'house' || style === 'apartment' ? (spec.poles ? null : 'lamp_hw') : 'lamp_park';
+    if (!spec.roadKit && lampKind) for (let xl = -X + 12; xl < X; xl += 32) if (!nearStreet(xl, 9)) streetLamp(b, lampKind, xl, s * (rw + 0.9), [0, -s]);
     if (spec.trees) for (let xt = -X + 5; xt < X; xt += 16) if (!nearStreet(xt, 10)) tree(b, xt, s * (rw + 1.6), 5.5 + r() * 1.5, spec.treeLeaf);
     if (spec.poles) {
-      for (let xp = -X + 8; xp < X; xp += 30) if (!nearStreet(xp, 6)) utilityPole(b, xp, s * (swOut - 0.5));
-      b.deco('flat:#222', -X, GY + 8.25, s * (swOut - 0.5) - 0.02, X, GY + 8.28, s * (swOut - 0.5) + 0.02);
-      b.deco('flat:#222', -X, GY + 7.6, s * (swOut - 0.5) + 0.3, X, GY + 7.63, s * (swOut - 0.5) + 0.34);
+      poleLine(b, { axis: 'x', from: -X - 7, to: X, at: s * (swOut - 0.5), road: -s as 1 | -1, step: 30, skip: (u) => nearStreet(u, 6), drops: 0.9, cross: s > 0 ? 2 * (swOut - 0.5) - 0.6 : undefined, name: stationName });
     }
   }
 
@@ -531,7 +535,10 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     // (The road kit places its own vehicles; the draws above still happen so the street stays the same.)
     if (!spec.roadKit) car(b, x, cz, col, true, taxi);
   }
-  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at });
+  // The kit's street lights follow the street: highway masts on an avenue or by offices, shopping-street lamps by shops; none where the utility poles carry them.
+  const kitLamp: LampKind | undefined = spec.avenue || spec.left === 'office' || spec.right === 'office' ? 'lamp_hw'
+    : spec.left === 'mixed' || spec.left === 'neon' || spec.right === 'mixed' || spec.right === 'neon' ? 'lamp_shop' : spec.poles ? undefined : 'lamp_hw';
+  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at, lamp: kitLamp });
 
   // ── Buildings ──
   const edges = [-X + 1, ...[...streets].sort((p, q) => p[0] - q[0]).flatMap(([a, c]) => [a - 3, c + 3]), X - 1];

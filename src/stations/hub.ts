@@ -31,7 +31,7 @@ import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from '.
 import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, stairs, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
 import { BUILDING_MODELS } from './buildings';
-import { kerbGaps, kerbRail, roadKit, roadModel } from './roads';
+import { kerbGaps, kerbRail, poleLine, roadKit, roadModel, streetLamp } from './roads';
 import { SHOPS, crosswalk, fillModelLots, type Shop } from './surface';
 
 export const HUB_PLOT = { x: 190, z: 160 };
@@ -1296,7 +1296,7 @@ function street(h: H, seed: number, dir: [number, number]) {
   b.deco('flat:#e9e9e4', -YS - 7.2, 0.004, -AV, -YS - 6.8, 0.01, 0);
   b.deco('flat:#e9e9e4', YS + 6.8, 0.004, 0, YS + 7.2, 0.01, AV);
   const cross: [number, number][] = [[-YS, YS]];
-  roadKit(b, { X, Z, rw: AV, swOut: S_FRONT, streets: cross, seed, name: { ja: c.station.nameJa, en: c.station.nameRomaji }, at: { id: c.station.id, dir }, tee: true, junctions: [{ ja: '川湊駅前', en: 'Kawaminato Sta.' }] });
+  roadKit(b, { X, Z, rw: AV, swOut: S_FRONT, streets: cross, seed, name: { ja: c.station.nameJa, en: c.station.nameRomaji }, at: { id: c.station.id, dir }, tee: true, lamp: 'lamp_hw', junctions: [{ ja: '川湊駅前', en: 'Kawaminato Sta.' }] });
   // The backdrop city round the hub is Blender-built too: business blocks, no plain boxes.
   b.out.district = { radius: 620, old: [0, 0], oldRadius: 0 };
   // Kerb guard rail, open at the junction, the kit's bus stops and taxi stand, and the plaza's drives.
@@ -1334,20 +1334,12 @@ function street(h: H, seed: number, dir: [number, number]) {
   let n = 0;
   for (const s of [-1, 1]) {
     for (let x = -X + 8; x < X; x += 18) if (kerbClear(x, s, 2)) streetTree(b, x, s * (AV + 1.7), n++);
-    for (let x = -X + 17; x < X; x += 27) {
-      if (!kerbClear(x, s, 1)) continue;
-      furniture(b, 'lamp', x, s * (AV + 0.9), [1, 0]);
-      b.block(x - 0.12, GY, s * (AV + 0.9) - 0.12, x + 0.12, GY + 3, s * (AV + 0.9) + 0.12);
-    }
   }
   for (const sx of [-1, 1]) {
     for (let z = S_FRONT + 12; z < Z - 4; z += 15) {
       const x = sx * (YS + 1.6);
       if (!nearHole(x, z, 4)) streetTree(b, x, z, n++);
-      if (z % 2 === 1 && !nearHole(x, z + 7, 3)) {
-        furniture(b, 'lamp', sx * (YS + 0.9), z + 7);
-        b.block(sx * (YS + 0.9) - 0.12, GY, z + 6.88, sx * (YS + 0.9) + 0.12, GY + 3, z + 7.12);
-      }
+      if (z % 2 === 1 && !nearHole(x, z + 7, 3)) streetLamp(b, 'lamp_hw', sx * (YS + 0.9), z + 7, [-sx, 0]);
     }
   }
 
@@ -1402,10 +1394,13 @@ function street(h: H, seed: number, dir: [number, number]) {
     }
   };
   // Second row: the tower cluster south and east of the junction. Third row: blocks closing the view.
-  row(YS + 3, X - 2, 67, 44, [['twr_a', 16], ['twr_c', 72], ['twr_e', 124]]);
-  row(-X + 2, -YS - 3, 67, 44, [['twr_d', -150], ['twr_b', -60]]);
-  row(YS + 3, X - 2, 114, 44);
-  row(-X + 2, -YS - 3, 114, 44);
+  const R2 = 70, R3 = 117;
+  row(YS + 3, X - 2, R2, 44, [['twr_a', 16], ['twr_c', 72], ['twr_e', 124]]);
+  row(-X + 2, -YS - 3, R2, 44, [['twr_d', -150], ['twr_b', -60]]);
+  row(YS + 3, X - 2, R3, 42);
+  row(-X + 2, -YS - 3, R3, 42);
+  // The back lane between the first two rows keeps its wires overhead: the avenue's are buried.
+  for (const sx of [-1, 1]) poleLine(b, { axis: 'x', from: sx * (YS + 4), to: sx * (X - 4), at: R2 - 2.4, road: 1, drops: 2.2, name: { ja: c.station.nameJa, en: c.station.nameRomaji } });
   // North-west, beyond the taxi rank: blocks facing the plaza.
   row(-X + 4, -BLDG - 6, -68, 38, [], true);
 
@@ -1478,8 +1473,7 @@ function street(h: H, seed: number, dir: [number, number]) {
     b.block(bx - 0.95, GY, bz - 0.3, bx + 0.95, GY + 0.5, bz + 0.3);
   }
   for (const [lx, lz] of [[-30, -26], [30, -26], [-22, -56], [22, -56], [0, -40]]) {
-    furniture(b, 'lamp', lx, lz, [1, 0]);
-    b.block(lx - 0.12, GY, lz - 0.12, lx + 0.12, GY + 3, lz + 0.12);
+    streetLamp(b, 'lamp_park', lx, lz, [0, 1]);
   }
   b.box('flat:#0d3b66', -3.2, GY, -22.3, 3.2, GY + 2.1, -22);
   b.sign({ k: 'label', text: '川湊駅前広場', sub: 'Kawaminato Station Plaza', fg: '#fff', bg: '#0d3b66' }, 0, GY + 1.2, -21.99, [0, 1], 6.2, 1.5);

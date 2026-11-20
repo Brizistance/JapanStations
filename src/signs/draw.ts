@@ -2031,6 +2031,7 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'roadsign': return drawRoadSign(ctx, W, H, c.v);
     case 'roadboard': return drawRoadBoard(ctx, W, H, c.rows);
     case 'junction': return drawJunction(ctx, W, H, c);
+    case 'address': return drawAddress(ctx, W, H, c);
     case 'roadmark': return drawRoadMark(ctx, W, H, c.v);
   }
 }
@@ -2141,6 +2142,55 @@ function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { 
     case 'back-tri': return poly(tri(1), GREY);
     case 'back-round': return disc(0.98, GREY);
     case 'back-penta': return poly(penta(1), GREY);
+    case 'back-diamond': return poly([[0, -0.98], [0.98, 0], [0, 0.98], [-0.98, 0]], GREY);
+    case 'speed30':
+      disc(0.98, '#c8102e');
+      disc(0.76, '#f4f4f0');
+      text(ctx, '30', cx, cy + R * 0.03, R * 0.92, { align: 'center', color: '#1f4fa0', weight: 800 });
+      return;
+    case 'nostopping':
+      disc(0.98, '#c8102e');
+      disc(0.78, '#1f4fa0');
+      for (const a of [Math.PI / 4, -Math.PI / 4]) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(a);
+        ctx.fillStyle = '#c8102e';
+        ctx.fillRect(-R * 0.1, -R * 0.9, R * 0.2, R * 1.8);
+        ctx.restore();
+      }
+      return;
+    case 'hydrant':
+      disc(0.98, '#f4f4f0');
+      disc(0.9, '#c8102e');
+      text(ctx, '消火栓', cx, cy + R * 0.02, R * 0.46, { align: 'center', color: '#fff', weight: 800 });
+      return;
+    case 'school': {
+      // School route warning: a yellow diamond with two children.
+      poly([[0, -0.98], [0.98, 0], [0, 0.98], [-0.98, 0]], '#1f2023');
+      poly([[0, -0.9], [0.9, 0], [0, 0.9], [-0.9, 0]], '#f2c200');
+      ctx.fillStyle = '#1f2023';
+      ctx.strokeStyle = '#1f2023';
+      ctx.lineCap = 'round';
+      for (const [ox, k] of [[-0.2, 1], [0.24, 0.8]]) {
+        ctx.beginPath();
+        ctx.arc(cx + ox * R, cy - R * 0.3 * k, R * 0.09 * k, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = R * 0.09 * k;
+        const seg = (x0: number, y0: number, x1: number, y1: number) => {
+          ctx.beginPath();
+          ctx.moveTo(cx + (ox + x0 * k) * R, cy + y0 * k * R);
+          ctx.lineTo(cx + (ox + x1 * k) * R, cy + y1 * k * R);
+          ctx.stroke();
+        };
+        seg(0, -0.18, 0, 0.14);
+        seg(0, -0.1, -0.16, 0.04);
+        seg(0, -0.1, 0.16, 0.0);
+        seg(0, 0.14, -0.14, 0.42);
+        seg(0, 0.14, 0.14, 0.42);
+      }
+      return;
+    }
     case 'stop':
       poly(tri(1), '#f4f4f0');
       poly(tri(0.92), '#c8102e');
@@ -2199,6 +2249,19 @@ function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { 
  * shaft's arrow, the others over their arms. Layout after the diagrams of signs 108-A and 108の2-A
  * on Wikimedia Commons (see docs/references.md); the names are ours, from the network.
  */
+/** Address plate (街区表示板): green with a white edge, the name written downwards, romaji small at the foot. */
+function drawAddress(ctx: Ctx, W: number, H: number, c: { ja: string; en: string }) {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+  const e = W * 0.07;
+  ctx.fillStyle = '#1d6b45';
+  ctx.fillRect(e, e, W - 2 * e, H - 2 * e);
+  const chars = [...c.ja];
+  const room = H * 0.84, size = Math.min(W * 0.62, room / chars.length);
+  chars.forEach((ch, i) => text(ctx, ch, W / 2, H * 0.06 + size * (i + 0.6), size * 0.92, { align: 'center', color: '#fff', weight: 700 }));
+  text(ctx, c.en, W / 2, H * 0.955, W * 0.16, { align: 'center', color: '#fff', weight: 600, maxW: W * 0.82 });
+}
+
 /** Junction name plate (交差点名標識): white plate, blue border and lettering, kanji over romaji. */
 function drawJunction(ctx: Ctx, W: number, H: number, c: { ja: string; en: string }) {
   const BLUE = '#0b5fb0';
