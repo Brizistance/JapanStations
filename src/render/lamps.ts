@@ -1,0 +1,157 @@
+// Outdoor lights at night: street lamps, station entrances, shopfronts, parked cars and
+// train headlights. None is a real three.js light. Their positions are read from each
+// station's build, the nearest few to the camera go to the lit material as uniforms
+// (lit.ts, `uLampPos`), and the shader brightens surfaces around them. No shadows.
+
+import * as THREE from 'three';
+import { STATION_WORLDS } from '../stations';
+import { GROUND_Y } from '../stations/kit';
+import { toWorld } from '../world/collision';
+import { modelsLoaded, signTint } from './building-models';
+import { LAMPS, shared } from './lit';
+
+type RGB = [number, number, number];
+interface Lamp {
+  x: number; y: number; z: number;
+  /** Reach in metres. */
+  r: number;
+  c: RGB;
+  /** A street lamp (drawn as a dot from far away). */
+  street?: boolean;
+}
+
+/** Height of the lantern, how far it hangs out over the road, reach and colour, by street-light model. */
+const STREET: Record<string, { h: number; out: number; r: number; c: RGB }> = {
+  lamp_hw: { h: 8.2, out: 1.8, r: 22, c: [1.5, 1.6, 1.7] },
+  lamp_shop: { h: 4.2, out: 0.3, r: 12, c: [1.7, 1.3, 0.85] },
+  lamp_park: { h: 3.2, out: 0, r: 10, c: [1.5, 1.2, 0.8] },
+};
+const ENTRANCE: RGB = [1.25, 1.35, 1.4], SHOP: RGB = [1.25, 1.0, 0.65], CAR: RGB = [1.3, 1.25, 1.05];
+/** A konbini's ceiling lights, as one light over its counter; and a shop's hanging lamp or lantern. */
+const KONBINI: RGB = [1.15, 1.2, 1.2], PENDANT: RGB = [1.2, 0.9, 0.55];
+/** Buildings with shops at street level. */
+const SHOPFRONTS = new Set(['zakkyo', 'shophouse']);
+const CARS = /^(sedan|taxi|kei|van|bus$)/;
+const RANGE = 130, RANGE_FAR = 260;
+
+let fixed: Lamp[] | null = null;
+let pending: Lamp[] | null = null, wait = 0;
+
+function collect(): Lamp[] {
+  const out: Lamp[] = [];
+  const p: [number, number, number] = [0, 0, 0];
+  for (const w of STATION_WORLDS) {
+    const add = (lx: number, ly: number, lz: number, r: number, c: RGB, street = false) => {
+      // Street level and above only: shops in the halls below are lit by the station.
+      if (ly < GROUND_Y + 0.3) return;
+      toWorld(w.frame, [lx, ly, lz], p);
+      out.push({ x: p[0], y: p[1], z: p[2], r, c, street });
+    };
+    for (const m of w.build.models) {
+      // The model's front (local −z) turned by its yaw.
+      const fx = -Math.sin(m.yaw), fz = -Math.cos(m.yaw);
+      const s = m.kind === 'road' ? STREET[m.id] : undefined;
+      if (s) add(m.pos[0] + fx * s.out, m.pos[1] + s.h, m.pos[2] + fz * s.out, s.r, s.c, true);
+      else if (m.kind === 'road' && CARS.test(m.id)) add(m.pos[0] + fx * 4, m.pos[1] + 0.7, m.pos[2] + fz * 4, 7, CAR);
+      else if (m.kind === 'konbini' && m.id === 'counter') add(m.pos[0], m.pos[1] + 2.5, m.pos[2], 13, KONBINI);
+      else if (m.kind === 'shops' && (m.id === 'pendant' || m.id === 'lantern')) add(m.pos[0], m.pos[1] + 1.9, m.pos[2], 5, PENDANT);
+      else if (SHOPFRONTS.has(m.kind)) {
+        // The colour of the building's sign boards, spilling onto the street in front of it.
+        const tint = signTint(m.kind, m.id);
+        if (tint) {
+          const top = Math.max(tint[0], tint[1], tint[2], 0.05), g = 1.5 / top;
+          add(m.pos[0] + fx * 3, m.pos[1] + 5.5, m.pos[2] + fz * 3, 14, [tint[0] * g * 0.6 + 0.3, tint[1] * g * 0.6 + 0.3, tint[2] * g * 0.6 + 0.3]);
+        }
+        add(m.pos[0] + fx * 1.6, m.pos[1] + 2.6, m.pos[2] + fz * 1.6, 9, SHOP);
+      }
+    }
+    // Stairwell mouths: the light of the station coming up out of the ground.
+    for (const [x0, z0, x1, z1] of w.build.holes) add((x0 + x1) / 2, GROUND_Y + 2.3, (z0 + z1) / 2, 10, ENTRANCE);
+  }
+  return out;
+}
+
+/** Lights that move: filled by the train views each frame (world-view.ts). */
+export const headlights: { x: number; y: number; z: number }[] = [];
+const HEAD: RGB = [2.0, 1.9, 1.6];
+
+const near: { l: Lamp; d: number }[] = [];
+const moving: Lamp[] = [];
+let reach = RANGE;
+
+/**
+ * Send the `max` lights nearest `cam` to the lit material. `night`: 0 by day (no lights) … 1.
+ * Beyond the furthest light kept, an even city-light level takes over (lit.ts, `uCity`), so far
+ * streets are lit too without a pool each.
+ */
+export function updateLamps(cam: THREE.Vector3, night: number, max: number, dt: number) {
+  if (night < 0.02) {
+    shared.uLampCount.value = 0;
+    shared.uCity.value.x = 0;
+    return;
+  }
+  // Sign colours come with the building models: until those have loaded, collect afresh every few frames.
+  const list0 = fixed ?? (wait++ % 20 === 0 || !pending ? (pending = collect()) : pending);
+  if (!fixed && modelsLoaded()) fixed = collect();
+  const range = max > 32 ? RANGE_FAR : RANGE;
+  near.length = 0;
+  moving.length = 0;
+  for (const h of headlights) moving.push({ x: h.x, y: h.y, z: h.z, r: 18, c: HEAD });
+  for (const list of [fixed ?? list0, moving]) {
+    for (const l of list) {
+      const dx = l.x - cam.x, dz = l.z - cam.z;
+      if (Math.abs(dx) > range || Math.abs(dz) > range) continue;
+      const d = Math.hypot(dx, l.y - cam.y, dz);
+      if (d < range) near.push({ l, d });
+    }
+  }
+  near.sort((a, b) => a.d - b.d);
+  // Lights fade out towards the furthest one kept, so none pops as the player moves.
+  const cut = near.length > max ? near[max].d : range;
+  const n = Math.min(max, near.length);
+  for (let i = 0; i < n; i++) {
+    const { l, d } = near[i];
+    const t = Math.min(1, Math.max(0, (d / cut - 0.7) / 0.3));
+    const k = night * 0.7 * (1 - t * t * (3 - 2 * t));
+    shared.uLampPos.value[i].set(l.x, l.y, l.z, l.r);
+    shared.uLampCol.value[i].set(l.c[0] * k, l.c[1] * k, l.c[2] * k);
+  }
+  shared.uLampCount.value = n;
+  reach += (cut - reach) * Math.min(1, dt * 2);
+  shared.uCity.value.set(night * 0.45, reach * 0.55, reach * 1.05);
+}
+
+/** Every street lamp as a small bright dot, so lit streets read from far away. One draw call. */
+export class LampDots {
+  readonly points: THREE.Points;
+  private mat = new THREE.PointsMaterial({ size: 3.2, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: true });
+  private built = false;
+
+  constructor() {
+    this.points = new THREE.Points(new THREE.BufferGeometry(), this.mat);
+    this.points.frustumCulled = false;
+    this.points.visible = false;
+    this.points.userData.noAO = true;
+  }
+
+  update(night: number) {
+    if (!this.built && fixed) {
+      const lamps = fixed.filter((l) => l.street);
+      const pos = new Float32Array(lamps.length * 3), col = new Float32Array(lamps.length * 3);
+      lamps.forEach((l, i) => {
+        pos.set([l.x, l.y, l.z], i * 3);
+        col.set([l.c[0] * 1.3, l.c[1] * 1.3, l.c[2] * 1.3], i * 3);
+      });
+      this.points.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      this.points.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      this.built = true;
+    }
+    this.points.visible = this.built && night > 0.02;
+    this.mat.opacity = night;
+  }
+
+  dispose() {
+    this.points.geometry.dispose();
+    this.mat.dispose();
+  }
+}

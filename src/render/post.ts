@@ -1,6 +1,6 @@
 // Post-processing chain, built from the graphics settings (render/graphics.ts):
 //
-//   scene → ambient occlusion → floor reflections → bloom → lens (chroma, dirt)
+//   scene → ambient occlusion → floor reflections → sun shafts → bloom → lens (chroma, dirt)
 //         → tone mapping (OutputPass) → grade + vignette + grain
 //
 // AO draws the dark line where walls meet floors and under furniture; bloom makes light
@@ -16,6 +16,7 @@ import type { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { LensPass } from './film';
+import { GodRaysPass } from './godrays';
 import { FinishPass, type Grade } from './grade';
 import type { Fx } from './graphics';
 import { ReflectionPass } from './ssr';
@@ -52,6 +53,7 @@ export class Post {
   private ssr: ReflectionPass | null = null;
   private ssrHq: boolean | null = null;
   private bloom: UnrealBloomPass | null = null;
+  private rays: GodRaysPass | null = null;
   private w: number;
   private h: number;
 
@@ -79,6 +81,8 @@ export class Post {
       this.ssr = new ReflectionPass(this.scene, this.camera, pw, ph, fx.hq);
       this.ssrHq = fx.hq;
     }
+    if (fx.godRays && !this.rays) this.rays = new GodRaysPass(this.camera, pw, ph);
+    if (!fx.godRays && this.rays) this.rays.enabled = false;
     if (fx.bloom && !this.bloom) this.bloom = new UnrealBloomPass(new THREE.Vector2(pw, ph), 0.2, 0.5, 1.25);
 
     const glare = fx.bloom && this.bloom ? ([this.bloom.renderTargetsVertical[2].texture, this.bloom.renderTargetsVertical[3].texture] as [THREE.Texture, THREE.Texture]) : null;
@@ -90,6 +94,7 @@ export class Post {
       this.scenePass,
       fx.ao ? this.ao : null,
       fx.ssr ? this.ssr : null,
+      fx.godRays ? this.rays : null,
       fx.bloom ? this.bloom : null,
       this.lens.enabled ? this.lens : null,
       this.output,
@@ -106,7 +111,9 @@ export class Post {
     this.composer.setSize(w, h);
   }
 
-  render(grade: Grade, dt: number, time: number) {
+  /** `sun`: unit vector towards the sun; `shafts`: 0…1, how strong the sun shafts are right now. */
+  render(grade: Grade, dt: number, time: number, sun: THREE.Vector3, shafts: number) {
+    if (this.rays && this.composer.passes.includes(this.rays)) this.rays.aim(sun, shafts);
     this.finish.update(grade, dt, time);
     this.composer.render(dt);
   }
@@ -116,6 +123,7 @@ export class Post {
     this.ao?.dispose();
     this.ssr?.dispose();
     this.bloom?.dispose();
+    this.rays?.dispose();
     this.lens.dispose();
     this.finish.dispose();
     this.output.dispose();

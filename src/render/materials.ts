@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { lit, type LitOpts } from './lit';
-import { setReflective } from './ssr';
+import { setReflective, setWetReflective } from './ssr';
 import { fbm, pattern, scan, type TexSet } from './textures';
 
 const cache = new Map<string, THREE.Material>();
@@ -199,8 +199,11 @@ function make(key: string): THREE.Material {
       return fromSet(pattern('tactile', '#f2c200'), {}, { macro: 0.12, macroRough: 0.1 });
     case 'tactileBar':
       return fromSet(pattern('tactileBar', '#f2c200'), {}, { macro: 0.12, macroRough: 0.1 });
-    case 'paver':
-      return fromSet(pattern('paver', '#bdb7ab'), {}, { macro: 0.2, macroRough: 0.1 });
+    case 'paver': {
+      const m = fromSet(pattern('paver', '#bdb7ab'), {}, { macro: 0.2, macroRough: 0.1 });
+      setWetReflective(m, 0.4);
+      return m;
+    }
     case 'roof':
       return fromSet(pattern('roof', '#4a4f55'), {}, { macro: 0.1, macroRough: 0.1 });
     case 'facade':
@@ -229,8 +232,11 @@ function make(key: string): THREE.Material {
       return fromSet(sleeperSet(), { roughness: 0.93, side: THREE.DoubleSide }, { macro: 0.2, macroRough: 0 });
     case 'rail':
       return lit({ color: '#77706a', roughness: 0.38, metalness: 0.85, side: THREE.DoubleSide }, { macro: 0, macroRough: 0 });
-    case 'asphalt':
-      return fromSet(scan('asphalt', [4, 4]), { color: '#d9d9d9' }, { macro: 0.3, macroRough: 0.12 });
+    case 'asphalt': {
+      const m = fromSet(scan('asphalt', [4, 4]), { color: '#d9d9d9' }, { macro: 0.3, macroRough: 0.12 });
+      setWetReflective(m, 0.5);
+      return m;
+    }
     case 'grass':
       return fromSet(scan('grass', [2.6, 2.6], {}), { roughness: 0.95 }, { macro: 0.3, macroRough: 0 });
     case 'ground':

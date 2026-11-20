@@ -9,14 +9,20 @@ import { updateTrains } from '../trains/system';
 import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
-import { HORIZON, Lighting } from './lighting';
-import { lineGrade, OUTDOOR, UNDERGROUND, WARM_HUB, type Grade } from './grade';
+import { atmosphereAt, newAtmosphere } from './atmosphere';
+import { LampDots, updateLamps } from './lamps';
+import { Lighting } from './lighting';
+import { lineGrade, outdoorGrade, UNDERGROUND, WARM_HUB, type Grade } from './grade';
 import { needsPost } from './graphics';
 import { treeWind } from './building-models';
 import { Post } from './post';
+import { ssrWet } from './ssr';
+import { Rain } from './weather';
 import { WorldView } from './world-view';
 
-const SKY = HORIZON, DARK = new THREE.Color('#050506');
+const DARK = new THREE.Color('#050506');
+const SKY = new THREE.Color(), SUN = new THREE.Vector3();
+const atm = newAtmosphere();
 const tmp: [number, number, number] = [0, 0, 0];
 
 function World() {
@@ -28,6 +34,8 @@ function World() {
   useEffect(() => view.reseason(), [view, seasonNow]);
   const lighting = useRef<Lighting | null>(null);
   const post = useRef<Post | null>(null);
+  const rain = useRef<Rain | null>(null);
+  const dots = useRef<LampDots | null>(null);
   useEffect(() => {
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.0;
@@ -37,6 +45,11 @@ function World() {
     gl.info.autoReset = false;
     perfStats.scene = scene;
     lighting.current = new Lighting(gl, scene);
+    rain.current = new Rain(scene);
+    dots.current = new LampDots();
+    scene.add(dots.current.points);
+    atmosphereAt(clock.time, useUI.getState().weather, atm);
+    SKY.fromArray(atm.fogColor);
     scene.fog = new THREE.Fog(SKY.clone(), 300, 1700);
     scene.background = SKY.clone();
     camera.rotation.order = 'YXZ';
@@ -44,6 +57,11 @@ function World() {
       view.dispose();
       lighting.current?.dispose();
       lighting.current = null;
+      rain.current?.dispose();
+      rain.current = null;
+      if (dots.current) scene.remove(dots.current.points);
+      dots.current?.dispose();
+      dots.current = null;
     };
   }, [scene, camera, gl, view]);
   // The post-processing chain only exists while some effect needs it (not on Low).
@@ -61,6 +79,7 @@ function World() {
   useEffect(() => {
     post.current?.apply(fx);
     lighting.current?.setDetail(fx.hq);
+    lighting.current?.setClouds(fx.clouds);
   }, [fx, wantPost]);
   useEffect(() => {
     post.current?.setSize(size.width, size.height);
@@ -94,20 +113,32 @@ function World() {
     const vis = !zone ? 'any' : zone.kind === 'street' ? 'street' : !zone.sky && camera.position.y < -2.5 ? 'under' : 'any';
     view.update(dt, camera.position, vis);
 
+    // The hour and the weather decide the light, the sky and the fog above ground.
+    atmosphereAt(clock.time, useUI.getState().weather, atm);
+    SKY.fromArray(atm.fogColor);
+    SUN.fromArray(atm.sun);
+
     // Underground the far distance fades to black; above ground to sky.
     const fog = scene.fog as THREE.Fog;
     const under = camera.position.y < -1.2 && !(useUI.getState().mode === 'play' && where.zone?.sky);
     const k = Math.min(1, dt * 3);
     fog.color.lerp(under ? DARK : SKY, k);
     (scene.background as THREE.Color).copy(fog.color);
-    fog.near += ((under ? 70 : 300) - fog.near) * k;
-    fog.far += ((under ? 520 : 1700) - fog.far) * k;
+    fog.near += ((under ? 70 : atm.fogNear) - fog.near) * k;
+    fog.far += ((under ? 520 : atm.fogFar) - fog.far) * k;
 
     const near = nearestStation(camera.position.x, camera.position.z).world.frame;
-    lighting.current?.update(camera.position, near.yaw, fx.shadows);
+    const light = lighting.current;
+    light?.update(camera.position, near.yaw, fx.shadows, atm, dt);
+    const riding = useUI.getState().mode === 'play' && where.train != null;
+    rain.current?.update(gl, camera.position, atm, dt, vis !== 'under' && camera.position.y > -12, riding, light && dots.current ? [light.dome, dots.current.points] : []);
+    updateLamps(camera.position, under ? 0 : atm.night, fx.hq ? 64 : 24, dt);
+    dots.current?.update(under ? 0 : atm.night);
+    ssrWet.on = atm.wet > 0.5;
     treeWind.value = state.clock.elapsedTime;
     // Priority 1 takes over rendering from R3F.
-    if (post.current) post.current.render(gradeFor(under), dt, state.clock.elapsedTime);
+    const shafts = under || !atm.sunLit ? 0 : Math.min(1, atm.lightPower / 1.2) * (0.35 + 0.65 * atm.dusk);
+    if (post.current) post.current.render(under ? gradeFor() : outdoorGrade(atm.day, atm.dusk, atm.direct), dt, state.clock.elapsedTime, SUN, shafts);
     else gl.render(scene, camera);
     perfStats.calls = gl.info.render.calls;
     perfStats.tris = gl.info.render.triangles;
@@ -117,9 +148,8 @@ function World() {
   return <primitive object={view.root} />;
 }
 
-/** Colour grade to ease towards: daylight, generic underground, or the line you're on. */
-function gradeFor(under: boolean): Grade {
-  if (!under) return OUTDOOR;
+/** Underground colour grade to ease towards: generic, or the line you're on. */
+function gradeFor(): Grade {
   if (useUI.getState().mode !== 'play') return UNDERGROUND;
   const line = where.train?.sim.geom.def.id ?? where.zone?.line;
   if (line) return lineGrade(line);

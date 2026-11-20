@@ -1,7 +1,6 @@
 // Graphics presets and per-effect switches. Used on the main menu and in the in-game
 // panel (G). Settings live in the store and apply live.
 
-import { SEASONS, type Season } from '../render/season';
 import { PRESET_ORDER, type Fx, type FxSwitch, type Preset } from '../render/graphics';
 import { useUI } from './store';
 
@@ -14,7 +13,7 @@ const PRESET_LABEL: Record<Preset, [string, string]> = {
 const PRESET_HINT: Record<Preset | 'custom', string> = {
   low: 'No effects. For slow machines, or if movement stutters.',
   high: 'Shadows, soft occlusion, glow and a film grade. Made for laptops.',
-  ultra: 'Adds floor reflections, lens effects and extra detail. For a gaming GPU.',
+  ultra: 'Adds floor reflections, volumetric clouds, sun shafts, lens effects and extra detail. For a gaming GPU.',
   custom: 'Your own mix of effects.',
 };
 
@@ -30,6 +29,8 @@ const SWITCH_INFO: [FxSwitch, string, string, string, Cost][] = [
   ['chroma', '色収差', 'Chromatic aberration', 'Colour fringes at the frame edges', 'light'],
   ['lensDirt', 'レンズの汚れ', 'Lens dirt', 'Smudges lit by bright lights (needs Glow)', 'light'],
   ['hq', '高精細', 'Extra detail', 'Sharper shadows, finer occlusion, longer reflections', 'heavy'],
+  ['clouds', '立体雲', 'Volumetric clouds', 'Clouds with depth, lit by the sun (otherwise a flat sheet)', 'heavy'],
+  ['godRays', '光芒', 'Sun shafts', 'Rays of light around the sun', 'medium'],
 ];
 const COST_LABEL: Record<Cost, string> = { light: 'light', medium: 'medium', heavy: 'heavy' };
 
@@ -59,13 +60,9 @@ export function PresetHint() {
   );
 }
 
-const SEASON_LABEL: Record<Season, string> = { spring: '春 Spring', summer: '夏 Summer', autumn: '秋 Autumn', winter: '冬 Winter' };
-
 export function EffectSwitches() {
   const fx = useUI((s) => s.graphics.fx);
   const setFx = useUI((s) => s.setFx);
-  const season = useUI((s) => s.season);
-  const setSeason = useUI((s) => s.setSeason);
   return (
     <div className="gfx-switches">
       {SWITCH_INFO.map(([k, ja, en, hint, cost]) => {
@@ -80,16 +77,6 @@ export function EffectSwitches() {
           </label>
         );
       })}
-      <div className="gfx-scale" role="group" aria-label="Season">
-        <span>
-          <b>季節</b> Season <small>木の見た目だけが変わります Trees only</small>
-        </span>
-        {SEASONS.map((v) => (
-          <button key={v} type="button" className={season === v ? 'on' : ''} onClick={() => setSeason(v)}>
-            {SEASON_LABEL[v]}
-          </button>
-        ))}
-      </div>
       <div className="gfx-scale" role="group" aria-label="Render scale">
         <span>
           <b>解像度</b> Render scale

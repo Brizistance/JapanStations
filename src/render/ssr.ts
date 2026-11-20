@@ -18,6 +18,14 @@ export function setReflective(m: THREE.Material, amount: number) {
   m.userData.ssr = amount;
 }
 
+/** True while the ground is wet: materials marked with `setWetReflective` reflect too. */
+export const ssrWet = { on: false };
+
+/** Mark a material as reflective for SSR only when it is wet (streets, paving). */
+export function setWetReflective(m: THREE.Material, amount: number) {
+  m.userData.ssrWet = amount;
+}
+
 const QUAD_VS = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -204,7 +212,7 @@ export class ReflectionPass extends Pass {
   }
 
   private preMat(src: THREE.Material): THREE.ShaderMaterial {
-    const r = (src.userData.ssr as number | undefined) ?? 0;
+    const r = Math.max((src.userData.ssr as number | undefined) ?? 0, ssrWet.on ? ((src.userData.ssrWet as number | undefined) ?? 0) : 0);
     const key = `${r}:${src.side}`;
     let m = this.preMats.get(key);
     if (!m) {

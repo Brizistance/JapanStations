@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, teleport } from '../player/player';
 import { setSfxVolume, setVoiceVolume } from '../audio/engine';
+import { WEATHERS, type Weather } from '../render/atmosphere';
 import { fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
 
 export const dom = { canvas: null as HTMLCanvasElement | null };
@@ -45,6 +46,34 @@ const initialVoice = loadVolume(VOICE_KEY), initialSfx = loadVolume(SFX_KEY);
 setVoiceVolume(initialVoice);
 setSfxVolume(initialSfx);
 
+// The hour and weather chosen on the main menu, kept between visits.
+const TIME_KEY = 'kawaminato.startTime', WEATHER_KEY = 'kawaminato.weather';
+function loadStartTime(): number {
+  try {
+    const raw = storage()?.getItem(TIME_KEY);
+    const v = raw == null ? NaN : Number(raw);
+    return Number.isFinite(v) && v >= 0 && v < 86400 ? v : 10 * 3600;
+  } catch {
+    return 10 * 3600;
+  }
+}
+function loadWeather(): Weather {
+  try {
+    const raw = storage()?.getItem(WEATHER_KEY) as Weather | null;
+    return raw && WEATHERS.includes(raw) ? raw : 'clear';
+  } catch {
+    return 'clear';
+  }
+}
+function save(key: string, v: string) {
+  try {
+    storage()?.setItem(key, v);
+  } catch {
+    /* ignore */
+  }
+}
+clock.time = loadStartTime();
+
 interface UI {
   mode: 'menu' | 'play';
   mapOpen: boolean;
@@ -55,6 +84,10 @@ interface UI {
   /** The season the trees are shown in (a look only). */
   season: Season;
   setSeason: (s: Season) => void;
+  weather: Weather;
+  setWeather: (w: Weather) => void;
+  /** Set the sim clock to `sec` seconds after midnight (the main menu's time of day). */
+  setTime: (sec: number) => void;
   /** Announcement volume, 0…1. */
   voiceVolume: number;
   setVoiceVolume: (v: number) => void;
@@ -99,6 +132,15 @@ export const useUI = create<UI>((set, get) => ({
       /* ignore */
     }
     set({ season: v });
+  },
+  weather: loadWeather(),
+  setWeather: (weather) => {
+    save(WEATHER_KEY, weather);
+    set({ weather });
+  },
+  setTime: (sec) => {
+    clock.time = ((sec % 86400) + 86400) % 86400;
+    save(TIME_KEY, String(clock.time));
   },
   voiceVolume: initialVoice,
   setVoiceVolume: (v) => {
