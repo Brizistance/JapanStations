@@ -7,6 +7,7 @@
 import type { Builder } from '../world/builder';
 import { fitting } from './fittings';
 import { GROUND_Y, vending } from './kit';
+import { modelTree } from './trees';
 
 export type PlaceKind = 'park' | 'shrine' | 'vending' | 'koban';
 /** Frontage and depth of each kind's lot. */
@@ -52,10 +53,12 @@ export function place(b: Builder, o: PlaceOpts) {
     solid(1.4, d - 1.8, 3.8, d - 1.3, 0.45);
     put('swing', -3.6, d - 3.2);
     solid(-4.9, d - 3.9, -2.3, d - 2.5, 0.5);
-    for (const [x, z] of [[-X + 1.6, d - 1.4], [-0.8, d - 1.3], [X - 1.4, d - 5.2]]) {
-      put('tree', x, z);
-      solid(x - 0.2, z - 0.2, x + 0.2, z + 0.2, 3);
-    }
+    // Cherries at the back, a maple by the shelter, azalea hedges either side of the way in.
+    modelTree(b, 'cherry', -X + 2.6, d - 2.2, 'b');
+    modelTree(b, 'cherry', -0.6, d - 1.6, 'b');
+    modelTree(b, 'momiji', X - 1.6, d - 5.4);
+    modelTree(b, 'momiji', -X + 1.5, 4.4, 'b');
+    for (const x of [-X + 3.4, X - 3.6]) modelTree(b, 'azalea', x, 0.5);
     for (const x of [-2.4, 0.4]) {
       fitting(b, 'cbench_new', x, GY, 4.6, [0, -1]);
       solid(x - 0.9, 4.35, x + 0.9, 4.85, 0.45);
@@ -82,8 +85,13 @@ export function place(b: Builder, o: PlaceOpts) {
     }
     put('basin', X - 1.7, 6.2, [-1, 0]);
     solid(X - 2.5, 5.2, X - 0.9, 7.2, 2.2);
+    // The sacred camphor with its rope, cedars behind the hall, a trained pine and bamboo by the fence.
     put('sacredtree', -X + 1.8, 7.0);
     solid(-X + 1.45, 6.65, -X + 2.15, 7.35, 3);
+    for (const sx of [-1, 1]) modelTree(b, 'cedar', sx * (X - 1.0), d - 1.0, 'b');
+    modelTree(b, 'pine', X - 1.6, 2.4, 'b');
+    modelTree(b, 'bamboo', -X + 1.2, d - 3.6, 'b');
+    modelTree(b, 'momiji', X - 1.5, 9.4, 'b');
     put('hall', 0, d - 2.3);
     solid(-2.1, d - 4.9, 2.1, d - 0.6, 3);
     b.zone('street', -X, GY - 0.2, 0, X, GY + 3, d, o.ja, o.en, true);

@@ -1,6 +1,7 @@
 // UI state. Small on purpose: the sim and player live in plain modules; this only
 // tracks which screen is showing.
 
+import { season, SEASON_KEY, SEASONS, type Season } from '../render/season';
 import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, teleport } from '../player/player';
@@ -27,6 +28,12 @@ function loadVolume(key: string): number {
     return 0.8;
   }
 }
+const initialSeason: Season = (() => {
+  const v = storage()?.getItem(SEASON_KEY) as Season | null;
+  return v && SEASONS.includes(v) ? v : 'summer';
+})();
+season.now = initialSeason;
+
 function saveVolume(key: string, v: number) {
   try {
     storage()?.setItem(key, String(v));
@@ -45,6 +52,9 @@ interface UI {
   locked: boolean;
   fast: boolean;
   graphics: Graphics;
+  /** The season the trees are shown in (a look only). */
+  season: Season;
+  setSeason: (s: Season) => void;
   /** Announcement volume, 0…1. */
   voiceVolume: number;
   setVoiceVolume: (v: number) => void;
@@ -80,6 +90,16 @@ export const useUI = create<UI>((set, get) => ({
   locked: false,
   fast: false,
   graphics: loadGraphics(storage()),
+  season: initialSeason,
+  setSeason: (v) => {
+    season.now = v;
+    try {
+      storage()?.setItem(SEASON_KEY, v);
+    } catch {
+      /* ignore */
+    }
+    set({ season: v });
+  },
   voiceVolume: initialVoice,
   setVoiceVolume: (v) => {
     setVoiceVolume(v);

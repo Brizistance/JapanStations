@@ -157,6 +157,7 @@ export const SPECS: Record<StationId, StationSpec> = {
       landmark: { ja: '紬橋絹取引所', en: 'Tsumugibashi Silk Exchange', side: 1, x0: 26, x1: 73, depth: 28 },
       // A corner shop by the side street and a shop in the base of an avenue block.
       konbini: [{ type: 'corner', chain: 'hinode', side: 1, x0: -85.5 }, { type: 'ground', chain: 'maruhoshi', side: -1, x0: -44 }],
+      treeKinds: ['zelkova', 'ginkgo', 'tokaede'],
       // A shrine and the police box on the north side, a vending corner on the south.
       places: [
         { kind: 'shrine', side: -1, x0: 34, ja: '紬稲荷神社', en: 'Tsumugi Inari Shrine' },

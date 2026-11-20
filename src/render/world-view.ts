@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { lineById } from '../data/network';
-import { NET } from '../sim';
+import { NET, clock } from '../sim';
 import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
@@ -330,6 +330,7 @@ export class WorldView {
     this.root.add(backdrop);
     for (const sim of NET) {
       const track = buildTrack(sim);
+      if (track.userData.tick) this.trackTicks.push(track.userData.tick as (time: number) => void);
       this.deepTrack.push(...track.children.filter((o) => o.userData.layer === 'deep'));
       for (const o of track.children) {
         const mesh = o as THREE.Mesh;
@@ -350,6 +351,14 @@ export class WorldView {
         this.root.add(district);
       }
     }, (e) => console.warn('building models not loaded:', e));
+  }
+
+  /** Per-frame updates of the running lines (tunnel signals that follow the trains). */
+  private trackTicks: ((time: number) => void)[] = [];
+
+  /** The season changed: stations are mounted again so that their trees are drawn in it. */
+  reseason() {
+    this.resetBuildings();
   }
 
   /** Stations mounted before the building models arrived are dropped; update() mounts them again. */
@@ -376,6 +385,7 @@ export class WorldView {
   update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any') {
     this.cull(cam, vis);
     // Stations: at most one mount per frame to spread the cost.
+    for (const tick of this.trackTicks) tick(clock.time);
     let mounted = false;
     // Departure boards in the station around the player redraw at ~15 Hz (scrolling tickers).
     this.fastTimer -= dt;

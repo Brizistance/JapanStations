@@ -219,6 +219,8 @@ function make(key: string): THREE.Material {
       return fromSet(scan('concrete', [3.2, 1.6]), { color: '#e9e6df' }, { macro: 0.24, macroRough: 0.1 });
     case 'concreteDark':
       return fromSet(scan('concrete_dark', [2.6, 2.6]), { color: '#d8d4cc' }, { macro: 0.22, macroRough: 0.1 });
+    case 'trackside': // painted steel and concrete beside the track: seen from any side
+      return lit({ color: a, roughness: 0.7, metalness: 0, side: THREE.DoubleSide }, { macro: 0.08, macroRough: 0.1 });
     case 'tunnel':
       return fromSet(scan('concrete_dark', [3.4, 3.4]), { color: '#c9c2b6', side: THREE.DoubleSide }, { macro: 0.3, macroRough: 0.1 });
     case 'viaduct':

@@ -90,3 +90,13 @@ References (2026-11-20): the 2017 National Police Agency change to flat heads wi
 ## Small street places
 
 Four kinds, each on its own lot on a street front (`src/stations/places.ts`, models in `tools/blender/build_places.py`): a pocket park (14 x 12 m), a neighbourhood shrine (9 x 14 m), a vending corner (6 m) and a police box (kōban). Stations built by `surface.ts` list them in the spec field `places` like the konbini lots; Kita-Ōdōri reserves three lots west of the tower in `hub.ts`. Placed so far: Kita-Ōdōri has the kōban, Yanagisuji Pocket Park and a vending corner; Tsumugibashi has Tsumugi Inari Shrine, its kōban and a vending corner.
+
+## Trees
+
+Twelve kinds as Blender models (`tools/blender/build_trees.py`, placed with `modelTree` in `src/stations/trees.ts`), each in two sizes: ginkgo, zelkova, flowering dogwood, trident maple and a clipped azalea hedge for streets; cherry and Japanese maple for parks; black pine, camphor and cedar for shrines; weeping willow and bamboo. The street kinds follow the 2022 national street-tree survey (nilim.go.jp, report ks1246: ginkgo, cherry, zelkova, dogwood and trident maple are the five most planted).
+
+Trees that change have spring, summer and autumn versions; the season is a setting in the graphics menu (`src/render/season.ts`, default summer) and changes the trees only. Used so far at Kita-Ōdōri (ginkgo and zelkova by block on the avenue, willows on Yanagi-suji, cherry, maple and dogwood round the plaza and in the park) and Tsumugibashi (spec field `treeKinds` for the main road; camphor, cedar, pine and bamboo at the shrine). Other stations keep the plain `tree()` until their own redesign.
+
+Leaves are cut-out cards carrying a spray of leaves from a painted sheet, over a small dark core, and trunks are wrapped in a bark sheet (`trees_leaves.png`, `trees_bark.png` beside the models; both painted by the build script and repaintable by hand in Blender). The loader keeps their UVs, lights the cards as a round crown, leaves them out of shadow casting and ambient occlusion, and sways them a little above head height (`leafMaterial` in `src/render/building-models.ts`). Trees that shed have leaves or petals lying round their foot in autumn (cherry: spring too). A tree placed with `street` gets an iron grate, and support stakes in its smaller form.
+
+Winter is a fourth season: trees that drop their leaves stand bare, their cards showing fine twigs; evergreens and the azalea hedge stay green. No snow.

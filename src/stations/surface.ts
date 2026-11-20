@@ -5,6 +5,7 @@
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
 import { CAR_PARK, KONBINI, konbini, type ChainId } from './konbini';
 import { PLACES, place, type PlaceKind } from './places';
+import { modelTree, type TreeKind } from './trees';
 import { kerbGaps, kerbRail, poleLine, roadKit, streetLamp, type LampKind } from './roads';
 import { BUILDING_MODELS } from './buildings';
 import { GROUND_Y, vending } from './kit';
@@ -70,6 +71,8 @@ export interface SurfaceSpec {
    * put on x0 … x1 of that side, and the exit boards name it.
    */
   landmark?: { ja: string; en: string; side: -1 | 1; x0: number; x1: number; /** How far back from the building line it reaches. */ depth?: number };
+  /** Model trees (stations/trees.ts) along the main road in place of the plain ones: the kinds, used in turn by block. */
+  treeKinds?: TreeKind[];
   /** Canopy material for street and park trees (default 'leaf'); a flat pink makes cherries. */
   treeLeaf?: string;
 }
@@ -527,7 +530,10 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     const lampKind: LampKind | null = spec.avenue || style === 'office' ? 'lamp_hw' : style === 'mixed' || style === 'neon' ? 'lamp_shop'
       : style === 'house' || style === 'apartment' ? (spec.poles ? null : 'lamp_hw') : 'lamp_park';
     if (!spec.roadKit && lampKind) for (let xl = -X + 12; xl < X; xl += 32) if (!nearStreet(xl, 9)) streetLamp(b, lampKind, xl, s * (rw + 0.9), [0, -s]);
-    if (spec.trees) for (let xt = -X + 5; xt < X; xt += 16) if (!nearStreet(xt, 10)) tree(b, xt, s * (rw + 1.6), 5.5 + r() * 1.5, spec.treeLeaf);
+    if (spec.treeKinds) {
+      const kinds = spec.treeKinds;
+      for (let xt = -X + 5; xt < X; xt += 16) if (!nearStreet(xt, 10)) modelTree(b, kinds[Math.floor((xt + 400) / 48) % kinds.length], xt, s * (rw + 1.6), Math.round(xt) % 3 ? 'a' : 'b', GY, true);
+    } else if (spec.trees) for (let xt = -X + 5; xt < X; xt += 16) if (!nearStreet(xt, 10)) tree(b, xt, s * (rw + 1.6), 5.5 + r() * 1.5, spec.treeLeaf);
     if (spec.poles) {
       poleLine(b, { axis: 'x', from: -X - 7, to: X, at: s * (swOut - 0.5), road: -s as 1 | -1, step: 30, skip: (u) => nearStreet(u, 6), drops: 0.9, cross: s > 0 ? 2 * (swOut - 0.5) - 0.6 : undefined, name: stationName });
     }

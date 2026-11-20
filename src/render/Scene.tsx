@@ -12,6 +12,7 @@ import { toWorld } from '../world/collision';
 import { HORIZON, Lighting } from './lighting';
 import { lineGrade, OUTDOOR, UNDERGROUND, WARM_HUB, type Grade } from './grade';
 import { needsPost } from './graphics';
+import { treeWind } from './building-models';
 import { Post } from './post';
 import { WorldView } from './world-view';
 
@@ -23,6 +24,8 @@ function World() {
   const fx = useUI((s) => s.graphics.fx);
   const wantPost = needsPost(fx);
   const view = useMemo(() => new WorldView(), []);
+  const seasonNow = useUI((s) => s.season);
+  useEffect(() => view.reseason(), [view, seasonNow]);
   const lighting = useRef<Lighting | null>(null);
   const post = useRef<Post | null>(null);
   useEffect(() => {
@@ -102,6 +105,7 @@ function World() {
 
     const near = nearestStation(camera.position.x, camera.position.z).world.frame;
     lighting.current?.update(camera.position, near.yaw, fx.shadows);
+    treeWind.value = state.clock.elapsedTime;
     // Priority 1 takes over rendering from R3F.
     if (post.current) post.current.render(gradeFor(under), dt, state.clock.elapsedTime);
     else gl.render(scene, camera);

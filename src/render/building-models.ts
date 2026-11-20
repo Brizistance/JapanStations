@@ -7,6 +7,7 @@
 //
 // Only what you see: the street builder adds the collider (stations/surface.ts).
 
+import { seasonSuffix } from './season';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -32,9 +33,9 @@ interface Proto {
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees'];
 /** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
 const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */
@@ -65,6 +66,54 @@ function addAttributes(g: THREE.BufferGeometry, keepUv: boolean, daylight = 1) {
   g.computeBoundingSphere();
 }
 
+/**
+ * Leaf cards are lit as parts of a round crown, not as flat boards: each vertex's normal points
+ * out from the middle of the tree's foliage, leaning up.
+ */
+function roundNormals(g: THREE.BufferGeometry) {
+  const pos = g.getAttribute('position'), nor = g.getAttribute('normal');
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    lo = Math.min(lo, pos.getY(i));
+    hi = Math.max(hi, pos.getY(i));
+  }
+  const mid = (lo + hi) / 2, v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.set(pos.getX(i), (pos.getY(i) - mid) * 0.8 + 1.2, pos.getZ(i)).normalize();
+    nor.setXYZ(i, v.x, v.y, v.z);
+  }
+}
+
+/** Time for the leaves' sway, in seconds (Scene.tsx advances it). */
+export const treeWind = { value: 0 };
+
+function sheet(name: string): THREE.Texture {
+  const t = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}models/buildings/${name}.png`);
+  t.flipY = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** The trees' leaves: cut-out cards from the painted leaf sheet, swaying a little above head height. */
+function leafMaterial(): THREE.Material {
+  const m = lit({ color: '#ffffff', vertexColors: true, map: sheet('trees_leaves'), alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.82, metalness: 0 }, { macro: 0, macroRough: 0 });
+  const base = m.onBeforeCompile;
+  m.onBeforeCompile = (shader, renderer) => {
+    base.call(m, shader, renderer);
+    shader.uniforms.uWind = treeWind;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uWind;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+	float swayAmt = clamp( ( position.y - 1.6 ) / 4.0, 0.0, 1.0 );
+	transformed.x += sin( uWind * 1.1 + position.x * 0.7 + position.y * 0.9 ) * 0.06 * swayAmt;
+	transformed.z += cos( uWind * 0.9 + position.z * 0.8 + position.y * 0.7 ) * 0.05 * swayAmt;`);
+  };
+  m.customProgramCacheKey = () => 'lit-leaf';
+  m.userData.noCast = true;
+  return m;
+}
+
 function collect(root: THREE.Object3D, daylight = 1): Proto {
   const proto: Proto = { pieces: [], boards: [] };
   root.traverse((o) => {
@@ -72,7 +121,9 @@ function collect(root: THREE.Object3D, daylight = 1): Proto {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
     const mat = (mesh.material as THREE.Material).name;
-    addAttributes(mesh.geometry, mat === 'signface', daylight);
+    // The trees' leaf cards and bark carry their own UVs into the painted sheets.
+    addAttributes(mesh.geometry, mat === 'signface' || mat === 'leafcard' || mat === 'bark', daylight);
+    if (mat === 'leafcard') roundNormals(mesh.geometry);
     proto.pieces.push({ geometry: mesh.geometry, mat });
   });
   return proto;
@@ -109,6 +160,12 @@ function material(name: string): THREE.Material {
     case 'window':
     case 'windowLit': // lit windows wait for a night mode; by day both are the same glass
       m = lit({ color: '#ffffff', vertexColors: true, roughness: 0.16, metalness: 0.25 }, { macro: 0, macroRough: 0 });
+      break;
+    case 'leafcard':
+      m = leafMaterial();
+      break;
+    case 'bark':
+      m = lit({ color: '#ffffff', vertexColors: true, map: sheet('trees_bark'), roughness: 0.92, metalness: 0 }, { macro: 0.04, macroRough: 0.05 });
       break;
     case 'beacon':
       m = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a').multiplyScalar(2.2) });
@@ -168,7 +225,7 @@ function signMaterial(kind: BuildingKind, id: string, set: number, boards: Board
 
 /** A new group for one placed building, or null while the models are not loaded (or the variant is unknown). */
 export function buildingModel(part: ModelPart): THREE.Group | null {
-  const proto = protos.get(`${part.kind}_${part.id}`);
+  const proto = protoOf(part);
   if (!proto) return null;
   const kind = part.kind as BuildingKind;
   const group = new THREE.Group();
@@ -193,6 +250,12 @@ export function buildingModel(part: ModelPart): THREE.Group | null {
 /** True for a part that asks for a simplified copy or to be drawn without shop signs. */
 export const isLo = (part: ModelPart) => part.merge === true || part.id.endsWith('_lo');
 
+/** A part's model. A tree is drawn in the current season where it has seasonal versions. */
+function protoOf(part: ModelPart): Proto | undefined {
+  const name = `${part.kind}_${part.id}`;
+  return (part.kind === 'trees' ? protos.get(`${name}_${seasonSuffix()}`) : undefined) ?? protos.get(name);
+}
+
 const MERGE_ATTRS = ['position', 'normal', 'color', 'uv', 'aEnv'];
 
 /**
@@ -208,7 +271,7 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
   const byMat = new Map<string, { mat: THREE.Material; list: THREE.BufferGeometry[] }>();
   const m4 = new THREE.Matrix4(), rot = new THREE.Matrix4();
   for (const part of parts) {
-    const proto = protos.get(`${part.kind}_${part.id}`);
+    const proto = protoOf(part);
     if (!proto) continue;
     m4.makeTranslation(part.pos[0], part.pos[1], part.pos[2]).multiply(rot.makeRotationY(part.yaw));
     for (const p of proto.pieces) {
@@ -247,9 +310,11 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
     mesh.matrixAutoUpdate = false;
     if (mat.transparent) mesh.renderOrder = 2;
     const litOpaque = !mat.transparent && (mat as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;
-    mesh.castShadow = !!o.cast && litOpaque;
+    // Leaf cards are cut-outs: as shadow casters or in the ambient-occlusion pass they would count as whole boards.
+    const cutout = mat.userData.noCast === true;
+    mesh.castShadow = !!o.cast && litOpaque && !cutout;
     mesh.receiveShadow = litOpaque;
-    if (o.noAO) mesh.userData.noAO = true;
+    if (o.noAO || cutout) mesh.userData.noAO = true;
     group.add(mesh);
   }
   return group;

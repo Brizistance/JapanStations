@@ -33,6 +33,7 @@ import type { HubSpec } from './specs';
 import { BUILDING_MODELS } from './buildings';
 import { fitting } from './fittings';
 import { PLACES, place } from './places';
+import { modelTree, type TreeKind } from './trees';
 import { posterWall, shopAlcove, shopFits, shopPreset, shopRoom } from './shopfronts';
 import { KONBINI, konbini } from './konbini';
 import { kerbGaps, kerbRail, poleLine, roadKit, roadModel, streetLamp } from './roads';
@@ -188,10 +189,9 @@ function furniture(b: Builder, id: string, x: number, z: number, f: [number, num
   const d = b.dir(f);
   b.out.models.push({ kind: 'city', id, pos: b.pt(x, GY, z), yaw: Math.atan2(-d[0], -d[1]) + 0, seed: 0, merge: true });
 }
-const TREES = ['tree_a', 'tree_b', 'tree_c'];
-function streetTree(b: Builder, x: number, z: number, n: number) {
-  furniture(b, TREES[Math.abs(Math.round(n)) % TREES.length], x, z, n % 2 ? [1, 0] : [0, -1]);
-  b.block(x - 0.2, GY, z - 0.2, x + 0.2, GY + 3, z + 0.2);
+/** A street tree: ginkgo and zelkova in turn by block along the avenue, or the kind given. */
+function streetTree(b: Builder, x: number, z: number, n: number, kind?: TreeKind) {
+  modelTree(b, kind ?? (Math.floor((x + 400) / 54) % 2 ? 'zelkova' : 'ginkgo'), x, z, n % 3 === 2 ? 'b' : 'a', GY, true);
 }
 
 /** One of the plaza's own buildings (tools/blender/build_plaza.py), its front at z facing south (`south`) or north. */
@@ -1490,7 +1490,7 @@ function street(h: H, seed: number, dir: [number, number]) {
   for (const sx of [-1, 1]) {
     for (let z = S_FRONT + 12; z < Z - 4; z += 15) {
       const x = sx * (YS + 1.6);
-      if (!nearHole(x, z, 4)) streetTree(b, x, z, n++);
+      if (!nearHole(x, z, 4)) streetTree(b, x, z, n++, 'willow');
       if (z % 2 === 1 && !nearHole(x, z + 7, 3)) streetLamp(b, 'lamp_hw', sx * (YS + 0.9), z + 7, [-sx, 0]);
     }
   }
@@ -1641,7 +1641,7 @@ function street(h: H, seed: number, dir: [number, number]) {
   b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, -66, GY + 2.3, -33.66, [0, -1], 10.8, 0.48);
   b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, -66, GY + 2.3, -31.34, [0, 1], 10.8, 0.48);
   // The pedestrian middle: trees, benches, and the plaza's name.
-  [[-36, -30], [-24, -44], [24, -44], [36, -30], [-40, -54], [40, -54], [-48, -22], [48, -22], [-10, -34], [10, -34]].forEach(([tx, tz], i) => streetTree(b, tx, tz, i));
+  [[-36, -30], [-24, -44], [24, -44], [36, -30], [-40, -54], [40, -54], [-48, -22], [48, -22], [-10, -34], [10, -34]].forEach(([tx, tz], i) => streetTree(b, tx, tz, i, i % 3 === 0 ? 'cherry' : i % 3 === 1 ? 'tokaede' : 'dogwood'));
   for (const [bx, bz] of [[-18, -36], [18, -36], [-30, -50], [30, -50], [-6, -28], [6, -28]]) {
     furniture(b, 'bench', bx, bz, [0, 1]);
     b.block(bx - 0.95, GY, bz - 0.3, bx + 0.95, GY + 0.5, bz + 0.3);

@@ -35,9 +35,10 @@ WINDOW_DARK = 'window'       # window glass that stays dark at night
 WINDOW_LIT = 'windowLit'     # window glass the game may light at night (same colour by day)
 BEACON = 'beacon'            # red aircraft warning lights
 LIT_SHARE = 0.35
-SPECIAL = ('light', 'glassTint', SIGNFACE, WINDOW_DARK, WINDOW_LIT, BEACON)
-VCOL = (PAINT, SIGNFACE, WINDOW_DARK, WINDOW_LIT, BEACON)
-PREVIEW = {WINDOW_DARK: (1, 1, 1, 1), WINDOW_LIT: (1, 1, 1, 1), BEACON: (1, 1, 1, 1),'light': (1.0, 0.96, 0.9, 1.0), 'glassTint': (0.62, 0.77, 0.81, 0.35), PAINT: (1, 1, 1, 1), SIGNFACE: (1, 1, 1, 1)}
+# 'leafcard' and 'bark' are the trees' textured materials (build_trees.py): they keep their own UVs.
+SPECIAL = ('light', 'glassTint', SIGNFACE, WINDOW_DARK, WINDOW_LIT, BEACON, 'leafcard', 'bark')
+VCOL = (PAINT, SIGNFACE, WINDOW_DARK, WINDOW_LIT, BEACON, 'leafcard', 'bark')
+PREVIEW = {'leafcard': (1, 1, 1, 1), 'bark': (1, 1, 1, 1), WINDOW_DARK: (1, 1, 1, 1), WINDOW_LIT: (1, 1, 1, 1), BEACON: (1, 1, 1, 1),'light': (1.0, 0.96, 0.9, 1.0), 'glassTint': (0.62, 0.77, 0.81, 0.35), PAINT: (1, 1, 1, 1), SIGNFACE: (1, 1, 1, 1)}
 
 
 def G(p):

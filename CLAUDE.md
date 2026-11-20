@@ -65,6 +65,8 @@ To work on one station, open only its look file and, if needed, its line's theme
 | [docs/network.md](docs/network.md) (16 KB) | Touching lines, stations, transfers, numbering, timetable, data format |
 | [docs/station-design.md](docs/station-design.md) (33 KB) | Designing a 3D station or signage |
 | [docs/street-design.md](docs/street-design.md) | Redesigning a station's outside: streets, buildings, road kit, street furniture (the owner's rules) |
+| [docs/station-kit.md](docs/station-kit.md) | Bringing the modelled kit to another station: goals, minimum set, what stays rare, sign-off views (the owner's rules) |
+| [docs/between-stations.md](docs/between-stations.md) | Working on what the ride shows between stations: tunnels by era, trackside, city band (a plan for later, the owner's rules) |
 | [docs/conventions.md](docs/conventions.md) | Adding a station or a line (read those sections only) |
 | [docs/architecture.md](docs/architecture.md) | Changing structure, data flow, sim loop, collision |
 | [docs/vision.md](docs/vision.md), [docs/references.md](docs/references.md) | Scope questions; visual references and asset licensing |
