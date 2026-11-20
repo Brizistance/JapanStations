@@ -100,6 +100,22 @@ kbd {
 .gfx-panel .card-title { justify-content: space-between; gap: 8px; }
 .gfx-panel .card-title em { font-style: normal; font-weight: 400; color: var(--muted); margin-left: 6px; margin-right: auto; }
 .gfx-presets { grid-template-columns: 1fr 1fr 1fr; }
+.menu-sky { display: flex; flex-direction: column; gap: 6px; }
+.menu-sky-row { display: flex; align-items: center; gap: 10px; }
+.menu-sky-row span { font-weight: 700; }
+.menu-sky-row b { font: 800 16px/1 ui-monospace, Consolas, monospace; color: var(--navy); }
+.menu-sky-row input { flex: 1; min-width: 0; accent-color: var(--navy); }
+.menu-sky em { font-style: normal; font-weight: 400; font-size: 12px; color: var(--muted); }
+.menu-sky-buttons { display: grid; gap: 6px; }
+.menu-sky-buttons button {
+  font: inherit; font-weight: 700; padding: 7px 4px; border-radius: 8px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); color: var(--ink);
+}
+.menu-sky-buttons button em { display: block; }
+.menu-sky-buttons button:hover { background: #fff; }
+.menu-sky-buttons button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.menu-sky-buttons button.on em { color: rgba(255, 255, 255, 0.8); }
+.menu-sky-buttons button:focus-visible { outline: 3px solid #f2b705; outline-offset: 2px; }
 .menu-lines { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .menu-line { display: flex; gap: 10px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .menu-line span { color: var(--muted); font-size: 13px; }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { HOME_STATION, LINES, OPERATOR, RAIL_LINES, STATIONS } from '../data/network';
+import { WEATHERS, type Weather } from '../render/atmosphere';
 import { clock, formatClock } from '../sim';
 import { EffectSwitches, PresetButtons, PresetHint } from './GraphicsSettings';
 import { LineBullet, MetroMap, StationPanel, useTick } from './MetroMap';
@@ -44,6 +45,52 @@ export function Controls() {
   );
 }
 
+const TIME_PRESETS: [string, string, number][] = [
+  ['朝', 'Dawn', 6.25],
+  ['昼', 'Day', 12],
+  ['夕', 'Dusk', 17.75],
+  ['夜', 'Night', 21],
+];
+const WEATHER_LABEL: Record<Weather, [string, string]> = {
+  clear: ['晴れ', 'Clear'],
+  cloudy: ['くもり', 'Cloudy'],
+  overcast: ['曇天', 'Overcast'],
+  rain: ['雨', 'Rain'],
+  fog: ['霧', 'Fog'],
+};
+
+/** Time of day and weather for this visit. Both apply live to the view behind the menu. */
+function SkyPicker() {
+  const weather = useUI((s) => s.weather);
+  const setWeather = useUI((s) => s.setWeather);
+  const setTime = useUI((s) => s.setTime);
+  const now = ((clock.time % 86400) + 86400) % 86400;
+  return (
+    <div className="menu-sky">
+      <div className="menu-sky-row" role="group" aria-label="Time of day">
+        <span>時刻 <em>Time</em></span>
+        <b>{formatClock(clock.time)}</b>
+        <input type="range" min={0} max={86400 - 900} step={900} value={Math.floor(now / 900) * 900} aria-label="Time of day" onChange={(e) => setTime(Number(e.target.value))} />
+      </div>
+      <div className="menu-sky-buttons" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        {TIME_PRESETS.map(([ja, en, h]) => (
+          <button key={en} onClick={() => setTime(h * 3600)}>{ja} <em>{en}</em></button>
+        ))}
+      </div>
+      <div className="menu-sky-row" role="group" aria-label="Weather">
+        <span>天気 <em>Weather</em></span>
+      </div>
+      <div className="menu-sky-buttons" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+        {WEATHERS.map((w) => (
+          <button key={w} className={weather === w ? 'on' : ''} aria-pressed={weather === w} onClick={() => setWeather(w)}>
+            {WEATHER_LABEL[w][0]} <em>{WEATHER_LABEL[w][1]}</em>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MainMenu() {
   const start = useUI((s) => s.start);
   const [selected, setSelected] = useState<string>(HOME_STATION);
@@ -73,6 +120,7 @@ export function MainMenu() {
           <button className="btn primary big" onClick={() => start(HOME_STATION)}>
             はじめる <em>Start exploring</em>
           </button>
+          <SkyPicker />
           <nav className="menu-nav">
             <button className={tab === 'map' ? 'on' : ''} onClick={() => setTab('map')}>路線図 <em>Route map</em></button>
             <button className={tab === 'controls' ? 'on' : ''} onClick={() => setTab('controls')}>操作方法 <em>Controls</em></button>

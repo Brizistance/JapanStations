@@ -107,8 +107,10 @@ function material(name: string): THREE.Material {
       m = lit({ color: '#ffffff', vertexColors: true, roughness: 0.68, metalness: 0 }, { macro: 0.05, macroRough: 0.1 });
       break;
     case 'window':
-    case 'windowLit': // lit windows wait for a night mode; by day both are the same glass
       m = lit({ color: '#ffffff', vertexColors: true, roughness: 0.16, metalness: 0.25 }, { macro: 0, macroRough: 0 });
+      break;
+    case 'windowLit': // the same glass by day; lit from inside at night
+      m = lit({ color: '#ffffff', vertexColors: true, roughness: 0.16, metalness: 0.25 }, { macro: 0, macroRough: 0, night: 1.2 });
       break;
     case 'beacon':
       m = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a').multiplyScalar(2.2) });

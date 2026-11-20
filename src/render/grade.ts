@@ -30,6 +30,21 @@ export const NEUTRAL: Grade = { warmth: 0, tint: 0, sat: 1, contrast: 0, fade: 0
 
 /** Daylight: a touch warm and rich. */
 export const OUTDOOR: Grade = { warmth: 0.25, tint: 0, sat: 1.06, contrast: 0.08, fade: 0, shadow: [0, 0.002, 0.008], exposure: 1 };
+/** Low sun: amber light, long blue shadows. */
+const DUSK: Grade = { warmth: 0.5, tint: 0.06, sat: 1.1, contrast: 0.1, fade: 0.004, shadow: [0.002, 0.002, 0.014], exposure: 1 };
+/** Night outdoors: cool, a little flat, lifted blacks so the street still reads. */
+const NIGHT: Grade = { warmth: -0.22, tint: 0, sat: 0.94, contrast: 0.06, fade: 0.012, shadow: [0, 0.004, 0.016], exposure: 1.12 };
+/** Under cloud and rain: flatter and less saturated. */
+const GREY: Grade = { warmth: -0.08, tint: 0, sat: 0.88, contrast: 0.02, fade: 0.01, shadow: [0, 0.002, 0.006], exposure: 1 };
+
+const outdoor: Grade = { ...OUTDOOR, shadow: [0, 0, 0] };
+/** The outdoor grade for this hour and weather. `day`, `dusk`: see Atmosphere; `direct`: how much sun gets through. */
+export function outdoorGrade(day: number, dusk: number, direct: number): Grade {
+  lerpGrade(NIGHT, OUTDOOR, day, outdoor);
+  lerpGrade(outdoor, DUSK, dusk * 0.8, outdoor);
+  return lerpGrade(outdoor, GREY, (1 - direct) * 0.7, outdoor);
+}
+
 /** Generic underground: cool fluorescent, a little more contrast. */
 export const UNDERGROUND: Grade = { warmth: -0.3, tint: -0.1, sat: 0.97, contrast: 0.14, fade: 0.008, shadow: [0, 0.004, 0.01], exposure: 1 };
 

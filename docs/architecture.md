@@ -72,6 +72,8 @@ No physics engine. The world is a set of **frames**: each station, and each trai
 
 ## Lighting and materials
 
+The hour and the weather decide everything above ground: `render/atmosphere.ts` (pure, tested) turns the sim clock and the menu's weather choice into sun and moon position, light, fog, cloud cover and wetness; `lighting.ts` (sky dome, key light, sky environment recaptured as the sun moves), `weather.ts` (rain and the shelter map that keeps covered ground dry) and `Scene.tsx` (fog, grade) only read it. Underground is unaffected.
+
 There are no per-station lights. Everything is lit by two prefiltered environment maps built at start-up (`render/lighting.ts`): an **interior** one (pale room with rows of ceiling light strips) and a **sky** one. Which one a surface sees is data on the geometry:
 
 - Every vertex carries `aEnv = (sky, shade)`. `sky` is how much daylight reaches it; `shade` dims the interior light (tunnels).

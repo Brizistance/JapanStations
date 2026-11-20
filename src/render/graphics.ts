@@ -23,6 +23,10 @@ export interface Fx {
   lensDirt: boolean;
   /** Extra detail: 2× shadow map, more AO samples, longer reflection rays. */
   hq: boolean;
+  /** Volumetric clouds (otherwise a flat cloud sheet). */
+  clouds: boolean;
+  /** Sun shafts. */
+  godRays: boolean;
   /** Highest device pixel ratio rendered. */
   scale: 1 | 1.5 | 2;
 }
@@ -35,13 +39,13 @@ export interface Graphics {
 }
 
 export const PRESETS: Record<Preset, Fx> = {
-  low: { shadows: false, ao: false, bloom: false, ssr: false, grade: false, vignette: false, grain: false, chroma: false, lensDirt: false, hq: false, scale: 1 },
-  high: { shadows: true, ao: true, bloom: true, ssr: false, grade: true, vignette: true, grain: true, chroma: false, lensDirt: false, hq: false, scale: 1.5 },
-  ultra: { shadows: true, ao: true, bloom: true, ssr: true, grade: true, vignette: true, grain: true, chroma: true, lensDirt: true, hq: true, scale: 2 },
+  low: { shadows: false, ao: false, bloom: false, ssr: false, grade: false, vignette: false, grain: false, chroma: false, lensDirt: false, hq: false, clouds: false, godRays: false, scale: 1 },
+  high: { shadows: true, ao: true, bloom: true, ssr: false, grade: true, vignette: true, grain: true, chroma: false, lensDirt: false, hq: false, clouds: false, godRays: false, scale: 1.5 },
+  ultra: { shadows: true, ao: true, bloom: true, ssr: true, grade: true, vignette: true, grain: true, chroma: true, lensDirt: true, hq: true, clouds: true, godRays: true, scale: 2 },
 };
 
 export const PRESET_ORDER: Preset[] = ['low', 'high', 'ultra'];
-export const SWITCHES: FxSwitch[] = ['shadows', 'ao', 'bloom', 'ssr', 'grade', 'vignette', 'grain', 'chroma', 'lensDirt', 'hq'];
+export const SWITCHES: FxSwitch[] = ['shadows', 'ao', 'bloom', 'ssr', 'grade', 'vignette', 'grain', 'chroma', 'lensDirt', 'hq', 'clouds', 'godRays'];
 const SCALES: Fx['scale'][] = [1, 1.5, 2];
 
 export const DEFAULT_GRAPHICS: Graphics = { preset: 'high', fx: { ...PRESETS.high } };
@@ -66,7 +70,7 @@ export function withFx(g: Graphics, patch: Partial<Fx>): Graphics {
 
 /** True if any effect needs the post-processing chain (otherwise the scene renders straight to screen). */
 export function needsPost(fx: Fx): boolean {
-  return fx.ao || fx.bloom || fx.ssr || fx.grade || fx.vignette || fx.grain || fx.chroma || (fx.lensDirt && fx.bloom);
+  return fx.ao || fx.bloom || fx.ssr || fx.grade || fx.vignette || fx.grain || fx.chroma || fx.godRays || (fx.lensDirt && fx.bloom);
 }
 
 export const GRAPHICS_KEY = 'kawaminato.graphics';
@@ -87,6 +91,12 @@ export function loadGraphics(store: KV | null): Graphics {
       const fx: Fx = { ...PRESETS.high };
       for (const k of SWITCHES) if (typeof v.fx?.[k] === 'boolean') fx[k] = v.fx[k] as boolean;
       if (SCALES.includes(v.fx?.scale as Fx['scale'])) fx.scale = v.fx!.scale as Fx['scale'];
+      // A save from before a switch existed takes that switch from the preset the rest matches.
+      const missing = SWITCHES.filter((k) => typeof v.fx?.[k] !== 'boolean');
+      if (missing.length) {
+        const match = PRESET_ORDER.find((p) => SWITCHES.every((k) => missing.includes(k) || PRESETS[p][k] === fx[k]) && PRESETS[p].scale === fx.scale);
+        if (match) for (const k of missing) fx[k] = PRESETS[match][k];
+      }
       return { preset: presetOf(fx), fx };
     }
     const old = store.getItem(OLD_QUALITY_KEY);
