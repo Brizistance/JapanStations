@@ -28,9 +28,11 @@ import { HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder } from '../world/builder';
 import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from './build';
-import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
+import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, stairs, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
-import { SHOPS, car, crosswalk, fillLots, fillModelLots, signal, tree, type Shop } from './surface';
+import { BUILDING_MODELS } from './buildings';
+import { kerbGaps, kerbRail, roadKit, roadModel } from './roads';
+import { SHOPS, crosswalk, fillModelLots, type Shop } from './surface';
 
 export const HUB_PLOT = { x: 190, z: 160 };
 /**
@@ -156,6 +158,32 @@ function stoneBox(b: Builder, mat: string, x0: number, y0: number, z0: number, x
 function prop(b: Builder, id: string, x: number, y: number, z: number, rot: 0 | 1 | 2 | 3 = 0, half: [number, number] | null = null, tall = 1) {
   b.with({ rot, t: [x, 0, z] }, () => b.model('hub', id, 0, y, 0));
   if (half) b.block(x - half[0], y, z - half[1], x + half[0], y + tall, z + half[1]);
+}
+
+/**
+ * The district's own blocks and towers (tools/blender/build_city.py, which this mirrors):
+ * frontage, depth, height.
+ */
+const CITY: Record<string, { w: number; d: number; h: number }> = {
+  mid_a: { w: 28, d: 20, h: 44 }, mid_b: { w: 24, d: 18, h: 36 }, mid_c: { w: 30, d: 22, h: 52 },
+  mid_d: { w: 22, d: 18, h: 32 }, mid_e: { w: 26, d: 20, h: 40 }, mid_f: { w: 20, d: 20, h: 48 },
+  twr_a: { w: 40, d: 40, h: 150 }, twr_b: { w: 44, d: 36, h: 130 }, twr_c: { w: 36, d: 36, h: 112 },
+  twr_d: { w: 46, d: 44, h: 96 }, twr_e: { w: 38, d: 38, h: 180 },
+};
+/** What a back row is filled with: the district's mid-rise blocks, and the street set's offices and apartment blocks. */
+const ROW_POOL = [
+  ...Object.entries(CITY).filter(([id]) => id.startsWith('mid')).map(([id, m]) => ({ kind: 'city', id, ...m })),
+  ...BUILDING_MODELS.filter((m) => (m.kind === 'office' || m.kind === 'manshon') && !m.corner),
+];
+/** Street furniture (build_city.py), drawn merged like the road kit's. `f` is the way its front faces. */
+function furniture(b: Builder, id: string, x: number, z: number, f: [number, number] = [0, -1]) {
+  const d = b.dir(f);
+  b.out.models.push({ kind: 'city', id, pos: b.pt(x, GY, z), yaw: Math.atan2(-d[0], -d[1]) + 0, seed: 0, merge: true });
+}
+const TREES = ['tree_a', 'tree_b', 'tree_c'];
+function streetTree(b: Builder, x: number, z: number, n: number) {
+  furniture(b, TREES[Math.abs(Math.round(n)) % TREES.length], x, z, n % 2 ? [1, 0] : [0, -1]);
+  b.block(x - 0.2, GY, z - 0.2, x + 0.2, GY + 3, z + 0.2);
 }
 
 /** One of the plaza's own buildings (tools/blender/build_plaza.py), its front at z facing south (`south`) or north. */
@@ -1228,7 +1256,7 @@ function shells(h: H) {
 
 // ───────────────────────── street ─────────────────────────
 
-function street(h: H, seed: number) {
+function street(h: H, seed: number, dir: [number, number]) {
   const { b, c } = h;
   const r = rng(seed);
   const { x: X, z: Z } = HUB_PLOT;
@@ -1237,18 +1265,21 @@ function street(h: H, seed: number) {
   const bus: Rect = [56, -58, 176, -26];
   const taxi: Rect = [-176, -44, -56, -34];
   const drives: Rect[] = [[96, -26, 108, -AV], [152, -26, 164, -AV], [-108, -34, -96, -AV], [-164, -34, -152, -AV]];
-  const stairs = b.out.holes.map((q) => [...q]);
+  const stairs0 = b.out.holes.map((q) => [...q]);
+  const nearHole = (x: number, z: number, m: number) => stairs0.some((q) => x > q[0] - m && x < q[2] + m && z > q[1] - m && z < q[3] + m);
+  /** The footbridge over the avenue (x range). */
+  const FB: [number, number] = [64, 67];
 
   // ── Ground ──
-  b.slab('asphalt', -X, -Z, X, Z, -0.6, 0, [...stairs, bldg]);
-  b.slab('paver', -X, -Z, X, Z, 0, GY, [...stairs, bldg, [-X, -AV, X, AV], [-YS, AV, YS, Z], bus, taxi, ...drives]);
+  b.slab('asphalt', -X, -Z, X, Z, -0.6, 0, [...stairs0, bldg]);
+  b.slab('paver', -X, -Z, X, Z, 0, GY, [...stairs0, bldg, [-X, -AV, X, AV], [-YS, AV, YS, Z], bus, taxi, ...drives]);
   b.zone('street', -X, -0.3, -Z, X, 80, Z, '川湊駅前・北大通', 'Kawaminato Station plaza and Kita-Ōdōri avenue');
   b.block(-X - 1, -1, -Z - 1, -X, 60, Z + 1);
   b.block(X, -1, -Z - 1, X + 1, 60, Z + 1);
   b.block(-X, -1, -Z - 1, X, 60, -Z);
   b.block(-X, -1, Z, X, 60, Z + 1);
 
-  // ── Kita-Ōdōri avenue (east–west) and the head of Yanagi-suji (south) ──
+  // ── Kita-Ōdōri avenue (east–west) and the head of Yanagi-suji (south): paint, then the road kit ──
   const junction = (x: number) => Math.abs(x) < YS + 9;
   for (let x = -X; x < X; x += 6) {
     if (junction(x + 1.5)) continue;
@@ -1262,46 +1293,154 @@ function street(h: H, seed: number) {
   b.deco('flat:#e6a700', -0.08, 0.004, AV + 9, 0.08, 0.01, Z);
   for (const x of [-YS - 4, YS + 4]) crosswalk(b, x, 0, 2 * AV - 0.6, 4, true);
   crosswalk(b, 0, AV + 3.2, 2 * YS - 0.4, 4, false);
-  signal(b, -YS - 7.5, AV + 0.7, -AV * 0.8, -1, true);
-  signal(b, YS + 7.5, -AV - 0.7, AV * 0.8, 1, true);
-  const cols = ['#e8e8e8', '#30343a', '#9c1f1f', '#1f4e8c', '#c9c2a8', '#5f6a72'];
-  for (let i = 0; i < 12; i++) {
-    const x = -X + 16 + r() * (2 * X - 32);
-    if (junction(x) || Math.abs(x) < 30) continue;
-    const taxiCab = r() < 0.3;
-    car(b, x, (r() < 0.5 ? -1 : 1) * (r() < 0.5 ? 2.8 : 8.2), taxiCab ? '#1d4d2b' : cols[Math.floor(r() * cols.length)], true, taxiCab);
+  b.deco('flat:#e9e9e4', -YS - 7.2, 0.004, -AV, -YS - 6.8, 0.01, 0);
+  b.deco('flat:#e9e9e4', YS + 6.8, 0.004, 0, YS + 7.2, 0.01, AV);
+  const cross: [number, number][] = [[-YS, YS]];
+  roadKit(b, { X, Z, rw: AV, swOut: S_FRONT, streets: cross, seed, name: { ja: c.station.nameJa, en: c.station.nameRomaji }, at: { id: c.station.id, dir }, tee: true, junctions: [{ ja: '川湊駅前', en: 'Kawaminato Sta.' }] });
+  // The backdrop city round the hub is Blender-built too: business blocks, no plain boxes.
+  b.out.district = { radius: 620, old: [0, 0], oldRadius: 0 };
+  // Kerb guard rail, open at the junction, the kit's bus stops and taxi stand, and the plaza's drives.
+  for (const s of [-1, 1] as const) {
+    const zr = s * (AV + 0.3);
+    const open = [[-YS - 7, YS + 7], ...kerbGaps(cross).filter((k) => k.s === s).map((k) => [k.x0, k.x1]), ...(s < 0 ? drives.map((d) => [d[0] - 1, d[2] + 1]) : [])].sort((p, q) => p[0] - q[0]);
+    let x = -X;
+    for (const [from, to] of open.concat([[X, X]])) {
+      for (let xa = x; xa + 2.5 <= from; xa += 2.5) {
+        b.block(xa, GY, zr - 0.04, xa + 2.5, GY + 0.9, zr + 0.04);
+        kerbRail(b, xa + 1.25, zr);
+      }
+      x = Math.max(x, to);
+    }
   }
-  for (const z of [46, 78, 120]) car(b, r() < 0.5 ? -2.8 : 6.5, z, cols[Math.floor(r() * cols.length)], false);
-  for (let x = -X + 8; x < X; x += 18) {
-    if (!junction(x) && !stairs.some((q) => x > q[0] - 6 && x < q[2] + 6)) tree(b, x, AV + 1.6, 6.2, 'leaf2');
+  // More traffic: vehicles down Yanagi-suji (keeping left).
+  const VEH: Record<string, [number, number, number]> = { sedan: [4.5, 1.72, 1.45], taxi: [4.5, 1.72, 1.6], kei: [3.4, 1.48, 1.72], van: [4.7, 1.72, 1.95], bus: [10.5, 2.5, 3.2] };
+  const vehicle = (id: string, x: number, z: number, f: [number, number]) => {
+    const [len, wid, hgt] = VEH[id.split('_')[0]];
+    const hx = f[0] !== 0 ? len / 2 : wid / 2, hz = f[0] !== 0 ? wid / 2 : len / 2;
+    roadModel(b, id, x, 0, z, f);
+    b.block(x - hx, 0, z - hz, x + hx, hgt, z + hz);
+  };
+  vehicle('sedan_s', 2.7, 58, [0, 1]);
+  vehicle('van', 7.2, 71, [0, 1]);
+  vehicle('kei_w', 2.7, 104, [0, 1]);
+  vehicle('taxi', -2.7, 86, [0, -1]);
+  vehicle('sedan_b', -7.2, 121, [0, -1]);
+  vehicle('kei_g', -2.7, 137, [0, -1]);
+
+  // ── Street trees, lamps and furniture along the kerbs and the building fronts ──
+  const kerbClear = (x: number, s: number, m: number) =>
+    !junction(x) && !nearHole(x, s * (AV + 2), 5) && !kerbGaps(cross).some((k) => k.s === s && x > k.x0 - m && x < k.x1 + m) &&
+    !(s < 0 && drives.some((d) => x > d[0] - m && x < d[2] + m)) && !(x > FB[0] - 11 && x < FB[1] + 2);
+  let n = 0;
+  for (const s of [-1, 1]) {
+    for (let x = -X + 8; x < X; x += 18) if (kerbClear(x, s, 2)) streetTree(b, x, s * (AV + 1.7), n++);
+    for (let x = -X + 17; x < X; x += 27) {
+      if (!kerbClear(x, s, 1)) continue;
+      furniture(b, 'lamp', x, s * (AV + 0.9), [1, 0]);
+      b.block(x - 0.12, GY, s * (AV + 0.9) - 0.12, x + 0.12, GY + 3, s * (AV + 0.9) + 0.12);
+    }
   }
   for (const sx of [-1, 1]) {
     for (let z = S_FRONT + 12; z < Z - 4; z += 15) {
       const x = sx * (YS + 1.6);
-      if (!stairs.some((q) => x > q[0] - 1.5 && x < q[2] + 1.5 && z > q[1] - 4 && z < q[3] + 4)) tree(b, x, z, 6.5, 'leaf');
+      if (!nearHole(x, z, 4)) streetTree(b, x, z, n++);
+      if (z % 2 === 1 && !nearHole(x, z + 7, 3)) {
+        furniture(b, 'lamp', sx * (YS + 0.9), z + 7);
+        b.block(sx * (YS + 0.9) - 0.12, GY, z + 6.88, sx * (YS + 0.9) + 0.12, GY + 3, z + 7.12);
+      }
     }
   }
 
   // ── City blocks south of the avenue ──
-  // Three landmarks stand on fixed lots: the old bank and the department store on the two
-  // corners facing the station, the life-insurance tower further west. Generic lots fill the rest.
+  // Front row: three landmarks on fixed lots (the old bank and the department store on the
+  // corners facing the station, the life-insurance tower further west), street models between.
   const landmark = (id: string, x0: number, w: number, d: number, hgt: number) => {
     b.block(x0, GY, S_FRONT, x0 + w, GY + hgt, S_FRONT + d);
     building(b, id, x0 + w / 2, S_FRONT, false);
-    if (Z - 1 - (S_FRONT + d + 3) > 6) b.box('facade:grid:#b9b3a6', x0 + 0.5, GY, S_FRONT + d + 3, x0 + w - 0.5, GY + 38, Z - 1);
   };
   const [bk, hq, dp] = [LANDMARKS.bank, LANDMARKS.hq, LANDMARKS.depato];
-  fillModelLots(b, r, -X + 1, hq.x0 - 1, S_FRONT, Z, { tower: true });
+  fillModelLots(b, r, -X + 1, hq.x0 - 1, S_FRONT, Z, { tower: true, noBack: true });
   landmark('hq', hq.x0, hq.w, hq.d, hq.h);
-  fillModelLots(b, r, hq.x0 + hq.w + 0.5, bk.x0 - 1, S_FRONT, Z);
+  fillModelLots(b, r, hq.x0 + hq.w + 0.5, bk.x0 - 1, S_FRONT, Z, { noBack: true });
   landmark('bank', bk.x0, bk.w, bk.d, bk.h);
   landmark('depato', dp.x0, dp.w, dp.d, dp.h);
-  fillModelLots(b, r, dp.x0 + dp.w + 1, X - 1, S_FRONT, Z, { tower: true });
+  fillModelLots(b, r, dp.x0 + dp.w + 1, X - 1, S_FRONT, Z, { tower: true, noBack: true });
   const mid = (q: { x0: number; w: number }) => q.x0 + q.w / 2;
   b.sign({ k: 'label', text: hq.ja, sub: hq.en, fg: NAME_FG, bg: NAME_BG }, mid(hq), GY + 9.5, S_FRONT - 0.57, [0, -1], 6.2, 0.9);
   b.sign({ k: 'label', text: bk.ja, sub: bk.en, fg: NAME_FG, bg: NAME_BG }, mid(bk), GY + 5.87, S_FRONT + 0.39, [0, -1], 2.9, 0.6);
   b.sign({ k: 'clock' }, mid(bk), GY + 13.75, S_FRONT - 1.47, [0, -1], 1.7, 1.7, { dynamic: true });
   b.sign({ k: 'label', text: dp.ja, sub: dp.en, fg: NAME_FG, bg: NAME_BG }, dp.x0 + 30, GY + 41.5, S_FRONT + 4.78, [0, -1], 17.5, 4.0);
+  // A big screen board on the department store's front, facing the plaza: three static panels.
+  b.deco('flat:#15171a', dp.x0 + 13.4, GY + 12.6, S_FRONT - 0.5, dp.x0 + 34.6, GY + 23.4, S_FRONT - 0.18);
+  b.deco('glow:#cfe6ff', dp.x0 + 13.3, GY + 12.5, S_FRONT - 0.46, dp.x0 + 34.7, GY + 12.6, S_FRONT - 0.18);
+  for (let i = 0; i < 3; i++) b.sign({ k: 'poster', v: 31 + i * 7 }, dp.x0 + 17.2 + i * 6.8, GY + 18, S_FRONT - 0.52, [0, -1], 6.5, 9.6);
+
+  /**
+   * A row of blocks from xa to xb with their fronts at z0: the towers given stand where they
+   * are told, and the rest is filled from the pool with whatever fits (depth up to `deep`).
+   * `south`: the row faces south and runs back to the north.
+   */
+  const row = (xa: number, xb: number, z0: number, deep: number, fixed: [string, number][] = [], south = false) => {
+    const place = (kind: string, id: string, x0: number, m: { w: number; d: number; h: number }) => {
+      b.block(x0, GY, south ? z0 - m.d : z0, x0 + m.w, GY + m.h, south ? z0 : z0 + m.d);
+      b.with({ rot: south ? 2 : 0, t: [x0 + m.w / 2, 0, z0] }, () => b.model(kind, id, 0, GY, 0, Math.floor(r() * 1000)));
+    };
+    let x = xa, last = '';
+    for (const [id, x0] of [...fixed, ['', xb] as [string, number]].sort((p, q) => p[1] - q[1])) {
+      for (;;) {
+        const fits = ROW_POOL.filter((m) => m.w <= x0 - x - 0.6 && m.d <= deep && m.id + m.kind !== last);
+        if (!fits.length) break;
+        const m = fits[Math.floor(r() * fits.length)];
+        place(m.kind, m.id, x, m);
+        last = m.id + m.kind;
+        x += m.w + 1.2;
+      }
+      if (id) {
+        place('city', id, x0, CITY[id]);
+        x = x0 + CITY[id].w + 1.2;
+      }
+    }
+  };
+  // Second row: the tower cluster south and east of the junction. Third row: blocks closing the view.
+  row(YS + 3, X - 2, 67, 44, [['twr_a', 16], ['twr_c', 72], ['twr_e', 124]]);
+  row(-X + 2, -YS - 3, 67, 44, [['twr_d', -150], ['twr_b', -60]]);
+  row(YS + 3, X - 2, 114, 44);
+  row(-X + 2, -YS - 3, 114, 44);
+  // North-west, beyond the taxi rank: blocks facing the plaza.
+  row(-X + 4, -BLDG - 6, -68, 38, [], true);
+
+  // ── Along the south sidewalk's building fronts: benches, drinks machines, bicycles ──
+  const sideClear = (x: number) =>
+    !junction(x) && !nearHole(x, 15, 4) && !(x > bk.x0 - 2 && x < bk.x0 + bk.w + 2) && Math.abs(x - mid(hq)) > 7 && !(x > dp.x0 - 2 && x < dp.x0 + 8) && !(x > FB[0] - 12 && x < FB[1] + 2);
+  const kinds = ['bench', 'vend', 'bikes', 'bench'];
+  let k = 0;
+  for (let x = -X + 14; x < X - 6; x += 21) {
+    if (!sideClear(x)) continue;
+    const id = kinds[k++ % kinds.length];
+    const z = id === 'vend' ? S_FRONT - 0.85 : id === 'bikes' ? S_FRONT - 1.6 : S_FRONT - 0.9;
+    furniture(b, id, x, z, id === 'bench' ? [0, -1] : [0, -1]);
+    b.block(x - (id === 'bikes' ? 1.7 : 1.1), GY, z - 0.4, x + (id === 'bikes' ? 1.7 : 1.1), GY + (id === 'vend' ? 1.83 : 0.9), z + 0.6);
+    if (id === 'vend') for (const [dx, v] of [[-0.55, 'vending'], [0.55, 'vending2']] as const) b.sign({ k: 'machine', v }, x + dx, GY + 0.915, z - 0.02, [0, -1], 0.98, 1.8);
+  }
+
+  // ── Footbridge over the avenue, plaza to the department store's block ──
+  const DECK = 5.3, runF = 9.4;
+  b.box('flat:#d9cdb4', FB[0], DECK - 0.5, -17.5, FB[1], DECK, 17.5);
+  b.deco(GOLD, FB[0] - 0.02, DECK - 0.5, -17.52, FB[1] + 0.02, DECK - 0.42, 17.52);
+  b.deco(GOLD, FB[0] - 0.02, DECK - 0.08, -17.52, FB[1] + 0.02, DECK, 17.52);
+  for (const s of [-1, 1]) {
+    stairs(b, { x0: FB[0] - runF, x1: FB[0], z0: Math.min(s * 14.5, s * 17.5), z1: Math.max(s * 14.5, s * 17.5), yLow: GY, yHigh: DECK, mat: 'flat:#cfc6b4' });
+    rail(b, FB[0], s * 17.5 - (s > 0 ? 0 : 0.08), FB[1], s * 17.5 + (s > 0 ? 0.08 : 0), DECK);
+    for (const x of [FB[0] + 0.4, FB[1] - 0.4]) {
+      b.box('flat:#cfc6b4', x - 0.35, GY, s * 12.6 - 0.35, x + 0.35, DECK - 0.5, s * 12.6 + 0.35);
+      b.deco(GOLD, x - 0.37, DECK - 0.75, s * 12.6 - 0.37, x + 0.37, DECK - 0.5, s * 12.6 + 0.37);
+    }
+  }
+  rail(b, FB[0] - 0.08, -14.5, FB[0], 14.5, DECK);
+  rail(b, FB[1], -17.5, FB[1] + 0.08, 17.5, DECK);
+  b.sign({ k: 'label', text: '北大通歩道橋', sub: 'Kita-Ōdōri footbridge', fg: NAME_FG, bg: NAME_BG }, FB[0] - 0.1, DECK - 0.25, 0, [-1, 0], 9, 0.4);
+  b.sign({ k: 'label', text: '北大通歩道橋', sub: 'Kita-Ōdōri footbridge', fg: NAME_FG, bg: NAME_BG }, FB[1] + 0.1, DECK - 0.25, 0, [1, 0], 9, 0.4);
+  b.zone('passage', FB[0], DECK - 0.2, -17.5, FB[1], DECK + 3, 17.5, '北大通歩道橋', 'Kita-Ōdōri footbridge', true);
 
   // ── The station plaza ──
   // Bus terminal (east): three lanes, two islands, four stops.
@@ -1319,31 +1458,28 @@ function street(h: H, seed: number) {
       b.sign({ k: 'label', text: `バスのりば ${i + 1}　${ja}`, sub: `Bus stop ${i + 1} — ${en}`, fg: NAME_FG, bg: NAME_BG }, x, GY + 2.3, z + s * 1.26, [0, s], 6.8, 0.48);
     }
   });
-  const coach = (x: number, z: number) => {
-    b.box('flat:#f2efe2', x - 5.3, 0.35, z - 1.3, x + 5.3, 3.1, z + 1.3);
-    b.deco('flat:#1f9d55', x - 5.32, 0.9, z - 1.32, x + 5.32, 1.3, z + 1.32);
-    b.deco('glassDark', x - 5.0, 1.5, z - 1.33, x + 5.0, 2.6, z + 1.33);
-    b.deco('flat:#1a1a1a', x - 4.6, 0.02, z - 1.32, x + 4.6, 0.5, z + 1.32);
-  };
-  coach(84, -53.5);
-  coach(128, -42.5);
-  coach(104, -31);
+  for (const [x, z, f] of [[84, -53.5, 1], [150, -53.5, 1], [128, -42.5, -1], [100, -42.5, -1], [104, -31, 1], [146, -31, 1]] as const) vehicle('bus', x, z, [f, 0]);
   // Covered walk from the station doors along the Station Building to the buses; a kiosk on the plaza.
   building(b, 'buscanopy', 75, -58.5, true);
   building(b, 'kiosk', -14, -46, true);
   b.block(-16.1, GY, -49.1, -11.9, GY + 3, -46);
   b.sign({ k: 'label', text: 'きっぷ・ご案内', sub: 'Tickets / Information', fg: NAME_FG, bg: NAME_BG }, -14, GY + 2.6, -45.94, [0, 1], 3.0, 0.36);
   // Taxi rank (west).
-  for (let i = 0; i < 6; i++) car(b, -66 - i * 6.2, -41.2, '#1d4d2b', true, true);
+  for (let i = 0; i < 9; i++) vehicle('taxi', -62 - i * 5.6, -41.2, [1, 0]);
+  for (let i = 0; i < 4; i++) vehicle('taxi', -112 - i * 5.6, -37, [1, 0]);
   building(b, 'taxishelter', -66, -33.6, false);
   b.block(-73.9, GY, -31.6, -58.1, GY + 2.3, -31.35);
   b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, -66, GY + 2.3, -33.66, [0, -1], 10.8, 0.48);
   b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, -66, GY + 2.3, -31.34, [0, 1], 10.8, 0.48);
   // The pedestrian middle: trees, benches, and the plaza's name.
-  for (const [tx, tz] of [[-36, -30], [-24, -44], [24, -44], [36, -30], [-40, -54], [40, -54]]) tree(b, tx, tz, 6.5, 'leaf');
-  for (const sx of [-1, 1]) {
-    b.box('wood:#6b5440', sx * 18 - 1.3, GY, -36.3, sx * 18 + 1.3, GY + 0.45, -35.7);
-    b.box('wood:#6b5440', sx * 30 - 1.3, GY, -50.3, sx * 30 + 1.3, GY + 0.45, -49.7);
+  [[-36, -30], [-24, -44], [24, -44], [36, -30], [-40, -54], [40, -54], [-48, -22], [48, -22], [-10, -34], [10, -34]].forEach(([tx, tz], i) => streetTree(b, tx, tz, i));
+  for (const [bx, bz] of [[-18, -36], [18, -36], [-30, -50], [30, -50], [-6, -28], [6, -28]]) {
+    furniture(b, 'bench', bx, bz, [0, 1]);
+    b.block(bx - 0.95, GY, bz - 0.3, bx + 0.95, GY + 0.5, bz + 0.3);
+  }
+  for (const [lx, lz] of [[-30, -26], [30, -26], [-22, -56], [22, -56], [0, -40]]) {
+    furniture(b, 'lamp', lx, lz, [1, 0]);
+    b.block(lx - 0.12, GY, lz - 0.12, lx + 0.12, GY + 3, lz + 0.12);
   }
   b.box('flat:#0d3b66', -3.2, GY, -22.3, 3.2, GY + 2.1, -22);
   b.sign({ k: 'label', text: '川湊駅前広場', sub: 'Kawaminato Station Plaza', fg: '#fff', bg: '#0d3b66' }, 0, GY + 1.2, -21.99, [0, 1], 6.2, 1.5);
@@ -1356,7 +1492,6 @@ function street(h: H, seed: number) {
   for (const sx of [-8.6, -3.2, 3.2, 8.6]) b.block(hx + sx - 0.4, GY, FRONT + 6.0, hx + sx + 0.4, GY + 4.9, FRONT + 6.8);
   b.sign({ k: 'label', text: '川湊ステーションホテル', sub: 'Kawaminato Station Hotel', fg: NAME_FG, bg: NAME_BG }, hx, GY + 48.6, FRONT - 2.78, [0, 1], 32, 3.4);
   b.sign({ k: 'label', text: '川湊ステーションホテル', sub: 'Kawaminato Station Hotel', fg: NAME_FG, bg: NAME_BG }, hx, GY + 5.2, FRONT + 7.22, [0, 1], 12, 0.55);
-  b.box('facade:apt:#d5cbb8', -X + 4, GY, -106, -BLDG - 8, 31, -68);
 }
 
 export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, beside?: Ctx, outer?: Ctx) {
@@ -1376,5 +1511,5 @@ export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number,
   floorLines(h);
   details(h);
   shells(h);
-  street(h, spec.seed);
+  street(h, spec.seed, other.primaryDir);
 }

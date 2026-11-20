@@ -32,9 +32,9 @@ interface Proto {
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */
 const DAYLIGHT: Record<string, number> = { tsumugi_dome: 1 };
 /** How many different sets of shop names one model variant can carry. */

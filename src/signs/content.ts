@@ -58,6 +58,8 @@ export type SignContent =
   | { k: 'roadsign'; v: 'stop' | 'speed40' | 'noparking' | 'crossing' | 'back-tri' | 'back-round' | 'back-penta' }
   /** Blue overhead direction board: what lies ahead, to the left and to the right. */
   | { k: 'roadboard'; rows: { ja: string; en: string; arrow: Arrow }[] }
+  /** A junction's name plate on a signal arm: white, blue border, kanji over romaji. */
+  | { k: 'junction'; ja: string; en: string }
   /** Paint on the road, cut out, its top towards the direction of travel. */
   | { k: 'roadmark'; v: 'ahead' | 'ahead-left' | 'ahead-right' | 'stop' | '40' | 'diamond' | 'bus' | 'bike' };
 

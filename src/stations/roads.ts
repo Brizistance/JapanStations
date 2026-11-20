@@ -38,6 +38,10 @@ export interface RoadGeo {
   name: { ja: string; en: string };
   /** The station, and the main road's direction (+x) on the network map. */
   at?: { id: string; dir: [number, number] };
+  /** The crossing roads only run to the +z side (T-junctions): nothing drives in from −z. */
+  tee?: boolean;
+  /** Names of the junctions, west to east, where the default (the area's name and a chōme number) will not do. */
+  junctions?: { ja: string; en: string }[];
 }
 
 // build_road.py: arm lengths, the lens housing's place on an arm, the direction board's place.
@@ -54,6 +58,9 @@ const left = (h: V2): V2 => [h[1], -h[0]];
 const off = (f: V2, lx: number, lz: number): V2 => [-lx * f[1] - lz * f[0], lx * f[0] - lz * f[1]];
 
 /** A road model with its front facing f (any direction), drawn merged with the others. */
+export function roadModel(b: Builder, id: string, x: number, y: number, z: number, f: V2) {
+  put(b, id, x, y, z, f);
+}
 function put(b: Builder, id: string, x: number, y: number, z: number, f: V2) {
   const d = b.dir(f);
   b.out.models.push({ kind: 'road', id, pos: b.pt(x, y, z), yaw: Math.atan2(-d[0], -d[1]) + 0, seed: 0, merge: true });
@@ -91,13 +98,18 @@ export function kerbRail(b: Builder, x: number, z: number) {
  * A vehicle signal for traffic travelling h: mast at (mx, mz) on the left kerb at the far side,
  * head `reach` m out over the lanes, facing the traffic.
  */
-function vehicleSignal(b: Builder, mx: number, mz: number, h: V2, reach: number, axis: 0 | 1) {
+function vehicleSignal(b: Builder, mx: number, mz: number, h: V2, reach: number, axis: 0 | 1, name?: { ja: string; en: string }) {
   const f: V2 = [-h[0], -h[1]];
   const [id, arm] = ARMS.find(([, a]) => a - HEAD_IN >= reach - 0.6) ?? ARMS[ARMS.length - 1];
   put(b, id, mx, GY, mz, f);
   b.block(mx - 0.16, GY, mz - 0.16, mx + 0.16, GY + 3, mz + 0.16);
   const [ox, oz] = off(f, -(arm - HEAD_IN), -0.15);
   b.sign({ k: 'signal', v: 'car', axis }, mx + ox, GY + HEAD_Y, mz + oz, f, 1.3, 0.44);
+  // The junction's name plate on the arm, between the mast and the head (where the arm is long enough).
+  if (name && arm - HEAD_IN >= 3.2) {
+    const [nx, nz] = off(f, -(arm - HEAD_IN) + 1.75, -0.12);
+    b.sign({ k: 'junction', ...name }, mx + nx, GY + HEAD_Y, mz + nz, f, 1.9, 0.62);
+  }
 }
 
 /** A pedestrian signal at (x, z) facing f (towards the people crossing to it). */
@@ -180,14 +192,18 @@ export function roadKit(b: Builder, g: RoadGeo) {
 
   // ── Junctions ──
   const zones: [number, number][] = []; // x-ranges of the main road taken by a junction
+  // Junction names come from the area: the station's name, with a chōme number where it has several.
+  const KANJI = ['一', '二', '三', '四', '五', '六'];
+  const nameOf = (i: number) => g.junctions?.[i] ?? (streets.length > 1 ? { ja: `${g.name.ja}${KANJI[i] ?? i + 1}丁目`, en: `${g.name.en} ${i + 1}` } : { ja: g.name.ja, en: g.name.en });
   for (const [a, c] of streets) {
     const mid = (a + c) / 2, half = (c - a) / 2, wide = half >= 5;
+    const jname = nameOf(streets.findIndex((q) => q[0] === a));
     zones.push([a - 9, c + 9]);
     // Main road: far-side signals, heads over the general and bus lanes.
     for (const sx of [1, -1] as const) {
       const h: V2 = [sx, 0], l = left(h);
       const mx = sx > 0 ? c + 1.2 : a - 1.2, mz = l[1] * (rw + 0.7);
-      vehicleSignal(b, mx, mz, h, rw + 0.7 - (GEN + LANE) / 2, 0);
+      vehicleSignal(b, mx, mz, h, rw + 0.7 - (GEN + LANE) / 2, 0, jname);
       // Queue at the stop line (x = a − 7 going +x, c + 7 going −x).
       const stop = sx > 0 ? a - 7.4 : c + 7.4;
       let q = stop - sx * 2.6;
@@ -217,6 +233,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
     }
     // The crossing road.
     for (const sz of [1, -1] as const) {
+      if (g.tee && sz === 1) continue;
       const h: V2 = [0, sz], l = left(h);
       // Its traffic's half: x from the centre line out to the kerb on its left.
       const lx = (d: number) => mid + l[0] * d;
@@ -224,7 +241,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
       const stopZ = -sz * (rw + 6.4);
       b.deco('flat:#e9e9e4', Math.min(mid, lx(half - 0.2)), 0.004, stopZ - 0.2, Math.max(mid, lx(half - 0.2)), 0.01, stopZ + 0.2);
       if (wide) {
-        vehicleSignal(b, lx(half + 0.7), sz * (rw + 1.2), h, half + 0.7 - half / 2, 1);
+        vehicleSignal(b, lx(half + 0.7), sz * (rw + 1.2), h, half + 0.7 - half / 2, 1, jname);
         // Two lanes each way: a queue in each.
         for (const [d, n] of [[half * 0.27, 2], [half * 0.74, 1]] as const) {
           let q = stopZ - sz * 2.8;

@@ -2030,6 +2030,7 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'signal': return drawSignal(ctx, W, H, c);
     case 'roadsign': return drawRoadSign(ctx, W, H, c.v);
     case 'roadboard': return drawRoadBoard(ctx, W, H, c.rows);
+    case 'junction': return drawJunction(ctx, W, H, c);
     case 'roadmark': return drawRoadMark(ctx, W, H, c.v);
   }
 }
@@ -2198,6 +2199,18 @@ function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { 
  * shaft's arrow, the others over their arms. Layout after the diagrams of signs 108-A and 108の2-A
  * on Wikimedia Commons (see docs/references.md); the names are ours, from the network.
  */
+/** Junction name plate (交差点名標識): white plate, blue border and lettering, kanji over romaji. */
+function drawJunction(ctx: Ctx, W: number, H: number, c: { ja: string; en: string }) {
+  const BLUE = '#0b5fb0';
+  ctx.fillStyle = BLUE;
+  ctx.fillRect(0, 0, W, H);
+  const e = H * 0.07;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(e, e, W - 2 * e, H - 2 * e);
+  text(ctx, c.ja, W / 2, H * 0.4, H * 0.44, { align: 'center', color: BLUE, weight: 700, maxW: W * 0.9 });
+  text(ctx, c.en, W / 2, H * 0.78, H * 0.22, { align: 'center', color: BLUE, weight: 600, maxW: W * 0.9 });
+}
+
 function drawRoadBoard(ctx: Ctx, W: number, H: number, rows: { ja: string; en: string; arrow: Arrow }[]) {
   const BLUE = '#0066b3', WHITE = '#ffffff';
   const round = (x: number, y: number, w: number, h: number, r: number, fill: string) => {
