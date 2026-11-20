@@ -133,7 +133,8 @@ A line's theme shapes the platform hall; a station's **look** shapes everything 
 
 | Station | Look | Centrepiece |
 |---|---|---|
-| Hyōtanbori | A yokochō carried underground: black tile, gold, neon | Alley of tiny bars under lanterns and projecting signs; gold gourd charms on wires along the stairwell walls, which carry the doors of the bars that did not fit on the long walls |
+| Hyōtanbori | A yokochō carried underground: black tile, gold, neon | Alley of tiny bars under lanterns and projecting signs; gold gourd charms on wires along the stairwell walls, which carry the doors of the bars that did not fit on the long walls. 2026-11-20: 1933 arch ribs, round columns, terrazzo and mosaic, Oden Koyuki to walk into, gourd mosaics on the platform walls, a different surround at each exit (stone, green tile, black and gold, vermilion) |
+| Minamihorie | A 1930s Art Deco shopping arcade: cream terrazzo, teal and chrome | Boutique windows down both walls (Horie-dō Books & Stationery walk-in), stepped coffers with frosted lamps, teal columns with cream capitals; sunburst mosaics on the platform; four Deco entrances |
 | Tsurumatsu | The shōtengai continues underground | Arcade arch and awning-fronted stalls |
 | Kurayashiki | Inside a kura: plaster, namako tile, dark timber | Kura front and a timber post-and-beam frame |
 | Kamomehama | Stadium station on match day | Pennant ceiling, dome wall, queue lanes |

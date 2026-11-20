@@ -193,6 +193,13 @@ function make(key: string): THREE.Material {
       setReflective(m, 0.6);
       return m;
     }
+    case 'terrazzo': {
+      const m = fromSet(pattern('terrazzo', a), {}, { macro: 0.08, macroRough: 0.2 });
+      setReflective(m, 0.7);
+      return m;
+    }
+    case 'mosaic':
+      return fromSet(pattern('mosaic', a), {}, { macro: 0.06, macroRough: 0.1 });
     case 'ceil':
       return fromSet(pattern('ceil', '#eceae4'), {}, { macro: 0.06, macroRough: 0 });
     case 'tactile':

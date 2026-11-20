@@ -13,7 +13,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SignContent } from '../signs/content';
 import { drawSign } from '../signs/draw';
-import { SIGN_WORDS, TOWER_NAMES, type BuildingKind } from '../stations/buildings';
+import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, SIGN_WORDS, TOWER_NAMES, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
 import { SHOPS } from '../stations/surface';
 import { rng, type ModelPart } from '../world/builder';
 import { lit } from './lit';
@@ -31,15 +31,15 @@ interface Proto {
   boards: Board[];
 }
 
-const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon'];
+const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie'];
 /** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
 const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */
-const DAYLIGHT: Record<string, number> = { tsumugi_dome: 1 };
+const DAYLIGHT: Record<string, number> = { tsumugi_dome: 1, hyotan_izakaya_in: 0 };
 /** How many different sets of shop names one model variant can carry. */
 const NAME_SETS = 3;
 const ATLAS_PX = 1024;
@@ -199,6 +199,8 @@ export const modelsLoaded = () => protos.size > 0;
 function boardContent(kind: BuildingKind, b: Board, r: () => number): SignContent {
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
   const fg = luminance(b.col) > 0.3 ? '#1f2023' : '#ffffff';
+  if (kind === 'boutique') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(BOUTIQUE_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(BOUTIQUE_NAMES), bg: b.col, fg };
+  if (kind === 'yokocho') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(YOKOCHO_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(YOKOCHO_NAMES), bg: b.col, fg };
   if (b.h > b.w * 1.4) return { k: 'shop', ja: pick(SIGN_WORDS), bg: b.col, fg, vertical: true };
   if (kind === 'tower' && b.w > 8) return { k: 'shop', ...pick(TOWER_NAMES), bg: b.col, fg };
   const s = pick(SHOPS);

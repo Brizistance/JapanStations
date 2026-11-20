@@ -400,13 +400,13 @@ export function posterWall(b: Builder, f: FrontFace, x0: number, x1: number, y: 
   });
 }
 
-function groundFree(b: Builder, f: FrontFace, x0: number, x1: number, y: number, depth: number): boolean {
+export function groundFree(b: Builder, f: FrontFace, x0: number, x1: number, y: number, depth: number): boolean {
   if (b.pt(0, y + 3.6, 0)[1] > GROUND_Y - 0.8 || !shopFits(b, f, x0, x1, y)) return false;
   const [xa, za, xb, zb] = vol(f, x0 - 0.35, x1 + 0.35, -depth - 0.35, -0.9);
   return !b.solidIn(xa, y - 0.28, za, xb, y + 3.4, zb);
 }
 /** Cut the opening and build the shell: floor, back and side walls, ceiling. */
-function shell(b: Builder, f: FrontFace, x0: number, x1: number, y: number, top: number, depth: number, wall: string, floor: string) {
+export function shell(b: Builder, f: FrontFace, x0: number, x1: number, y: number, top: number, depth: number, wall: string, floor: string) {
   const c = vol(f, x0, x1, -depth, 0.07);
   b.carve(c[0], y + 0.002, c[1], c[2], y + top, c[3]);
   const part = (mat: string, u0: number, u1: number, y0: number, y1: number, d0: number, d1: number) => {

@@ -88,9 +88,11 @@ export function platformStairs(c: Ctx, units: { x: number; up: 1 | -1 }[], pf: n
         const r = islandUnit(b, pf, cf, STAIR_RUN, cf);
         out.holes.push(r);
         out.info.push(stairInfo(b, line, 'platform', [...nums], r, STAIR_RUN + 0.8, 0, [-1, 0]));
+        // Before the stair foot: "Exit ↑" faces people walking up to the stair (−x here), the
+        // station name faces the other way.
         b.hang(
-          { k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', arrow: 'up' }, -1.6, pf + 2.72, 0, 3.0, 0.44,
-          { ceil: cf - SLAB, back: { k: 'name', station: station.id, line: line.id, arrow: u.up > 0 ? 'left' : 'right' } },
+          { k: 'name', station: station.id, line: line.id, arrow: u.up > 0 ? 'right' : 'left' }, -1.6, pf + 2.72, 0, 3.0, 0.44,
+          { ceil: cf - SLAB, back: { k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', arrow: 'up' } },
         );
       });
     } else {

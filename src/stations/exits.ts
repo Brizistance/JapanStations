@@ -1,3 +1,4 @@
+import { PIECES } from './pieces';
 import { STACK_DY } from '../sim/geometry';
 // Exits: for each station, which numbered exits it has and what is near each at street level.
 //
@@ -407,6 +408,11 @@ function streetFeatures(s: SurfaceSpec): Feature[] {
     } else out.push({ n: style === 'campus' ? s.campusName ?? KIND.campus : KIND[style], x0: -X, x1: X, side, named: style === 'campus' });
   }
   if (s.landmark) out.push({ n: { ja: s.landmark.ja, en: s.landmark.en }, x0: s.landmark.x0, x1: s.landmark.x1, side: s.landmark.side, named: true, reach: 30 });
+  // The station's own pieces (pieces.ts), unless the landmark already names the lot.
+  for (const k of s.pieces ?? []) {
+    if (s.landmark && k.en === s.landmark.en) continue;
+    out.push({ n: { ja: k.ja, en: k.en }, x0: k.x0, x1: k.x0 + PIECES[k.id].w, side: k.side, named: true, reach: 30 });
+  }
   if (s.arcadeAt !== undefined) {
     const a = s.arcadeAt, h = STREET.arcadeHalf;
     out.push({ n: s.arcadeName ?? DEFAULT_ARCADE, x0: a - h, x1: a + h, side: -1, named: true });

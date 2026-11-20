@@ -9,6 +9,7 @@ import { look as ikarimachi } from './ikarimachi';
 import { look as kamomehama } from './kamomehama';
 import { look as kurayashiki } from './kurayashiki';
 import { look as minatoCenter } from './minato-center';
+import { look as minamihorie } from './minamihorie';
 import { look as seiryodai } from './seiryodai';
 import { look as shiosaiKoen } from './shiosai-koen';
 import { look as todaiDori } from './todai-dori';
@@ -23,7 +24,7 @@ import { withEntry } from '../entry';
 const LOOKS: Record<string, StationLook> = {
   aizomecho, 'daigaku-mae': daigakuMae, hoshimine, hyotanbori, kamomehama, kurayashiki, tomyobori, tsumugibashi, tsurumatsu,
   seiryodai, 'shiosai-koen': shiosaiKoen, tsukimizaka, yamabukidai, 'minato-center': minatoCenter,
-  ikarimachi, 'todai-dori': todaiDori,
+  ikarimachi, 'todai-dori': todaiDori, minamihorie,
 };
 
 const cache = new Map<string, StationLook>();

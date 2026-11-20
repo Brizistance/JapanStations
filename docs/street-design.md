@@ -69,6 +69,10 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 - The arms are drawn, not solid, and snap between up and down.
 - To look at one without a line: place it temporarily and use `__sim.crossing(true | false | null)`.
 
+**Hyōtanbori (2026-11-20):** nightlife model lots (`night`), the grand canal and station pieces in `src/stations/hyotanbori-street.ts` (spec `canalGrand`, `pieces`; models `build_hyotan.py`).
+
+**Minamihorie (2026-11-20):** the quiet canal (spec `canalQuiet`, `minamihorie-street.ts`), clock tower, Café Horie and Kinoha as `pieces` (models `build_horie.py`); canal rows stand back behind any piece on their corner.
+
 ## Ideas for later (the owner's picks)
 
 - A ramen or soba counter you can enter; a small shrine or pocket park between buildings. (Built inside stations: `shopRoom` in `src/stations/shopfronts.ts`.)

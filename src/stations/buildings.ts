@@ -5,7 +5,7 @@
 // A model's front faces local -z with its origin at the middle of the frontage on the pavement.
 // `corner` models have a second street face on their local -x side.
 
-export type BuildingKind = 'zakkyo' | 'office' | 'tower' | 'shophouse' | 'manshon';
+export type BuildingKind = 'zakkyo' | 'office' | 'tower' | 'shophouse' | 'manshon' | 'canalfront' | 'yokocho' | 'boutique';
 
 export interface BuildingModel {
   kind: BuildingKind;
@@ -52,6 +52,20 @@ export const BUILDING_MODELS: BuildingModel[] = [
   { kind: 'manshon', id: 'd', w: 26, d: 11, h: 34 },
   { kind: 'manshon', id: 'e', w: 17, d: 10, h: 15 },
   { kind: 'manshon', id: 'f', w: 13.5, d: 11, h: 26 },
+  // Canal fronts (build_canalfront.py, Hyōtanbori): 3.6 m terrace floor, 3.1 m storeys, a parapet or a roof board.
+  { kind: 'canalfront', id: 'a', w: 6.2, d: 10, h: 20 },
+  { kind: 'canalfront', id: 'b', w: 8.4, d: 10, h: 21 },
+  { kind: 'canalfront', id: 'c', w: 5.2, d: 9.5, h: 23 },
+  { kind: 'canalfront', id: 'd', w: 7.2, d: 10, h: 14 },
+  { kind: 'canalfront', id: 'e', w: 9.0, d: 10, h: 24 },
+  { kind: 'canalfront', id: 'f', w: 4.6, d: 9, h: 17 },
+  // Boutiques (build_boutique.py, Minamihorie): 3.4 m shop floor, 2.9 m storeys, a parapet or a gabled roof.
+  { kind: 'boutique', id: 'a', w: 6.4, d: 10, h: 9.8 },
+  { kind: 'boutique', id: 'b', w: 5.2, d: 9.5, h: 8.3 },
+  { kind: 'boutique', id: 'c', w: 7.6, d: 10, h: 12.7 },
+  { kind: 'boutique', id: 'd', w: 4.8, d: 9, h: 11.2 },
+  { kind: 'boutique', id: 'e', w: 8.6, d: 10, h: 9.8 },
+  { kind: 'boutique', id: 'f', w: 5.8, d: 9.5, h: 8.3 },
 ];
 
 /** Invented names for the name boards of towers. */
@@ -62,6 +76,25 @@ export const TOWER_NAMES: { ja: string; en: string }[] = [
   { ja: 'みなと第一ビル', en: 'Minato Daiichi Building' },
   { ja: '秋津島生命ビル', en: 'Akitsushima Life Building' },
 ];
+
+/** Hyōtan Yokochō (build_yokocho.py): names for its wide boards, trade words for its tall ones. */
+export const YOKOCHO_NAMES: { ja: string; en: string }[] = [
+  { ja: '焼鳥 とり平', en: 'Yakitori Torihei' }, { ja: 'スナック 茜', en: 'Snack Akane' }, { ja: 'おでん 松の家', en: 'Oden Matsunoya' },
+  { ja: 'バー 月光', en: 'Bar Gekkō' }, { ja: '串焼 ひょう吉', en: 'Kushiyaki Hyōkichi' }, { ja: '小料理 志乃', en: 'Koryōri Shino' },
+  { ja: '立呑み 千鳥', en: 'Tachinomi Chidori' }, { ja: '餃子 一番星', en: 'Gyōza Ichibanboshi' }, { ja: '酒場 堀の灯', en: 'Sakaba Hori-no-hi' },
+  { ja: 'スナック 蘭', en: 'Snack Ran' }, { ja: 'ホルモン 鉄', en: 'Horumon Tetsu' }, { ja: 'バー 夜舟', en: 'Bar Yobune' },
+  { ja: 'もつ煮 丸吉', en: 'Motsuni Marukichi' }, { ja: 'スナック 珊瑚', en: 'Snack Sango' }, { ja: '天ぷら 小舟', en: 'Tempura Kobune' },
+  { ja: '居酒屋 縁', en: 'Izakaya Enishi' }, { ja: 'ラーメン 夜鳴', en: 'Ramen Yonaki' }, { ja: 'カラオケ 歌姫', en: 'Karaoke Utahime' },
+];
+/** Minamihorie's canal boutiques (build_boutique.py): names for their boards, words for the blade signs. */
+export const BOUTIQUE_NAMES: { ja: string; en: string }[] = [
+  { ja: 'カフェ 水面', en: 'Café Minamo' }, { ja: '古着 ポラリス', en: 'Polaris Vintage' }, { ja: '器と暮らし 白椿', en: 'Shirotsubaki Tableware' },
+  { ja: '照明 ともしび', en: 'Tomoshibi Lighting' }, { ja: '椅子工房 クレール', en: 'Atelier Claire Chairs' }, { ja: 'パン工房 麦の穂', en: 'Mugi-no-ho Bakery' },
+  { ja: '帆布 かもめ', en: 'Kamome Canvas Bags' }, { ja: '花と緑 そよ風', en: 'Soyokaze Flowers' }, { ja: '紅茶 リバーサイド', en: 'Riverside Tea' },
+  { ja: '古書 堀川文庫', en: 'Horikawa Old Books' }, { ja: '革小物 ノット', en: 'Knot Leather' }, { ja: 'ジェラート 凪', en: 'Gelato Nagi' },
+];
+export const BOUTIQUE_WORDS = ['カフェ', '雑貨', '古着', '家具', '花', '紅茶', '器', 'パン'];
+export const YOKOCHO_WORDS = ['焼鳥', 'スナック', 'おでん', 'バー', '串焼', '立呑み', '酒場', '餃子', 'ホルモン', 'もつ焼', '小料理', 'カラオケ'];
 
 /** Short trade words for the tall projecting signs. */
 export const SIGN_WORDS = ['居酒屋', 'カラオケ', '串カツ', 'バー', 'ラーメン', '焼鳥', '歯科', '寿司', '麻雀', '学習塾', '薬局', '美容室', '喫茶', '囲碁'];

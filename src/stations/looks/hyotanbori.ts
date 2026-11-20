@@ -9,6 +9,10 @@
 // alley (black tile, gold line, framed bills, neon, and the doors of the bars that did not fit
 // along the real walls), lit by battens down the lane beside them. The gate lines and the
 // stairwell portals keep white light so wayfinding still works.
+//
+// 1933 underneath it all (redesign 2026-11-20): riveted steel arch ribs across the alley's ceiling,
+// round black-tile columns with gold capitals, a terrazzo floor and mosaic walls, tiled eaves over
+// the bars, and Oden Koyuki, a counter you can step into where the ground behind the wall is free.
 
 import type { Builder } from '../../world/builder';
 import {
@@ -17,6 +21,8 @@ import {
   type DadoOpts, type Span, type Wall,
 } from './parts';
 import type { ConcInfo, StationLook, WallFace } from './types';
+import { groundFree, shell, type FrontFace } from '../shopfronts';
+import type { HallInfo } from '../themes/types';
 
 type Has = { b: Builder };
 
@@ -159,7 +165,7 @@ function barFront(i: ConcInfo, s: Wall, x0: number, x1: number, bar: Bar, avoid:
   wbox(i, s, TIMBER, x0, xa, cf, fy, 0, d, true);
   wbox(i, s, TIMBER, xb, x1, cf, fy, 0, d, true);
 
-  if (bar.front === 'counter') {
+  if (bar.front === 'counter' && bar.en !== KOYUKI) {
     // Staff space, a warm-lit back wall with a bottle shelf, the counter, a noren over it.
     wbox(i, s, 'none', xa, xb, cf, fy, 0, d - 0.45, true);
     wbox(i, s, WARM_BACK, xa, xb, cf + 1.0, fy, 0, 0.02);
@@ -180,37 +186,16 @@ function barFront(i: ConcInfo, s: Wall, x0: number, x1: number, bar: Bar, avoid:
       b.mesh('flat:#9e1b1b', 'cyl', x, cf + 0.68, at(d + 0.3), 0.34, 0.06, 0.34);
       b.mesh('metal:#7f858b', 'cyl', x, cf + 0.33, at(d + 0.3), 0.06, 0.66, 0.06);
     }
-  } else {
-    // Closed front, recessed 0.12 behind the pilasters: a lit sliding door and a lit window,
-    // both behind timber lattice (kōshi), a short noren on the door, beer crates outside.
-    wbox(i, s, 'none', xa, xb, cf, fy, 0, d - 0.12, true);
-    wbox(i, s, TIMBER, xa, xb, cf, fy, d - 0.16, d - 0.12);
-    const xd0 = xa + 0.15, xd1 = xd0 + 0.85;
-    wbox(i, s, PAPER, xd0, xd1, cf + 0.08, cf + 1.95, d - 0.12, d - 0.105);
-    wbox(i, s, TIMBER, xd0 - 0.04, xd1 + 0.04, cf + 1.95, cf + 2.03, d - 0.12, d - 0.08);
-    wbox(i, s, TIMBER, xd0, xd1, cf + 0.99, cf + 1.03, d - 0.105, d - 0.085);
-    for (let k = 1; k < 4; k++) {
-      const x = xd0 + (k * (xd1 - xd0)) / 4;
-      wbox(i, s, TIMBER, x - 0.015, x + 0.015, cf + 0.08, cf + 1.95, d - 0.105, d - 0.085);
-    }
-    const xw0 = xd1 + 0.15, xw1 = xb - 0.15;
-    if (xw1 - xw0 > 0.4) {
-      wbox(i, s, PAPER, xw0, xw1, cf + 0.95, cf + 1.85, d - 0.12, d - 0.105);
-      wbox(i, s, TIMBER, xw0 - 0.03, xw1 + 0.03, cf + 0.9, cf + 0.95, d - 0.12, d - 0.07);
-      const n = Math.max(1, Math.round((xw1 - xw0) / 0.18) - 1);
-      for (let k = 1; k <= n; k++) {
-        const x = xw0 + (k * (xw1 - xw0)) / (n + 1);
-        wbox(i, s, TIMBER, x - 0.012, x + 0.012, cf + 0.95, cf + 1.85, d - 0.105, d - 0.085);
-      }
-    }
-    noren(i, 'x', at(d - 0.055), xd0 + 0.05, xd1 - 0.05, cf + 2.0, { color: bar.noren, text: bar.word, fg: norenFg, face, h: 0.42 });
-    // Beer crates stacked by the window, inside the claimed room in front.
-    const [ca, cb] = band(i, s, d, d + 0.4);
-    b.box('flat:#d6a21a', x1 - 0.62, cf, ca, x1 - 0.18, cf + 0.3, cb);
-    b.box('flat:#b3261e', x1 - 0.62, cf + 0.3, ca, x1 - 0.18, cf + 0.6, cb);
-    const [ta, tb] = band(i, s, d + 0.03, d + 0.37);
-    b.deco('flat:#2a1d14', x1 - 0.59, cf + 0.6, ta, x1 - 0.21, cf + 0.62, tb);
-  }
+  } else if (bar.en === KOYUKI) {
+    // Settled when the build ends: a counter to step into if the ground behind the wall is free.
+    b.later(() => {
+      if (!odenRoom(i, s, x0, x1, xa, xb, bar, face, norenFg)) doorFront(i, s, x1, xa, xb, bar, face, norenFg);
+    });
+  } else doorFront(i, s, x1, xa, xb, bar, face, norenFg);
+  // A tiled eave over the front, under the fascia sign, and a stone step.
+  wbox(i, s, 'flat:#2a2622', x0 + 0.6, x1 - 0.8, fy - 0.07, fy - 0.02, d + 0.06, d + 0.42);
+  wbox(i, s, 'flat:#3a3d41', x0 + 0.6, x1 - 0.8, fy - 0.1, fy - 0.07, d + 0.36, d + 0.44);
+  wbox(i, s, 'flat:#6a655c', xa, xb, cf, cf + 0.02, d, d + 0.3);
 
   // Projecting vertical sign on both faces, edged in neon, cf + 2.32 … 2.94.
   const xp = x0 + 0.32;
@@ -227,6 +212,91 @@ function barFront(i: ConcInfo, s: Wall, x0: number, x1: number, bar: Bar, avoid:
   }
   // Red lantern (akachōchin) in front of the fascia.
   if (!near(x1 - 0.45, 0.5)) lantern(i, x1 - 0.45, cf + 2.3, at(d + 0.26), { d: 0.32, h: 0.5, top });
+  return true;
+}
+
+/** The closed front of a bar: recessed behind the pilasters, a lit lattice door and window, a noren, crates. */
+function doorFront(i: ConcInfo, s: Wall, x1: number, xa: number, xb: number, bar: Bar, face: Wall, norenFg: string) {
+  const { b, cf } = i, d = DEPTH, fy = cf + FY;
+  const at = (dd: number) => s * (i.cw - dd);
+  // Closed front, recessed 0.12 behind the pilasters: a lit sliding door and a lit window,
+  // both behind timber lattice (kōshi), a short noren on the door, beer crates outside.
+  wbox(i, s, 'none', xa, xb, cf, fy, 0, d - 0.12, true);
+  wbox(i, s, TIMBER, xa, xb, cf, fy, d - 0.16, d - 0.12);
+  const xd0 = xa + 0.15, xd1 = xd0 + 0.85;
+  wbox(i, s, PAPER, xd0, xd1, cf + 0.08, cf + 1.95, d - 0.12, d - 0.105);
+  wbox(i, s, TIMBER, xd0 - 0.04, xd1 + 0.04, cf + 1.95, cf + 2.03, d - 0.12, d - 0.08);
+  wbox(i, s, TIMBER, xd0, xd1, cf + 0.99, cf + 1.03, d - 0.105, d - 0.085);
+  for (let k = 1; k < 4; k++) {
+    const x = xd0 + (k * (xd1 - xd0)) / 4;
+    wbox(i, s, TIMBER, x - 0.015, x + 0.015, cf + 0.08, cf + 1.95, d - 0.105, d - 0.085);
+  }
+  const xw0 = xd1 + 0.15, xw1 = xb - 0.15;
+  if (xw1 - xw0 > 0.4) {
+    wbox(i, s, PAPER, xw0, xw1, cf + 0.95, cf + 1.85, d - 0.12, d - 0.105);
+    wbox(i, s, TIMBER, xw0 - 0.03, xw1 + 0.03, cf + 0.9, cf + 0.95, d - 0.12, d - 0.07);
+    const n = Math.max(1, Math.round((xw1 - xw0) / 0.18) - 1);
+    for (let k = 1; k <= n; k++) {
+      const x = xw0 + (k * (xw1 - xw0)) / (n + 1);
+      wbox(i, s, TIMBER, x - 0.012, x + 0.012, cf + 0.95, cf + 1.85, d - 0.105, d - 0.085);
+    }
+  }
+  noren(i, 'x', at(d - 0.055), xd0 + 0.05, xd1 - 0.05, cf + 2.0, { color: bar.noren, text: bar.word, fg: norenFg, face, h: 0.42 });
+  // Beer crates stacked by the window, inside the claimed room in front.
+  const [ca, cb] = band(i, s, d, d + 0.4);
+  b.box('flat:#d6a21a', x1 - 0.62, cf, ca, x1 - 0.18, cf + 0.3, cb);
+  b.box('flat:#b3261e', x1 - 0.62, cf + 0.3, ca, x1 - 0.18, cf + 0.6, cb);
+  const [ta, tb] = band(i, s, d + 0.03, d + 0.37);
+  b.deco('flat:#2a1d14', x1 - 0.59, cf + 0.6, ta, x1 - 0.21, cf + 0.62, tb);
+}
+
+const KOYUKI = 'Oden Koyuki';
+/** How far Oden Koyuki's room runs back behind the wall. */
+const ROOM_D = 3.4;
+
+/**
+ * Oden Koyuki as a counter you step into: the wall behind its front opened into a small room
+ * (shopfronts.ts shell), a front with a doorway, a counter with the oden pot, stools, a bottle
+ * shelf and lettered menu slips, paper lanterns. False where the ground is not free.
+ */
+function odenRoom(i: ConcInfo, s: Wall, x0: number, x1: number, xa: number, xb: number, bar: Bar, face: Wall, norenFg: string): boolean {
+  const { b, cf } = i, d = DEPTH, top = cf + 2.35;
+  const f: FrontFace = { axis: 'x', at: s * i.cw, n: -s as 1 | -1 };
+  if (!groundFree(b, f, x0, x1, cf, ROOM_D)) return false;
+  shell(b, f, x0, x1, cf, 2.35, ROOM_D, 'flat:#e9dcc0', 'wood:#6b4a2e');
+  const at = (dd: number) => s * (i.cw - dd);
+  // The front: lattice and paper either side of a doorway, a lintel, a noren on the doorway.
+  const xd0 = xa + 0.25, xd1 = xd0 + 0.9;
+  for (const [p, q] of [[xa, xd0], [xd1, xb]] as [number, number][]) {
+    if (q - p < 0.1) continue;
+    wbox(i, s, TIMBER, p, q, cf, cf + 0.4, d - 0.16, d - 0.12, true);
+    wbox(i, s, PAPER, p + 0.05, q - 0.05, cf + 0.4, cf + 2.0, d - 0.12, d - 0.105, true);
+    for (let x = p + 0.12; x < q - 0.05; x += 0.12) wbox(i, s, TIMBER, x - 0.012, x + 0.012, cf + 0.4, cf + 2.0, d - 0.105, d - 0.085);
+  }
+  wbox(i, s, TIMBER, xa, xb, cf + 2.0, cf + FY, d - 0.16, d - 0.12, true);
+  for (const x of [xd0, xd1]) wbox(i, s, TIMBER, x - 0.04, x + 0.04, cf, cf + 2.0, d - 0.16, d - 0.08);
+  noren(i, 'x', at(d - 0.06), xd0 + 0.04, xd1 - 0.04, cf + 2.0, { color: bar.noren, text: bar.word, fg: norenFg, face, h: 0.5 });
+  // Inside: the counter across the room with its top, the pot, stools, a shelf, menu slips, lanterns.
+  const c0 = -ROOM_D + 1.15, c1 = c0 + 0.5;
+  wbox(i, s, 'wood:#5a3a22', x0 + 0.2, x1 - 0.2, cf, cf + 0.98, c0, c1, true);
+  wbox(i, s, 'wood:#a8794a', x0 + 0.15, x1 - 0.15, cf + 0.98, cf + 1.03, c0 - 0.05, c1 + 0.12);
+  const pm = (x0 + x1) / 2;
+  b.mesh('metal:#8a8d90', 'cyl', pm, cf + 1.13, at((c0 + c1) / 2), 0.7, 0.2, 0.42);
+  b.mesh('glow:#e8c36a', 'cyl', pm, cf + 1.235, at((c0 + c1) / 2), 0.6, 0.012, 0.34);
+  for (let k = 0; k < 4; k++) {
+    const x = x0 + 0.45 + ((x1 - x0 - 0.9) * k) / 3;
+    b.mesh('flat:#9e1b1b', 'cyl', x, cf + 0.68, at(c1 + 0.45), 0.34, 0.06, 0.34);
+    b.mesh('metal:#7f858b', 'cyl', x, cf + 0.33, at(c1 + 0.45), 0.06, 0.66, 0.06);
+  }
+  wbox(i, s, 'wood:#3b2a1e', x0 + 0.1, x1 - 0.1, cf + 1.45, cf + 1.48, -ROOM_D, -ROOM_D + 0.28);
+  for (let x = x0 + 0.25; x < x1 - 0.2; x += 0.22) b.mesh(BOTTLES[Math.abs(Math.round(x * 7)) % 3], 'cyl', x, cf + 1.62, at(-ROOM_D + 0.14), 0.08, 0.26, 0.08);
+  ['大根', '玉子', 'ちくわ', '牛すじ', 'こんにゃく', '熱燗', 'ビール', '焼酎'].forEach((m, k, a) => {
+    const x = x0 + 0.3 + ((x1 - x0 - 0.6) * (k + 0.5)) / a.length;
+    b.sign({ k: 'shop', ja: m, bg: '#f4efe2', fg: '#1a1716', vertical: true }, x, cf + 2.0, at(-ROOM_D + 0.012), [0, -s], 0.2, 0.46);
+  });
+  for (const dd of [-0.9, -2.6]) lantern(i, pm, cf + 2.1, at(dd), { color: '#f2c88a', d: 0.26, h: 0.22, top });
+  const [za, zb] = band(i, s, -ROOM_D, 0);
+  b.zone('passage', x0, cf - 0.2, za, x1, top, zb, bar.ja, `${bar.en} (oden bar)`);
   return true;
 }
 
@@ -286,7 +356,8 @@ function fillWall(i: ConcInfo, s: Wall, plan: Slot[], bars: { peek: () => Bar; t
     if (slot === 'gap') w = 1.4;
     else if (slot === 'bar') {
       const want = 2.4 + Math.floor(i.rand() * 3) * 0.3;
-      for (const ww of want > 2.4 ? [want, 2.4] : [2.4]) {
+      const koyuki = bars.peek().en === KOYUKI;
+      for (const ww of koyuki ? [3.6, 3.0, 2.4] : want > 2.4 ? [want, 2.4] : [2.4]) {
         if (barFront(i, s, x, x + ww, bars.peek(), avoid)) {
           bars.take();
           w = ww;
@@ -357,6 +428,8 @@ function lanternStrings(i: ConcInfo, xs: number[], reach: number) {
     for (let z = 0.9; z <= Math.min(reach, i.cw - 1.3); z += 1.12, k++) {
       for (const s of [-1, 1] as const) {
         if (z < e[String(s) as '-1' | '1'] + 0.45) continue;
+        // Clear of the round columns' capitals.
+        if (i.pillars.some(([px, pz]) => Math.abs(px - x) < 0.75 && Math.abs(pz - s * z) < 0.75)) continue;
         chochin(i, x, s * z, cf, k % 4 === 3 ? '#f2c88a' : '#e5533d');
       }
     }
@@ -558,10 +631,100 @@ function unpaidHalls(i: ConcInfo) {
   }
 }
 
+/**
+ * Riveted steel arch ribs across the alley's ceiling, every 4.8 m between the bulbs: a plate rib
+ * curving down towards both walls (0.55 m lower at the wall) with a gold flange under it. None at the lantern strings, the gate lines, the stairwells or the exit doorways.
+ */
+function ribs(i: ConcInfo, avoid: number[]) {
+  const { b, cf, cw } = i, top = cf + i.clear, N = 120, T = 0.08, DROP = 0.55;
+  const wells = spineWells(i).map((w) => w.footprint);
+  const busy = (x: number) => avoid.some((a) => Math.abs(a - x) < 0.8)
+    || i.ends.some((e) => Math.abs(e.g - x) < 5)
+    || wells.some((r) => x > r[0] - 0.8 && x < r[2] + 0.8)
+    || i.holes.some((r) => x > r[0] - 1.2 && x < r[2] + 1.2)
+    || i.exits.some((e) => x > e.x0 - 2 && x < e.x1 + 2);
+  for (let x = i.paid[0] + 5.7; x < i.paid[1] - 3; x += 4.8) {
+    if (busy(x)) continue;
+    for (let k = 0; k < N; k++) {
+      const za = -cw + (2 * cw * k) / N, zb = -cw + (2 * cw * (k + 1)) / N, zm = (za + zb) / 2;
+      const y = top - 0.1 - DROP * (zm / cw) ** 2;
+      b.deco(STEEL, x - T, y, za, x + T, top, zb);
+      b.deco(GOLD, x - T - 0.01, y - 0.02, za, x + T + 0.01, y, zb);
+    }
+  }
+}
+
+// ── Platform: round columns and the gourd mosaics ───────────────────────────────────────────
+
+/** The gourd over the canal in glass mosaic, 25 × 13 tesserae of 0.12 m: colour of each cell (row 0 at the bottom). */
+function mosaicCell(c: number, r: number): string {
+  const x = c + 0.5, y = r + 0.5;
+  const lower = Math.hypot(x - 12.5, (y - 4.7) * 1.05) < 4.3, upper = Math.hypot(x - 12.5, y - 9.9) < 2.8;
+  if (y > 12 && Math.abs(x - 12.5) < 0.6) return '#5a3a1a';
+  if (y > 11.6 && y < 12.6 && x > 13 && x < 15.5) return '#3f7a3a';
+  if ((lower || upper) && y > 7.2 && y < 8) return '#c23b22';
+  if (lower && Math.hypot(x - 11, y - 6) < 1.2) return '#f2d27a';
+  if (upper && Math.hypot(x - 11.6, y - 10.6) < 0.8) return '#f2d27a';
+  if (lower || upper) return '#c9a227';
+  if (r < 2) return (c + r * 3) % 6 < 3 ? '#2e6aa8' : '#4a8ac0';
+  return '#1f2a44';
+}
+
+/** One mosaic panel on side wall s, centred at x: a gold frame, the tesserae as runs per row. */
+function gourdMosaic(h: HallInfo, x: number, s: 1 | -1) {
+  const { b, pf, wallZ } = h, T = 0.12, C = 25, R = 13, w = C * T, y0 = pf + 1.05;
+  const z0 = s * (wallZ - 0.005), z1 = s * (wallZ - 0.025);
+  const za = Math.min(z0, z1), zb = Math.max(z0, z1);
+  const x0 = x - w / 2;
+  b.deco(GOLD, x0 - 0.08, y0 - 0.08, Math.min(z0, s * (wallZ - 0.035)), x0 + w + 0.08, y0 + R * T + 0.08, Math.max(z0, s * (wallZ - 0.035)));
+  for (let r = 0; r < R; r++) {
+    let c = 0;
+    while (c < C) {
+      const col = mosaicCell(c, r);
+      let e = c + 1;
+      while (e < C && mosaicCell(e, r) === col) e++;
+      const zs = s * (wallZ - 0.04);
+      b.deco(`mosaic:${col}`, x0 + c * T, y0 + r * T, Math.min(za, zs), x0 + e * T, y0 + (r + 1) * T, Math.max(zb, zs));
+      c = e;
+    }
+  }
+}
+
+/** A round casing over the line's column: black glazed tile, gold base and capital, a red mosaic band. */
+function roundColumn(h: HallInfo, x: number, z: number, y0: number, y1: number) {
+  const { b } = h, d = 0.66;
+  b.mesh('tile:#141417', 'cyl', x, (y0 + y1) / 2, z, d, y1 - y0, d);
+  // The line's H-column flares to 0.62 m under the girders: the capital covers it.
+  b.mesh(GOLD, 'cyl', x, y1 - 0.36, z, d + 0.08, 0.08, d + 0.08);
+  b.mesh('tile:#141417', 'cyl', x, y1 - 0.16, z, 0.72, 0.32, 0.72);
+  b.mesh(GOLD, 'cyl', x, y1 - 0.02, z, 0.8, 0.04, 0.8);
+  b.mesh(GOLD, 'cyl', x, y0 + 0.07, z, d + 0.06, 0.14, d + 0.06);
+  b.mesh('mosaic:#7a1f1f', 'cyl', x, y0 + 1.95, z, d + 0.02, 0.2, d + 0.02);
+  for (const y of [y0 + 1.84, y0 + 2.06]) b.mesh(GOLD, 'cyl', x, y, z, d + 0.04, 0.025, d + 0.04);
+}
+
+function platformLook(h: HallInfo) {
+  const blocked = (x: number, m: number) => h.o.blocks.some(([a, c]) => x > a - m && x < c + m);
+  if (h.island) {
+    for (let x = -54; x <= 54; x += 6) {
+      const seg = h.o.ceil.find((g) => x >= g.x0 && x <= g.x1);
+      if (seg?.vault || blocked(x, 0.6)) continue;
+      for (const z of [-2.05, 2.05]) roundColumn(h, x, z, h.pf, h.ceilAt(x));
+    }
+  }
+  // The gourd mosaics on both side walls, between the name boards and the posters.
+  for (const s of [-1, 1] as const) {
+    for (const x of [-45.5, -32.5, -6.5, 6.5, 32.5, 45.5]) {
+      if (!h.wallRuns(s).some(([a, c]) => x - 1.7 >= a && x + 1.7 <= c)) continue;
+      gourdMosaic(h, x, s);
+    }
+  }
+}
+
 // ── The look ─────────────────────────────────────────────────────────────────────────────────
 
 export const look: StationLook = {
-  finishes: { wall: 'tile:#1d1c22', floor: 'floor:#6e5d4b', pillar: 'tile:#141417', ceil: 'paint:#1c1b1f' },
+  finishes: { wall: 'mosaic:#26242c', floor: 'terrazzo:#8f7f6a', pillar: 'tile:#141417', ceil: 'paint:#1c1b1f' },
   posters: false,
   skirting: false,
 
@@ -597,22 +760,18 @@ export const look: StationLook = {
   },
 
   pillar(i, x, z, y0, y1) {
-    const { b } = i, h = 0.42, g = 0.012;
-    // Black tile, gold base and band, gold corner beads.
-    b.deco(i.pillar, x - h, y0, z - h, x + h, y1, z + h);
-    b.deco(GOLD, x - h - g, y0, z - h - g, x + h + g, y0 + 0.14, z + h + g);
-    b.deco(GOLD, x - h - g, y0 + 2.2, z - h - g, x + h + g, y0 + 2.26, z + h + g);
-    for (const cx of [x - h, x + h]) for (const cz of [z - h, z + h]) b.deco(GOLD, cx - 0.02, y0 + 0.14, cz - 0.02, cx + 0.02, y0 + 2.2, cz + 0.02);
-    // A gold gourd on the two faces across the alley.
-    for (const nz of [-1, 1]) gourd(i, x, y0 + 1.4, z + nz * (h + 0.012), 'z');
-    // Bills on the two faces along the alley (paid area only).
-    if (x > i.paid[0] && x < i.paid[1]) {
-      let v = Math.abs(Math.round(x * 3 + z)) % 8;
-      for (const nx of [-1, 1]) {
-        b.deco('flat:#0c0c0e', Math.min(x + nx * h, x + nx * (h + 0.02)), y0 + 0.95, z - 0.35, Math.max(x + nx * h, x + nx * (h + 0.02)), y0 + 1.95, z + 0.35);
-        b.sign({ k: 'poster', v: v++ % 8 }, x + nx * (h + 0.03), y0 + 1.45, z, [nx, 0], 0.62, 0.88);
-      }
-    }
+    const { b } = i, r = 0.4;
+    // Round, in black glazed tile: a gold base, a band of red mosaic between gold rings, a flared gold capital.
+    b.mesh(i.pillar, 'cyl', x, (y0 + y1) / 2, z, 2 * r, y1 - y0, 2 * r);
+    b.mesh(GOLD, 'cyl', x, y0 + 0.07, z, 2 * r + 0.06, 0.14, 2 * r + 0.06);
+    b.mesh('mosaic:#7a1f1f', 'cyl', x, y0 + 1.95, z, 2 * r + 0.02, 0.22, 2 * r + 0.02);
+    for (const y of [y0 + 1.83, y0 + 2.07]) b.mesh(GOLD, 'cyl', x, y, z, 2 * r + 0.04, 0.03, 2 * r + 0.04);
+    b.mesh(GOLD, 'cyl', x, y1 - 0.42, z, 2 * r + 0.06, 0.05, 2 * r + 0.06);
+    b.mesh(GOLD, 'cyl', x, y1 - 0.3, z, 2 * r + 0.12, 0.12, 2 * r + 0.12);
+    b.mesh(GOLD, 'cyl', x, y1 - 0.15, z, 2 * r + 0.22, 0.14, 2 * r + 0.22);
+    b.mesh(STEEL, 'cyl', x, y1 - 0.04, z, 2 * r + 0.3, 0.08, 2 * r + 0.3);
+    // A gold gourd on the two sides across the alley.
+    for (const nz of [-1, 1]) gourd(i, x, y0 + 1.25, z + nz * (r + 0.02), 'z');
   },
 
   concourse(i) {
@@ -624,6 +783,9 @@ export const look: StationLook = {
     // The alley: bars along both walls, with a vending pair on one and lockers on the other.
     const avoid = stringXs(i);
     const list = shuffle(i, BARS);
+    // Oden Koyuki goes up early, so it lands on a long wall (where it may become a room).
+    const ko = list.findIndex((x) => x.en === KOYUKI);
+    list.splice(1, 0, ...list.splice(ko, 1));
     let n = 0;
     const bars = { peek: () => list[n % list.length], take: () => void n++ };
     const first: Wall = i.rand() < 0.5 ? 1 : -1;
@@ -636,7 +798,8 @@ export const look: StationLook = {
     const used = Math.min(n, list.length);
     dressWells(i, list.slice(used, used + 4), avoid);
 
-    // Overhead: pipes, lantern strings; the unpaid halls.
+    // Overhead: arch ribs, pipes, lantern strings; the unpaid halls.
+    ribs(i, avoid);
     services(i);
     lanternStrings(i, avoid, i.cw - 0.02);
     unpaidHalls(i);
@@ -644,7 +807,9 @@ export const look: StationLook = {
 
   exit(e) {
     const { b, cf, ext } = e, L = ext + 4;
-    exitDado(e, { mat: DADO, top: 1.0, cap: GOLD, steps: 5 });
+    // Each exit's stair and lobby in its own colour of glass mosaic (slate, green, black, red).
+    const tone = ['#7a1f1f', '#3a4a5a', '#2f5a4a', '#1d1c22'][(Number(e.num) || 3) % 4];
+    exitDado(e, { mat: `mosaic:${tone}`, top: 1.0, cap: GOLD, steps: 5 });
     exitPipes(e, { n: 2, mats: [PIPES[0], PIPES[2]] });
     exitHandrails(e, ['near']);
     // A gold line high on the corridor and lobby walls, above the posters.
@@ -659,15 +824,79 @@ export const look: StationLook = {
 
   canopy(e) {
     const { b, gy, ext, run } = e;
-    const z0 = ext + 0.6, z1 = ext + 4.6, xr = run + 0.7, R = gy + 2.62;
-    // Black steel posts on the stair walls.
+    const z0 = ext + 0.6, z1 = ext + 4.6, xr = run + 0.7, R = gy + 2.62, zm = ext + 2.6;
+    const style = (Number(e.num) || 3) % 4; // exit 1 stone, 2 green tile, 3 black and gold, 4 (0) vermilion
+    /** Low walls along both sides of the stair, with a rail. */
+    const parapets = (mat: string, rail: string, h = 1.05) => {
+      for (const [a, c] of [[ext + 0.95, ext + 1.15], [ext + 4.05, ext + 4.25]]) {
+        b.deco(mat, 0, gy, a, run, gy + h, c);
+        b.deco(rail, 0, gy + h, a - 0.02, run, gy + h + 0.06, c + 0.02);
+      }
+    };
+    /** Black board behind the entrance sign, framed in `trim`. */
+    const board = (trim: string) => {
+      b.deco(STEEL, run - 0.04, gy + 1.84, ext + 1.05, run + 0.05, gy + 2.56, ext + 4.15);
+      for (const [y0, y1] of [[gy + 2.52, gy + 2.56], [gy + 1.84, gy + 1.88]]) b.deco(trim, run - 0.04, y0, ext + 1.05, run + 0.065, y1, ext + 4.15);
+    };
+
+    if (style === 1) {
+      // Exit 1: an open stair between granite walls, two piers at the mouth with a stone lintel
+      // over the sign, globe lamps on the piers.
+      const GRANITE = 'flat:#7d7568', STONE = 'flat:#b9b09c';
+      parapets(GRANITE, 'metal:#8c7a52');
+      for (const [a, c] of [[z0, ext + 1.0], [ext + 4.2, z1]]) {
+        b.deco(GRANITE, run + 0.05, gy, a, run + 0.55, R + 0.5, c);
+        b.deco(STONE, run, R + 0.5, a - 0.05, run + 0.6, R + 0.62, c + 0.05);
+        b.mesh('metal:#3a3226', 'cyl', run + 0.3, R + 0.72, (a + c) / 2, 0.16, 0.2, 0.16);
+        b.mesh('glow:#ffe2b0', 'sphere', run + 0.3, R + 0.98, (a + c) / 2, 0.34, 0.34, 0.34);
+      }
+      b.deco(STONE, run + 0.05, R, ext + 1.0, run + 0.55, R + 0.5, ext + 4.2);
+      b.deco('metal:#8c7a52', run + 0.04, R + 0.18, ext + 1.4, run + 0.06, R + 0.32, ext + 3.8);
+      board('metal:#8c7a52');
+      return;
+    }
+    if (style === 2) {
+      // Exit 2: a cream kiosk under a hipped roof of green glazed tile, brass trim, a globe each side.
+      const CREAM = 'paint:#ece3ca', GREEN = 'flat:#2f6b4f';
+      for (const [px, pz] of [[0.07, ext + 1.05], [0.07, ext + 4.15], [run - 0.07, ext + 1.05], [run - 0.07, ext + 4.15]]) {
+        b.deco(CREAM, px - 0.09, gy, pz - 0.09, px + 0.09, R, pz + 0.09);
+        b.deco('metal:#8c7a52', px - 0.11, gy + 0.9, pz - 0.11, px + 0.11, gy + 0.96, pz + 0.11);
+      }
+      b.deco(CREAM, -0.6, R - 0.04, z0, xr, R + 0.3, z1);
+      b.deco('metal:#8c7a52', -0.62, R + 0.26, z0 - 0.02, xr + 0.02, R + 0.3, z1 + 0.02);
+      // Hipped roof as stepped courses of green tile.
+      for (let k = 0; k < 5; k++) {
+        const ix = 0.25 * k, iz = 0.32 * k;
+        b.deco(k % 2 ? GREEN : 'flat:#3a7a5c', -0.7 + ix, R + 0.3 + k * 0.13, z0 - 0.1 + iz, xr + 0.1 - ix, R + 0.43 + k * 0.13, z1 + 0.1 - iz);
+      }
+      b.mesh('metal:#8c7a52', 'sphere', run / 2, R + 1.05, zm, 0.22, 0.22, 0.22);
+      for (const z of [ext + 0.8, ext + 4.4]) b.mesh('glow:#ffe2b0', 'sphere', run + 0.4, gy + 2.3, z, 0.3, 0.3, 0.3);
+      for (const [g0, g1] of [[ext + 1.02, ext + 1.08], [ext + 4.12, ext + 4.18]]) b.deco('glassTint', 0, gy + 1.0, g0, run, R - 0.04, g1);
+      board('metal:#8c7a52');
+      return;
+    }
+    if (style === 0) {
+      // Exit 4 (by the bridge): a vermilion gate at the mouth like Hyōtan-bashi's, lanterns, red rails.
+      const VERM = 'paint:#c23b22';
+      parapets('paint:#2a2622', VERM, 0.95);
+      for (const z of [ext + 0.85, ext + 4.35]) {
+        b.mesh('flat:#1a1716', 'cyl', run + 0.35, gy + 0.2, z, 0.44, 0.4, 0.44);
+        b.mesh(VERM, 'cyl', run + 0.35, (gy + 0.4 + R + 0.7) / 2, z, 0.3, R + 0.3 - gy, 0.3);
+      }
+      b.deco(VERM, run + 0.25, R + 0.05, ext + 0.4, run + 0.45, R + 0.25, ext + 4.8);
+      b.deco(VERM, run + 0.2, R + 0.65, ext + 0.15, run + 0.5, R + 0.85, ext + 5.05);
+      b.deco('flat:#1a1716', run + 0.15, R + 0.85, ext + 0.05, run + 0.55, R + 0.95, ext + 5.15);
+      b.deco(VERM, run + 0.3, R + 0.25, zm - 0.06, run + 0.4, R + 0.65, zm + 0.06);
+      for (const z of [ext + 0.42, ext + 4.78]) lantern(e, run + 0.35, gy + 2.0, z, { d: 0.36, h: 0.52, top: R + 0.05 });
+      board('metal:#c9a227');
+      return;
+    }
+    // Exit 3: the station's own black steel and gold canopy, a gold gourd on its roof.
     for (const [px, pz] of [[0.07, ext + 1.05], [0.07, ext + 4.15], [run - 0.07, ext + 1.05], [run - 0.07, ext + 4.15]]) {
       b.deco(STEEL, px - 0.07, gy, pz - 0.07, px + 0.07, R, pz + 0.07);
     }
-    // Low steel roof with a timber soffit.
     b.deco(STEEL, -0.6, R, z0, xr, R + 0.12, z1);
     b.deco(TIMBER_LIGHT, -0.55, R - 0.02, z0 + 0.05, xr - 0.05, R, z1 - 0.05);
-    // Fascia on three sides, edged in gold top and bottom.
     b.deco(STEEL, -0.6, R - 0.04, z0 - 0.05, xr + 0.05, R + 0.26, z0);
     b.deco(STEEL, -0.6, R - 0.04, z1, xr + 0.05, R + 0.26, z1 + 0.05);
     b.deco(STEEL, xr, R - 0.04, z0 - 0.05, xr + 0.05, R + 0.26, z1 + 0.05);
@@ -676,7 +905,6 @@ export const look: StationLook = {
       b.deco(GOLD, -0.6, y0, z1, xr + 0.056, y1, z1 + 0.056);
       b.deco(GOLD, xr, y0, z0 - 0.056, xr + 0.056, y1, z1 + 0.056);
     }
-    // Dark glass side screens with timber fins outside.
     for (const [g0, g1, f0, f1] of [[ext + 1.02, ext + 1.08, ext + 0.97, ext + 1.02], [ext + 4.12, ext + 4.18, ext + 4.18, ext + 4.23]]) {
       b.deco('glassDark', 0, gy + 1.0, g0, run, R - 0.02, g1);
       for (let k = 0; k < 5; k++) {
@@ -684,15 +912,12 @@ export const look: StationLook = {
         b.deco(TIMBER_LIGHT, x - 0.04, gy + 1.0, f0, x + 0.04, R - 0.02, f1);
       }
     }
-    // Black board behind the entrance sign, framed in gold outside the sign.
-    b.deco(STEEL, run - 0.04, gy + 1.84, ext + 1.05, run + 0.05, gy + 2.56, ext + 4.15);
-    b.deco(GOLD, run - 0.04, gy + 2.52, ext + 1.05, run + 0.065, gy + 2.56, ext + 4.15);
-    b.deco(GOLD, run - 0.04, gy + 1.84, ext + 1.05, run + 0.065, gy + 1.88, ext + 4.15);
-    b.deco(GOLD, run - 0.04, gy + 1.88, ext + 1.05, run + 0.065, gy + 2.52, ext + 1.1);
-    b.deco(GOLD, run - 0.04, gy + 1.88, ext + 4.1, run + 0.065, gy + 2.52, ext + 4.15);
-    // A red lantern each side of the way out.
+    gourd(e, run - 0.4, R + 0.47, zm, null, 1.4);
+    board(GOLD);
     for (const z of [ext + 0.8, ext + 4.4]) lantern(e, run + 0.35, gy + 1.8, z, { d: 0.36, h: 0.55, top: R });
   },
+
+  platform: platformLook,
 
   passage(p) {
     passageDado(p, { mat: DADO, top: 1.0, cap: GOLD });

@@ -253,8 +253,51 @@ function facade(style: string): Fields {
   return o;
 }
 
+
+/**
+ * Pre-war terrazzo: a polished ground with marble chips of three tones in it, laid in 0.9 m bays
+ * divided by brass strips (lighter lines). Hyōtanbori.
+ */
+function terrazzo(): Fields {
+  const n = 1024, o = blank(n, [1.8, 1.8], 1.2, 1.25);
+  const mott = fbm(n, 6, 6, 3, 31);
+  for (let y = 0, i = 0; y < n; y++) for (let x = 0; x < n; x++, i++) {
+    // Chips: a jittered grid of small round stones, some skipped.
+    cell(x, y, n, 110, 110, false);
+    const h = hash(C.col, C.row, 41), jx = hash(C.col, C.row, 42) - 0.5, jy = hash(C.col, C.row, 43) - 0.5;
+    const r = 0.22 + 0.25 * hash(C.col, C.row, 44);
+    const inChip = h < 0.62 && Math.hypot(C.fu - 0.5 - jx * 0.3, C.fv - 0.5 - jy * 0.3) < r;
+    const kind = hash(C.col, C.row, 45);
+    const chip = inChip ? (kind < 0.4 ? 0.62 : kind < 0.75 ? 1.12 : 0.86) : 1;
+    // Brass strips every 0.9 m.
+    const sx = x % (n / 2), sy = y % (n / 2);
+    const strip = sx < 2 || sy < 2;
+    o.mask[i] = 1;
+    o.tone[i] = strip ? 1.45 : (0.94 + (mott[i] - 0.5) * 0.08) * chip;
+    o.height[i] = strip ? 0.6 : 0.5;
+    o.rough[i] = strip ? 0.25 : 0.12 + mott[i] * 0.1;
+  }
+  return o;
+}
+
+/** Small square glass mosaic, 25 mm tesserae with pale grout, each a little off in tone. */
+function mosaic(): Fields {
+  const n = 512, o = blank(n, [0.6, 0.6], 2.6, 1.6);
+  for (let y = 0, i = 0; y < n; y++) for (let x = 0; x < n; x++, i++) {
+    cell(x, y, n, 24, 24, false);
+    const t = hash(C.col, C.row, 51);
+    o.mask[i] = smooth(0.6, 1.4, C.d);
+    o.tone[i] = 0.82 + t * 0.3;
+    o.height[i] = smooth(0.5, 3, C.d);
+    o.rough[i] = mix(0.9, 0.1 + t * 0.06, o.mask[i]);
+  }
+  return o;
+}
+
 const builders: Record<string, () => Fields> = {
   floor: floorTile,
+  terrazzo,
+  mosaic,
   tile: wallTile,
   panel,
   ceil: ceilPanel,

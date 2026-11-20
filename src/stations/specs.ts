@@ -176,7 +176,20 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'tile:#26262b', concWall: 'tile:#2f2f35', floor: 'floor:#b9b4a8', pillar: 'tile:#c9a227',
       accent: '#c9a227', mural: { v: 'gourds', color: '#c9a227' },
     },
-    surface: { seed: 41, roadHalf: 9, cross: [-64, 78], canalAt: 78, left: 'neon', right: 'neon' },
+    // Minami's canal street: zakkyo buildings of bars, the grand vermilion Hyōtan-bashi just past exits 3 and 4,
+    // Hyōtan Kaikan with its giant gourd on the canal corner, an arcade up the side street, a lane of bars.
+    surface: {
+      seed: 41, roadHalf: 9, cross: [-64, 62], canalAt: 62, left: 'neon', right: 'neon', models: true, roadKit: true, canalGrand: true, tee: true,
+      arcadeAt: -64, arcadeName: { ja: '瓢箪堀商店街', en: 'Hyōtanbori Shōtengai' },
+      landmark: { ja: '瓢箪会館', en: 'Hyōtan Kaikan', side: 1, x0: 35, x1: 47.6, depth: 16 },
+      konbini: [{ type: 'corner', chain: 'asanagi', side: -1, x0: -33 }],
+      pieces: [
+        { id: 'kaikan', side: 1, x0: 35, ja: '瓢箪会館', en: 'Hyōtan Kaikan' },
+        { id: 'yokocho', side: -1, x0: 6, ja: '瓢箪横丁', en: 'Hyōtan Yokochō' },
+        { id: 'takoyaki', side: 1, x0: -34, ja: 'たこ焼き 丸八', en: 'Takoyaki Maruhachi' },
+        { id: 'izakaya', side: 1, x0: -28.4, ja: '居酒屋 ひょうたん', en: 'Izakaya Hyōtan' },
+      ],
+    },
   },
   // Old-town station (the old south terminus): green glazed tile, covered arcade outside.
   tsurumatsu: {
@@ -385,19 +398,29 @@ export const SPECS: Record<StationId, StationSpec> = {
     surface: { seed: 179, roadHalf: 7, cross: [-62, 66], left: 'house', right: 'mixed', trees: true, poles: true },
   },
   // ── Yanagisuji Line, south ──
-  // Boutique canal district: pale terrazzo-white panels, teal trim, a canal and bridge outside.
+  // Boutique canal district: a 1930s Art Deco shopping arcade below; outside a quiet canal under
+  // cherries with the teal Minamihorie-bashi just past exits 3 and 4, the clock tower on its plaza.
   minamihorie: {
     kind: 'underground',
     concourse: [-34, 34],
     gates: ['lo', 'hi'],
-    stairs: [{ x: 0, up: 1 }, { x: -2, up: -1 }],
+    // The stairs stand out towards the gates so the middle of the arcade opens onto the platform: three light wells.
+    stairs: [{ x: 5.4, up: 1 }, { x: -5.4, up: -1 }],
+    voids: [[-4.6, -1.4, -1.8, 1.4], [-1.0, -1.4, 1.0, 1.4], [1.8, -1.4, 4.6, 1.4]],
     style: {
       wall: 'panel:#eeece6', concWall: 'panel:#f3f1ec', floor: 'floor:#cfccc5', pillar: 'tile:#2f7f7a',
       accent: '#2f7f7a', mural: { v: 'waves', color: '#2f7f7a' },
     },
     surface: {
-      seed: 181, roadHalf: 7.5, cross: [-64, 78], canalAt: 78, left: 'mixed', right: 'apartment', trees: true,
+      seed: 181, roadHalf: 7.5, cross: [-64, 60], canalAt: 60, left: 'mixed', right: 'mixed', models: true, roadKit: true, canalQuiet: true,
+      treeKinds: ['zelkova', 'dogwood', 'tokaede'],
       canalName: { ja: '南堀江橋', en: 'Minamihorie-bashi' },
+      konbini: [{ type: 'corner', chain: 'hinode', side: -1, x0: -33 }],
+      pieces: [
+        { id: 'tower', side: -1, x0: 34, ja: '南堀江 時計台', en: 'Minamihorie Clock Tower' },
+        { id: 'cafe', side: 1, x0: 34, ja: 'カフェ ほりえ', en: 'Café Horie' },
+        { id: 'zakka', side: 1, x0: -20, ja: '家具と雑貨 木の葉', en: 'Kinoha Furniture & Zakka' },
+      ],
     },
   },
   // Meiji school town: red-brick walls, pine mural, a school campus on one side.

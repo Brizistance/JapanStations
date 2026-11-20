@@ -5,6 +5,9 @@
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
 import { CAR_PARK, KONBINI, konbini, type ChainId } from './konbini';
 import { PLACES, place, type PlaceKind } from './places';
+import { PIECES, type PieceId } from './pieces';
+import { grandCanal, piece } from './hyotanbori-street';
+import { HORIE_PIECES, horiePiece, quietCanal } from './minamihorie-street';
 import { modelTree, type TreeKind } from './trees';
 import { kerbGaps, kerbRail, poleLine, roadKit, streetLamp, type LampKind } from './roads';
 import { BUILDING_MODELS } from './buildings';
@@ -34,6 +37,14 @@ export interface SurfaceSpec {
   canalName?: { ja: string; en: string };
   /** An old stone bridge (the model exchange_bridge, build_exchange.py) and stone banks with willows, in place of the red one. */
   canalStone?: boolean;
+  /** Hyōtan-bashi made grand (hyotanbori-street.ts): the vermilion bridge with corner gates, walks on both banks, the pier. */
+  canalGrand?: boolean;
+  /** A quiet canal (minamihorie-street.ts): stone walks under cherries, the teal bridge, steps to the water. */
+  canalQuiet?: boolean;
+  /** The cross streets run only to the +z side (roads.ts `tee`): on −z an arcade or a lane takes their place. */
+  tee?: boolean;
+  /** The station's one-off pieces (pieces.ts), each on its own lot like `places`: `x0` is the lot's low-x edge. */
+  pieces?: { id: PieceId; side: -1 | 1; x0: number; ja: string; en: string }[];
   /**
    * Convenience stores you can walk into (stations/konbini.ts), each on its own lot on one side of
    * the main road: `x0` is the lot's low-x edge. A 'ground' shop stands in the base of a block.
@@ -306,7 +317,7 @@ export function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: num
  * district: mostly offices, some zakkyo buildings, one glass tower if asked for. Plain blocks behind.
  * `cornerAtStart`: the lot at xa stands on a street corner (a corner model, its second face towards -x).
  */
-export function fillModelLots(b: Builder, r: () => number, xa: number, xb: number, z0: number, zMax: number, o: { tower?: boolean; cornerAtStart?: boolean; old?: boolean; noBack?: boolean } = {}): Lot[] {
+export function fillModelLots(b: Builder, r: () => number, xa: number, xb: number, z0: number, zMax: number, o: { tower?: boolean; cornerAtStart?: boolean; old?: boolean; night?: boolean; noBack?: boolean } = {}): Lot[] {
   const GAP = 0.3;
   const deep: [number, number, number][] = []; // x0, x1, depth of the towers, for the back row
   const placed: Lot[] = [];
@@ -315,7 +326,8 @@ export function fillModelLots(b: Builder, r: () => number, xa: number, xb: numbe
     const room = xb - x;
     const fits = BUILDING_MODELS.filter((m) => m.w <= room && z0 + m.d < zMax - 2 && `${m.kind}_${m.id}` !== last);
     // An old quarter: shophouses, a few zakkyo buildings and apartment blocks. Otherwise business blocks.
-    const kinds = o.old ? ['shophouse', 'zakkyo', 'manshon'] : ['office', 'zakkyo'];
+    // A nightlife street: narrow zakkyo buildings of bars, a few old shophouses between them.
+    const kinds = o.night ? ['zakkyo', 'shophouse'] : o.old ? ['shophouse', 'zakkyo', 'manshon'] : ['office', 'zakkyo'];
     let pool = fits.filter((m) => !!m.corner === (n === 0 && !!o.cornerAtStart) && kinds.includes(m.kind));
     if (towerDue && n >= 2) {
       const towers = fits.filter((m) => m.kind === 'tower');
@@ -323,7 +335,7 @@ export function fillModelLots(b: Builder, r: () => number, xa: number, xb: numbe
       towerDue = false;
     } else if (pool.length) {
       const q = r();
-      const kind = o.old ? (q < 0.62 ? 'shophouse' : q < 0.85 ? 'zakkyo' : 'manshon') : q < 0.7 ? 'office' : 'zakkyo';
+      const kind = o.night ? (q < 0.75 ? 'zakkyo' : 'shophouse') : o.old ? (q < 0.62 ? 'shophouse' : q < 0.85 ? 'zakkyo' : 'manshon') : q < 0.7 ? 'office' : 'zakkyo';
       const ofKind = pool.filter((m) => m.kind === kind);
       if (ofKind.length) pool = ofKind;
     }
@@ -368,8 +380,8 @@ const lotsOverlap = (a: Lot, c: Lot, m = 0.2) => a[0] < c[2] - m && a[2] > c[0] 
  * full models (you can walk up to them), the rest simplified copies. Lots in `taken` are kept
  * clear; the row's own lots are added to it.
  */
-function sideRow(b: Builder, r: () => number, xf: number, face: 1 | -1, z0: number, z1: number, depth: number, taken: Lot[], o: { old: boolean; full: number }) {
-  const kinds = o.old ? ['shophouse', 'shophouse', 'zakkyo'] : ['office', 'zakkyo'];
+function sideRow(b: Builder, r: () => number, xf: number, face: 1 | -1, z0: number, z1: number, depth: number, taken: Lot[], o: { old: boolean; full: number; kinds?: string[] }) {
+  const kinds = o.kinds ?? (o.old ? ['shophouse', 'shophouse', 'zakkyo'] : ['office', 'zakkyo']);
   const L = z1 - z0;
   let u = 0, n = 0, last = '';
   for (let guard = 0; guard < 80 && L - u > 4; guard++) {
@@ -450,6 +462,8 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   const aveHalf = 10;
   const crossHalf = 3.5;
   const canal = spec.canalAt;
+  /** Distance from a canal's middle to the building line on its banks, where it has a quay walk. */
+  const quayAt = spec.canalStone || spec.canalQuiet ? 14 : spec.canalGrand ? 11 : undefined;
   const streets = spec.cross.filter((x) => x !== canal).map((x) => [x - crossHalf, x + crossHalf]);
   if (spec.avenue) streets.push([-aveHalf, aveHalf]);
   const holes = b.out.holes.map((h) => [...h]);
@@ -553,7 +567,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   // The kit's street lights follow the street: highway masts on an avenue or by offices, shopping-street lamps by shops; none where the utility poles carry them.
   const kitLamp: LampKind | undefined = spec.avenue || spec.left === 'office' || spec.right === 'office' ? 'lamp_hw'
     : spec.left === 'mixed' || spec.left === 'neon' || spec.right === 'mixed' || spec.right === 'neon' ? 'lamp_shop' : spec.poles ? undefined : 'lamp_hw';
-  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at, lamp: kitLamp });
+  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at, lamp: kitLamp, tee: spec.tee });
 
   // ── Buildings ──
   const edges = [-X + 1, ...[...streets].sort((p, q) => p[0] - q[0]).flatMap(([a, c]) => [a - 3, c + 3]), X - 1];
@@ -561,7 +575,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     const i = edges.findIndex((e) => e > canal);
     // A stone canal has a quay walk with willows on each bank: the lots stand further back.
     // With model buildings, a row of them fronts each bank: the avenue's lots stop short of it.
-    const bank = spec.canalStone ? (spec.models ? 14 + CANAL_ROW + 0.5 : 14) : 10;
+    const bank = quayAt !== undefined ? (spec.models ? quayAt + CANAL_ROW + 0.5 : quayAt) : 10;
     edges.splice(i, 0, canal - bank, canal + bank);
   }
   for (const side of [-1, 1] as const) {
@@ -578,19 +592,20 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           const edge = canal !== undefined ? [canal - 60, canal + 60].find((e) => e - a >= 8 && c - e >= 8) : undefined;
           if (edge !== undefined) return void (lots(a, edge), lots(edge, c));
           const old = canal !== undefined && Math.abs((a + c) / 2 - canal) < 60;
-          const taken = fillModelLots(b, r, a, c, swOut, PLOT_Z, { old, tower: !old && side < 0 && c - a > 60, noBack: true });
+          const night = style === 'neon';
+          const taken = fillModelLots(b, r, a, c, swOut, PLOT_Z, { old: old && !night, night, tower: !old && !night && side < 0 && c - a > 60, noBack: true });
           // Where the lot ends at a side street, a row of buildings fronts that street behind the corner.
           const onStreet = (x: number) => streets.some(([p, q]) => Math.abs(x - (p - 3)) < 0.01 || Math.abs(x - (q + 3)) < 0.01);
           let ia = a, ic = c;
           if (onStreet(c) && c - a > SIDE_ROW + 2) {
-            sideRow(b, r, c, 1, swOut + 22, PLOT_Z - 2, SIDE_ROW, taken, { old, full: 2 });
+            sideRow(b, r, c, 1, swOut + 22, PLOT_Z - 2, SIDE_ROW, taken, { old: old || night, full: 2 });
             ic = c - SIDE_ROW - 1;
           }
           if (onStreet(a) && c - a > SIDE_ROW + 2) {
-            sideRow(b, r, a, -1, swOut + 22, PLOT_Z - 2, SIDE_ROW, taken, { old, full: 2 });
+            sideRow(b, r, a, -1, swOut + 22, PLOT_Z - 2, SIDE_ROW, taken, { old: old || night, full: 2 });
             ia = a + SIDE_ROW + 1;
           }
-          modelBackRow(b, r, ia, ic, swOut + (old ? 15 : 26), PLOT_Z, taken, old);
+          modelBackRow(b, r, ia, ic, swOut + (old || night ? 15 : 26), PLOT_Z, taken, old || night);
         };
         // Lots kept out of the ordinary fill: the composer's own, and any convenience store's.
         const kept: [number, number][] = [];
@@ -617,6 +632,13 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           kept.push([k.x0, k.x0 + kw]);
           b.with({ t: [k.x0 + kw / 2, 0, swOut] }, () => place(b, k));
         }
+        for (const k of spec.pieces ?? []) {
+          const kw = PIECES[k.id].w + 0.6;
+          // A piece may run on past the segment's end, onto a corner the canal rows leave open (Hyōtan Kaikan).
+          if (k.side !== side || k.x0 < xa || k.x0 >= xb) continue;
+          kept.push([k.x0, k.x0 + kw]);
+          b.with({ t: [k.x0 + kw / 2, 0, swOut] }, () => (HORIE_PIECES.includes(k.id) ? horiePiece : piece)(b, k));
+        }
         if (kept.length) {
           kept.sort((p, q) => p[0] - q[0]);
           let from = xa;
@@ -627,25 +649,34 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           if (xb - from >= 6) lots(from, xb);
           continue;
         }
-        if (side < 0 && spec.arcadeAt !== undefined && Math.abs(xb + 3 + crossHalf - spec.arcadeAt) < 1) {
+        if (!spec.models && side < 0 && spec.arcadeAt !== undefined && Math.abs(xb + 3 + crossHalf - spec.arcadeAt) < 1) {
           fillLots(b, r, 'oldtown', xa, xb, swOut);
         } else if (style === 'park') {
           // Houses either side of the park (which spans x = -62 … 22).
           if (xa < -66) fillLots(b, r, 'house', xa, Math.min(xb, -64), swOut);
           if (xb > 28) fillLots(b, r, 'house', Math.max(xa, 24), xb, swOut);
-        } else if (spec.models && (style === 'mixed' || style === 'office')) lots(xa, xb);
+        } else if (spec.models && (style === 'mixed' || style === 'office' || style === 'neon')) lots(xa, xb);
         else fillLots(b, r, style, xa, xb, swOut, side > 0 && spec.valleyZ !== undefined ? spec.valleyZ - 2 : PLOT_Z);
       }
       // Shophouses fronting the canal on both banks, behind anything the composer built there.
-      if (canal !== undefined && spec.canalStone && spec.models) {
+      if (canal !== undefined && quayAt !== undefined && spec.models) {
         const lm = spec.landmark && spec.landmark.side === side ? spec.landmark : undefined;
         for (const face of [1, -1] as const) {
-          const xf = canal - face * 14;
+          const xf = canal - face * quayAt;
           const [p, q] = face > 0 ? [xf - CANAL_ROW, xf] : [xf, xf + CANAL_ROW];
-          const z0 = lm && lm.x0 < q && lm.x1 > p ? swOut + (lm.depth ?? 0) + 1.5 : swOut;
-          sideRow(b, r, xf, face, z0, PLOT_Z - 2, CANAL_ROW, [], { old: true, full: 2 });
+          let z0 = lm && lm.x0 < q && lm.x1 > p ? swOut + (lm.depth ?? 0) + 1.5 : swOut;
+          // The row stands back behind any of the station's pieces on its corner.
+          for (const k of spec.pieces ?? []) if (k.side === side && k.x0 < q && k.x0 + PIECES[k.id].w > p) z0 = Math.max(z0, swOut + PIECES[k.id].d + 1.5);
+          // By the grand canal the row's end would show a bare gable to the main road: a front-row building closes the corner.
+          if (spec.canalGrand && z0 === swOut) {
+            const t = fillModelLots(b, r, p, q, swOut, swOut + 14, { night: style === 'neon', noBack: true });
+            z0 = Math.max(swOut, ...t.map((l) => l[3])) + 1;
+          }
+          // The grand canal is lined with neon canal fronts, the quiet one with boutiques: all full models, seen close from the walks.
+          sideRow(b, r, xf, face, z0, PLOT_Z - 2, CANAL_ROW, [], spec.canalGrand ? { old: true, full: 99, kinds: ['canalfront'] }
+            : spec.canalQuiet ? { old: true, full: 99, kinds: ['boutique'] } : { old: true, full: 2 });
           // Beside the composer's building the bank is a small quay garden: a line of trees and benches.
-          for (let z = swOut + 4; z < z0 - 3; z += 6.5) {
+          for (let z = swOut + 4; lm && lm.x0 < q && lm.x1 > p && z < z0 - 3; z += 6.5) {
             tree(b, xf - face * 2.6, z, 5.6, 'leaf2');
             b.box('wood:#6b5440', xf - face * 2.9 - 0.25, GY, z + 2.4, xf - face * 2.9 + 0.25, GY + 0.45, z + 4.2);
           }
@@ -666,12 +697,20 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     // Parked bicycles.
     for (let i = 0; i < 4; i++) {
       const bx = h[2] + 3 + i * 0.7;
+      if (spec.models) {
+        const f = b.dir([0, -s]);
+        b.out.models.push({ kind: 'places', id: 'bicycle', pos: b.pt(bx, GY, s * (swOut - 0.4)), yaw: Math.atan2(-f[0], -f[1]) + 0, seed: 0, merge: true });
+        b.block(bx - 0.15, GY, s * (swOut - 0.4) - 0.8, bx + 0.15, GY + 1.0, s * (swOut - 0.4) + 0.8);
+        continue;
+      }
       b.deco('flat:#3a3f45', bx, GY + 0.3, s * (swOut - 0.4) - 0.8, bx + 0.06, GY + 0.95, s * (swOut - 0.4) + 0.8);
       b.deco(`flat:${carCols[(i + 2) % carCols.length]}`, bx - 0.03, GY + 0.6, s * (swOut - 0.4) - 0.5, bx + 0.09, GY + 0.72, s * (swOut - 0.4) + 0.3);
     }
   }
 
-  if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' }, !!spec.canalLanterns, !!spec.canalStone));
+  if (canal !== undefined && spec.canalQuiet) quietCanal(b, canal, swOut, Z, spec.canalName ?? { ja: '南堀江橋', en: 'Minamihorie-bashi' });
+  else if (canal !== undefined && spec.canalGrand) grandCanal(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' });
+  else if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' }, !!spec.canalLanterns, !!spec.canalStone));
   if (spec.arcadeAt !== undefined) arcade(b, spec.arcadeAt, swOut, spec.arcadeName ?? { ja: '商店街', en: 'Shopping Arcade' });
   if (spec.avenue) {
     // The crossing avenue gets its own lane lines and trees.
