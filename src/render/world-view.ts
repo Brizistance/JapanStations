@@ -10,6 +10,7 @@ import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF, CAR_HALF_W } from '../trains/car';
 import { loadBuildingModels, mergedModels } from './building-models';
+import { headlights } from './lamps';
 import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
 import type { BoxPart, GatePart, ModelPart } from '../world/builder';
@@ -403,6 +404,7 @@ export class WorldView {
     this.liveTimer -= dt;
     const live = this.liveTimer <= 0;
     if (live) this.liveTimer = 0.5;
+    headlights.length = 0;
     for (const t of trains) {
       const mid = t.cars[Math.floor(t.cars.length / 2)];
       const d = Math.hypot(mid.x - cam.x, mid.z - cam.z);
@@ -433,6 +435,9 @@ export class WorldView {
         v!.gates[c].update((gate) => (gate.side === t.doorSide ? t.state.doorOpen : 0));
       });
       const lowLeads = t.state.heading < 0;
+      // The headlight's pool on the track ahead of the leading cab (lamps.ts).
+      const lead = t.cars[lowLeads ? 0 : t.cars.length - 1], ahead = (lowLeads ? -1 : 1) * 15;
+      if (lead.y > -5.4) headlights.push({ x: lead.x + Math.cos(lead.yaw) * ahead, y: lead.y + 1.4, z: lead.z - Math.sin(lead.yaw) * ahead });
       for (const m of v.lamps.low) m.material = lowLeads ? white : red;
       for (const m of v.lamps.high) m.material = lowLeads ? red : white;
       if (live) {

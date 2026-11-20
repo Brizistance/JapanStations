@@ -147,7 +147,7 @@ const SKY_GLSL = /* glsl */ `
     vec3 c = scatter( d, uSun ) * SKY_GAIN;
     float md = max( dot( d, uMoon ), 0.0 ), sd = max( dot( d, uSun ), 0.0 );
     float moonUp = smoothstep( -0.05, 0.1, uMoon.y ) * uNight;
-    c += vec3( 0.010, 0.016, 0.03 ) * moonUp * ( 0.4 + pow( md, 6.0 ) );
+    c += vec3( 0.005, 0.008, 0.016 ) * moonUp * ( 0.4 + pow( md, 6.0 ) );
     if ( sharp > 0.5 ) c += stars( d ) * uNight * uNight * smoothstep( 0.02, 0.3, d.y );
     c += vec3( 1.0, 0.96, 0.88 ) * moonUp * ( smoothstep( 0.99990, 0.99994, md ) * sharp * 2.5 + pow( md, 400.0 ) * 0.12 );
 
@@ -155,6 +155,9 @@ const SKY_GLSL = /* glsl */ `
     c = mix( c, cl.rgb, cl.a );
     float hz = d.y > 0.0 ? exp( -d.y * mix( 9.0, 1.2, uHaze ) ) * mix( 0.8, 1.0, uHaze ) : 1.0;
     c = mix( c, uFog, hz );
+
+    // The city's own light in the air, low over the roofs.
+    c += vec3( 0.13, 0.085, 0.045 ) * ( uNight * exp( -max( d.y, 0.0 ) * 5.5 ) * ( 1.0 - uHaze * 0.4 ) );
 
     vec3 sc = uSunCol * uSunVis * smoothstep( -0.03, 0.02, uSun.y ) * ( 1.0 - cl.a * 0.97 ) * ( 1.0 - uHaze * 0.9 );
     float disc = mix( pow( sd, 700.0 ), smoothstep( 0.99988, 0.99995, sd ) * 3.0 + pow( sd, 1200.0 ) * 0.3, sharp );
@@ -313,7 +316,8 @@ export class Lighting {
     skyU.uSunVis.value = a.sunLit ? a.direct : 0;
     skyU.uTime.value += dt;
     shared.uNight.value = a.night;
-    shared.uEnvLevels.value.z = a.night * 0.3;
+    shared.uClock.value = skyU.uTime.value;
+    shared.uEnvLevels.value.z = a.night * 0.09;
     this.capture(a, dt);
 
     this.dome.position.copy(cam);

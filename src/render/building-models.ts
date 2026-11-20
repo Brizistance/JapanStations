@@ -127,6 +127,17 @@ const luminance = (hex: string) => {
   return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
 };
 
+/** The average colour (linear) of a building variant's sign boards, or null if it has none or the models are not loaded yet. */
+export function signTint(kind: string, id: string): [number, number, number] | null {
+  const boards = protos.get(`${kind}_${id}`)?.boards;
+  if (!boards?.length) return null;
+  const sum = new THREE.Color(0, 0, 0), c = new THREE.Color();
+  for (const b of boards) sum.add(c.set(b.col));
+  return [sum.r / boards.length, sum.g / boards.length, sum.b / boards.length];
+}
+/** True once the building models are in memory. */
+export const modelsLoaded = () => protos.size > 0;
+
 /** What one board says. Tall boards take a trade word, a tower's wide board its name, the rest a shop. */
 function boardContent(kind: BuildingKind, b: Board, r: () => number): SignContent {
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
@@ -148,6 +159,8 @@ function signMaterial(kind: BuildingKind, id: string, set: number, boards: Board
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, ATLAS_PX, ATLAS_PX);
   const r = rng(id.charCodeAt(0) * 7919 + kind.length * 104729 + set * 31);
+  // At night a few boards are switched off and the odd one flickers: kept in the atlas's alpha (lit.ts, `glow`).
+  const state = rng(id.charCodeAt(0) * 331 + kind.length * 17 + set * 7 + 5);
   for (const b of boards) {
     const x = b.uv[0] * ATLAS_PX, y = (1 - b.uv[3]) * ATLAS_PX;
     const w = Math.max(2, Math.round((b.uv[2] - b.uv[0]) * ATLAS_PX)), h = Math.max(2, Math.round((b.uv[3] - b.uv[1]) * ATLAS_PX));
@@ -157,13 +170,19 @@ function signMaterial(kind: BuildingKind, id: string, set: number, boards: Board
     ctx.rect(0, 0, w, h);
     ctx.clip();
     drawSign(ctx, w, h, boardContent(kind, b, r));
+    const s = state();
+    if (s < 0.12) {
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.fillStyle = `rgba(0,0,0,${s < 0.08 ? 0.5 : 0.75})`;
+      ctx.fillRect(0, 0, w, h);
+    }
     ctx.restore();
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.flipY = false;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  m = lit({ map: tex, roughness: 0.5, metalness: 0 }, { macro: 0, macroRough: 0 });
+  m = lit({ map: tex, roughness: 0.5, metalness: 0 }, { macro: 0, macroRough: 0, glow: 1.7 });
   materials.set(key, m);
   return m;
 }

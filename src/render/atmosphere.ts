@@ -90,9 +90,9 @@ function body(h: number, decl: number, out: V3): V3 {
   return out;
 }
 
-const FOG_DAY: V3 = [0.66, 0.78, 0.9], FOG_DUSK: V3 = [0.8, 0.5, 0.34], FOG_NIGHT: V3 = [0.02, 0.026, 0.045];
+const FOG_DAY: V3 = [0.66, 0.78, 0.9], FOG_DUSK: V3 = [0.8, 0.5, 0.34], FOG_NIGHT: V3 = [0.011, 0.015, 0.028];
 const SUN_HIGH: V3 = [1, 0.88, 0.72], SUN_LOW: V3 = [1, 0.36, 0.1], MOON: V3 = [0.5, 0.62, 1];
-const SUN_POWER = 2.6, MOON_POWER = 0.2;
+const SUN_POWER = 2.6, MOON_POWER = 0.09;
 
 export function newAtmosphere(): Atmosphere {
   return {

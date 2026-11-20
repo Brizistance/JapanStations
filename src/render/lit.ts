@@ -10,6 +10,9 @@
 
 import * as THREE from 'three';
 
+/** How many outdoor night lights the shader takes at once (lamps.ts picks the nearest). */
+export const LAMPS = 64;
+
 /** Uniforms shared by every lit material. Assign `.value`; never replace the objects. */
 export const shared = {
   envMapSky: { value: null as THREE.Texture | null },
@@ -24,6 +27,14 @@ export const shared = {
   uRainMap: { value: null as THREE.Texture | null },
   /** Centre x, centre z, half size and top height of the area `uRainMap` covers; half size 0 = no map. */
   uRainBox: { value: new THREE.Vector4(0, 0, 0, 0) },
+  /** Outdoor night lights (lamps.ts): position and reach, colour, and how many are in use. */
+  uLampPos: { value: Array.from({ length: LAMPS }, () => new THREE.Vector4(0, 0, 0, 1)) },
+  uLampCol: { value: Array.from({ length: LAMPS }, () => new THREE.Vector3()) },
+  uLampCount: { value: 0 },
+  /** City light far from the camera, where no single lamp is drawn: strength, and the distances it fades in over. */
+  uCity: { value: new THREE.Vector3(0, 70, 130) },
+  /** Seconds, for flickering signs. */
+  uClock: { value: 0 },
 };
 
 export interface LitOpts {
@@ -34,6 +45,11 @@ export interface LitOpts {
   macroRough?: number;
   /** Glows at night (lit windows): strength of the glow. */
   night?: number;
+  /**
+   * A sign lit from inside at night, outdoors only: its own colours times this. The texture's alpha
+   * says how the sign is doing: 1 on, about 0.75 flickering, 0.5 switched off.
+   */
+  glow?: number;
   /** Added to `aEnv`; one object per train car. */
   envMod?: { value: THREE.Vector2 };
 }
@@ -90,6 +106,36 @@ const GLASS_CHUNK = `
 	diffuseColor.a = clamp( diffuseColor.a + dot( reflectedLight.indirectSpecular + reflectedLight.directSpecular, vec3( 0.4 ) ), 0.0, 1.0 );
 `;
 
+// Street lamps and other outdoor lights at night: no shadows, a soft wrap so walls facing
+// away are not black, and a highlight on smooth (wet) ground.
+const LAMP_CHUNK = `
+	if ( uLampCount > 0 && vEnv.x > 0.01 ) {
+		vec3 lampN = inverseTransformDirection( normal, viewMatrix );
+		vec3 lampV = normalize( cameraPosition - vWPos );
+		float gloss = 1.0 - material.roughness;
+		float shine = mix( 8.0, 260.0, gloss * gloss );
+		vec3 lampDiff = vec3( 0.0 ), lampSpec = vec3( 0.0 );
+		for ( int i = 0; i < ${LAMPS}; i++ ) {
+			if ( i >= uLampCount ) break;
+			vec3 dl = uLampPos[ i ].xyz - vWPos;
+			float d2 = dot( dl, dl ), r = uLampPos[ i ].w;
+			float att = max( 1.0 - d2 / ( r * r ), 0.0 );
+			if ( att <= 0.0 ) continue;
+			att *= att;
+			vec3 ld = dl * inversesqrt( max( d2, 1e-4 ) );
+			lampDiff += uLampCol[ i ] * ( att * ( max( dot( lampN, ld ), 0.0 ) * 0.85 + 0.15 ) );
+			lampSpec += uLampCol[ i ] * ( att * pow( max( dot( lampN, normalize( ld + lampV ) ), 0.0 ), shine ) );
+		}
+		reflectedLight.directDiffuse += lampDiff * material.diffuseColor * vEnv.x;
+		reflectedLight.directSpecular += lampSpec * ( gloss * gloss * 1.6 * vEnv.x );
+	}
+	if ( uCity.x > 0.0 && vEnv.x > 0.01 ) {
+		float cityFar = smoothstep( uCity.y, uCity.z, distance( cameraPosition, vWPos ) );
+		float cityLow = ( 0.25 + 0.75 * exp( -max( vWPos.y, 0.0 ) * 0.04 ) );
+		reflectedLight.directDiffuse += vec3( 1.0, 0.8, 0.56 ) * ( uCity.x * cityFar * cityLow * vEnv.x ) * material.diffuseColor;
+	}
+`;
+
 // Rain: open, upward-facing surfaces darken and turn glossy, with puddles in the low spots.
 const WET_CHUNK = `
 	if ( uWet > 0.0 && vEnv.x > 0.02 ) {
@@ -126,6 +172,11 @@ function patch(m: THREE.MeshStandardMaterial, o: LitOpts) {
     shader.uniforms.uRainMap = shared.uRainMap;
     shader.uniforms.uRainBox = shared.uRainBox;
     shader.uniforms.uNight = shared.uNight;
+    shader.uniforms.uLampPos = shared.uLampPos;
+    shader.uniforms.uLampCol = shared.uLampCol;
+    shader.uniforms.uLampCount = shared.uLampCount;
+    shader.uniforms.uClock = shared.uClock;
+    shader.uniforms.uCity = shared.uCity;
 
     let v = shader.vertexShader;
     v = swap(v, '#include <common>', '#include <common>\nattribute vec2 aEnv;\nuniform vec2 uEnvMod;\nvarying vec2 vEnv;\nvarying vec2 vUvM;\nvarying vec3 vWPos;', 'vertex pars');
@@ -147,7 +198,7 @@ function patch(m: THREE.MeshStandardMaterial, o: LitOpts) {
     shader.vertexShader = v;
 
     let f = shader.fragmentShader;
-    f = swap(f, '#include <common>', '#include <common>\nvarying vec2 vEnv;\nvarying vec2 vUvM;\nvarying vec3 vWPos;\nuniform sampler2D uMacro;\nuniform vec2 uMacroAmt;\nuniform float uWet;\nuniform float uNight;\nuniform sampler2D uRainMap;\nuniform vec4 uRainBox;', 'fragment pars');
+    f = swap(f, '#include <common>', '#include <common>\nvarying vec2 vEnv;\nvarying vec2 vUvM;\nvarying vec3 vWPos;\nuniform sampler2D uMacro;\nuniform vec2 uMacroAmt;\nuniform float uWet;\nuniform float uNight;\nuniform sampler2D uRainMap;\nuniform vec4 uRainBox;\nuniform vec4 uLampPos[ ' + LAMPS + ' ];\nuniform vec3 uLampCol[ ' + LAMPS + ' ];\nuniform int uLampCount;\nuniform vec3 uCity;\nuniform float uClock;', 'fragment pars');
     f = swap(f, '#include <envmap_physical_pars_fragment>', ENV_CHUNK, 'env');
     f = swap(
       f,
@@ -172,11 +223,25 @@ function patch(m: THREE.MeshStandardMaterial, o: LitOpts) {
         'night glow',
       );
     }
-    f = swap(f, '#include <lights_fragment_begin>', LIGHTS_CHUNK, 'lights');
+    if (o.glow) {
+      f = swap(
+        f,
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+	{
+		float tick = floor( uClock * 9.0 );
+		float flick = step( 0.3, fract( sin( tick * 91.7 ) * 43758.5 ) ) * ( 0.75 + 0.25 * fract( sin( tick * 17.3 ) * 9731.1 ) );
+		float signOn = smoothstep( 0.55, 0.62, diffuseColor.a ) * mix( flick, 1.0, step( 0.9, diffuseColor.a ) );
+		totalEmissiveRadiance += diffuseColor.rgb * ( uNight * vEnv.x * signOn * ${o.glow.toFixed(2)} );
+	}`,
+        'sign glow',
+      );
+    }
+    f = swap(f, '#include <lights_fragment_begin>', `${LIGHTS_CHUNK}${o.glass ? '' : LAMP_CHUNK}`, 'lights');
     if (o.glass) f = swap(f, '#include <opaque_fragment>', `${GLASS_CHUNK}\t#include <opaque_fragment>`, 'glass');
     shader.fragmentShader = f;
   };
-  m.customProgramCacheKey = () => `lit${o.glass ? '-glass' : ''}${o.night ? `-night${o.night}` : ''}`;
+  m.customProgramCacheKey = () => `lit${o.glass ? '-glass' : ''}${o.night ? `-night${o.night}` : ''}${o.glow ? `-glow${o.glow}` : ''}`;
 }
 
 export function lit(params: THREE.MeshStandardMaterialParameters, o: LitOpts = {}): THREE.MeshStandardMaterial {

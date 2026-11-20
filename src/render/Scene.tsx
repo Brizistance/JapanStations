@@ -10,6 +10,7 @@ import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
 import { atmosphereAt, newAtmosphere } from './atmosphere';
+import { LampDots, updateLamps } from './lamps';
 import { Lighting } from './lighting';
 import { lineGrade, outdoorGrade, UNDERGROUND, WARM_HUB, type Grade } from './grade';
 import { needsPost } from './graphics';
@@ -31,6 +32,7 @@ function World() {
   const lighting = useRef<Lighting | null>(null);
   const post = useRef<Post | null>(null);
   const rain = useRef<Rain | null>(null);
+  const dots = useRef<LampDots | null>(null);
   useEffect(() => {
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.0;
@@ -41,6 +43,8 @@ function World() {
     perfStats.scene = scene;
     lighting.current = new Lighting(gl, scene);
     rain.current = new Rain(scene);
+    dots.current = new LampDots();
+    scene.add(dots.current.points);
     atmosphereAt(clock.time, useUI.getState().weather, atm);
     SKY.fromArray(atm.fogColor);
     scene.fog = new THREE.Fog(SKY.clone(), 300, 1700);
@@ -52,6 +56,9 @@ function World() {
       lighting.current = null;
       rain.current?.dispose();
       rain.current = null;
+      if (dots.current) scene.remove(dots.current.points);
+      dots.current?.dispose();
+      dots.current = null;
     };
   }, [scene, camera, gl, view]);
   // The post-processing chain only exists while some effect needs it (not on Low).
@@ -121,7 +128,9 @@ function World() {
     const light = lighting.current;
     light?.update(camera.position, near.yaw, fx.shadows, atm, dt);
     const riding = useUI.getState().mode === 'play' && where.train != null;
-    rain.current?.update(gl, camera.position, atm, dt, vis !== 'under' && camera.position.y > -12, riding, light ? [light.dome] : []);
+    rain.current?.update(gl, camera.position, atm, dt, vis !== 'under' && camera.position.y > -12, riding, light && dots.current ? [light.dome, dots.current.points] : []);
+    updateLamps(camera.position, under ? 0 : atm.night, fx.hq ? 64 : 24, dt);
+    dots.current?.update(under ? 0 : atm.night);
     ssrWet.on = atm.wet > 0.5;
     // Priority 1 takes over rendering from R3F.
     const shafts = under || !atm.sunLit ? 0 : Math.min(1, atm.lightPower / 1.2) * (0.35 + 0.65 * atm.dusk);

@@ -24,6 +24,8 @@ const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock', 'signal', 'crossing', 'wo
 const FAST = new Set(['dep', 'depAll']);
 /** Printed or physical things (posters, murals, machine fronts, doors): lit by the room, not self-lit. */
 const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap', 'floormark', 'queue', 'timetable', 'strip', 'carguide', 'roadsign', 'roadboard', 'roadmark', 'junction', 'address']);
+/** Printed signs that are lit at night outdoors (billboards and posters from inside, road signs by reflection), and how brightly. */
+const GLOW: Record<string, number> = { poster: 1.5, roadsign: 0.5, roadboard: 0.6, junction: 0.6, address: 0.5, timetable: 0.8 };
 /** Drawn on a transparent canvas and cut out to their shape (a round sign, paint on the road). */
 const CUTOUT = new Set(['roadsign', 'roadmark', 'crossing', 'queue']);
 
@@ -77,7 +79,7 @@ function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
     // Signs are light boxes: self-lit, and LED boards are bright enough to bloom a little.
     // LCD boards glow less than LED dots but more than the printed signs, which stay below bloom.
     const mat = isLed(c) ? ledMaterial(tex, W, H) : PRINTED.has(c.k)
-      ? lit({ map: tex, roughness: c.k === 'machine' ? 0.35 : 0.55, metalness: 0 }, { macro: 0, macroRough: 0 })
+      ? lit({ map: tex, roughness: c.k === 'machine' ? 0.35 : 0.55, metalness: 0 }, { macro: 0, macroRough: 0, glow: GLOW[c.k] })
       : new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(FAST.has(c.k) ? 1.35 : LIVE.has(c.k) ? 1.5 : 1.12) });
     if (CUTOUT.has(c.k)) mat.alphaTest = 0.5;
     e = { canvas, ctx, tex, mat, content: c, live: LIVE.has(c.k), fast: FAST.has(c.k) };
