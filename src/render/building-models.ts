@@ -30,6 +30,8 @@ interface Proto {
 }
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower'];
+/** Station props built the same way (tools/blender/build_hub.py). They stand indoors: no daylight on them. */
+const PROPS = ['hub'];
 /** How many different sets of shop names one model variant can carry. */
 const NAME_SETS = 3;
 const ATLAS_PX = 1024;
@@ -39,10 +41,10 @@ const materials = new Map<string, THREE.Material>();
 let loading: Promise<void> | null = null;
 
 /** Daylight on every vertex; box-projected UVs in metres for the macro texture (sign faces keep their atlas UVs). */
-function addAttributes(g: THREE.BufferGeometry, keepUv: boolean) {
+function addAttributes(g: THREE.BufferGeometry, keepUv: boolean, daylight = 1) {
   const pos = g.getAttribute('position'), nor = g.getAttribute('normal');
   const env = new Float32Array(pos.count * 2);
-  for (let i = 0; i < pos.count; i++) env[i * 2] = 1;
+  for (let i = 0; i < pos.count; i++) env[i * 2] = daylight;
   g.setAttribute('aEnv', new THREE.BufferAttribute(env, 2));
   if (!keepUv) {
     const uv = new Float32Array(pos.count * 2);
@@ -56,14 +58,14 @@ function addAttributes(g: THREE.BufferGeometry, keepUv: boolean) {
   g.computeBoundingSphere();
 }
 
-function collect(root: THREE.Object3D): Proto {
+function collect(root: THREE.Object3D, daylight = 1): Proto {
   const proto: Proto = { pieces: [], boards: [] };
   root.traverse((o) => {
     if (typeof o.userData.signs === 'string') proto.boards = JSON.parse(o.userData.signs) as Board[];
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
     const mat = (mesh.material as THREE.Material).name;
-    addAttributes(mesh.geometry, mat === 'signface');
+    addAttributes(mesh.geometry, mat === 'signface', daylight);
     proto.pieces.push({ geometry: mesh.geometry, mat });
   });
   return proto;
@@ -71,8 +73,9 @@ function collect(root: THREE.Object3D): Proto {
 
 /** Start loading the models (once). Rejects if a file is missing or broken. */
 export function loadBuildingModels(): Promise<void> {
-  loading ??= Promise.all(KINDS.map((kind) => new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/buildings/${kind}.glb`).then((gltf) => {
-    for (const root of gltf.scene.children) if (root.name.startsWith(`${kind}_`) && !root.name.endsWith('_lo')) protos.set(root.name, collect(root));
+  loading ??= Promise.all([...KINDS, ...PROPS].map((kind) => new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/buildings/${kind}.glb`).then((gltf) => {
+    const daylight = PROPS.includes(kind) ? 0 : 1;
+    for (const root of gltf.scene.children) if (root.name.startsWith(`${kind}_`) && !root.name.endsWith('_lo')) protos.set(root.name, collect(root, daylight));
   }))).then(() => undefined);
   return loading;
 }

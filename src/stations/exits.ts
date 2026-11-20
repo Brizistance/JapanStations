@@ -517,7 +517,13 @@ function derive(id: StationId): StationStreet {
       const es = ([1, -1] as const).flatMap((dir) =>
         // A pair climbing out from a doorway ending at x: as a gate end 13 m before it.
         HUB.exits.flatMap((x) => endExits(dir * (x - 13), dir > 0, HUB.bar, run, undefined, [String(n++), String(n++)])));
-      return { kind: 'hub', exits: withNear(hubFeatures(), es) };
+      // Exit 9 climbs north from the Central Passage onto the plaza; exit 10 north from the South
+      // Gate onto Yanagi-suji's west sidewalk (hub.ts P9, SG).
+      const own: Omit<StationExit, 'near'>[] = [
+        { num: '9', side: -1, rect: [26.2, -31, 29, -22.8] },
+        { num: '10', side: 1, rect: [-13, 34, -10.2, 42.5] },
+      ];
+      return { kind: 'hub', exits: withNear(hubFeatures(), [...es, ...own]) };
     }
     case 'elevated': {
       if (spec.layout) return { kind: 'elevated', exits: OPEN_AIR[spec.layout].exits.map((e) => ({ num: '', ...e })) };

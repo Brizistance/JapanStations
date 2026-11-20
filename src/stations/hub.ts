@@ -1,57 +1,86 @@
 // The Kita-Ōdōri hub: the city's central station.
 //
-// Two metro lines cross here (Akanesuji deep and east–west, Yanagisuji above it and
-// north–south). On top sits Kawaminato Station: a glass-roofed atrium that drops from the
-// roof to the B1 concourse, with rail decks stacked behind it. The metro part is fully
-// working. The other railways are SHELLS: their space, access and gate positions are
-// built and signed "reserved for future line", but they have no trains and no times.
+// Four metro lines meet here (Akanesuji deep and east–west with Shiokaze and Sumire beside it,
+// Yanagisuji above them and north–south). On top sits Kawaminato Station: a tight glass-roofed
+// well, Willow Court, with enclosed galleries round it and rail decks stacked behind. The metro
+// part is fully working. The other railways are SHELLS: their space, access and gate positions
+// are built and signed "reserved for future line", but they have no trains and no times.
+//
+// B1 is a set of passages, not one hall. The Central Passage (tall, unpaid) runs north–south
+// from the court to the avenue, east of the Yanagisuji platforms. Off it: the Central Gate into
+// the Yanagisuji gate hall; the North Passage along the station building's front; the West
+// Passage; and Yanagi Mall under the avenue, where the Akanesuji Line has a West Gate hall and
+// an East Gate standing as an island in the mall. Shiokaze and Sumire are reached from the paid
+// transfer hall by the South Passage.
 //
 // Frame: +x east (the Akanesuji Line's direction), +z south, so north is -z.
 //
 //   level   y      what
 //   3F     +14     high-speed deck (shell) and its landing
-//   2F      +7     gallery; main-line deck (shell) north, private-railway bays (shell) east
-//   1F       0     atrium ring, station doors, plaza with bus and taxi ranks, the avenue
-//   B1      -7     concourse: paid "T" over both lines, Yanagi Mall under the avenue
+//   2F      +7     gallery; main-line gate hall (shell) north, private-railway concourse (shell) east
+//   1F       0     entrance hall and gallery, station doors, plaza with bus and taxi ranks, the avenue
+//   B1      -7     passages, gate halls, Yanagi Mall under the avenue, the floor of Willow Court
 //   B2     -12     Yanagisuji island platform (vaulted hall)
-//   B4     -19     Akanesuji island platform; beside it an empty box for a future metro line
+//   B4     -19     Akanesuji island platform; Shiokaze and Sumire beside it
 
 import { linesAt } from '../data/network';
 import { HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder } from '../world/builder';
 import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from './build';
-import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, gateLine, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
+import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
 import { SHOPS, car, crosswalk, fillLots, fillModelLots, signal, tree, type Shop } from './surface';
 
 export const HUB_PLOT = { x: 190, z: 160 };
 
 const GY = GROUND_Y;
-/** Clear height of the B1 concourse and mall. */
-const H1 = 3.6;
-/** Half-width (in z) of the concourse and mall under the avenue. */
+/** Clear height of the B1 passages and halls, and of the Central Passage. */
+const H1 = 3.6, SP = 5.4;
+/** Half-width (in z) of Yanagi Mall under the avenue. */
 const BAR = 12;
-/** East and west gate lines; the mall runs from here out to MALL_X. */
-const PAID_X = 46, MALL_X = 150;
-/** North gate line, and the station building's front (the atrium starts here). */
-const GATE_N = -48, FRONT = -64;
-/** Unpaid corridors linking the north concourse to the mall, either side of the paid area. */
-const LINK0 = 50, LINK1 = 62;
-/** Atrium hall: half-width and north wall. */
-const HX = 44, HN = -112;
-/** The void, open from the B1 floor to the glass roof. */
-const VOID: Rect = [-30, -104, 30, -72];
+/** West gate line; the mall runs out to ±MALL_X. */
+const GATE_W = -46, MALL_X = 150;
+/** The station building's front, and the south wall of the North Passage along it. */
+const FRONT = -64, XP = -56;
+/** Central Passage and West Passage (x ranges), and the east end of the North Passage. */
+const CP: [number, number] = [15, 25], WP: [number, number] = [-62, -52], XE = 40;
+/** Yanagisuji gate hall, and the Central Gate between it and the Central Passage. */
+const YH = { x0: -6, x1: 13.2, z0: -46 }, GATE_Y = 14;
+/** Doorway from the Yanagisuji gate hall south into the transfer hall. */
+const YD: [number, number] = [4, 10];
+/** Central Gate lobby just inside the gates (z range), and the corridors' west edge (x). */
+const LOB: [number, number] = [-35, -23], COR = 4;
+/** Outer half-width of a walled stairwell, and the walkway's east edge in the South Passage. */
+const WELL = 2.35, SPE = -25;
+/** South edge (z) of the doorway to exit 9, the plaza entrance off the Central Passage; exits.ts mirrors it. */
+const P9 = -16;
+/** South gate: its gate line and the end of the South Passage (z); exit 10's doorway (x, north edge z). exits.ts mirrors it. */
+const SG = { gate: 37, end: 49, door: -14.2, z: 44.8 };
+/** Doorways from Willow Court into the food hall in the west wing. */
+const FOOD: [number, number][] = [[-100, -94], [-82, -76]];
+/** East wall of the paid transfer hall. */
+const TX = 10;
+/** Foot of the Akanesuji escalator banks: the east one climbs east, the west one west. */
+const EA0 = 30, WA0 = 13;
+/** The East Gate, at the head of the east bank. */
+const GATE_E = 57;
+/** Station building: outer half-width, inner hall half-width, north wall. */
+const HX = 44, IX = 24, HN = -112;
+/** The well, open from the B1 floor to the glass roof. */
+const VOID: Rect = [-14, -100, 14, -76];
 const F2 = 7, F3 = 14, ROOF = 26;
 /** Station building half-width, and the north edge of the rail decks. */
 const BLDG = 112, DECK_N = -150;
 /** x of each mall exit's passage (mirrored west). */
 const EXITS = [76, 120];
-/** Foot of each deep escalator bank on the Akanesuji platform (mirrored west). */
-const EX0 = 13;
-const STONE = 'floor:#e3e0d6';
+/** Stone and brass: travertine walls over a dark dado, brass trim, dark timber shop fronts. */
+const STONE = 'floor:#d6cebb';
+const DADO = 'panel:#6e5f4d', TIMBER = 'wood:#4a3626', COL = 'panel:#ddd2ba', BORDER = 'floor:#5b5146', BEAM = 'paint:#ece5d3';
 const TRIM = 'flat:#dfe3e6';
 const HOARD = 'flat:#f4f4f0';
+const GOLD = 'flat:#b08d3a';
+const PANEL = 'panel:#e6dcc6';
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -82,6 +111,44 @@ function wallZ(b: Builder, mat: string, x0: number, x1: number, za: number, zb: 
   if (z < zb) b.box(mat, x0, y0, z, x1, y1, zb);
 }
 
+/** Dark stone dado with a brass line on top, on every face of a wall segment standing on floor `y`. */
+function dado(b: Builder, x0: number, y: number, z0: number, x1: number, z1: number) {
+  b.deco(DADO, x0 - 0.012, y, z0 - 0.012, x1 + 0.012, y + 1.1, z1 + 0.012);
+  b.deco(GOLD, x0 - 0.016, y + 1.1, z0 - 0.016, x1 + 0.016, y + 1.15, z1 + 0.016);
+}
+/** The runs of [a, b] left between gaps. */
+function runs(a: number, b: number, gaps: number[][]): [number, number][] {
+  const out: [number, number][] = [];
+  let x = a;
+  for (const [f, t] of [...gaps].sort((p, q) => p[0] - q[0])) {
+    if (f > x) out.push([x, Math.min(f, b)]);
+    x = Math.max(x, t);
+  }
+  if (x < b) out.push([x, b]);
+  return out;
+}
+/** A stone wall along x with its dado. */
+function stoneX(b: Builder, mat: string, xa: number, xb: number, z0: number, z1: number, y0: number, y1: number, gaps: number[][] = []) {
+  b.wallX(mat, xa, xb, z0, z1, y0, y1, gaps);
+  for (const [a, e] of runs(xa, xb, gaps)) dado(b, a, y0, z0, e, z1);
+}
+/** A stone wall along z with its dado. */
+function stoneZ(b: Builder, mat: string, x0: number, x1: number, za: number, zb: number, y0: number, y1: number, gaps: number[][] = []) {
+  wallZ(b, mat, x0, x1, za, zb, y0, y1, gaps);
+  for (const [a, e] of runs(za, zb, gaps)) dado(b, x0, y0, a, x1, e);
+}
+/** A free-standing stone block with its dado. */
+function stoneBox(b: Builder, mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+  b.box(mat, x0, y0, z0, x1, y1, z1);
+  dado(b, x0, y0, z0, x1, z1);
+}
+
+/** A Blender-built prop of this station (tools/blender/build_hub.py), turned `rot` quarter turns, with a collider `half` wide. */
+function prop(b: Builder, id: string, x: number, y: number, z: number, rot: 0 | 1 | 2 | 3 = 0, half: [number, number] | null = null, tall = 1) {
+  b.with({ rot, t: [x, 0, z] }, () => b.model('hub', id, 0, y, 0));
+  if (half) b.block(x - half[0], y, z - half[1], x + half[0], y + tall, z + half[1]);
+}
+
 /** Double-sided sign hanging across the z axis: `front` faces south (+z), `back` faces north. */
 function hangZ(b: Builder, front: SignContent, back: SignContent, x: number, y: number, z: number, w: number, h: number, ceil: number) {
   b.with({ rot: 1, t: [x, 0, z] }, () => b.hang(front, 0, y, 0, w, h, { ceil, back }));
@@ -91,6 +158,7 @@ function hangZ(b: Builder, front: SignContent, back: SignContent, x: number, y: 
 const reserved = (ja: string, en: string): SignContent => ({
   k: 'label', text: `将来線予定地　${ja}`, sub: `Reserved for future line — ${en}`, fg: '#1b1f24', bg: '#ffd100',
 });
+const gateMark: SignContent = { k: 'label', text: '改札予定位置', sub: 'Future ticket gates', fg: '#1b1f24', bg: '#ffd100' };
 
 /** Construction hoarding along x at z (facing `n`), white with a warning stripe. */
 function hoardingX(b: Builder, x0: number, x1: number, y: number, z: number, n: 1 | -1, h = 2.2) {
@@ -101,16 +169,38 @@ function hoardingX(b: Builder, x0: number, x1: number, y: number, z: number, n: 
   b.deco('flat:#1b1f24', x0, y + 0.02, Math.min(z, zs), x1, y + 0.14, Math.max(z, zs));
 }
 
+/** Gilded frame at the foot of an escalator bank (foot at x = 0), with the line's colour under the lintel. */
+function portal(b: Builder, pf: number, color: string) {
+  for (const sz of [-1, 1]) b.deco(GOLD, -0.08, pf, Math.min(sz * 1.9, sz * 1.98), 0.08, pf + 3.2, Math.max(sz * 1.9, sz * 1.98));
+  b.deco(GOLD, -0.08, pf + 3.05, -1.98, 0.08, pf + 3.2, 1.98);
+  b.deco(`flat:${color}`, -0.09, pf + 2.97, -1.98, 0.09, pf + 3.05, 1.98);
+}
+
+/**
+ * Brass frame at the head of a walled stair on a concourse floor `y`: posts either side, a
+ * lintel in the line's colour, wall above it. The opening is `across` x or z, centred (x, z).
+ */
+function headPortal(b: Builder, wall: string, y: number, top: number, x: number, z: number, across: 'x' | 'z', color: string) {
+  const w = 1.96, t = 0.1;
+  const box = (mat: string, a0: number, y0: number, a1: number, y1: number, d = t) =>
+    across === 'x' ? b.deco(mat, x + a0, y0, z - d, x + a1, y1, z + d) : b.deco(mat, x - d, y0, z + a0, x + d, y1, z + a1);
+  box(GOLD, -w - 0.12, y, -w + 0.04, y + 2.62);
+  box(GOLD, w - 0.04, y, w + 0.12, y + 2.62);
+  box(GOLD, -w - 0.12, y + 2.62, w + 0.12, y + 2.8);
+  box(`flat:${color}`, -w + 0.04, y + 2.5, w - 0.04, y + 2.62, t + 0.01);
+  box(wall, -w - 0.12, y + 2.8, w + 0.12, top, t - 0.02);
+}
+
 // ───────────────────────── platforms ─────────────────────────
 
-/** Both platform halls, the deep escalators and the stairs. Returns the holes they cut in B1. */
+/** All platform halls, the deep escalators and the stairs. Returns the holes they cut in B1. */
 function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
   const { b, c, o, cf, pfA, pfY, wall } = h;
   const holes: Rect[] = [];
   const dA = hallDims(c.line, c.railY), dY = hallDims(o.line, o.railY);
   const runA = r2((cf - pfA) * 1.7);
-  const aBlocks: [number, number][] = [[EX0, EX0 + runA], [-EX0 - runA, -EX0]];
-  // Windows in the south wall look across the track into the empty box next door.
+  const aBlocks: [number, number][] = [[EA0, EA0 + runA], [-WA0 - runA, -WA0]];
+  // Windows in the south wall look across the track into the hall next door.
   const windows: [number, number][] = [[-52, -40], [-6, 6], [40, 52]];
 
   // ── Akanesuji Line (frame-aligned): island platform, full-height doors ──
@@ -120,21 +210,26 @@ function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
     ceilHoles: aBlocks.map(([a, e]) => [a, -1.86, e, 1.86]),
     gaps: windows.map(([x0, x1]) => ({ s: 1 as const, x0, x1 })),
   });
-  // Deep escalator banks: straight from the platform up through an open shaft to B1.
-  const base = pfA + 4.5 + SLAB, top = cf - SLAB;
+  // Deep escalator banks, each in an open shaft. The west bank comes up inside the transfer
+  // hall; the east bank stays walled in through B1 and comes out at its own gate in the mall.
+  const base = pfA + 4.5 + SLAB;
   const toY: SignContent = {
     k: 'guide', ja: `${o.line.nameJa} のりかえ・出口`, en: `${o.line.nameEn} / Exit`, bg: 'white', badges: [o.line.id], arrow: 'up',
   };
+  const toMall: SignContent = { k: 'guide', ja: '東改札・ヤナギモール・バスのりば', en: 'East gate / Yanagi Mall / Buses', bg: 'yellow', arrow: 'up' };
   for (const s of [1, -1]) {
-    b.with(s > 0 ? { t: [EX0, 0, 0] } : { ...MIRROR_X, t: [-EX0, 0, 0] }, () => {
-      holes.push(islandUnit(b, pfA, cf, runA, cf));
+    const top = cf + H1;
+    b.with(s > 0 ? { t: [EA0, 0, 0] } : { ...MIRROR_X, t: [-WA0, 0, 0] }, () => {
+      holes.push(islandUnit(b, pfA, cf, runA, null));
       for (const sz of [-1, 1]) {
         b.box(wall, 0, base, Math.min(sz * 1.86, sz * 2.16), runA, top, Math.max(sz * 1.86, sz * 2.16));
         b.deco('light', 0.5, top - 0.3, Math.min(sz * 1.8, sz * 1.86), runA - 0.5, top - 0.18, Math.max(sz * 1.8, sz * 1.86));
         b.deco(`flat:${c.line.color}`, 0, top - 0.6, Math.min(sz * 1.84, sz * 1.86), runA, top - 0.45, Math.max(sz * 1.84, sz * 1.86));
+        b.deco(GOLD, 0, top - 0.66, Math.min(sz * 1.84, sz * 1.86), runA, top - 0.62, Math.max(sz * 1.84, sz * 1.86));
       }
       b.box(wall, -0.3, base, -2.16, 0, top, 2.16);
-      b.hang(toY, -1.6, pfA + 2.72, 0, 3.0, 0.44, {
+      portal(b, pfA, c.line.color);
+      b.hang(s > 0 ? toMall : toY, -1.6, pfA + 2.72, 0, 3.0, 0.44, {
         ceil: pfA + 4.5, back: { k: 'name', station: c.station.id, line: c.line.id, arrow: s > 0 ? 'left' : 'right' },
       });
     });
@@ -152,6 +247,10 @@ function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
       ],
       blocks: st.blocks,
     });
+    // Gilded rings where the low ceiling gives way to the vault.
+    for (const x of [BAR + 1.2, BAR + 13, BAR + 25, BAR + 37]) {
+      b.deco(GOLD, x - 0.12, pfY + 4.55, -dY.wallZ + 0.3, x + 0.12, pfY + 4.7, dY.wallZ - 0.3);
+    }
   });
 
   const z0 = dA.wallZ + 0.5, z1 = z0 + 15.4, ry = c.railY;
@@ -177,188 +276,564 @@ function platforms(h: H, turns: 0 | 1 | 2 | 3): Rect[] {
   return holes;
 }
 
-/** Where the beside lines' escalator shafts reach B1: the east wall of the stub passage. */
-const STUB: [number, number] = [22, 30];
+/** The South Passage off the paid transfer hall (x range). The beside lines' shafts reach B1 in its west wall. */
+const STUB: [number, number] = [-30, -22];
 /** Centre-to-centre spacing of halls side by side at B4 (wall + 0.5 m structure + wall). */
 const BESIDE_GAP = 15.9;
-/** z of each beside hall's centre, and so of its shaft into the stub passage. */
+/** z of each beside hall's centre, and so of its shaft into the South Passage. */
 const besideZ = (h: H) => {
   const zS = hallDims(h.c.line, h.c.railY).wallZ + 0.5 + 7.7;
   return h.m ? [zS, zS + BESIDE_GAP] : [zS];
 };
 
 /**
- * The line beside the primary, in what used to be the B4 shell: an island-platform hall
- * centred `zc` south of the primary, sharing its windows, with a stair and escalator in an
- * enclosed shaft climbing west into the stub passage off the paid concourse.
+ * A line beside the primary: an island-platform hall centred `zc` south of the primary, sharing
+ * its windows, with a stair and escalator in an enclosed shaft climbing east into the South
+ * Passage off the transfer hall.
  */
 function sHall(h: H, s: Ctx, zc: number, windows: [number, number][], sides: (1 | -1)[]) {
   const { b, c, cf, pfA, wall } = h;
   const run = r2((cf - pfA) * 1.7);
-  const foot = STUB[1] + run;
+  const head = STUB[0], foot = head - run;
   const base = pfA + 4.5 + SLAB, top = cf + H1;
   b.with({ t: [0, 0, zc] }, () => {
     hall(s, {
       ceil: [{ x0: -HALL_HALF, x1: HALL_HALF, y: pfA + 4.5, emit: true }],
-      blocks: [[STUB[1], foot]],
-      ceilHoles: [[STUB[1], -1.86, foot, 1.86]],
+      blocks: [[foot, head]],
+      ceilHoles: [[foot, -1.86, head, 1.86]],
       gaps: sides.flatMap((side) => windows.map(([x0, x1]) => ({ s: side, x0, x1 }))),
     });
-    b.with({ ...MIRROR_X, t: [foot, 0, 0] }, () => {
+    b.with({ t: [foot, 0, 0] }, () => {
       islandUnit(b, pfA, cf, run, cf);
       for (const sz of [-1, 1]) {
         b.box(wall, 0, base, Math.min(sz * 1.86, sz * 2.16), run, top, Math.max(sz * 1.86, sz * 2.16));
         b.deco('light', 0.5, top - 0.3, Math.min(sz * 1.8, sz * 1.86), run - 0.5, top - 0.18, Math.max(sz * 1.8, sz * 1.86));
         b.deco(`flat:${s.line.color}`, 0, top - 0.6, Math.min(sz * 1.84, sz * 1.86), run, top - 0.45, Math.max(sz * 1.84, sz * 1.86));
+        b.deco(GOLD, 0, top - 0.66, Math.min(sz * 1.84, sz * 1.86), run, top - 0.62, Math.max(sz * 1.84, sz * 1.86));
       }
       b.box(wall, -0.3, base, -2.16, 0, top, 2.16);
       b.box('ceil', -0.3, top, -2.16, run, top + 0.5, 2.16);
+      portal(b, pfA, s.line.color);
       b.hang(
         { k: 'guide', ja: `${c.line.nameJa}・${h.o.line.nameJa} のりかえ・出口`, en: 'Transfer / Exit', bg: 'white', badges: [c.line.id, h.o.line.id], arrow: 'up' },
         -1.6, pfA + 2.72, 0, 3.0, 0.44,
-        { ceil: pfA + 4.5, back: { k: 'name', station: s.station.id, line: s.line.id, arrow: 'left' } },
+        { ceil: pfA + 4.5, back: { k: 'name', station: s.station.id, line: s.line.id, arrow: 'right' } },
       );
     });
   });
 }
 
+// ───────────────────────── maps, boards and small details ─────────────────────────
+
+function details(h: H) {
+  const { b, c, cf } = h;
+  const id = c.station.id;
+  const top = cf + H1, tall = cf + SP;
+  const [c0, c1] = CP, [w0] = WP, [s0, s1] = STUB;
+  const cx = (c0 + c1) / 2;
+  /** A wall board in a brass frame. `n` is the way it faces. */
+  const framed = (k: 'stationmap' | 'areamap' | 'exits', x: number, y: number, z: number, n: Pt, w = 2.2, hgt = 1.5) => {
+    const ax = n[0] !== 0;
+    const hw = w / 2 + 0.07, d = 0.012;
+    if (ax) b.deco(GOLD, Math.min(x, x - n[0] * d), y - hgt / 2 - 0.07, z - hw, Math.max(x, x - n[0] * d), y + hgt / 2 + 0.07, z + hw);
+    else b.deco(GOLD, x - hw, y - hgt / 2 - 0.07, Math.min(z, z - n[1] * d), x + hw, y + hgt / 2 + 0.07, Math.max(z, z - n[1] * d));
+    b.sign({ k, station: id }, x + n[0] * 0.006, y, z + n[1] * 0.006, n, w, hgt);
+  };
+  // ── Maps and exit lists at the gates and junctions ──
+  framed('stationmap', 28.2, cf + 1.6, FRONT + 0.03, [0, 1]);
+  framed('areamap', 31.4, cf + 1.6, FRONT + 0.03, [0, 1]);
+  framed('exits', 34.4, cf + 1.6, FRONT + 0.03, [0, 1], 2.0, 1.3);
+  framed('exits', c1 - 0.03, cf + 1.6, P9 + 1.9, [-1, 0], 2.0, 1.3);
+  framed('areamap', TX + 0.43, cf + 1.6, 7.2, [1, 0]);
+  framed('exits', TX + 0.43, cf + 1.6, -7.6, [1, 0], 2.0, 1.3);
+  framed('areamap', -48, cf + 1.6, BAR - 0.03, [0, -1]);
+  framed('stationmap', 14.5, cf + 1.7, FRONT - 0.43, [0, -1]);
+  framed('areamap', -14.5, cf + 1.7, FRONT - 0.43, [0, -1]);
+  if (h.s) framed('areamap', s1 - 0.03, cf + 1.6, SG.gate + 4.5, [-1, 0]);
+
+  // ── Live departure boards away from the gates ──
+  const board = (x: number, y: number, z: number, n: Pt, w: number, hgt: number) => {
+    const ax = n[0] !== 0, hw = w / 2 + 0.08;
+    if (ax) b.deco('metal:#2b2f34', Math.min(x, x - n[0] * 0.03), y - hgt / 2 - 0.08, z - hw, Math.max(x, x - n[0] * 0.03), y + hgt / 2 + 0.08, z + hw);
+    else b.deco('metal:#2b2f34', x - hw, y - hgt / 2 - 0.08, Math.min(z, z - n[1] * 0.03), x + hw, y + hgt / 2 + 0.08, Math.max(z, z - n[1] * 0.03));
+    b.sign({ k: 'depAll', station: id }, x + n[0] * 0.01, y, z + n[1] * 0.01, n, w, hgt, { dynamic: true });
+  };
+  board(cx, cf + 4.28, -BAR - 0.43, [0, -1], 3.0, 1.3);
+  board(c0 + 0.03, cf + 2.3, -40.5, [1, 0], 2.6, 1.12);
+  board(0, cf + 5.45, FRONT - 0.43, [0, -1], 3.7, 1.6);
+  board(TX - 0.03, cf + 2.1, 5.4, [-1, 0], 2.6, 1.12);
+
+  // ── Tactile paving: guide lines down the passages, warning tiles at the gates ──
+  b.deco('tactileBar', cx + 1.35, cf, XP, cx + 1.65, cf + 0.008, -BAR);
+  b.deco('tactileBar', w0 + 4.85, cf, FRONT + 5.7, c1, cf + 0.008, FRONT + 6);
+  b.deco('tactileBar', w0 + 4.85, cf, XP, w0 + 5.15, cf + 0.008, -BAR);
+  b.deco('tactile', GATE_Y + 1.1, cf, -34, GATE_Y + 1.7, cf + 0.008, -24);
+  b.deco('tactile', GATE_W - 1.7, cf, -4, GATE_W - 1.1, cf + 0.008, 4);
+  b.deco('tactile', GATE_E + 1.1, cf, -3, GATE_E + 1.7, cf + 0.008, 3);
+
+  // ── Fire cabinets (red lamp above) and an AED, bins by the columns ──
+  const cabinet = (x: number, z: number, n: Pt) => {
+    const ax = n[0] !== 0;
+    const x1 = x + n[0] * 0.16, z1 = z + n[1] * 0.16;
+    b.deco('paint:#b3261e', Math.min(x, x1) - (ax ? 0 : 0.32), cf + 0.5, Math.min(z, z1) - (ax ? 0.32 : 0), Math.max(x, x1) + (ax ? 0 : 0.32), cf + 1.5, Math.max(z, z1) + (ax ? 0.32 : 0));
+    b.mesh('glow:#ff4a3a', 'sphere', x + n[0] * 0.1, cf + 1.72, z + n[1] * 0.1, 0.16, 0.16, 0.16);
+    b.sign({ k: 'label', text: '消火栓', sub: 'Fire hydrant', fg: '#fff', bg: '#b3261e' }, x1 + n[0] * 0.005, cf + 1.0, z1 + n[1] * 0.005, n, 0.56, 0.3);
+  };
+  cabinet(w0 + 0.0, -48, [1, 0]);
+  cabinet(w0 + 0.0, -20, [1, 0]);
+  cabinet(c0, XP + 1.6, [1, 0]);
+  cabinet(-20, -BAR, [0, 1]);
+  cabinet(100, BAR, [0, -1]);
+  cabinet(-100, BAR, [0, -1]);
+  b.deco('paint:#f4f4f0', c0, cf + 0.9, -55.9, c0 + 0.14, cf + 1.5, -55.3);
+  b.sign({ k: 'label', text: 'AED', sub: '自動体外式除細動器', fg: '#fff', bg: '#d22f27' }, c0 + 0.145, cf + 1.2, -55.6, [1, 0], 0.5, 0.5);
+  for (let z = XP + 8; z < -BAR - 4; z += 12) {
+    prop(b, 'bins', c1 - 0.85, cf, z, 1, [0.22, 0.5], 0.9);
+  }
+
+  // ── Hanging banners down the Central Passage, in the station's green and brass ──
+  for (let z = XP + 8; z < -BAR - 4; z += 12) {
+    b.deco(GOLD, cx - 0.9, tall - 0.62, z - 0.02, cx + 0.9, tall - 0.58, z + 0.02);
+    for (const s of [-1, 1] as const) b.sign({ k: 'label', text: '川湊', sub: 'Kawaminato', fg: '#f3e3a0', bg: '#12382c' }, cx, tall - 1.2, z + s * 0.012, [0, s], 1.6, 1.15);
+  }
+}
+
+// ───────────────────────── floor lines ─────────────────────────
+
+type Pt = [number, number];
+/** Band width, and the pitch between neighbouring bands. */
+const BAND = 0.2, PITCH = 0.26;
+
+/**
+ * Inlaid floor bands along a route of axis-aligned legs, one per line, each line always in its
+ * own slot across the bundle (so a band keeps its place where others peel away). Every long leg
+ * carries the lines' badges with an arrow pointing along the route.
+ */
+function bands(h: H, y: number, pts: Pt[], who: Ctx[]) {
+  const { b } = h;
+  const order = [h.o, h.c, h.s, h.m];
+  const dirs = pts.slice(1).map((q, i): Pt => [Math.sign(r2(q[0] - pts[i][0])), Math.sign(r2(q[1] - pts[i][1]))]);
+  const nrm = dirs.map(([dx, dz]): Pt => [-dz, dx]);
+  for (const x of who) {
+    const off = (order.indexOf(x) - 1.5) * PITCH;
+    const at = (j: number): Pt => {
+      const a = nrm[Math.max(0, j - 1)], c = nrm[Math.min(nrm.length - 1, j)];
+      const same = a[0] === c[0] && a[1] === c[1];
+      return [pts[j][0] + off * (same ? a[0] : a[0] + c[0]), pts[j][1] + off * (same ? a[1] : a[1] + c[1])];
+    };
+    for (let i = 0; i < dirs.length; i++) {
+      const p = at(i), q = at(i + 1), w = BAND / 2;
+      b.deco(`paint:${x.line.color}`, Math.min(p[0], q[0]) - w, y + 0.004, Math.min(p[1], q[1]) - w, Math.max(p[0], q[0]) + w, y + 0.009, Math.max(p[1], q[1]) + w);
+      const len = Math.abs(q[0] - p[0]) + Math.abs(q[1] - p[1]);
+      if (len < 9) continue;
+      for (let d = 2.4 + who.indexOf(x) * 0.95; d < len - 1.5; d += 15) {
+        b.sign({ k: 'floormark', line: x.line.id, arrow: 'up' }, p[0] + dirs[i][0] * d, y + 0.012, p[1] + dirs[i][1] * d, null, 0.66, 0.66, { top: dirs[i] });
+      }
+    }
+  }
+}
+
+/** Every route from a way in to each line's stairs, on B1 and from the station doors. */
+function floorLines(h: H) {
+  const { b, c, o, cf } = h;
+  const all = [o, c, h.s, h.m].filter((x): x is Ctx => !!x);
+  const deep = all.filter((x) => x !== o), beside = all.filter((x) => x !== o && x !== c);
+  const SX = CP[0] + 2.2, GZ = -29; // the bundle's line down the Central Passage; the Central Gate's middle
+  const [s0] = STUB, sx = (STUB[0] + SPE) / 2;
+  const zs = besideZ(h);
+  const xh = EA0 + r2((cf - h.pfA) * 1.7), wh = -WA0 - r2((cf - h.pfA) * 1.7);
+
+  // Station doors, down the east bank into Willow Court, round the willow to the court door.
+  bands(h, GY, [[0, FRONT - 0.5], [0, -72], [10.5, -72], [10.5, VOID[3] + 0.6]], all);
+  bands(h, cf, [[10.5, -90.4], [16.6, -90.4], [16.6, -68], [0, -68], [0, FRONT]], all);
+  // North Passage and Central Passage, in at the Central Gate.
+  bands(h, cf, [[0, FRONT], [0, -60], [SX, -60], [SX, GZ], [GATE_Y + 1.9, GZ]], all);
+  bands(h, cf, [[GATE_Y - 1.3, GZ], [7, GZ]], all);
+  bands(h, cf, [[7, GZ], [COR + 0.3, GZ]], [o]);
+  // On through the gate hall into the transfer hall: Akanesuji west, the others to the South Passage.
+  bands(h, cf, [[7, GZ], [7, -5.5]], deep);
+  bands(h, cf, [[7, -5.5], [wh - 2.6, -5.5], [wh - 2.6, -0.6]], [c]);
+  if (beside.length) bands(h, cf, [[7, -5.5], [7, 9], [sx, 9]], beside);
+  // Yanagi Mall east (exits 1–4): Akanesuji in at the East Gate, the others on to the Central Passage.
+  bands(h, cf, [[MALL_X - 4, 8], [66, 8]], all);
+  bands(h, cf, [[66, 8], [66, 0], [GATE_E + 1.9, 0]], [c]);
+  bands(h, cf, [[GATE_E - 1.3, 0], [xh + 2.2, 0]], [c]);
+  bands(h, cf, [[66, 8], [SX, 8], [SX, GZ + 0.6]], all.filter((x) => x !== c));
+  // Yanagi Mall west (exits 5–8): everything in at the West Gate.
+  bands(h, cf, [[-MALL_X + 4, 4], [-68, 4], [-68, 0], [GATE_W - 1.9, 0]], all);
+  bands(h, cf, [[GATE_W + 1.3, 0], [-40, 0]], all);
+  bands(h, cf, [[-40, 0], [wh - 2.8, 0]], [c]);
+  bands(h, cf, [[-40, 0], [-40, -5.5], [-0.6, -5.5]], [o]);
+  if (beside.length) bands(h, cf, [[-40, 0], [-40, 9], [sx, 9]], beside);
+  // The South Passage: one trunk, each line peeling off at its shaft; and in from the South Gate.
+  beside.forEach((x, i) => {
+    bands(h, cf, [[sx, 9], [sx, zs[i]], [s0 + 0.8, zs[i]]], [x]);
+    bands(h, cf, [[sx, SG.gate - 1], [sx, zs[i]], [s0 + 0.8, zs[i]]], [x]);
+  });
+
+  // Where each line's band ends: its badge and platform numbers, facing the way down.
+  const mark = (x: Ctx, px: number, pz: number, top: Pt) =>
+    b.sign({ k: 'floormark', line: x.line.id, arrow: 'up', nums: [...c.station.platforms[x.line.id]].sort((p, q) => p - q) }, px, cf + 0.012, pz, null, 1.3, 1.3, { top });
+  mark(o, 3.0, -27, [-1, 0]);
+  mark(o, 0, -6.4, [0, 1]);
+  mark(c, wh - 1.4, 0, [1, 0]);
+  mark(c, xh + 1.2, 0, [-1, 0]);
+  beside.forEach((x, i) => mark(x, s0 + 1.0, zs[i] + 2.7, [-1, 0]));
+}
+
 // ───────────────────────── B1 ─────────────────────────
 
-function shopFront(h: H, xa: number, xb: number, z: number, n: 1 | -1, s: Shop) {
-  const { b, cf } = h;
+/** A shop front on a wall along x at z, facing `n`, its floor at `y`. */
+function shopFront(h: H, xa: number, xb: number, z: number, n: 1 | -1, s: Shop, y = h.cf) {
+  const { b } = h;
   // `d` metres out from the wall face, as an ordered z range.
   const dz = (mat: string, x0: number, y0: number, d0: number, x1: number, y1: number, d1: number) =>
     b.deco(mat, x0, y0, Math.min(z + n * d0, z + n * d1), x1, y1, Math.max(z + n * d0, z + n * d1));
-  dz('glow:#f6ead0', xa + 0.45, cf + 0.12, 0, xb - 0.45, cf + 2.5, 0.02);
-  for (const y of [0.85, 1.45, 2.05]) dz('flat:#6b5a48', xa + 0.6, cf + y, 0.02, xb - 2.1, cf + y + 0.06, 0.05);
-  dz('flat:#3a2f28', xb - 1.8, cf, 0.02, xb - 0.6, cf + 2.2, 0.05);
-  dz('glass', xa + 0.45, cf + 0.12, 0.08, xb - 0.45, cf + 2.5, 0.1);
-  for (const x of [xa + 0.3, xb - 0.45]) dz('flat:#3a3f45', x, cf, 0, x + 0.15, cf + 2.5, 0.14);
-  dz(`flat:${s.bg}`, xa + 0.2, cf + 2.5, 0, xb - 0.2, cf + 3.3, 0.14);
-  b.sign({ k: 'shop', ...s }, (xa + xb) / 2, cf + 2.9, z + n * 0.15, [0, n], Math.min(xb - xa - 0.9, 6.4), 0.66);
+  dz('glow:#f6ead0', xa + 0.45, y + 0.12, 0, xb - 0.45, y + 2.5, 0.02);
+  for (const dy of [0.85, 1.45, 2.05]) dz('flat:#6b5a48', xa + 0.6, y + dy, 0.02, xb - 2.1, y + dy + 0.06, 0.05);
+  dz('flat:#3a2f28', xb - 1.8, y, 0.02, xb - 0.6, y + 2.2, 0.05);
+  dz('glass', xa + 0.45, y + 0.12, 0.08, xb - 0.45, y + 2.5, 0.1);
+  for (const x of [xa + 0.3, xb - 0.45]) dz(TIMBER, x, y, 0, x + 0.15, y + 2.5, 0.14);
+  dz(GOLD, xa + 0.2, y + 2.46, 0, xb - 0.2, y + 2.5, 0.15);
+  dz(`flat:${s.bg}`, xa + 0.2, y + 2.5, 0, xb - 0.2, y + 3.3, 0.14);
+  b.sign({ k: 'shop', ...s }, (xa + xb) / 2, y + 2.9, z + n * 0.15, [0, n], Math.min(xb - xa - 0.9, 6.4), 0.66);
+}
+
+/** Shop counter shared by every row, so no two neighbours repeat. */
+let shopK = 0;
+/** A row of shop fronts along x between x0 and x1. */
+function shopsX(h: H, x0: number, x1: number, z: number, n: 1 | -1, y = h.cf) {
+  const count = Math.max(1, Math.round((x1 - x0) / 8)), w = (x1 - x0) / count;
+  for (let i = 0; i < count; i++) shopFront(h, x0 + i * w, x0 + (i + 1) * w, z, n, SHOPS[shopK++ % SHOPS.length], y);
+}
+/** A row of shop fronts on a wall along z at x, facing east (`face` 1) or west (-1). */
+function shopsZ(h: H, x: number, z0: number, z1: number, face: 1 | -1, y = h.cf) {
+  h.b.with({ rot: 1, t: [x, 0, 0] }, () => shopsX(h, z0, z1, 0, face > 0 ? -1 : 1, y));
+}
+
+/**
+ * A ticket gate line across z at x = 0, `n` gates wide, fenced out to z0 and z1. The unpaid
+ * side is +x. Unlike kit.ts gateLine it has no office block, so it fits a passage wall.
+ */
+function gates(h: H, n: number, z0: number, z1: number, screen = true) {
+  const { b, c, cf, lines } = h;
+  const first = (-(n - 1) / 2) * 1.05, edge = -first + 0.12;
+  for (let i = 0; i < n; i++) {
+    const z = first + i * 1.05;
+    b.box('metal:#c4c8cc', -0.8, cf, z - 0.13, 0.8, cf + 1.0, z + 0.13);
+    b.deco('flat:#3a3f45', -0.8, cf + 1.0, z - 0.13, 0.8, cf + 1.03, z + 0.13);
+    b.deco('glow:#29a9ff', 0.42, cf + 1.03, z - 0.1, 0.72, cf + 1.05, z + 0.1);
+    b.deco('glow:#29a9ff', -0.72, cf + 1.03, z - 0.1, -0.42, cf + 1.05, z + 0.1);
+    b.deco(i % 3 === 0 ? 'glow:#e53935' : 'glow:#32c86a', 0.78, cf + 0.72, z - 0.06, 0.81, cf + 0.86, z + 0.06);
+  }
+  for (const [a, e] of [[z0, -edge], [edge, z1]]) {
+    b.box('metal:#c4c8cc', -0.05, cf, a, 0.05, cf + 1.15, e);
+    b.deco('glass', -0.02, cf + 1.15, a, 0.02, cf + 1.9, e);
+  }
+  b.hang(
+    { k: 'guide', ja: 'のりば', en: 'To trains', bg: 'navy', badges: lines, arrow: 'up' },
+    0, cf + 2.6, 0, n > 5 ? 5.6 : 4.4, 0.5,
+    { ceil: cf + H1, back: { k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', arrow: 'up' } },
+  );
+  b.protect(-0.7, cf + 2.3, -2.9, 0.7, cf + H1, 2.9);
+  if (!screen) return;
+  // Live departures screen facing the unpaid side.
+  const sz = (z0 - edge) / 2;
+  b.deco('metal:#2b2f34', 1.12, cf + 1.66, sz - 1.39, 1.3, cf + 2.94, sz + 1.39);
+  b.deco('metal:#1c1f23', 1.12, cf + 2.94, sz - 1.42, 1.42, cf + 2.975, sz + 1.42);
+  b.deco('flat:#050607', 1.296, cf + 1.715, sz - 1.325, 1.304, cf + 2.885, sz + 1.325);
+  b.sign({ k: 'depAll', station: c.station.id }, 1.31, cf + 2.3, sz, [1, 0], 2.6, 1.12, { dynamic: true });
+  b.deco('metal:#3a3f45', 1.18, cf + 2.975, sz - 0.035, 1.25, cf + H1, sz + 0.035);
 }
 
 function concourseLevel(h: H, holes: Rect[]) {
   const { b, c, o, cf, wall, floor, lines } = h;
-  const top = cf + H1;
+  const top = cf + H1, tall = cf + SP;
   const st = c.station;
+  const runA = r2((cf - h.pfA) * 1.7);
+  const [c0, c1] = CP, [w0, w1] = WP, [s0, s1] = STUB;
+  const cx = (c0 + c1) / 2;
+  const xh = EA0 + runA; // head of the east escalator bank
 
-  // ── Floors and ceilings ──
+  // ── Floors ──
   b.slab(floor, -MALL_X, -BAR, MALL_X, BAR, cf - SLAB, cf, holes);
-  b.slab(floor, -BAR, GATE_N, BAR, -BAR, cf - SLAB, cf, holes);
-  b.box(floor, -LINK1, cf - SLAB, FRONT, LINK1, cf, GATE_N);
-  b.box(STONE, -HX, cf - SLAB, HN, HX, cf, FRONT);
-  b.box('ceil', -MALL_X, top, -BAR, MALL_X, top + 0.5, BAR);
-  b.box('ceil', -BAR, top, GATE_N, BAR, top + 0.5, -BAR);
-  b.box('ceil', -LINK1, top, FRONT, LINK1, top + 0.5, GATE_N);
-  for (const s of [-1, 1]) {
-    const xa = Math.min(s * LINK0, s * LINK1), xb = Math.max(s * LINK0, s * LINK1);
-    b.box(floor, xa, cf - SLAB, GATE_N, xb, cf, -BAR);
-    b.box('ceil', xa, top, GATE_N, xb, top + 0.5, -BAR);
-  }
+  b.slab(floor, w0, FRONT, XE, -BAR, cf - SLAB, cf, holes);
+  b.box(floor, c0, cf - SLAB, BAR, c1, cf, BAR + 5);
+  b.box(STONE, -IX, cf - SLAB, HN, IX, cf, FRONT);
 
-  // ── Walls ──
+  // ── Ceilings: low everywhere, raised over the Central Passage ──
+  b.box('ceil', -MALL_X, top, -BAR, MALL_X, top + 0.5, BAR);
+  b.box('ceil', w0, top, FRONT, c0 - 0.4, top + 0.5, -BAR);
+  b.box('ceil', c0 - 0.4, top, FRONT, XE, top + 0.5, XP);
+  b.box('ceil', c0 - 0.4, tall, XP, c1 + 0.4, tall + 0.5, -BAR);
+  b.box('ceil', c0, top, BAR, c1, top + 0.5, BAR + 5);
+  // Bulkheads where the tall passage meets the low ones.
+  b.box(wall, c0, top, XP, c1, tall + 0.5, XP + 0.4);
+  b.box(wall, c0, top, -BAR - 0.4, c1, tall + 0.5, -BAR);
+  b.box(wall, c0 - 0.4, top, YH.z0, c0, tall + 0.5, -BAR - 0.4);
+
+  // ── Walls: Yanagi Mall ──
   const exitGaps = EXITS.flatMap((x) => [[x - 4, x], [-x, -x + 4]]);
-  const stub = STUB;
-  b.wallX(wall, -MALL_X - 0.4, MALL_X + 0.4, -BAR - 0.4, -BAR, cf, top, [[-BAR, BAR], [LINK0, LINK1], [-LINK1, -LINK0], ...exitGaps]);
-  b.wallX(wall, -MALL_X - 0.4, MALL_X + 0.4, BAR, BAR + 0.4, cf, top, [...exitGaps, stub]);
+  stoneX(b, wall, -MALL_X - 0.4, MALL_X + 0.4, -BAR - 0.4, -BAR, cf, top, [WP, YD, CP, ...exitGaps]);
+  stoneX(b, wall, -MALL_X - 0.4, MALL_X + 0.4, BAR, BAR + 0.4, cf, top, [...exitGaps, [STUB[0], SPE], CP]);
   for (const [a, e] of exitGaps) {
     b.box(wall, a, cf + 2.7, -BAR - 0.4, e, top, -BAR);
     b.box(wall, a, cf + 2.7, BAR, e, top, BAR + 0.4);
   }
-  for (const s of [-1, 1]) {
-    const side = (x: number, t: number) => [Math.min(s * x, s * (x + t)), Math.max(s * x, s * (x + t))] as const;
-    const [ex0, ex1] = side(MALL_X, 0.4);
-    b.box(wall, ex0, cf, -BAR, ex1, top, BAR);
-    wallZ(b, wall, ...side(BAR, 0.4), GATE_N, -BAR - 0.4, cf, top);
-    wallZ(b, wall, ...side(LINK0 - 0.4, 0.4), GATE_N, -BAR - 0.4, cf, top);
-    wallZ(b, wall, ...side(LINK1, 0.4), FRONT - 0.4, -BAR - 0.4, cf, top);
-    // South and north walls of the north concourse, either side of the gates and the atrium.
-    b.box(wall, Math.min(s * BAR, s * LINK0), cf, GATE_N, Math.max(s * BAR, s * LINK0), top, GATE_N + 0.4);
-    b.box(wall, Math.min(s * HX, s * (LINK1 + 0.4)), cf, FRONT - 0.4, Math.max(s * HX, s * (LINK1 + 0.4)), top, FRONT);
-    // Atrium basement walls, up to the underside of the level-1 ring.
-    wallZ(b, 'panel:#ebe8de', ...side(HX, 0.4), HN, FRONT - 0.4, cf, GY - SLAB);
+  for (const s of [-1, 1]) stoneBox(b, wall, Math.min(s * MALL_X, s * (MALL_X + 0.4)), cf, -BAR, Math.max(s * MALL_X, s * (MALL_X + 0.4)), top, BAR);
+
+  // ── Walls: the passages and the Yanagisuji gate hall north of the mall ──
+  stoneZ(b, wall, w0 - 0.4, w0, FRONT - 0.4, -BAR - 0.4, cf, top);
+  stoneZ(b, wall, w1, w1 + 0.4, XP, -BAR - 0.4, cf, top);
+  stoneX(b, wall, w1, XE + 0.4, XP, XP + 0.4, cf, top, [CP]);
+  stoneBox(b, wall, XE, cf, FRONT, XE + 0.4, top, XP);
+  stoneX(b, wall, w0 - 0.4, XE + 0.4, FRONT - 0.4, FRONT, cf, top, [[-8, 8]]);
+  stoneZ(b, wall, c1, c1 + 0.4, XP + 0.4, -BAR - 0.4, cf, tall + 0.5, [[P9 - 4, P9]]);
+  b.box(wall, c1, cf + 2.7, P9 - 4, c1 + 0.4, tall + 0.5, P9);
+  stoneZ(b, wall, c0 - 0.4, c0, XP + 0.4, YH.z0, cf, tall + 0.5);
+  stoneZ(b, wall, c0 - 0.4, c0, YH.z0, -BAR - 0.4, cf, top, [LOB]);
+
+  // ── Inside the Central Gate: a lobby, the Yanagisuji landing off it, and a corridor south ──
+  const yHeads = [-29.6, -24.4]; // the two stair heads facing each other across the landing
+  stoneX(b, wall, COR - 0.4, c0 - 0.4, LOB[0] - 0.4, LOB[0], cf, top);
+  stoneX(b, wall, TX, c0 - 0.4, LOB[1], LOB[1] + 0.4, cf, top);
+  stoneZ(b, wall, COR - 0.4, COR, LOB[0], -BAR - 0.4, cf, top, [yHeads]);
+  stoneZ(b, wall, TX, TX + 0.4, LOB[1] + 0.4, -BAR - 0.4, cf, top);
+  stoneBox(b, wall, -WELL - 0.4, cf, yHeads[0], -WELL, top, yHeads[1]);
+  // Each Yanagisuji stair in its own well: [head z, foot-end z].
+  for (const [head, far] of [[yHeads[0], -38.4], [yHeads[1], -15.6], [-4.4, 4.4]]) {
+    const za = Math.min(head, far), zb = Math.max(head, far);
+    for (const sx of [-1, 1]) stoneBox(b, wall, Math.min(sx * 1.95, sx * WELL), cf, za, Math.max(sx * 1.95, sx * WELL), top, zb);
+    stoneBox(b, wall, -WELL, cf, far < head ? far - 0.4 : far, WELL, top, far < head ? far : far + 0.4);
+    headPortal(b, wall, cf, top, 0, head, 'x', o.line.color);
   }
-  b.box('panel:#ebe8de', -HX - 0.4, cf, HN - 0.4, HX + 0.4, GY - SLAB, HN);
-  b.box(wall, -HX, top, FRONT - 0.4, HX, GY - SLAB, FRONT);
+  // Landing walls between the lobby's edge and the wells.
+  for (const z of yHeads) stoneBox(b, wall, WELL, cf, z < -27 ? z - 0.4 : z, COR - 0.4, top, z < -27 ? z : z + 0.4);
+  b.sign({ k: 'machine', v: 'window' }, 9, cf + 1.5, LOB[0] + 0.03, [0, 1], 5.2, 2.2);
+  b.sign({ k: 'machine', v: 'door' }, 5.2, cf + 1.05, LOB[0] + 0.03, [0, 1], 1.0, 2.1);
+
+  // ── Walls: Willow Court's basement, up to the underside of the level-1 gallery ──
+  stoneZ(b, PANEL, IX, IX + 0.4, HN, FRONT - 0.4, cf, GY);
+  stoneZ(b, PANEL, -IX - 0.4, -IX, HN, FRONT - 0.4, cf, GY, FOOD);
+  for (const [a, e] of FOOD) b.box(PANEL, -IX - 0.4, cf + 2.8, a, -IX, GY, e);
+  stoneBox(b, PANEL, -IX - 0.4, cf, HN - 0.4, IX + 0.4, GY, HN);
+  b.box(PANEL, -IX, top, FRONT - 0.4, IX, GY - SLAB, FRONT);
+
+  // ── Inside the West Gate: a lobby at the head of the Akanesuji escalators, and three corridors ──
+  // The Akanesuji corridor runs along the back rooms (north), the Shiokaze–Sumire corridor
+  // along the south wall, and a link corridor joins both to the Central Gate's.
+  const wh = -WA0 - runA; // head of the west escalator bank
+  stoneBox(b, wall, TX, cf, -BAR, TX + 0.4, top, BAR);
+  stoneBox(b, wall, GATE_W + 2, cf, -BAR, -TX, top, -7);
+  b.sign({ k: 'machine', v: 'window' }, -39, cf + 1.5, -6.97, [0, 1], 5.2, 2.2);
+  b.sign({ k: 'machine', v: 'door' }, -33.5, cf + 1.05, -6.97, [0, 1], 1.0, 2.1);
+  b.sign({ k: 'label', text: 'お手洗い', sub: 'Toilets', fg: '#fff', bg: '#0d3b66' }, -17, cf + 2.7, -6.97, [0, 1], 3.2, 0.5);
+  for (const x of [-18.2, -15.8]) b.sign({ k: 'machine', v: 'door' }, x, cf + 1.05, -6.97, [0, 1], 1.0, 2.1);
+  for (const x of [-28, -24, -12.2]) {
+    b.deco(GOLD, x - 0.67, cf + 0.58, -7, x + 0.67, cf + 2.42, -6.988);
+    b.sign({ k: 'poster', v: Math.round(Math.abs(x)) }, x, cf + 1.5, -6.97, [0, 1], 1.2, 1.7);
+  }
+  // Solid blocks between the corridors: south of the shaft, and round the third Yanagisuji well.
+  stoneBox(b, wall, wh, cf, 2.16, -12.7, top, 6);
+  stoneBox(b, wall, -12.7, cf, -2.3, -WELL, top, 6);
+  stoneBox(b, wall, -WELL, cf, 4.8, WELL, top, 6);
+  stoneBox(b, wall, WELL, cf, -4.4, COR, top, 6);
+  headPortal(b, wall, cf, top, wh, 0, 'z', c.line.color);
+  // Akanesuji corridor: the line's colour along the shaft wall, fare adjustment machines, an information window.
+  b.deco(`flat:${c.line.color}`, wh, cf + 2.5, -2.19, -12.7, cf + 2.64, -2.16);
+  b.deco(GOLD, wh, cf + 2.44, -2.185, -12.7, cf + 2.48, -2.16);
+  for (let x = wh + 3; x < -15; x += 3.4) {
+    b.deco(GOLD, x - 0.67, cf + 0.5, -2.172, x + 0.67, cf + 2.34, -2.16);
+    b.sign({ k: 'poster', v: Math.round(-x) + 11 }, x, cf + 1.42, -2.18, [0, -1], 1.2, 1.7);
+  }
+  b.with({ rot: 2, t: [-6.4, 0, -2.3] }, () => ticketMachines(c, cf, 0, 0, 4));
+  b.sign({ k: 'label', text: 'のりこし精算', sub: 'Fare adjustment', fg: '#fff', bg: '#0d3b66' }, -8.5, cf + 3.1, -2.32, [0, -1], 3.0, 0.4);
+  b.sign({ k: 'machine', v: 'window' }, COR + 0.03, cf + 1.5, 1, [1, 0], 4.0, 2.2);
+  b.sign({ k: 'label', text: 'ご案内', sub: 'Information', fg: '#f3e3a0', bg: '#12382c' }, COR + 0.03, cf + 2.95, 1, [1, 0], 2.4, 0.4);
+  // Shiokaze–Sumire corridor: shops inside the gates along its north wall, the lines' colours along the south.
+  shopsX(h, wh + 0.6, -2.6, 6, 1);
+  const smLines = [h.s, h.m].filter((x): x is Ctx => !!x);
+  smLines.forEach((x, i) => {
+    for (const [xa, xb] of [[wh, s0 - 0.4], [SPE + 0.4, COR]]) b.deco(`flat:${x.line.color}`, xa, cf + 2.5 + i * 0.16, BAR - 0.03, xb, cf + 2.62 + i * 0.16, BAR);
+  });
+  for (const x of [-19.5, -15.5, -11.5, -7.5, -3.5, 0.5]) {
+    b.deco(GOLD, x - 0.67, cf + 0.5, BAR - 0.012, x + 0.67, cf + 2.34, BAR);
+    b.sign({ k: 'poster', v: Math.round(-x) + 40 }, x, cf + 1.42, BAR - 0.02, [0, -1], 1.2, 1.7);
+  }
+  b.sign({ k: 'mural', ...c.style.mural }, TX - 0.02, cf + 1.75, -6, [-1, 0], 9, 2.6);
+
+  // ── The East Gate: the east bank's shaft and a glazed vestibule, an island in the mall ──
+  for (const s of [-1, 1]) {
+    const za = Math.min(s * 5, s * 5.2), zb = Math.max(s * 5, s * 5.2);
+    b.block(xh, cf, za, GATE_E, top, zb);
+    b.deco(wall, xh, cf, za, GATE_E, cf + 0.9, zb);
+    b.deco('glass', xh, cf + 0.9, s * 5.08, GATE_E, cf + 3.0, s * 5.12);
+    b.deco(wall, xh, cf + 3.0, za, GATE_E, top, zb);
+    b.deco(`flat:${c.line.color}`, xh, cf + 3.0, za - 0.01, GATE_E, cf + 3.14, zb + 0.01);
+    b.box(wall, xh - 0.3, cf, Math.min(s * 2.16, s * 5.2), xh, top, Math.max(s * 2.16, s * 5.2));
+    // The shaft's outer faces carry the line colour and posters.
+    const zf = s * 2.17;
+    b.deco(`flat:${c.line.color}`, EA0, cf + 2.5, Math.min(zf, s * 2.16), xh - 0.3, cf + 2.66, Math.max(zf, s * 2.16));
+    b.deco(GOLD, EA0, cf + 2.44, Math.min(zf, s * 2.16), xh - 0.3, cf + 2.48, Math.max(zf, s * 2.16));
+    for (let x = EA0 + 2; x < xh - 2; x += 3.2) b.sign({ k: 'poster', v: Math.round(x) + s }, x, cf + 1.35, s * 2.18, [0, s], 1.2, 1.7);
+  }
+  b.sign({ k: 'guide', ja: `${c.line.nameJa} 東改札`, en: `${c.line.nameEn} — East gate`, bg: 'navy', badges: [c.line.id], arrow: 'right' }, EA0 - 0.32, cf + 2.6, 0, [-1, 0], 4.0, 0.46);
+  b.sign({ k: 'mural', ...c.style.mural }, EA0 - 0.32, cf + 1.3, 0, [-1, 0], 4.0, 1.6);
+
+  // ── Gate lines ──
+  b.with({ t: [GATE_Y, 0, -29] }, () => gates(h, 9, -6, 6, false));
+  b.with({ ...MIRROR_X, t: [GATE_W, 0, 0] }, () => gates(h, 7, -BAR, BAR));
+  b.with({ t: [GATE_E, 0, 0] }, () => gates(h, 5, -5, 5, false));
 
   // ── Lighting and pillars ──
-  const lights = (x0: number, x1: number, z0: number, z1: number) => {
-    for (let x = x0 + 2; x + 2.4 < x1; x += 4.8) for (let z = z0 + 3; z < z1 - 1.5; z += 6) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, top);
+  const lights = (x0: number, x1: number, z0: number, z1: number, y = top) => {
+    for (let x = x0 + 2; x + 2.4 < x1; x += 4.8) for (let z = z0 + 3; z < z1 - 1.5; z += 6) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, y);
   };
   lights(-MALL_X, MALL_X, -BAR, BAR);
-  lights(-BAR, BAR, GATE_N, -BAR);
-  lights(-LINK1, LINK1, FRONT, GATE_N);
-  for (const s of [-1, 1]) lights(Math.min(s * LINK0, s * LINK1), Math.max(s * LINK0, s * LINK1), GATE_N, -BAR);
-  const pillar = (x: number, z: number, y1: number) => column(b, x, z, cf, y1, 0.4, c.style.pillar, c.style.accent, cf + 2.5);
-  for (let x = -MALL_X + 6; x < MALL_X; x += 8) {
-    if (Math.abs(Math.abs(x) - PAID_X) < 5) continue;
-    for (const z of [-6.5, 6.5]) pillar(x, z, top);
-  }
-  for (const x of [-36, -20, 20, 36]) pillar(x, -56, top);
+  lights(COR, YH.x1, LOB[0], LOB[1]);
+  lights(COR - 1.4, TX + 1.4, LOB[1], -BAR);
+  ceilingLight(b, -1.2, 1.2, -27.3, -26.7, top);
+  lights(w0, c0 - 0.4, FRONT, XP);
+  lights(c1 + 0.4, XE, FRONT, XP);
+  lights(w0, w1, XP, -BAR);
+  lights(c0, c1, BAR, BAR + 6);
+  const pillar = (x: number, z: number, y1: number) => prop(b, y1 > top ? 'col54' : 'col36', x, cf, z, 0, [0.45, 0.45], y1 - cf);
+  for (let x = 62; x < MALL_X; x += 8) for (const s of [-1, 1]) for (const z of [-6.5, 6.5]) pillar(s * x, z, top);
+  for (const x of [16, 22]) for (const z of [-6.5, 6.5]) pillar(x, z, top);
 
-  // ── Gate lines: east and west onto the mall, north onto the atrium ──
-  const gates = () => {
-    gateLine(c, cf, BAR, lines, H1);
-    b.deco(wall, -3, cf + 3.0, 5.0, 3, top, BAR);
-  };
-  b.with({ t: [PAID_X, 0, 0] }, gates);
-  b.with({ ...MIRROR_X, t: [-PAID_X, 0, 0] }, gates);
-  b.with({ rot: 3, t: [0, 0, GATE_N] }, gates);
+  // ── Central Passage: a colonnade under a luminous coffered ceiling, trimmed in gold ──
+  for (let z = XP + 5; z < -BAR - 2; z += 6) {
+    pillar(c1 - 1.2, z, tall);
+    if (Math.abs(z + 29) > 11) pillar(c0 + 1.2, z, tall);
+  }
+  for (let z = XP + 0.4 + 4.3; z < -BAR - 2; z += 8.6) for (const x of [cx - 2.3, cx + 2.3]) prop(b, 'lantern', x, tall - 0.45, z + 0.175);
+  // Coffers: cream beams across and along, a light panel deep in each bay.
+  for (let z = XP + 0.4; z < -BAR - 0.4; z += 4.3) b.deco(BEAM, c0, tall - 0.45, z, c1, tall, z + 0.35);
+  for (const x of [c0, c0 + 3.2, c1 - 3.5, c1 - 0.3]) b.deco(BEAM, x, tall - 0.45, XP + 0.4, x + 0.3, tall, -BAR - 0.4);
+  for (let z = XP + 0.4; z + 4.3 < -BAR; z += 4.3) {
+    b.deco('light', c0 + 3.9, tall - 0.05, z + 0.9, c1 - 3.9, tall - 0.02, z + 3.75);
+    b.deco(GOLD, c0 + 3.5, tall - 0.47, z + 0.33, c1 - 3.5, tall - 0.45, z + 0.37);
+  }
+  for (const [xa, xb] of [[c0, c0 + 0.03], [c1 - 0.03, c1]]) {
+    b.deco(GOLD, xa, cf + H1, XP + 0.4, xb, cf + H1 + 0.1, -BAR - 0.4);
+    b.deco(GOLD, xa, tall - 0.16, XP + 0.4, xb, tall - 0.1, -BAR - 0.4);
+  }
+  b.sign({ k: 'label', text: '中央通路', sub: 'Central Passage', fg: '#f3e3a0', bg: '#12382c' }, c1 - 0.04, cf + 4.6, -36, [-1, 0], 5, 0.8);
+  b.sign({ k: 'label', text: '中央改札', sub: 'Central Gate', fg: '#f3e3a0', bg: '#12382c' }, c0 - 0.04, cf + 4.5, -29, [1, 0], 9, 1.0);
+  b.sign({ k: 'clock' }, cx, cf + 4.5, XP + 0.42, [0, 1], 1.5, 1.5, { dynamic: true });
+  shopsZ(h, c1, XP + 1, P9 - 4.5, -1);
+  b.with({ rot: 3, t: [c0, 0, -47.6] }, () => ticketMachines(c, cf, 0, 0, 6));
+
+  // ── North Passage: shops both sides, the door to Willow Court in the middle ──
+  shopsX(h, w1 + 1, c0 - 1, XP, -1);
+  shopsX(h, w0 + 1, -IX - 1, FRONT, 1);
+  shopsX(h, 9, IX, FRONT, 1);
+  for (const s of [-1, 1]) b.deco(GOLD, Math.min(s * 8, s * 8.12), cf, FRONT - 0.42, Math.max(s * 8, s * 8.12), top, FRONT + 0.02);
+  b.deco(GOLD, -8.12, top - 0.12, FRONT - 0.42, 8.12, top, FRONT + 0.02);
+  // Its east end is held for a passage to a new metro line.
+  b.with({ rot: 1 }, () => hoardingX(b, FRONT, XP, cf, -(XE - 3), 1));
+  b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), XE - 3.14, cf + 1.15, (FRONT + XP) / 2, [-1, 0], 6.4, 1.0);
+  b.sign(gateMark, XE - 6.5, cf + 0.012, (FRONT + XP) / 2, null, 6, 1.2, { top: [1, 0] });
+
+  // ── West Passage: coin lockers down one wall, shops down the other ──
+  shopsZ(h, w1, XP + 1, -BAR - 1, -1);
+  for (let z = XP + 2; z + 5 < -BAR; z += 7) {
+    b.box('metal:#b9bdc2', w0, cf, z, w0 + 0.6, cf + 1.9, z + 5);
+    for (let k = 1; k < 8; k++) b.deco('flat:#6b7178', w0 + 0.6, cf + 0.05, z + k * 0.625 - 0.01, w0 + 0.61, cf + 1.85, z + k * 0.625 + 0.01);
+    for (const y of [0.65, 1.25]) b.deco('flat:#6b7178', w0 + 0.6, cf + y, z, w0 + 0.61, cf + y + 0.02, z + 5);
+    b.sign({ k: 'label', text: 'コインロッカー', sub: 'Coin lockers', fg: '#fff', bg: '#0d3b66' }, w0 + 0.02, cf + 2.4, z + 2.5, [1, 0], 3.0, 0.5);
+  }
+
+  // ── South of the mall: a second stub held for another metro line ──
+  hoardingX(b, c0, c1, cf, BAR + 4.4, -1);
+  b.sign(reserved('地下鉄新線 改札・連絡通路', 'gates and passage to a new metro line'), cx, cf + 1.15, BAR + 4.26, [0, -1], 6.4, 1.0);
+  b.sign(gateMark, cx, cf + 0.012, BAR + 2, null, 6, 1.2, { top: [0, 1] });
+  stoneZ(b, wall, c0 - 0.4, c0, BAR + 0.4, BAR + 5.4, cf, top);
+  stoneZ(b, wall, c1, c1 + 0.4, BAR + 0.4, BAR + 5.4, cf, top);
+  b.box(wall, c0, cf, BAR + 5, c1, top, BAR + 5.4);
+
+  // ── Dark stone borders along the walls, so each passage reads as a street ──
+  for (const [x0, z0, x1, z1] of [
+    [c0, XP, c0 + 0.6, YH.z0], [c1 - 0.6, XP, c1, -BAR], [w0, XP, w0 + 0.6, -BAR], [w1 - 0.6, XP, w1, -BAR],
+    [w0, FRONT, -8, FRONT + 0.6], [8, FRONT, XE - 3, FRONT + 0.6], [w1, XP - 0.6, c0, XP], [c1, XP - 0.6, XE - 3, XP],
+    [-MALL_X, -BAR, GATE_W, -BAR + 0.6], [-MALL_X, BAR - 0.6, GATE_W, BAR], [c1, -BAR, MALL_X, -BAR + 0.6], [TX + 0.4, BAR - 0.6, MALL_X, BAR],
+  ]) b.deco(BORDER, x0, cf, z0, x1, cf + 0.006, z1);
 
   // ── Wayfinding ──
   const plat = (x: Ctx) => `${x.line.nameJa} のりば ${st.platforms[x.line.id].join('・')}`;
+  const deep = [c, h.s, h.m].filter((x): x is Ctx => !!x).map((x) => x.line);
   const toA: SignContent = { k: 'guide', ja: plat(c), en: `${c.line.nameEn} platforms`, bg: 'navy', badges: [c.line.id], arrow: 'up' };
+  const toDeep: SignContent = { k: 'guide', ja: `${deep.map((l) => l.nameJa).join('・')} のりば`, en: `${deep.map((l) => l.nameEn).join(' / ')} platforms`, bg: 'navy', badges: deep.map((l) => l.id), arrow: 'up' };
   const toYs: SignContent = { k: 'guide', ja: plat(o), en: `${o.line.nameEn} platforms`, bg: 'navy', badges: [o.line.id], arrow: 'up' };
-  const mall = (ja: string, en: string): SignContent => ({ k: 'guide', ja: `${ja}・ヤナギモール`, en: `${en} / Yanagi Mall`, bg: 'yellow', arrow: 'up' });
-  const runA = r2((cf - h.pfA) * 1.7);
-  b.hang(toA, EX0 + runA + 3, cf + 2.75, 0, 5.2, 0.5, { ceil: top, back: mall('東改札', 'East gate') });
-  b.hang(mall('西改札', 'West gate'), -EX0 - runA - 3, cf + 2.75, 0, 5.2, 0.5, { ceil: top, back: toA });
-  hangZ(
-    b,
-    { k: 'guide', ja: '北改札・川湊駅', en: 'North gate / Kawaminato Station', bg: 'yellow', arrow: 'up' },
-    { k: 'guide', ja: `${c.line.nameJa}・${o.line.nameJa} のりば`, en: 'To all platforms', bg: 'navy', badges: lines, arrow: 'up' },
-    0, cf + 2.75, -BAR - 2.5, 6.4, 0.5, top,
-  );
-  for (const s of [-1, 1] as const) b.sign(toYs, s * (BAR - 0.02), cf + 2.6, -27, [-s, 0], 4.4, 0.46);
-  // Outside the north gate: metro one way, Kawaminato Station the other.
-  hangZ(
-    b,
-    { k: 'guide', ja: '川湊駅・駅前広場', en: 'Kawaminato Station / Plaza', bg: 'yellow', arrow: 'up' },
-    { k: 'guide', ja: `地下鉄 ${st.nameJa}駅 のりば`, en: `Metro: ${st.nameRomaji} Station`, bg: 'navy', badges: lines, arrow: 'up' },
-    0, cf + 2.75, FRONT + 3, 8, 0.56, top,
-  );
+  const toStation: SignContent = { k: 'guide', ja: '川湊駅・金の柳・駅前広場', en: 'Kawaminato Station / Kin no Yanagi / Plaza', bg: 'yellow', arrow: 'up' };
+  const toMall: SignContent = { k: 'guide', ja: 'ヤナギモール・出口 1–8', en: 'Yanagi Mall / Exits 1–8', bg: 'yellow', arrow: 'up' };
+  const toMetro: SignContent = { k: 'guide', ja: `地下鉄 ${st.nameJa}駅 のりば`, en: `Metro: ${st.nameRomaji} Station`, bg: 'navy', badges: lines, arrow: 'up' };
+  // Central Passage, both ends.
+  hangZ(b, toStation, toMetro, cx, cf + 3.0, XP + 3, 7, 0.56, tall);
+  hangZ(b, toStation, toMall, cx, cf + 3.0, -BAR - 3, 7, 0.56, tall);
+  // North Passage: either side of the court door, and where the West Passage leaves it.
+  b.hang({ ...toStation, arrow: 'right' }, 11, cf + 2.75, (FRONT + XP) / 2, 5.6, 0.5, { ceil: top, back: { ...toMetro, arrow: 'up' } });
+  b.hang({ k: 'guide', ja: '西連絡通路・出口 5–8・タクシー', en: 'West Passage / Exits 5–8 / Taxi', bg: 'yellow', arrow: 'up' }, -11, cf + 2.75, (FRONT + XP) / 2, 5.6, 0.5, { ceil: top, back: { ...toStation, arrow: 'left' } });
+  hangZ(b, { k: 'guide', ja: '川湊駅・中央通路', en: 'Kawaminato Station / Central Passage', bg: 'yellow', arrow: 'up' }, toMall, (w0 + w1) / 2, cf + 2.75, XP + 2, 5.6, 0.5, top);
+  hangZ(b, { k: 'guide', ja: '西連絡通路・川湊駅', en: 'West Passage / Kawaminato Station', bg: 'yellow', arrow: 'up' }, toMall, (w0 + w1) / 2, cf + 2.75, -BAR - 2.5, 5.6, 0.5, top);
+  // Inside the gates: one sign at each corridor mouth.
+  const toSM: SignContent = smLines.length
+    ? { k: 'guide', ja: `${smLines.map((x) => x.line.nameJa).join('・')} のりば`, en: `${smLines.map((x) => x.line.nameEn).join(' / ')} platforms`, bg: 'navy', badges: smLines.map((x) => x.line.id), arrow: 'up' }
+    : toA;
+  const outC: SignContent = { k: 'guide', ja: '中央改札・川湊駅', en: 'Central gate / Kawaminato Station', bg: 'yellow', arrow: 'up' };
+  const outW: SignContent = { k: 'guide', ja: '西改札・ヤナギモール', en: 'West gate / Yanagi Mall', bg: 'yellow', arrow: 'up' };
+  // Lobby → landing (Yanagisuji), lobby → corridor (the deep lines).
+  b.hang(toYs, COR + 0.6, cf + 2.75, -27, 4.4, 0.46, { ceil: top, back: outC });
+  hangZ(b, { ...toYs, ja: `${toYs.ja}・中央改札` }, toDeep, (COR + TX) / 2, cf + 2.75, LOB[1] + 0.9, 5.2, 0.5, top);
+  // Link corridor: Akanesuji and the third Yanagisuji stair to the west, Shiokaze–Sumire further on.
+  hangZ(b, outC, { ...toA, ja: `${toA.ja}・${o.line.nameJa}`, badges: [c.line.id, o.line.id], arrow: 'right' }, (COR + TX) / 2, cf + 2.75, -BAR + 1.2, 5.2, 0.5, top);
+  hangZ(b, outC, { ...toSM, arrow: 'right' }, (COR + TX) / 2, cf + 2.75, 4.6, 5.2, 0.5, top);
+  // West Gate lobby: the escalators ahead, a corridor either side.
+  b.hang(outW, wh - 3, cf + 2.75, 0, 4.2, 0.5, { ceil: top, back: toA });
+  b.hang(outW, wh + 1.2, cf + 2.75, -4.65, 4.0, 0.46, { ceil: top, back: { ...toYs, ja: `${toYs.ja}・中央改札` } });
+  b.hang(outW, wh + 1.2, cf + 2.75, 9, 5.2, 0.46, { ceil: top, back: toSM });
 
-  // ── Ticket machines ──
-  b.with({ rot: 2, t: [30, 0, GATE_N] }, () => ticketMachines(c, cf, 0, 0, 5));
-  b.with({ rot: 2, t: [-18, 0, GATE_N] }, () => ticketMachines(c, cf, 0, 0, 5));
+  // ── Ticket machines outside the other gates ──
+  b.with({ rot: 3, t: [TX + 0.4, 0, 3.2] }, () => ticketMachines(c, cf, 0, 0, 6));
 
-  // ── Yanagi Mall: one wing east of the paid area, one west ──
-  let k = 3;
-  const run = (x0: number, x1: number, z: number, n: 1 | -1) => {
-    const count = Math.max(1, Math.round((x1 - x0) / 8)), w = (x1 - x0) / count;
-    for (let i = 0; i < count; i++) shopFront(h, x0 + i * w, x0 + (i + 1) * w, z, n, SHOPS[k++ % SHOPS.length]);
-  };
-  const wing = (label: string) => {
+  // ── Yanagi Mall: kiosks down the middle make two aisles of it ──
+  shopsX(h, c1 + 1.5, xh - 1, -BAR, 1);
+  shopsX(h, c1 + 1.5, xh - 1, BAR, -1);
+  const wing = (label: string, nums: string, what: { ja: string; en: string }) => {
     ticketMachines(c, cf, 64, -BAR, 5);
-    run(76.5, 115.5, -BAR, 1);
-    run(120.5, MALL_X - 0.5, -BAR, 1);
-    run(50, 71.5, BAR, -1);
-    run(76.5, 115.5, BAR, -1);
-    run(120.5, MALL_X - 0.5, BAR, -1);
-    b.hang({ k: 'label', text: 'ヤナギモール', sub: `Yanagi Mall — ${label}`, fg: '#f3e3a0', bg: '#12382c' }, 54, cf + 2.85, 0, 9, 0.95, { ceil: top });
-    b.sign({ k: 'mural', ...c.style.mural }, MALL_X - 0.02, cf + 1.75, 0, [-1, 0], 18, 2.6);
-    // Planters, benches and vending down the middle.
-    for (const x of [68, 92, 108, 132]) {
-      b.box('flat:#4a4038', x - 1.4, cf, -0.45, x + 1.4, cf + 0.55, 0.45);
-      b.mesh('leaf2', 'sphere', x, cf + 0.95, 0, 2.7, 0.95, 1.25);
-      for (const s of [-1, 1]) b.box('wood:#6b5440', x - 1.2, cf, Math.min(s * 0.6, s * 1.1), x + 1.2, cf + 0.45, Math.max(s * 0.6, s * 1.1));
+    // Over each aisle: trains inward, exits outward.
+    const inward: SignContent = { k: 'guide', ja: 'のりば・川湊駅', en: 'Trains / Kawaminato Station', bg: 'navy', badges: lines, arrow: 'up' };
+    const outward: SignContent = { k: 'guide', ja: `出口 ${nums}・${what.ja}`, en: `Exits ${nums} / ${what.en}`, bg: 'yellow', arrow: 'up' };
+    for (const x of [82, 114, 130]) for (const z of [-7, 7]) b.hang(inward, x, cf + 2.75, z, 4.6, 0.46, { ceil: top, back: outward });
+    for (const x of [86, 102, 118, 134]) for (const z of [-6.5, 6.5]) {
+      prop(b, 'bins', x + 1.05, cf, z, 0, [0.5, 0.22], 0.9);
     }
+    b.deco('tactileBar', 60, cf, -4.15, MALL_X - 4, cf + 0.008, -3.85);
+    shopsX(h, 76.5, 115.5, -BAR, 1);
+    shopsX(h, 120.5, MALL_X - 0.5, -BAR, 1);
+    shopsX(h, 50, 71.5, BAR, -1);
+    shopsX(h, 76.5, 115.5, BAR, -1);
+    shopsX(h, 120.5, MALL_X - 0.5, BAR, -1);
+    b.hang({ k: 'label', text: 'ヤナギモール', sub: `Yanagi Mall — ${label}`, fg: '#f3e3a0', bg: '#12382c' }, 62, cf + 2.85, 0, 9, 0.95, { ceil: top });
+    b.sign({ k: 'mural', ...c.style.mural }, MALL_X - 0.02, cf + 1.75, 0, [-1, 0], 18, 2.6);
+    for (const x of [72, 90, 106, 124, 140]) {
+      b.box(TIMBER, x, cf, -1.5, x + 7, top, 1.5);
+      b.deco(BORDER, x - 0.5, cf, -2, x + 7.5, cf + 0.006, 2);
+      b.deco(GOLD, x - 0.01, cf + 3.3, -1.51, x + 7.01, cf + 3.36, 1.51);
+      shopFront(h, x, x + 7, 1.5, 1, SHOPS[shopK++ % SHOPS.length]);
+      shopFront(h, x, x + 7, -1.5, -1, SHOPS[shopK++ % SHOPS.length]);
+    }
+    prop(b, 'totem', 84.5, cf, 0, 0, [0.75, 0.2], 2.2);
+    for (const s of [-1, 1] as const) b.sign({ k: 'areamap', station: st.id }, 84.5, cf + 1.31, s * 0.07, [0, s], 1.2, 1.62);
+    prop(b, 'bench', 118.5, cf, -0.3, 0, [0.95, 0.5], 0.5);
+    prop(b, 'bench', 118.5, cf, 0.3, 2);
+    prop(b, 'planter', 135.5, cf, 0, 0, [0.6, 0.6], 1.2);
+    for (const x of [72, 106, 140]) prop(b, 'planter', x - 1.1, cf, 0, 0, [0.6, 0.6], 1.2);
     vending(b, 100, cf, 0, [0, 1], 'vending');
     vending(b, 101.1, cf, 0, [0, -1], 'vending2');
   };
-  b.with({}, () => wing('East'));
-  b.with(MIRROR_X, () => wing('West'));
+  b.with({}, () => wing('East', '1–4', { ja: 'バスのりば', en: 'Bus terminal' }));
+  b.with(MIRROR_X, () => wing('West', '5–8', { ja: 'タクシーのりば', en: 'Taxi rank' }));
 
   // ── Exits 1–8 up to the avenue's sidewalks ──
   let n = 1;
@@ -370,86 +845,116 @@ function concourseLevel(h: H, holes: Rect[]) {
       }
     });
   }
+  // Exit 9, the Central entrance: up from the Central Passage to the station plaza.
+  b.with({ rot: 3, t: [c1, 0, P9 - 4] }, () => exit(c, cf, '9'));
+  b.sign({ k: 'label', text: '中央口', sub: 'Central entrance — Station plaza', fg: '#f3e3a0', bg: '#12382c' }, c1 - 0.04, cf + 3.25, P9 - 2, [-1, 0], 3.6, 0.5);
 
-  // ── Stub passage south of the paid concourse: to the beside line, or closed by a hoarding ──
+  // ── South Passage off the transfer hall: to the beside lines, or closed by a hoarding ──
   const sl = h.s?.line;
   const zs = besideZ(h);
   const beside = [h.s, h.m].filter((x): x is Ctx => !!x).map((x) => x.line);
-  const end = BAR + (h.m ? zs[1] + 2.4 - BAR : 6); // the passage runs south past the last shaft
-  b.box(floor, stub[0], cf - SLAB, BAR, stub[1], cf, end);
-  b.box('ceil', stub[0] - 0.4, top, BAR, stub[1] + 0.4, top + 0.5, end + 0.4);
-  wallZ(b, wall, stub[0] - 0.4, stub[0], BAR + 0.4, end + 0.4, cf, top);
-  wallZ(b, wall, stub[1], stub[1] + 0.4, BAR + 0.4, end + 0.4, cf, top, sl ? zs.map((z) => [z - 1.86, z + 1.86]) : []);
-  b.box(wall, stub[0], cf, end, stub[1], top, end + 0.4);
-  for (let z = BAR + 2; z + 2 < end; z += 5) ceilingLight(b, stub[0] + 2.8, stub[1] - 2.8, z, z + 2, top);
+  const end = sl ? SG.end : BAR + 6;
+  const sx = (s0 + s1) / 2;
+  b.box(floor, s0, cf - SLAB, BAR, s1, cf, end);
+  b.box('ceil', s0 - 0.4, top, BAR, s1 + 0.4, top + 0.5, end + 0.4);
+  stoneZ(b, wall, s1, s1 + 0.4, BAR + 0.4, end + 0.4, cf, top, sl ? [[SG.z, SG.z + 4]] : []);
+  stoneZ(b, wall, s0 - 0.4, s0, BAR + 0.4, end + 0.4, cf, top, sl ? zs.map((z) => [z - 1.86, z + 1.86]) : []);
+  stoneBox(b, wall, s0, cf, end, s1, top, end + 0.4);
+  for (let z = BAR + 2; z + 2 < end; z += 5) ceilingLight(b, s0 + 1.9, s0 + 3.1, z, z + 2, top);
   if (sl) {
     const to = (l: (typeof beside)[number]): SignContent =>
       ({ k: 'guide', ja: `${l.nameJa} のりば ${st.platforms[l.id].join('・')}`, en: `${l.nameEn} platforms`, bg: 'navy', badges: [l.id], arrow: 'up' });
-    b.sign({ k: 'mural', ...c.style.mural }, (stub[0] + stub[1]) / 2, cf + 1.6, end - 0.02, [0, -1], 7, 2.2);
-    beside.forEach((l, i) => b.sign(to(l), stub[1] - 0.02, cf + 2.75, zs[i], [-1, 0], 3.6, 0.44));
+    beside.forEach((l, i) => b.sign(to(l), s0 + 0.02, cf + 2.75, zs[i], [1, 0], 3.6, 0.44));
     b.hang(beside.length > 1
       ? { k: 'guide', ja: beside.map((l) => l.nameJa).join('・'), en: beside.map((l) => l.nameEn).join(' / '), bg: 'navy', badges: beside.map((l) => l.id), arrow: 'up' }
-      : to(sl), (stub[0] + stub[1]) / 2, cf + 2.75, BAR - 2.5, 5.2, 0.5, { ceil: top });
-    b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, end, `${beside.map((l) => l.nameJa).join('・')} 連絡通路`, `${beside.map((l) => l.nameEn).join(' / ')} passage`);
+      : to(sl), (s0 + SPE) / 2, cf + 2.75, BAR - 1.6, 4.4, 0.5, { ceil: top });
+    b.zone('passage', s0, cf - 0.2, BAR, s1, top, SG.gate, `${beside.map((l) => l.nameJa).join('・')} 連絡通路`, `${beside.map((l) => l.nameEn).join(' / ')} passage`);
+    // The walkway keeps to the shaft side; the east 3 m is a closed strip of lockers, adverts and a shop.
+    const stripEnd = SG.gate - 1.5;
+    stoneBox(b, wall, SPE, cf, BAR + 0.4, s1, top, stripEnd);
+    b.sign({ k: 'machine', v: 'locker' }, SPE - 0.03, cf + 1.0, 19.5, [-1, 0], 4.2, 1.9);
+    b.sign({ k: 'label', text: 'コインロッカー', sub: 'Coin lockers', fg: '#fff', bg: '#0d3b66' }, SPE - 0.03, cf + 2.4, 19.5, [-1, 0], 3.0, 0.5);
+    for (const z of [23.6, 25.6]) {
+      b.deco(GOLD, SPE - 0.012, cf + 0.5, z - 0.67, SPE, cf + 2.34, z + 0.67);
+      b.sign({ k: 'poster', v: Math.round(z) + 3 }, SPE - 0.02, cf + 1.42, z, [-1, 0], 1.2, 1.7);
+    }
+    shopsZ(h, SPE, stripEnd - 8, stripEnd - 0.4, -1);
+    // The South Gate: the beside lines' own way in, with exit 10 up to Yanagi-suji.
+    b.with({ rot: 1, t: [sx, 0, SG.gate] }, () => gates(h, 5, -4, 4, false));
+    b.sign({ k: 'label', text: '南改札', sub: 'South Gate', fg: '#f3e3a0', bg: '#12382c' }, s0 + 0.03, cf + 2.9, SG.gate + 3, [1, 0], 3.6, 0.5);
+    b.with({ rot: 2, t: [s1 - 1.5, 0, end] }, () => ticketMachines(c, cf, 0, 0, 4));
+    b.sign({ k: 'machine', v: 'window' }, s0 + 0.03, cf + 1.5, SG.gate + 7, [1, 0], 4.0, 2.2);
+    b.box(floor, s1, cf - SLAB, SG.z, SG.door, cf, SG.z + 4);
+    b.box('ceil', s1, top, SG.z - 0.4, SG.door, top + 0.5, SG.z + 4.4);
+    stoneX(b, wall, s1 + 0.4, SG.door, SG.z - 0.4, SG.z, cf, top);
+    stoneX(b, wall, s1 + 0.4, SG.door, SG.z + 4, SG.z + 4.4, cf, top);
+    ceilingLight(b, s1 + 2, SG.door - 2, SG.z + 1.7, SG.z + 2.3, top);
+    b.with({ rot: 3, t: [SG.door, 0, SG.z] }, () => exit(c, cf, '10'));
+    b.zone('concourse', s0, cf - 0.2, SG.gate + 1, s1, top, end, '南改札口', 'South Gate lobby');
   } else {
-    hoardingX(b, stub[0], stub[1], cf, BAR + 5.4, -1);
-    b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), (stub[0] + stub[1]) / 2, cf + 1.15, BAR + 5.26, [0, -1], 6.4, 1.0);
-    b.zone('passage', stub[0], cf - 0.2, BAR, stub[1], top, BAR + 5.4, '新線連絡通路（予定地）', 'Future metro line passage (reserved)');
+    hoardingX(b, s0, s1, cf, BAR + 5.4, -1);
+    b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), sx, cf + 1.15, BAR + 5.26, [0, -1], 6.4, 1.0);
+    b.zone('passage', s0, cf - 0.2, BAR, s1, top, BAR + 5.4, '新線連絡通路（予定地）', 'Future metro line passage (reserved)');
   }
 
   // ── Zones and spawn ──
-  b.zone('concourse', -PAID_X, cf - 0.3, GATE_N, PAID_X, top, BAR, '改札内コンコース', 'Concourse (inside the gates)');
-  b.zone('concourse', -LINK1, cf - 0.3, FRONT, LINK1, top, GATE_N, '北口コンコース', 'North concourse');
-  for (const s of [-1, 1]) {
-    b.zone('passage', Math.min(s * PAID_X, s * MALL_X), cf - 0.3, -BAR, Math.max(s * PAID_X, s * MALL_X), top, BAR, s > 0 ? 'ヤナギモール 東' : 'ヤナギモール 西', `Yanagi Mall — ${s > 0 ? 'East' : 'West'}`);
-  }
-  b.setSpawn(0, cf, -57, [0, 1]);
+  b.zone('concourse', COR, cf - 0.3, LOB[0], YH.x1, top, LOB[1], '中央改札内', 'Central Gate lobby (inside the gates)');
+  b.zone('concourse', -WELL, cf - 0.3, -29.6, COR, top, -24.4, `${o.line.nameJa} のりば階段前`, `${o.line.nameEn} stair landing`);
+  b.zone('passage', COR, cf - 0.3, LOB[1], TX, top, BAR, 'のりかえ通路', 'Transfer corridor');
+  b.zone('concourse', -TX, cf - 0.3, -BAR, COR, top, -4.4, `${o.line.nameJa} のりば階段前（南）`, `${o.line.nameEn} south stair landing`);
+  b.zone('concourse', GATE_W, cf - 0.3, -7, wh, top, BAR, '西改札内', 'West Gate lobby (inside the gates)');
+  b.zone('passage', wh, cf - 0.3, -7, COR, top, -2.3, `${c.line.nameJa} のりかえ通路`, `${c.line.nameEn} corridor`);
+  b.zone('passage', wh, cf - 0.3, 6, COR, top, BAR, smLines.length ? `${smLines.map((x) => x.line.nameJa).join('・')} のりかえ通路` : '南のりかえ通路', smLines.length ? `${smLines.map((x) => x.line.nameEn).join(' / ')} corridor` : 'South corridor');
+  b.zone('concourse', xh, cf - 0.3, -5, GATE_E, top, 5, `${c.line.nameJa} 東改札`, `${c.line.nameEn} east gate`);
+  b.zone('passage', c0, cf - 0.3, XP, c1, tall, -BAR, '中央通路', 'Central Passage');
+  b.zone('passage', w0, cf - 0.3, FRONT, XE - 3, top, XP, '北連絡通路', 'North Passage');
+  b.zone('passage', w0, cf - 0.3, XP, w1, top, -BAR, '西連絡通路', 'West Passage');
+  b.zone('passage', TX + 0.4, cf - 0.3, -BAR, MALL_X, top, BAR, 'ヤナギモール 東', 'Yanagi Mall — East');
+  b.zone('passage', -MALL_X, cf - 0.3, -BAR, GATE_W, top, BAR, 'ヤナギモール 西', 'Yanagi Mall — West');
+  b.setSpawn(cx, cf, XP + 6, [0, 1]);
 }
 
-// ───────────────────────── atrium ─────────────────────────
+// ───────────────────────── Willow Court and the station building ─────────────────────────
 
 function atrium(h: H) {
   const { b, c, cf, lines } = h;
   const st = c.station;
   const run1 = r2((GY - cf) * 1.7), run2 = r2((F2 - GY) * 1.7), run3 = r2((F3 - F2) * 1.7);
-  const PANEL = 'panel:#ebe8de';
   const [vx0, vz0, vx1, vz1] = VOID;
+  /** x of the two escalator banks in the well, and of the two in the galleries. */
+  const EU = 10.5, GU = 20.5;
 
-  // ── Floors: level-1 ring, level-2 gallery, level-3 landing ──
-  b.slab(STONE, -HX, HN, HX, FRONT, GY - SLAB, GY, [VOID]);
-  for (const s of [1, -1]) {
-    b.with(s > 0 ? { t: [vx1 - run1, 0, -88] } : { ...MIRROR_X, t: [-(vx1 - run1), 0, -88] }, () => islandUnit(b, cf, GY, run1, null));
-  }
+  // ── Floors: level-1 gallery, level-2 gallery, level-3 landing ──
+  // In the well, one bank climbs south to the doors and one north towards the rail decks.
+  b.with({ rot: 1, t: [EU, 0, vz1 - run1] }, () => islandUnit(b, cf, GY, run1, null));
+  b.with({ rot: 3, t: [-EU, 0, vz0 + run1] }, () => islandUnit(b, cf, GY, run1, null));
+  b.slab(STONE, -IX, HN, IX, FRONT, GY - SLAB, GY, [VOID]);
   let hole2: Rect = [0, 0, 0, 0];
-  b.with({ rot: 3, t: [40, 0, -76] }, () => (hole2 = islandUnit(b, GY, F2, run2, F2)));
-  b.slab(STONE, -HX, HN, HX, FRONT, F2 - SLAB, F2, [VOID, hole2]);
-  b.with({ rot: 3, t: [-40, 0, -80] }, () => islandUnit(b, F2, F3, run3, null));
-  const z3 = -80 - run3;
-  b.box(STONE, -HX, F3 - SLAB, vz0, -34, F3, z3);
-  b.box(STONE, -HX, F3 - SLAB, HN, HX, F3, vz0);
+  b.with({ rot: 3, t: [-GU, 0, vz1] }, () => (hole2 = islandUnit(b, GY, F2, run2, F2)));
+  b.slab(STONE, -IX, HN, IX, FRONT, F2 - SLAB, F2, [VOID, hole2]);
+  b.with({ rot: 3, t: [GU, 0, vz0 + run3] }, () => islandUnit(b, F2, F3, run3, null));
+  b.box(STONE, -IX, F3 - SLAB, HN, IX, F3, vz0);
 
-  // ── Railings round the void ──
-  const escGap = [-88 - 1.84, -88 + 1.84];
-  for (const [y, gap] of [[GY, true], [F2, false]] as const) {
-    rail(b, vx0, vz1, vx1, vz1 + 0.08, y);
-    rail(b, vx0, vz0 - 0.08, vx1, vz0, y);
-    for (const s of [-1, 1]) {
-      const xa = Math.min(s * vx1, s * (vx1 + 0.08)), xb = Math.max(s * vx1, s * (vx1 + 0.08));
-      if (gap) {
-        rail(b, xa, vz0, xb, escGap[0], y);
-        rail(b, xa, escGap[1], xb, vz1, y);
-      } else rail(b, xa, vz0, xb, vz1, y);
-    }
+  // ── Railings round the well ──
+  rail(b, vx0, vz1, EU - 1.9, vz1 + 0.08, GY);
+  rail(b, EU + 1.9, vz1, vx1, vz1 + 0.08, GY);
+  rail(b, vx0, vz0 - 0.08, -EU - 1.9, vz0, GY);
+  rail(b, -EU + 1.9, vz0 - 0.08, vx1, vz0, GY);
+  rail(b, vx0, vz1, vx1, vz1 + 0.08, F2);
+  rail(b, vx0, vz0 - 0.08, vx1, vz0, F2);
+  for (const y of [GY, F2]) {
+    rail(b, vx1, vz0, vx1 + 0.08, vz1, y);
+    rail(b, vx0 - 0.08, vz0, vx0, vz1, y);
   }
-  rail(b, -34.08, vz0, -34, z3, F3);
-  rail(b, -HX, z3 - 0.08, -41.92, z3, F3);
-  rail(b, -38.08, z3 - 0.08, -34, z3, F3);
-  rail(b, -34, vz0 - 0.08, HX, vz0, F3);
+  rail(b, -IX, vz0, GU - 1.9, vz0 + 0.08, F3);
+  rail(b, GU + 1.9, vz0, IX, vz0 + 0.08, F3);
 
-  // ── Columns at the corners of the void, floor to roof ──
+  // ── Columns at the corners of the well, floor to roof, banded in gold ──
   for (const sx of [-1, 1]) {
     for (const z of [vz1 + 0.5, vz0 - 0.5]) {
-      b.box('panel:#f1efe8', sx * vx1 + (sx > 0 ? 0.1 : -1.0), cf, z - 0.45, sx * vx1 + (sx > 0 ? 1.0 : -0.1), ROOF, z + 0.45);
+      const xa = sx * vx1 + (sx > 0 ? 0.1 : -1.0), xb = sx * vx1 + (sx > 0 ? 1.0 : -0.1);
+      b.box(COL, xa, cf, z - 0.45, xb, ROOF, z + 0.45);
+      for (const y of [GY, F2, F3]) b.deco(GOLD, xa - 0.02, y - SLAB - 0.14, z - 0.47, xb + 0.02, y - SLAB, z + 0.47);
     }
   }
 
@@ -472,91 +977,169 @@ function atrium(h: H) {
   b.sign({ k: 'clock' }, 0, 20, FRONT + 0.06, [0, 1], 4.4, 4.4, { dynamic: true });
   b.sign({ k: 'entrance', station: st.id }, 0, GY + 3.85, FRONT + 0.28, [0, 1], 8, 0.9);
 
-  // ── Side and back walls. Glazed where a future railway will open onto the atrium. ──
-  const glazed = (y0: number, fn: (mat: string | null, ya: number, yb: number) => void) => {
-    fn(null, y0, y0 + 4.6);
-    fn(PANEL, y0 + 4.6, y0 + 4.6 + 1.6);
-  };
-  // West: solid, with the willow mural.
-  wallZ(b, PANEL, -HX - 0.4, -HX, HN, FRONT, GY, ROOF);
-  b.sign({ k: 'mural', ...c.style.mural }, -HX + 0.02, F2 + 2.7, -84, [1, 0], 30, 4.4);
-  // East: solid to level 2, then glass onto the private-railway bays.
-  wallZ(b, PANEL, HX, HX + 0.4, HN, FRONT, GY, F2);
-  glazed(F2, (mat, ya, yb) => {
-    if (mat) wallZ(b, mat, HX, HX + 0.4, HN, FRONT, ya, yb);
-    else {
-      b.block(HX, ya, HN, HX + 0.4, yb, FRONT);
-      b.deco('glass', HX + 0.15, ya, HN, HX + 0.25, yb, FRONT);
-      for (let z = HN; z <= FRONT; z += 6) b.deco(TRIM, HX - 0.04, ya, z - 0.1, HX + 0.44, yb, z + 0.1);
-    }
-  });
-  wallZ(b, PANEL, HX, HX + 0.4, HN, FRONT, F2 + 6.2, ROOF);
-  // North: glass at level 2 (main line) and level 3 (high-speed).
-  b.box(PANEL, -HX, GY, HN - 0.4, HX, F2, HN);
-  for (const y0 of [F2, F3]) {
-    glazed(y0, (mat, ya, yb) => {
-      if (mat) b.box(mat, -HX, ya, HN - 0.4, HX, yb, HN);
-      else {
-        b.block(-HX, ya, HN - 0.4, HX, yb, HN);
-        b.deco('glass', -HX, ya, HN - 0.25, HX, yb, HN - 0.15);
-        for (let x = -HX; x <= HX; x += 5.5) b.deco(TRIM, x - 0.1, ya, HN - 0.44, x + 0.1, yb, HN + 0.04);
-      }
-    });
+  // ── The wings either side of the inner hall: solid, but for the private-railway concourse ──
+  const MASS = 'panel:#e4e0d4';
+  const [pz0, pz1] = [-104, -72];
+  b.box(MASS, -HX, GY, HN, -IX - 0.4, ROOF, zf);
+  b.box(MASS, IX + 0.4, GY, HN, HX, F2 - SLAB, zf);
+  b.box(STONE, IX + 0.4, F2 - SLAB, pz0, HX, F2, pz1);
+  b.box(MASS, IX + 0.4, F2 - SLAB, HN, HX, ROOF, pz0);
+  b.box(MASS, IX + 0.4, F2 - SLAB, pz1, HX, ROOF, zf);
+  b.box(MASS, IX + 0.4, F2 + 4.6, pz0, HX, ROOF, pz1);
+  // Lit shop windows in the wings' street fronts.
+  for (const s of [-1, 1]) {
+    for (let x = IX + 3; x + 5 < HX; x += 6.5) b.deco('glow:#f6ead0', Math.min(s * x, s * (x + 5)), GY + 0.4, zf - 0.02, Math.max(s * x, s * (x + 5)), GY + 2.9, zf + 0.04);
   }
-  b.box(PANEL, -HX, F3 - 0.8, HN - 0.4, HX, F3, HN);
-  b.box(PANEL, -HX, F3 + 6.2, HN - 0.4, HX, ROOF, HN);
+
+  // ── Inner hall walls. Glazed where a future railway will open onto the galleries. ──
+  stoneZ(b, PANEL, -IX - 0.4, -IX, HN, FRONT, GY, ROOF);
+  b.sign({ k: 'mural', ...c.style.mural }, -IX + 0.02, F2 + 2.7, -88, [1, 0], 26, 4.4);
+  stoneZ(b, PANEL, IX, IX + 0.4, HN, FRONT, GY, F2);
+  stoneZ(b, PANEL, IX, IX + 0.4, HN, FRONT, F2, F2 + 4.6, [[-86, -74]]);
+  wallZ(b, PANEL, IX, IX + 0.4, HN, FRONT, F2 + 4.6, ROOF);
+  for (const z of [-86.06, -74.06]) b.deco(GOLD, IX - 0.02, F2, z, IX + 0.42, F2 + 4.6, z + 0.12);
+  // Outer east wall: glass onto the private-railway bays.
+  wallZ(b, PANEL, HX, HX + 0.4, HN, FRONT, GY, F2);
+  wallZ(b, PANEL, HX, HX + 0.4, HN, FRONT, F2, F2 + 4.6, [[pz0, pz1]]);
+  wallZ(b, PANEL, HX, HX + 0.4, HN, FRONT, F2 + 4.6, ROOF);
+  b.block(HX, F2, pz0, HX + 0.4, F2 + 4.6, pz1);
+  b.deco('glass', HX + 0.15, F2, pz0, HX + 0.25, F2 + 4.6, pz1);
+  for (let z = pz0; z <= pz1; z += 6.4) b.deco(TRIM, HX - 0.04, F2, z - 0.1, HX + 0.44, F2 + 4.6, z + 0.1);
+  // North: glass at level 2 (main line) and level 3 (high-speed).
+  b.box(PANEL, -IX, GY, HN - 0.4, IX, F2, HN);
+  for (const y0 of [F2, F3]) {
+    b.block(-IX, y0, HN - 0.4, IX, y0 + 4.6, HN);
+    b.deco('glass', -IX, y0, HN - 0.25, IX, y0 + 4.6, HN - 0.15);
+    for (let x = -IX; x <= IX; x += 6) b.deco(TRIM, x - 0.1, y0, HN - 0.44, x + 0.1, y0 + 4.6, HN + 0.04);
+    b.box(PANEL, -IX, y0 + 4.6, HN - 0.4, IX, y0 + 6.2, HN);
+  }
+  b.box(PANEL, -IX, F3 - 0.8, HN - 0.4, IX, F3, HN);
+  b.box(PANEL, -IX, F3 + 6.2, HN - 0.4, IX, ROOF, HN);
 
   // ── Glass roof on white trusses ──
-  b.deco('glassRoof', -HX - 0.4, ROOF, HN - 0.4, HX + 0.4, ROOF + 0.12, FRONT);
-  for (let x = -HX; x <= HX; x += 8) b.deco('flat:#eef0f2', x - 0.2, ROOF - 1.1, HN, x + 0.2, ROOF, FRONT - 0.3);
-  for (const z of [HN, -100, -88, -76, FRONT - 0.7]) b.deco('flat:#eef0f2', -HX, ROOF - 0.6, z, HX, ROOF, z + 0.4);
+  b.deco('glassRoof', -IX - 0.4, ROOF, HN - 0.4, IX + 0.4, ROOF + 0.12, FRONT);
+  for (let x = -IX; x <= IX; x += 8) b.deco('flat:#eef0f2', x - 0.2, ROOF - 1.1, HN, x + 0.2, ROOF, FRONT - 0.3);
+  for (const z of [HN, -100, -88, -76, FRONT - 0.7]) b.deco('flat:#eef0f2', -IX, ROOF - 0.6, z, IX, ROOF, z + 0.4);
 
-  // ── Future gate lines: where they will stand, closed off and signed ──
-  const gateMark: SignContent = { k: 'label', text: '改札予定位置', sub: 'Future ticket gates', fg: '#1b1f24', bg: '#ffd100' };
+  // ── Level 2 north: the main line's gate hall, closed off and signed ──
   hoardingX(b, -14, 14, F2, HN + 0.5, 1, 1.25);
-  b.sign(reserved('在来線のりば', 'main line platforms'), 0, F2 + 2.6, HN + 0.03, [0, 1], 20, 1.5);
-  b.sign(gateMark, 0, F2 + 0.012, HN + 3, null, 9, 1.4, { top: [0, -1] });
+  b.sign(reserved('在来線のりば', 'main line platforms'), 0, F2 + 2.6, HN + 0.07, [0, 1], 20, 1.5);
+  b.sign(gateMark, 0, F2 + 0.012, HN + 3.4, null, 9, 1.4, { top: [0, -1] });
+  for (const s of [-1, 1]) {
+    // Shuttered ticket offices either side of where the gates will stand.
+    const xa = Math.min(s * 16, s * 23), xb = Math.max(s * 16, s * 23);
+    b.box(HOARD, xa, F2, HN, xb, F2 + 2.6, HN + 0.5);
+    for (let y = 0.2; y < 2.5; y += 0.22) b.deco('flat:#c9ccd0', xa + 0.2, F2 + y, HN + 0.5, xb - 0.2, F2 + y + 0.03, HN + 0.52);
+  }
+  // ── Level 3 north: the high-speed line's ──
   hoardingX(b, -14, 14, F3, HN + 0.5, 1, 1.25);
-  b.sign(reserved('高速線のりば', 'high-speed line platforms'), 0, F3 + 2.6, HN + 0.03, [0, 1], 20, 1.5);
-  b.sign(gateMark, 0, F3 + 0.012, HN + 3, null, 9, 1.4, { top: [0, -1] });
-  b.box(HOARD, HX - 0.5, F2, -106, HX - 0.38, F2 + 1.25, -92);
-  b.deco('flat:#e8a400', HX - 0.52, F2 + 0.93, -106, HX - 0.5, F2 + 1.13, -92);
-  b.sign(reserved('私鉄線のりば', 'private railway terminal'), HX - 0.03, F2 + 2.6, -99, [-1, 0], 13, 1.5);
-  b.sign(gateMark, HX - 3.2, F2 + 0.012, -99, null, 9, 1.4, { top: [1, 0] });
+  b.sign(reserved('高速線のりば', 'high-speed line platforms'), 0, F3 + 2.6, HN + 0.07, [0, 1], 20, 1.5);
+  b.sign(gateMark, 0, F3 + 0.012, HN + 3.4, null, 9, 1.4, { top: [0, -1] });
+  // ── Level 2 east: the private railway's terminal concourse ──
+  b.box(HOARD, HX - 0.5, F2, -96, HX - 0.38, F2 + 1.25, -80);
+  b.deco('flat:#e8a400', HX - 0.52, F2 + 0.93, -96, HX - 0.5, F2 + 1.13, -80);
+  b.sign(reserved('私鉄線のりば', 'private railway terminal'), HX - 0.07, F2 + 2.6, -88, [-1, 0], 13, 1.5);
+  b.sign(gateMark, HX - 4, F2 + 0.012, -88, null, 9, 1.4, { top: [1, 0] });
+  b.sign(reserved('私鉄線コンコース', 'private railway concourse'), IX - 0.02, F2 + 3.9, -80, [-1, 0], 9, 0.9);
+  for (let x = IX + 4; x + 2.4 < HX; x += 6) for (const z of [-96, -88, -80]) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, F2 + 4.6);
 
-  // ── Level 1: way down to the metro, way out to the plaza ──
-  const metro: SignContent = { k: 'guide', ja: `地下鉄 ${st.nameJa}駅`, en: `Metro: ${st.nameRomaji} Station`, bg: 'navy', badges: lines, arrow: 'up' };
+  // ── Level 1: entrance hall, way down to the metro, way out to the plaza ──
+  const metro: SignContent = { k: 'guide', ja: `地下鉄 ${st.nameJa}駅・金の柳`, en: `Metro: ${st.nameRomaji} Station / Kin no Yanagi`, bg: 'navy', badges: lines, arrow: 'right' };
   const out: SignContent = { k: 'guide', ja: '駅前広場・バス・タクシー', en: 'Station plaza / Bus / Taxi', bg: 'yellow', arrow: 'up' };
-  b.hang(metro, vx1 + 2.2, GY + 2.9, -88, 5.6, 0.56, { ceil: F2 - SLAB, back: out });
-  b.hang(out, -vx1 - 2.2, GY + 2.9, -88, 5.6, 0.56, { ceil: F2 - SLAB, back: metro });
-  b.sign({ k: 'guide', ja: '2階・3階 将来線コンコース', en: 'Levels 2 and 3 — future railway concourses', bg: 'white', arrow: 'up' }, 40, GY + 2.6, -75.2, [0, 1], 3.6, 0.44);
-  b.deco('flat:#22262b', 38.1, GY + 2.3, -75.3, 41.9, GY + 2.9, -75.22);
-  for (const z of [-108, -96, -84, -70]) b.sign({ k: 'poster', v: Math.abs(z) }, -HX + 0.02, GY + 1.7, z, [1, 0], 1.6, 2.2);
-  b.sign({ k: 'mural', ...c.style.mural }, 0, cf + 3.0, HN + 0.02, [0, 1], 60, 4.6);
+  hangZ(b, metro, out, 0, GY + 2.9, -70, 7, 0.56, F2 - SLAB);
+  b.sign({ k: 'guide', ja: '2階・3階 将来線コンコース', en: 'Levels 2 and 3 — future railway concourses', bg: 'white', arrow: 'up' }, -IX + 0.02, GY + 2.6, -70, [1, 0], 4.4, 0.46);
+  shopsZ(h, IX, HN + 1, FRONT - 1, -1, GY);
+  shopsZ(h, -IX, HN + 1, -90, 1, GY);
+  for (let z = -108; z < FRONT - 3; z += 8) for (const x of [-19, 17]) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, F2 - SLAB);
+  for (let x = -11; x < 12; x += 8) for (const z of [-106, -70]) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, F2 - SLAB);
+  b.sign({ k: 'guide', ja: '3階 将来線コンコース', en: 'Level 3 — future railway concourse', bg: 'white', arrow: 'up' }, IX - 0.02, F2 + 2.6, -92, [-1, 0], 4.4, 0.46);
+
+  // ── B1: the court floor, shops under the gallery on three sides ──
+  shopsZ(h, IX, HN + 1, FRONT - 1, -1);
+  shopsZ(h, -IX, HN + 1, FOOD[0][0] - 0.5, 1);
+  shopsZ(h, -IX, FOOD[0][1] + 0.5, FOOD[1][0] - 0.5, 1);
+  shopsZ(h, -IX, FOOD[1][1] + 0.5, FRONT - 1, 1);
+  foodHall(h);
+  b.sign({ k: 'mural', ...c.style.mural }, 0, cf + 2.6, HN + 0.02, [0, 1], 40, 4.0);
+  for (let z = -108; z < FRONT - 3; z += 8) for (const x of [-20.5, 18]) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, GY - SLAB);
+  for (let x = -11; x < 12; x += 8) for (const z of [-106, -70]) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, GY - SLAB);
+  b.sign({ k: 'guide', ja: `地下鉄 ${st.nameJa}駅 のりば・ヤナギモール`, en: `Metro: ${st.nameRomaji} Station / Yanagi Mall`, bg: 'navy', badges: lines, arrow: 'up' }, 0, cf + H1 + 0.7, FRONT - 0.42, [0, -1], 9, 0.7);
 
   // ── Kin no Yanagi: the gilded willow everyone meets under ──
   const wz = -88;
-  b.box('flat:#2b2e32', -2.4, cf, wz - 2.4, 2.4, cf + 0.5, wz + 2.4);
-  b.mesh('flat:#c9a227', 'cyl', 0, cf + 3.9, wz, 0.7, 6.8, 0.7);
-  b.block(-0.4, cf, wz - 0.4, 0.4, cf + 6, wz + 0.4);
-  b.mesh('flat:#d9b43a', 'sphere', 0, cf + 8.4, wz, 6.4, 3.4, 6.4);
-  b.mesh('flat:#e6c75a', 'sphere', 0, cf + 9.3, wz, 3.6, 2.4, 3.6);
-  for (let i = 0; i < 28; i++) {
-    const a = (i / 28) * Math.PI * 2, rad = i % 2 ? 2.9 : 2.2;
-    const x = Math.cos(a) * rad, z = wz + Math.sin(a) * rad;
-    b.deco('flat:#e2c04a', x - 0.035, cf + 3.2 + (i % 4) * 0.55, z - 0.035, x + 0.035, cf + 8.2, z + 0.035);
+  prop(b, 'willow', 0, cf, wz, 0, [2.5, 2.5], 0.5);
+  b.block(-0.5, cf, wz - 0.5, 0.5, cf + 6, wz + 0.5);
+  // Up-lighting in the planter.
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    b.mesh('glow:#ffd98a', 'sphere', Math.cos(a) * 1.5, cf + 0.98, wz + Math.sin(a) * 1.5, 0.22, 0.1, 0.22);
   }
   b.deco('flat:#12382c', -0.85, cf + 2.5, wz - 0.42, 0.85, cf + 4.2, wz + 0.42);
   for (const s of [-1, 1] as const) b.sign({ k: 'clock' }, 0, cf + 3.35, wz + s * 0.43, [0, s], 1.5, 1.5, { dynamic: true });
   b.box('flat:#12382c', -1.5, cf, wz + 3.3, 1.5, cf + 1.5, wz + 3.5);
   b.sign({ k: 'label', text: '金の柳', sub: 'Kin no Yanagi — meeting point', fg: '#f3e3a0', bg: '#12382c' }, 0, cf + 0.85, wz + 3.51, [0, 1], 2.9, 1.2);
-  for (const [bx, bz, lx, lz] of [[0, -3.3, 1.8, 0.3], [-3.3, 0, 0.3, 1.8], [3.3, 0, 0.3, 1.8]]) b.box('wood:#6b5440', bx - lx, cf, wz + bz - lz, bx + lx, cf + 0.45, wz + bz + lz);
+  // Information desks, a standing map, lanterns under the galleries.
+  prop(b, 'kiosk', -10, cf, -71.5, 0, [1.4, 1.4], 1.1);
+  b.sign({ k: 'label', text: 'ご案内', sub: 'Information', fg: '#f3e3a0', bg: '#12382c' }, -10, cf + 1.2, -72.22, [0, -1], 1.1, 0.22);
+  prop(b, 'kiosk', -9, GY, -70, 0, [1.4, 1.4], 1.1);
+  b.sign({ k: 'label', text: 'ご案内', sub: 'Information', fg: '#f3e3a0', bg: '#12382c' }, -9, GY + 1.2, -69.28, [0, 1], 1.1, 0.22);
+  prop(b, 'totem', 8, cf, -72, 0, [0.75, 0.2], 2.2);
+  b.sign({ k: 'stationmap', station: st.id }, 8, cf + 1.31, -72.07, [0, -1], 1.2, 1.62);
+  b.sign({ k: 'areamap', station: st.id }, 8, cf + 1.31, -71.93, [0, 1], 1.2, 1.62);
+  for (const x of [-19, 19]) for (let z = -104; z <= -72; z += 8) prop(b, 'lantern', x, GY - SLAB, z);
+  for (const x of [-9, 9]) for (const z of [-67, -73]) prop(b, 'lantern', x, F2 - SLAB, z);
+  for (const x of [-6, 6]) prop(b, 'planter', x, cf, -66.2, 0, [0.6, 0.6], 1.2);
 
   // ── Zones ──
-  b.zone('concourse', -HX, cf - 0.3, HN, HX, cf + 5.4, FRONT, 'アトリウム「金の柳」前', 'Atrium floor — Kin no Yanagi', true);
-  b.zone('concourse', -HX, GY - 0.2, HN, HX, GY + 5, FRONT, '川湊駅 アトリウム 1階', 'Kawaminato Station — atrium, level 1');
-  b.zone('concourse', -HX, F2 - 0.2, HN, HX, F2 + 5, FRONT, '2階 連絡ギャラリー', 'Level 2 gallery (future main line and private railway)');
-  b.zone('concourse', -HX, F3 - 0.2, HN, HX, F3 + 5, z3, '3階 高速線コンコース予定地', 'Level 3 landing (future high-speed line)');
+  b.zone('concourse', -IX, cf - 0.3, HN, IX, cf + 5.4, FRONT, 'ウィローコート「金の柳」前', 'Willow Court — Kin no Yanagi', true);
+  b.zone('concourse', -IX, GY - 0.2, HN, IX, GY + 5, FRONT, '川湊駅 1階 エントランスホール', 'Kawaminato Station — entrance hall, level 1');
+  b.zone('concourse', -IX, F2 - 0.2, HN, IX, F2 + 5, FRONT, '2階 ギャラリー・在来線改札予定地', 'Level 2 gallery (future main line gates)');
+  b.zone('concourse', IX + 0.4, F2 - 0.2, pz0, HX, F2 + 4.6, pz1, '2階 私鉄線コンコース予定地', 'Level 2 — future private railway concourse');
+  b.zone('concourse', -IX, F3 - 0.2, HN, IX, F3 + 5, vz0, '3階 高速線コンコース予定地', 'Level 3 landing (future high-speed line)');
+}
+
+/**
+ * Yanagi Yokochō: a low, lantern-lit food hall in the west wing at B1, entered from Willow Court.
+ * Restaurant fronts down the west wall, a long counter with stools down the middle.
+ */
+function foodHall(h: H) {
+  const { b, cf, wall } = h;
+  const x0 = -HX, x1 = -IX - 0.4, z0 = -108, z1 = -68, cl = cf + 2.8;
+  b.box('floor:#8d7f6c', x0, cf - SLAB, z0, x1, cf, z1);
+  b.box('wood:#5a4330', x0 - 0.4, cl, z0 - 0.4, x1, cl + 0.4, z1 + 0.4);
+  stoneBox(b, wall, x0 - 0.4, cf, z0 - 0.4, x0, cl, z1 + 0.4);
+  stoneBox(b, wall, x0, cf, z0 - 0.4, x1, cl, z0);
+  stoneBox(b, wall, x0, cf, z1, x1, cl, z1 + 0.4);
+  // Timber beams across the ceiling.
+  for (let z = z0 + 2; z < z1; z += 4) b.deco(TIMBER, x0, cl - 0.18, z - 0.1, x1, cl, z + 0.1);
+  shopsZ(h, x0, z0 + 0.5, z1 - 0.5, 1);
+  const cx = (x0 + x1) / 2;
+  for (const [a, e] of [[z0 + 3, -96], [-92, -84], [-80, z1 - 3]]) {
+    b.box(TIMBER, cx - 0.55, cf, a, cx + 0.55, cf + 1.02, e);
+    b.deco(GOLD, cx - 0.6, cf + 1.02, a - 0.05, cx + 0.6, cf + 1.06, e + 0.05);
+    b.deco('glow:#f6ead0', cx - 0.12, cf + 1.06, a + 0.3, cx + 0.12, cf + 1.3, e - 0.3);
+    for (let z = a + 0.6; z < e - 0.3; z += 1.1) {
+      for (const s of [-1, 1]) {
+        b.mesh('flat:#b08d3a', 'cyl', cx + s * 1.05, cf + 0.3, z, 0.08, 0.6, 0.08);
+        b.mesh(TIMBER, 'cyl', cx + s * 1.05, cf + 0.63, z, 0.38, 0.07, 0.38);
+      }
+    }
+    // Paper lanterns over the counter.
+    for (let z = a + 1; z < e - 0.5; z += 2.4) {
+      b.deco('flat:#2b2622', cx - 0.01, cl - 0.55, z - 0.01, cx + 0.01, cl - 0.18, z + 0.01);
+      b.mesh('glow:#ffb45a', 'sphere', cx, cl - 0.75, z, 0.42, 0.5, 0.42);
+    }
+  }
+  for (const [a, e] of FOOD) {
+    const zc = (a + e) / 2;
+    b.deco('glow:#ffb45a', -IX - 0.4, cf + 2.72, a + 0.2, -IX, cf + 2.78, e - 0.2);
+    b.sign({ k: 'label', text: 'やなぎ横丁', sub: 'Yanagi Yokochō — food hall', fg: '#f3e3a0', bg: '#4a3626' }, -IX + 0.02, cf + 3.3, zc, [1, 0], 5.2, 0.8);
+  }
+  for (let z = z0 + 4; z < z1 - 2; z += 4) {
+    if (FOOD.some(([a, e]) => z > a - 1.2 && z < e + 1.2)) continue;
+    b.sign({ k: 'poster', v: Math.round(-z) }, x1 - 0.02, cf + 1.45, z, [-1, 0], 1.2, 1.7);
+  }
+  b.zone('passage', x0, cf - 0.3, z0, x1, cl, z1, 'やなぎ横丁', 'Yanagi Yokochō (food hall)');
 }
 
 // ───────────────────────── shells ─────────────────────────
@@ -688,7 +1271,12 @@ function street(h: H, seed: number) {
   for (let x = -X + 8; x < X; x += 18) {
     if (!junction(x) && !stairs.some((q) => x > q[0] - 6 && x < q[2] + 6)) tree(b, x, AV + 1.6, 6.2, 'leaf2');
   }
-  for (const sx of [-1, 1]) for (let z = S_FRONT + 12; z < Z - 4; z += 15) tree(b, sx * (YS + 1.6), z, 6.5, 'leaf');
+  for (const sx of [-1, 1]) {
+    for (let z = S_FRONT + 12; z < Z - 4; z += 15) {
+      const x = sx * (YS + 1.6);
+      if (!stairs.some((q) => x > q[0] - 1.5 && x < q[2] + 1.5 && z > q[1] - 4 && z < q[3] + 4)) tree(b, x, z, 6.5, 'leaf');
+    }
+  }
 
   // ── City blocks south of the avenue ──
   fillModelLots(b, r, -X + 1, -YS - 3, S_FRONT, Z, { tower: true });
@@ -757,6 +1345,8 @@ export function buildHub(c: Ctx, spec: HubSpec, other: { ctx: Ctx; dir: [number,
   const holes = platforms(h, quarterTurns(other.primaryDir, other.dir));
   concourseLevel(h, holes);
   atrium(h);
+  floorLines(h);
+  details(h);
   shells(h);
   street(h, spec.seed);
 }

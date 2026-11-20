@@ -213,17 +213,22 @@ Built by `buildHub` in `src/stations/hub.ts`. The station frame follows the Akan
 
 | Level | Height | What is there | State |
 |---|---|---|---|
-| 3F | +14 m | High-speed deck, and a landing overlooking the atrium | Deck is a shell; landing is walkable |
-| 2F | +7 m | Gallery round the atrium. Main-line deck to the north, private-railway bay platforms to the east | Gallery walkable; platforms are shells |
-| 1F | 0 | Atrium ring, station doors, plaza with bus terminal and taxi rank, Kita-Ōdōri avenue | Built |
-| B1 | −7 m | Concourse: a paid "T" (a bar under the avenue over the Akanesuji platforms, a stem over the Yanagisuji platforms), three gate lines, Yanagi Mall, exits 1–8, the atrium floor with Kin no Yanagi | Built |
+| 3F | +14 m | High-speed deck, and a landing overlooking Willow Court | Deck is a shell; landing is walkable |
+| 2F | +7 m | Gallery round the well. Main-line gate hall and deck to the north; private-railway concourse and bay platforms to the east | Gallery and concourse walkable; gates and platforms are shells |
+| 1F | 0 | Entrance hall and gallery round the well, station doors, plaza with bus terminal and taxi rank, Kita-Ōdōri avenue | Built |
+| B1 | −7 m | Passages, not one hall: the tall Central Passage (north–south, east of the Yanagisuji platforms), North and West Passages, Yanagi Mall under the avenue with kiosks down the middle, exits 1–10. Four gates: South (Shiokaze and Sumire), Central (Yanagisuji gate hall), West (transfer hall), East (an island in the mall at the head of the Akanesuji east escalators). Willow Court's floor with Kin no Yanagi | Built |
 | B2 | −12 m | Yanagisuji island platform | Built |
 | B4 | −19 m | Akanesuji island platform; 15.9 m south, the Shiokaze island platform; 15.9 m further, the Sumire island platform | All built |
 
-- **The atrium** is one void from the B1 floor to the glass roof at +26 m. Zones can be flagged `sky` so the atrium floor keeps daylight instead of the underground fog.
-- **The deep escalators** rise 12.4 m from the Akanesuji platform through an open shaft into the middle of the concourse.
-- **The Sumire hall** is a second `sHall`, 15.9 m south of the Shiokaze hall, with windows into it on the same three bays. Its shaft climbs into the same stub passage, which runs on south past both shafts. The hub spec names it `outer: 'M'`.
-- **The Shiokaze hall** (`sHall`) fills what was the B4 shell. It shares three windows with the Akanesuji hall, so you see one line's trains from the other's platform. A stair and escalator climb west through an enclosed shaft into the stub passage south of the paid concourse, so A/Y ↔ S transfers stay inside the gates. The line beside the primary is named by `beside` in the hub spec; without one, `buildHub` still draws the shell.
+- **Willow Court** is a tight well (28 × 24 m) from the B1 floor to the glass roof at +26 m, inside a 48 m inner hall; the building's wings either side are solid. It is the hub's only large open space. Zones can be flagged `sky` so its floor keeps daylight instead of the underground fog.
+- **Finish**: stone and brass above the platforms (travertine walls over a dark dado, brass trim, timber shop fronts, coffered Central Passage). Props are Blender models in `public/models/buildings/hub.glb` (`tools/blender/build_hub.py`): the willow, columns, lanterns, furniture.
+- **Floor lines**: one inlaid band per metro line from every way in to its stairs (`floorLines` in `hub.ts`); each line keeps its own slot across the bundle.
+- **Exits 9 and 10**: 9 climbs from the Central Passage to the plaza; 10 from the South Gate (Shiokaze and Sumire's own gate, end of the South Passage) to Yanagi-suji. `exits.ts` lists both by hand. **Yanagi Yokochō** is the food hall in the west wing at B1, off Willow Court.
+- **Inside the gates there are no halls**: each gate has a small lobby, every stair and escalator bank stands in a walled well with a brass portal, and signed corridors about 5 to 6 m wide join them (transfer corridor south from the Central Gate, Akanesuji corridor along the back rooms, Shiokaze–Sumire corridor along the south wall, a 5 m South Passage). The space between is solid, fronted with shops, services and adverts.
+- **Room for expansion**: two hoarded metro stubs with marked gate positions (east end of the North Passage; south of the mall off the Central Passage), the main-line gate hall (2F north), the private-railway concourse (2F east) and the high-speed landing (3F).
+- **The deep escalators** rise 12.4 m from the Akanesuji platform. The west bank comes up in the paid transfer hall; the east bank stays in a walled shaft through B1 and comes out at the East Gate.
+- **The Sumire hall** is a second `sHall`, 15.9 m south of the Shiokaze hall, with windows into it on the same three bays. Its shaft climbs into the same South Passage, which runs on south past both shafts. The hub spec names it `outer: 'M'`.
+- **The Shiokaze hall** (`sHall`) fills what was the B4 shell. It shares three windows with the Akanesuji hall, so you see one line's trains from the other's platform. A stair and escalator climb east through an enclosed shaft into the South Passage (x −30…−22) off the paid transfer hall, so A/Y ↔ S transfers stay inside the gates. The line beside the primary is named by `beside` in the hub spec; without one, `buildHub` still draws the shell.
 - **The Yanagisuji hall** keeps its vault over the southern 47 m. The northern part now has the concourse above it, so the vault is shorter than it was.
 - **Shells** are real geometry you can see but not enter: closed by glass or hoardings, signed 将来線予定地 with the kind of railway, with the future gate position marked on the floor. They have no departure boards and are absent from the map. The unfinished viaducts simply stop at a hoarded end.
 - **The clock** on the facade and on the willow is a live sign (`{ k: 'clock' }`) reading the sim clock.

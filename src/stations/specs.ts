@@ -127,7 +127,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 11, roadHalf: 6.5, cross: [-70, 62], left: 'park', right: 'house', trees: true, poles: true },
   },
-  // The central station. White enamel panels and gold trim; the Yanagisuji platforms keep
+  // The central station. Stone and brass above the platforms (white enamel on them); the Yanagisuji platforms keep
   // their vaulted hall, and everything else is built by the hub composer (hub.ts).
   'kita-odori': {
     kind: 'hub',
@@ -135,7 +135,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     beside: 'S',
     outer: 'M',
     style: {
-      wall: 'panel:#f1efe8', concWall: 'panel:#f4f2ec', floor: 'floor:#d9d7d0', pillar: 'panel:#f1efe8',
+      wall: 'panel:#f1efe8', concWall: 'panel:#d9cdb4', floor: 'floor:#cfc7b6', pillar: 'panel:#f1efe8',
       accent: '#b08d3c', mural: { v: 'willow', color: '#d9b43a' }, vault: true,
     },
     seed: 23,

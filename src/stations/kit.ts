@@ -319,7 +319,9 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
     const mouthTop = railY + 4.65;
     for (const s of [-1, 1]) {
       const x0 = s > 0 ? H : -H - 0.5, x1 = x0 + 0.5;
-      const yb = railY - 1, yt = maxCeil + SLAB;
+      // Up to the ceiling at this end: under a concourse the wall must not rise through its floor.
+      const endSeg = o.ceil.find((q) => s * H >= q.x0 && s * H <= q.x1);
+      const yb = railY - 1, yt = endSeg ? endSeg.y + (endSeg.emit ? SLAB : 0) : maxCeil + SLAB;
       if (island) {
         b.box('concreteDark', x0, yb, -(L - 2.2), x1, yt, L - 2.2);
         b.box('concreteDark', x0, mouthTop, -wallZ, x1, yt, -(L - 2.2));
