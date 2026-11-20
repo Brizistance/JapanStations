@@ -155,6 +155,8 @@ export const SPECS: Record<StationId, StationSpec> = {
       seed: 37, roadHalf: 12, cross: [-92, 92], left: 'mixed', right: 'mixed', trees: true, avenue: true, models: true, roadKit: true,
       canalAt: 92, canalName: { ja: '紬橋', en: 'Tsumugi-bashi' }, canalStone: true,
       landmark: { ja: '紬橋絹取引所', en: 'Tsumugibashi Silk Exchange', side: 1, x0: 26, x1: 73, depth: 28 },
+      // A corner shop by the side street and a shop in the base of an avenue block.
+      konbini: [{ type: 'corner', chain: 'hinode', side: 1, x0: -85.5 }, { type: 'ground', chain: 'maruhoshi', side: -1, x0: -44 }],
     },
   },
   // Nightlife: black and gold tile, neon street, canal with a red bridge.

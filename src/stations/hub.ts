@@ -31,6 +31,7 @@ import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from '.
 import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, stairs, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
 import { BUILDING_MODELS } from './buildings';
+import { KONBINI, konbini } from './konbini';
 import { kerbGaps, kerbRail, poleLine, roadKit, roadModel, streetLamp } from './roads';
 import { SHOPS, crosswalk, fillModelLots, type Shop } from './surface';
 
@@ -170,9 +171,13 @@ const CITY: Record<string, { w: number; d: number; h: number }> = {
   twr_a: { w: 40, d: 40, h: 150 }, twr_b: { w: 44, d: 36, h: 130 }, twr_c: { w: 36, d: 36, h: 112 },
   twr_d: { w: 46, d: 44, h: 96 }, twr_e: { w: 38, d: 38, h: 180 },
 };
+/** The block with a shop bay in its base (build_city.py mid_k): the bay's width, depth and height. */
+const MID_K = { w: 24, d: 20, h: 36, bay: [12, 10.2, 4] };
+/** Where that block stands on the avenue's south side (its west edge), and the kiosk shop's middle (z) on the Central Passage's east wall. */
+const SHOP_X0 = -72, KIOSK_Z = -40;
 /** What a back row is filled with: the district's mid-rise blocks, and the street set's offices and apartment blocks. */
 const ROW_POOL = [
-  ...Object.entries(CITY).filter(([id]) => id.startsWith('mid')).map(([id, m]) => ({ kind: 'city', id, ...m })),
+  ...Object.entries(CITY).map(([id, m]) => ({ kind: 'city', id, ...m })).filter((m) => m.id.startsWith('mid')),
   ...BUILDING_MODELS.filter((m) => (m.kind === 'office' || m.kind === 'manshon') && !m.corner),
 ];
 /** Street furniture (build_city.py), drawn merged like the road kit's. `f` is the way its front faces. */
@@ -631,7 +636,11 @@ function concourseLevel(h: H, holes: Rect[]) {
   stoneX(b, wall, w1, XE + 0.4, XP, XP + 0.4, cf, top, [CP]);
   stoneBox(b, wall, XE, cf, FRONT, XE + 0.4, top, XP);
   stoneX(b, wall, w0 - 0.4, XE + 0.4, FRONT - 0.4, FRONT, cf, top, [[-8, 8]]);
-  stoneZ(b, wall, c1, c1 + 0.4, XP + 0.4, -BAR - 0.4, cf, tall + 0.5, [[P9 - 4, P9]]);
+  const kz: [number, number] = [KIOSK_Z - KONBINI.kiosk.w / 2, KIOSK_Z + KONBINI.kiosk.w / 2];
+  stoneZ(b, wall, c1, c1 + 0.4, XP + 0.4, -BAR - 0.4, cf, tall + 0.5, [kz, [P9 - 4, P9]]);
+  b.box(wall, c1, cf + KONBINI.kiosk.h + 0.95, kz[0], c1 + 0.4, tall + 0.5, kz[1]);
+  // A convenience store in the wall: open-fronted, facing the passage.
+  b.with({ rot: 3, t: [c1 + 0.3, 0, KIOSK_Z] }, () => konbini(b, { type: 'kiosk', chain: 'asanagi', y: cf }));
   b.box(wall, c1, cf + 2.7, P9 - 4, c1 + 0.4, tall + 0.5, P9);
   stoneZ(b, wall, c0 - 0.4, c0, XP + 0.4, YH.z0, cf, tall + 0.5);
   stoneZ(b, wall, c0 - 0.4, c0, YH.z0, -BAR - 0.4, cf, top, [LOB]);
@@ -746,7 +755,7 @@ function concourseLevel(h: H, holes: Rect[]) {
 
   // ── Central Passage: a colonnade under a luminous coffered ceiling, trimmed in gold ──
   for (let z = XP + 5; z < -BAR - 2; z += 6) {
-    pillar(c1 - 1.2, z, tall);
+    if (Math.abs(z - KIOSK_Z) > 3) pillar(c1 - 1.2, z, tall);
     if (Math.abs(z + 29) > 11) pillar(c0 + 1.2, z, tall);
   }
   for (let z = XP + 0.4 + 4.3; z < -BAR - 2; z += 8.6) for (const x of [cx - 2.3, cx + 2.3]) prop(b, 'lantern', x, tall - 0.45, z + 0.175);
@@ -764,7 +773,8 @@ function concourseLevel(h: H, holes: Rect[]) {
   b.sign({ k: 'label', text: '中央通路', sub: 'Central Passage', fg: '#f3e3a0', bg: '#12382c' }, c1 - 0.04, cf + 4.6, -36, [-1, 0], 5, 0.8);
   b.sign({ k: 'label', text: '中央改札', sub: 'Central Gate', fg: '#f3e3a0', bg: '#12382c' }, c0 - 0.04, cf + 4.5, -29, [1, 0], 9, 1.0);
   b.sign({ k: 'clock' }, cx, cf + 4.5, XP + 0.42, [0, 1], 1.5, 1.5, { dynamic: true });
-  shopsZ(h, c1, XP + 1, P9 - 4.5, -1);
+  shopsZ(h, c1, XP + 1, KIOSK_Z - KONBINI.kiosk.w / 2 - 0.4, -1);
+  shopsZ(h, c1, KIOSK_Z + KONBINI.kiosk.w / 2 + 0.4, P9 - 4.5, -1);
   b.with({ rot: 3, t: [c0, 0, -47.6] }, () => ticketMachines(c, cf, 0, 0, 6));
 
   // ── North Passage: shops both sides, the door to Willow Court in the middle ──
@@ -1353,7 +1363,18 @@ function street(h: H, seed: number, dir: [number, number]) {
   const [bk, hq, dp] = [LANDMARKS.bank, LANDMARKS.hq, LANDMARKS.depato];
   fillModelLots(b, r, -X + 1, hq.x0 - 1, S_FRONT, Z, { tower: true, noBack: true });
   landmark('hq', hq.x0, hq.w, hq.d, hq.h);
-  fillModelLots(b, r, hq.x0 + hq.w + 0.5, bk.x0 - 1, S_FRONT, Z, { noBack: true });
+  // A block with a convenience store you can walk into in its base.
+  {
+    const xm = SHOP_X0 + MID_K.w / 2, [bw, bd, bh] = MID_K.bay;
+    b.block(SHOP_X0, GY, S_FRONT, xm - bw / 2, GY + MID_K.h, S_FRONT + MID_K.d);
+    b.block(xm + bw / 2, GY, S_FRONT, SHOP_X0 + MID_K.w, GY + MID_K.h, S_FRONT + MID_K.d);
+    b.block(xm - bw / 2, GY, S_FRONT + bd, xm + bw / 2, GY + MID_K.h, S_FRONT + MID_K.d);
+    b.block(xm - bw / 2, GY + bh, S_FRONT, xm + bw / 2, GY + MID_K.h, S_FRONT + bd);
+    b.model('city', 'mid_k', xm, GY, S_FRONT, 7);
+    b.with({ t: [xm, 0, S_FRONT] }, () => konbini(b, { type: 'ground', chain: 'maruhoshi' }));
+  }
+  fillModelLots(b, r, hq.x0 + hq.w + 0.5, SHOP_X0 - 1, S_FRONT, Z, { noBack: true });
+  fillModelLots(b, r, SHOP_X0 + MID_K.w + 0.6, bk.x0 - 1, S_FRONT, Z, { noBack: true });
   landmark('bank', bk.x0, bk.w, bk.d, bk.h);
   landmark('depato', dp.x0, dp.w, dp.d, dp.h);
   fillModelLots(b, r, dp.x0 + dp.w + 1, X - 1, S_FRONT, Z, { tower: true, noBack: true });

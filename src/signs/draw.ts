@@ -11,7 +11,7 @@ import {
 import { SPECS } from '../stations/specs';
 import type { BlockStyle } from '../stations/surface';
 import type { Arrow, Picto, SignContent } from './content';
-import { boardPixels, boards, drawDep, drawDepAll, platformNo } from './departures';
+import { boardPixels, boards, drawDep, drawDepAll, platformNo, crossingActive } from './departures';
 
 export const FONT = '"Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans JP",system-ui,sans-serif';
 const NAVY = '#14233b';
@@ -2032,6 +2032,7 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'roadboard': return drawRoadBoard(ctx, W, H, c.rows);
     case 'junction': return drawJunction(ctx, W, H, c);
     case 'address': return drawAddress(ctx, W, H, c);
+    case 'crossing': return drawCrossing(ctx, W, H, c);
     case 'roadmark': return drawRoadMark(ctx, W, H, c.v);
   }
 }
@@ -2249,6 +2250,35 @@ function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { 
  * shaft's arrow, the others over their arms. Layout after the diagrams of signs 108-A and 108の2-A
  * on Wikimedia Commons (see docs/references.md); the names are ours, from the network.
  */
+/** Level crossing lamps (flashing alternately while a train is near) and gate arm (down then, up otherwise). */
+function drawCrossing(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'crossing' }>) {
+  const on = crossingActive(c.line, c.station, clock.time);
+  ctx.clearRect(0, 0, W, H);
+  if (c.v === 'lamps') {
+    const left = Math.floor(clock.time * 2) % 2 === 0;
+    const R = Math.min(H * 0.46, W * 0.2);
+    [0.22, 0.78].forEach((u, i) => {
+      ctx.fillStyle = on && (i === 0) === left ? '#ff3524' : '#3a0d0a';
+      ctx.beginPath();
+      ctx.arc(W * u, H / 2, R, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    return;
+  }
+  // The arm: yellow and black stripes, pivoted at a bottom corner; lying across the road when closed.
+  const t = Math.max(3, Math.round(H * 0.026)), n = 14;
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = i % 2 === 0 ? '#f2c200' : '#1c1c1e';
+    if (on) {
+      const x0 = (W * i) / n;
+      ctx.fillRect(c.flip ? W - x0 - W / n : x0, H - t, W / n + 1, t);
+    } else {
+      const y0 = (H * i) / n;
+      ctx.fillRect(c.flip ? W - t : 0, H - y0 - H / n, t, H / n + 1);
+    }
+  }
+}
+
 /** Address plate (街区表示板): green with a white edge, the name written downwards, romaji small at the foot. */
 function drawAddress(ctx: Ctx, W: number, H: number, c: { ja: string; en: string }) {
   ctx.fillStyle = '#ffffff';

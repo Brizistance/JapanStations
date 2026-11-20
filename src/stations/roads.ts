@@ -116,6 +116,67 @@ export function poleLine(b: Builder, o: PoleLine) {
   });
 }
 
+// build_road.py XING: height of the lamps and their spacing, height of the gate's pivot.
+const XING = { lampY: 2.35, lampDx: 0.32, pivotY: 1.0 };
+
+export interface LevelCrossing {
+  /** The road runs along x (the tracks cross it along z) or along z. */
+  road: 'x' | 'z';
+  /** Where the tracks' centre line crosses the road's centre line. */
+  x: number;
+  z: number;
+  /** Half width of the road, and of the strip of tracks (two tracks: about 4 m). */
+  rw: number;
+  tracks: number;
+  /** Whose trains close it: the lamps and arms follow this line's timetable at this station. */
+  line: string;
+  station: string;
+}
+
+/**
+ * A railway level crossing (踏切) over a road: on each approach a warning mast with lamps on the
+ * left kerb and a gate whose arm closes the entry lane, a panelled track bed with rails, stop
+ * lines and yellow edge lines. The lamps flash and the arms come down while a train of the line
+ * is near (never otherwise). No line has a crossing yet: this is ready for the first one.
+ * The arms are drawn, not solid: nothing stops a walker.
+ */
+export function levelCrossing(b: Builder, o: LevelCrossing) {
+  const run = () => {
+    // Local frame: the road along x, the tracks across it at x = 0.
+    const { rw, tracks } = o;
+    b.deco('flat:#3a3d42', -tracks - 0.6, 0.012, -rw - 2.5, tracks + 0.6, 0.02, rw + 2.5);
+    for (const tx of tracks > 2.5 ? [-tracks / 2, tracks / 2] : [0]) {
+      for (const g of [-0.72, 0.72]) b.deco('flat:#8d9094', tx + g - 0.04, 0.02, -rw - 2.5, tx + g + 0.04, 0.035, rw + 2.5);
+      b.deco('flat:#2a2c30', tx - 0.62, 0.02, -rw, tx + 0.62, 0.026, rw);
+    }
+    for (const s of [-1, 1]) {
+      b.deco('flat:#f2c200', -tracks - 0.6, 0.02, s * rw - 0.12, tracks + 0.6, 0.027, s * rw + 0.12);
+      b.deco('flat:#e9e9e4', s * (tracks + 2.2) - 0.2, 0.004, Math.min(0, -s * rw), s * (tracks + 2.2) + 0.2, 0.01, Math.max(0, -s * rw));
+    }
+    for (const sx of [1, -1] as const) {
+      // Traffic travelling sx stops before the tracks; its mast and gate stand on its left kerb.
+      const h: V2 = [sx, 0], l = left(h), f: V2 = [-sx, 0];
+      const mx = -sx * (tracks + 1.6), mz = l[1] * (rw + 0.6);
+      put(b, 'xing_mast', mx, GY, mz, f);
+      b.block(mx - 0.1, GY, mz - 0.1, mx + 0.1, GY + 3, mz + 0.1);
+      const [lx, lz] = off(f, 0, -0.16);
+      b.sign({ k: 'crossing', v: 'lamps', line: o.line, station: o.station }, mx + lx, GY + XING.lampY, mz + lz, f, XING.lampDx * 2 + 0.44, 0.4);
+      b.sign({ k: 'label', text: '踏切', sub: 'Level crossing', fg: '#1c1c1e', bg: '#f2c200' }, mx + lx, GY + 1.85, mz + lz * 0.9, f, 0.6, 0.24);
+      // The gate, a little nearer the tracks: its arm reaches from the kerb to the road's centre line.
+      const gx = -sx * (tracks + 0.9), gz = l[1] * (rw + 0.35), L = rw + 0.35;
+      put(b, 'xing_gate', gx, GY, gz, f);
+      b.block(gx - 0.22, GY, gz - 0.22, gx + 0.22, GY + 1.3, gz + 0.22);
+      const cz = gz - l[1] * (L / 2);
+      for (const back of [false, true]) {
+        const n: V2 = back ? [sx, 0] : f;
+        b.sign({ k: 'crossing', v: 'arm', line: o.line, station: o.station, flip: back }, gx - sx * (back ? 0.3 : 0.28), GY + XING.pivotY - 0.07 + L / 2, cz, n, L, L);
+      }
+    }
+  };
+  if (o.road === 'x') b.with({ t: [o.x, 0, o.z] }, run);
+  else b.with({ rot: 1, t: [o.x, 0, o.z] }, run);
+}
+
 export interface RoadGeo {
   /** Half extents of the plot. */
   X: number;

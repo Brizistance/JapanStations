@@ -20,12 +20,12 @@ interface Entry {
 }
 export type SignCache = Map<string, Entry>;
 
-const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock', 'signal']);
+const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock', 'signal', 'crossing']);
 const FAST = new Set(['dep', 'depAll']);
 /** Printed or physical things (posters, murals, machine fronts, doors): lit by the room, not self-lit. */
 const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap', 'floormark', 'roadsign', 'roadboard', 'roadmark', 'junction', 'address']);
 /** Drawn on a transparent canvas and cut out to their shape (a round sign, paint on the road). */
-const CUTOUT = new Set(['roadsign', 'roadmark']);
+const CUTOUT = new Set(['roadsign', 'roadmark', 'crossing']);
 
 function planeWith(sky: number): THREE.PlaneGeometry {
   const g = new THREE.PlaneGeometry(1, 1);

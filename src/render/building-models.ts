@@ -32,9 +32,11 @@ interface Proto {
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini'];
+/** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
+const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */
 const DAYLIGHT: Record<string, number> = { tsumugi_dome: 1 };
 /** How many different sets of shop names one model variant can carry. */
@@ -81,7 +83,18 @@ export function loadBuildingModels(): Promise<void> {
   loading ??= Promise.all([...KINDS, ...PROPS].map((kind) => new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/buildings/${kind}.glb`).then((gltf) => {
     const daylight = PROPS.includes(kind) && !OUTDOOR.includes(kind) ? 0 : 1;
     // The simplified copies (<kind>_<id>_lo) are kept too: a ModelPart asks for one with the id '<id>_lo'.
-    for (const root of gltf.scene.children) if (root.name.startsWith(`${kind}_`)) protos.set(root.name, collect(root, DAYLIGHT[root.name] ?? daylight));
+    for (const root of gltf.scene.children) {
+      if (!root.name.startsWith(`${kind}_`)) continue;
+      if (UNDER.includes(kind)) {
+        const copy = root.clone(true);
+        copy.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (m.isMesh) m.geometry = m.geometry.clone();
+        });
+        protos.set(root.name.replace(`${kind}_`, `${kind}u_`), collect(copy, 0));
+      }
+      protos.set(root.name, collect(root, DAYLIGHT[root.name] ?? daylight));
+    }
   }))).then(() => undefined);
   return loading;
 }

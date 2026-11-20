@@ -37,6 +37,22 @@ export function platformTrains(line: LineDef, st: StationDef, dir: Dir, now: num
     .slice(0, count);
 }
 
+// ── Level crossings ──
+
+/** Dev override (window.__sim.crossing): true or false forces every crossing, null follows the trains. */
+export const crossingTest: { force: boolean | null } = { force: null };
+
+/**
+ * Whether the level crossing by a station is closed: from 35 s before a train of the line (either
+ * way) reaches the station until 12 s after it leaves. Read from the timetable, like the boards.
+ */
+export function crossingActive(lineId: string, stationId: string, now: number): boolean {
+  if (crossingTest.force !== null) return crossingTest.force;
+  const line = LINES.find((l) => l.id === lineId), st = stationById(stationId);
+  if (!line || !line.stops.includes(stationId)) return false;
+  return (['down', 'up'] as const).some((dir) => platformTrains(line, st, dir, now - 12, 2).some((d) => d.arr - 35 <= now && now <= d.dep + 12));
+}
+
 // ── Model ──
 
 /** Seconds each language stays up before the board switches. */

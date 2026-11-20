@@ -56,6 +56,12 @@ export type SignContent =
   | { k: 'signal'; v: 'car' | 'ped'; axis: 0 | 1 }
   /** A road sign's face (the `back-…` ones are the grey backs of the three shapes). Cut out to its shape. */
   | { k: 'roadsign'; v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 'nostopping' | 'crossing' | 'school' | 'hydrant' | 'back-tri' | 'back-round' | 'back-penta' | 'back-diamond' }
+  /**
+   * Level crossing (踏切), live: the pair of warning lamps, or the gate arm on a square face with its
+   * pivot at the bottom-left (bottom-right when `flip`, for the face seen from behind). Both follow
+   * the trains of `line` at `station` (signs/departures.ts crossingActive).
+   */
+  | { k: 'crossing'; v: 'lamps' | 'arm'; line: LineId; station: StationId; flip?: boolean }
   /** Address plate on a pole or wall (街区表示板): green, the town and chōme written downwards. */
   | { k: 'address'; ja: string; en: string }
   /** Blue overhead direction board: what lies ahead, to the left and to the right. */

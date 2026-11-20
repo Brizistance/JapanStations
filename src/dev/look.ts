@@ -6,6 +6,7 @@ import { perfStats } from '../render/perf';
 import { stationWorld } from '../stations';
 import { useUI } from '../ui/store';
 import { FILL_SPOTS } from '../stations/fill';
+import { crossingTest } from '../signs/departures';
 
 type V3 = [number, number, number];
 export type View = { label: string; pos: V3; yaw: number; pitch: number };
@@ -83,6 +84,12 @@ export function feature(id: string, k = 0, side: 1 | -1 = 1): string {
 }
 
 /** The live three.js scene, for counting what is in it. */
+/** Force every level crossing closed (true) or open (false); null lets them follow the trains again. */
+export function crossing(force: boolean | null) {
+  crossingTest.force = force;
+  return force;
+}
+
 export const scene = () => perfStats.scene;
 
 /** This frame's cost: draw calls and triangles over every pass, and the frame's smoothed JavaScript time in ms. */

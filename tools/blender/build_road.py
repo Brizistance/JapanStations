@@ -295,6 +295,50 @@ def wand(p):
         p.cyl(WHITE, (0, y, 0), 1, 0.043, 0.06, seg=8)
 
 
+# ── Level crossing (踏切): the mast and the gate's motor box. The lamps and the arm are game signs
+# laid on them (they flash and drop with the trains): src/stations/roads.ts levelCrossing mirrors
+# XING below. ──
+XING = dict(lamp_y=2.35, lamp_dx=0.32, pivot_y=1.0)
+
+
+def xing_mast(p):
+    """Crossing warning mast: striped post, the X of two yellow and black boards, twin lamp
+    housings, a direction-arrow box and a bell on top."""
+    yel, blk = 'flat:#f2c200', 'flat:#1c1c1e'
+    p.cyl(blk, (0, 0.1, 0), 1, 0.16, 0.2, seg=10)
+    for k in range(10):
+        p.cyl(yel if k % 2 == 0 else blk, (0, 0.2 + 0.36 * k + 0.18, 0), 1, 0.075, 0.36, seg=8)
+    # The X: two boards crossed at 3.2 m, striped.
+    for sgn in (-1, 1):
+        ca, sa = math.cos(sgn * 0.62), math.sin(sgn * 0.62)
+        for k in range(8):
+            a0, a1 = -1.0 + k * 0.25, -1.0 + (k + 1) * 0.25
+            col = yel if k % 2 == 0 else blk
+            pts = [(a0 * ca - 0.09 * -sa, 3.2 + a0 * sa - 0.09 * ca), (a1 * ca - 0.09 * -sa, 3.2 + a1 * sa - 0.09 * ca),
+                   (a1 * ca + 0.09 * -sa, 3.2 + a1 * sa + 0.09 * ca), (a0 * ca + 0.09 * -sa, 3.2 + a0 * sa + 0.09 * ca)]
+            p.prism(col, pts, 'z', -0.1 - 0.012 * (sgn + 1), -0.085 - 0.012 * (sgn + 1))
+    # Lamp housings with hoods, on a cross bar.
+    y = XING['lamp_y']
+    p.box(blk, -0.6, y - 0.04, -0.08, 0.6, y + 0.04, 0.0)
+    for sx in (-XING['lamp_dx'], XING['lamp_dx']):
+        p.cyl(blk, (sx, y, -0.1), 2, 0.2, 0.1, seg=16)
+        p.box(blk, sx - 0.21, y + 0.16, -0.32, sx + 0.21, y + 0.2, -0.1)
+    # Direction-arrow box under the lamps, and the bell.
+    p.box(blk, -0.32, 1.72, -0.12, 0.32, 1.98, -0.04)
+    p.cyl(blk, (0, 3.92, 0), 1, 0.13, 0.16, seg=10)
+    p.cyl('flat:#8d9094', (0, 4.04, 0), 1, 0.1, 0.08, seg=10)
+
+
+def xing_gate(p):
+    """The gate's motor box on its post: the arm itself is a game sign that drops with the trains."""
+    yel, blk = 'flat:#f2c200', 'flat:#1c1c1e'
+    p.box(blk, -0.2, 0, -0.2, 0.2, 0.12, 0.2)
+    p.cyl('flat:#8d9094', (0, 0.45, 0), 1, 0.08, 0.7, seg=8)
+    p.box(yel, -0.24, 0.72, -0.22, 0.24, 1.3, 0.22)
+    p.box(blk, -0.25, 0.72, -0.23, 0.25, 0.8, 0.23)
+    p.cyl(blk, (0, XING['pivot_y'], -0.26), 2, 0.12, 0.08, seg=10)
+
+
 # ── Vehicles: nose to -z ──
 
 def wheels(p, half_w, zs, r=0.31, w=0.2):
@@ -423,6 +467,7 @@ PROPS = {
     'ped': (ped, 1.5), 'signpole': (signpole, 1), 'gantry': (gantry, 9), 'busstop': (busstop, 1.5), 'shelter': (shelter, 5),
     'mirror': (mirror, 1.5), 'bollard': (bollard, 1), 'rail': (rail, 3), 'upole': (upole, 3), 'upole_l': (lambda p: upole(p, False), 3),
     'lamp_hw': (lamp_hw, 3), 'lamp_shop': (lamp_shop, 3), 'lamp_park': (lamp_park, 2), 'fingerpost': (fingerpost, 3), 'mapstand': (mapstand, 3), 'wand': (wand, 1),
+    'xing_mast': (xing_mast, 3), 'xing_gate': (xing_gate, 2),
     'sedan_w': (lambda p: sedan(p, '#e6e6e2'), 3), 'sedan_k': (lambda p: sedan(p, '#2a2d32'), 3), 'sedan_r': (lambda p: sedan(p, '#8f2020'), 3),
     'sedan_b': (lambda p: sedan(p, '#27508a'), 3), 'sedan_s': (lambda p: sedan(p, '#9aa0a6'), 3),
     'taxi': (lambda p: sedan(p, '#1d4d2b', taxi=True), 3),

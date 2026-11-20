@@ -31,6 +31,8 @@ MIDS = [
     dict(id='mid_d', w=22.0, d=18.0, h=32.0, style='grid', wall='flat:#8a5a44', trim='flat:#6e4534', awn='#1f5fa8', seed=11, board=True),
     dict(id='mid_e', w=26.0, d=20.0, h=40.0, style='ribbon', wall='flat:#e8e6df', trim='flat:#3f6a5a', awn='#3f6a5a', seed=13, board=False),
     dict(id='mid_f', w=20.0, d=20.0, h=48.0, style='curtain', wall='flat:#4d5459', trim='flat:#b08d3a', awn=None, seed=17, board=True),
+    # Open at street level: a 12 × 10.2 m bay in the middle of the front for a walk-in shop (stations/konbini.ts).
+    dict(id='mid_k', w=24.0, d=20.0, h=36.0, style='ribbon', wall='flat:#cfc6b4', trim='flat:#8f8676', awn='#12382c', seed=19, board=False, bay=(12.0, 10.2, 4.0)),
 ]
 TOWERS = [
     dict(id='twr_a', w=40.0, d=40.0, h=150.0), dict(id='twr_b', w=44.0, d=36.0, h=130.0), dict(id='twr_c', w=36.0, d=36.0, h=112.0),
@@ -78,7 +80,14 @@ def midrise(p, s, v):
     x0, x1 = -W / 2, W / 2
     G, FH = 4.4, 3.5
     wall, trim = v['wall'], v['trim']
-    ground(p, x0, x1, D, G, wall, v['awn'])
+    if v.get('bay'):
+        bw, bd, bh = v['bay']
+        ground(p, x0, -bw / 2, D, G, wall, v['awn'])
+        ground(p, bw / 2, x1, D, G, wall, v['awn'])
+        p.box(wall, -bw / 2, 0, bd, bw / 2, G, D)
+        p.box(wall, -bw / 2, bh, 0, bw / 2, G, bd)
+    else:
+        ground(p, x0, x1, D, G, wall, v['awn'])
     top = H - 1.2
     p.box(wall, x0, G, 0, x1, top, D)
     fl = int((top - G) / FH)
@@ -112,7 +121,8 @@ def midrise(p, s, v):
     r = random.Random(v['seed'])
     col = r.choice(SIGN_COLOURS)
     sign(s, col, x1 - 1.6, G + 2, -1.5, x1 - 0.5, G + 2 + min(14, top - G - 6), -0.25)
-    sign(s, r.choice(SIGN_COLOURS), -4.5, G + 0.25, -0.2, 4.5, G + 1.55, -0.05)
+    if not v.get('bay'):
+        sign(s, r.choice(SIGN_COLOURS), -4.5, G + 0.25, -0.2, 4.5, G + 1.55, -0.05)
     if v['board']:
         for sx in (-W / 4, W / 4):
             p.box(STEEL, sx - 0.08, H - 0.3, 2.0, sx + 0.08, H + 5.5, 2.16)

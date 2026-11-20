@@ -53,6 +53,28 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 - **Signs added**: junction name plates, 30 km/h over a school-route warning on narrow side streets, no-stopping at kerb bus stops, a hydrant sign, a finger post and a standing area map at every junction, delineator posts at side-street corners, shopping-street lamps along canal banks.
 - **Not built yet**: one-way and no-entry signs, pedestrian-only hours with time plates, street-name plates on walls, convex mirrors beyond the kit's own, school-zone road paint, evacuation signs.
 
+## Convenience stores you can enter (built 2026-11-19)
+
+- `konbini(b, { type, chain, y? })` in `src/stations/konbini.ts` builds a shop in the current frame: front on z = 0 facing −z. It makes the room, the colliders and a zone (so the walk test must get inside), and places the fittings from `konbini.glb` (`tools/blender/build_konbini.py`).
+- **Types:** `corner` (stand-alone, 14 × 9 m), `ground` (in the base of the `mid_k` block, 12 × 10 m), `kiosk` (open-fronted, inside a station, 8 × 5 m), `roadside` (16 × 10 m behind a car park with a pole sign; modelled, not placed yet).
+- **Chains:** Maruhoshi Mart, Asanagi, Hinode Stop (`CHAINS`). Stock is plain colour blocks; nothing is copied from a real shop.
+- **Placing one:** at a `surface.ts` station, add to the spec's `konbini` list (`{ type, chain, side, x0 }`); its lot is kept out of the ordinary fill. In a composer like `hub.ts`, reserve the lot and call `konbini` inside `b.with`.
+- **Placed so far:** Kita-Ōdōri (a `ground` shop on the avenue, a `kiosk` in the Central Passage) and Tsumugibashi (a `corner` shop by the side street, a `ground` shop on the avenue). Long term: every station.
+- Below the street a shop uses the `konbiniu_…` copies of the fittings, which take no daylight.
+
+## Level crossing kit (built 2026-11-19, not placed anywhere)
+
+- `levelCrossing(b, { road, x, z, rw, tracks, line, station })` in `src/stations/roads.ts`: a mast with lamps and a gate on each approach, a track panel with rails, stop lines and yellow edge lines.
+- The lamps and gate arms are live signs (`{ k: 'crossing' }`). They follow `crossingActive` in `src/signs/departures.ts`: closed from 35 s before a train of the line reaches the station until 12 s after it leaves. No line has a crossing yet, so nothing calls it.
+- The arms are drawn, not solid, and snap between up and down.
+- To look at one without a line: place it temporarily and use `__sim.crossing(true | false | null)`.
+
+## Ideas for later (the owner's picks)
+
+- A ramen or soba counter you can enter; a small shrine or pocket park between buildings.
+- Vending machine corners.
+- Night mode: a time of day in which lamps, shop fronts, lit windows and signals glow.
+
 ## Known gaps
 
 - New model sets have no simplified copies for distance. `plaza.glb` is about 5 MB and `city.glb` about 8 MB; frame rate has not been measured.

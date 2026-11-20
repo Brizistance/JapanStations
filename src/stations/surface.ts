@@ -3,6 +3,7 @@
 // repeatable neighbourhood. Coordinates are station-frame metres (x along the line).
 
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
+import { CAR_PARK, KONBINI, konbini, type ChainId } from './konbini';
 import { kerbGaps, kerbRail, poleLine, roadKit, streetLamp, type LampKind } from './roads';
 import { BUILDING_MODELS } from './buildings';
 import { GROUND_Y, vending } from './kit';
@@ -31,6 +32,11 @@ export interface SurfaceSpec {
   canalName?: { ja: string; en: string };
   /** An old stone bridge (the model exchange_bridge, build_exchange.py) and stone banks with willows, in place of the red one. */
   canalStone?: boolean;
+  /**
+   * Convenience stores you can walk into (stations/konbini.ts), each on its own lot on one side of
+   * the main road: `x0` is the lot's low-x edge. A 'ground' shop stands in the base of a block.
+   */
+  konbini?: { type: 'corner' | 'ground' | 'roadside'; chain: ChainId; side: -1 | 1; x0: number }[];
   /** Blender-built buildings on the lots (stations/buildings.ts) in place of the box ones: business blocks, old shophouses by a canal. */
   models?: boolean;
   /**
@@ -577,10 +583,33 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           }
           modelBackRow(b, r, ia, ic, swOut + (old ? 15 : 26), PLOT_Z, taken, old);
         };
-        if (lm && lm.side === side && lm.x0 < xb && lm.x1 > xa) {
-          // The composer's own lot: ordinary buildings either side of it only.
-          if (lm.x0 - xa >= 6) lots(xa, lm.x0);
-          if (xb - lm.x1 >= 6) lots(lm.x1, xb);
+        // Lots kept out of the ordinary fill: the composer's own, and any convenience store's.
+        const kept: [number, number][] = [];
+        if (lm && lm.side === side && lm.x0 < xb && lm.x1 > xa) kept.push([lm.x0, lm.x1]);
+        for (const k of spec.konbini ?? []) {
+          if (k.side !== side) continue;
+          const kw = k.type === 'ground' ? 24 : KONBINI[k.type].w + 0.6;
+          if (k.x0 < xa || k.x0 + kw > xb) continue;
+          kept.push([k.x0, k.x0 + kw]);
+          const xm = k.x0 + kw / 2, back = k.type === 'roadside' ? CAR_PARK : 0;
+          if (k.type === 'ground') {
+            // In the base of a block with a shop bay (build_city.py mid_k: 24 × 20 m, bay 12 × 10.2 × 4).
+            b.block(k.x0, GY, swOut, xm - 6, GY + 36, swOut + 20);
+            b.block(xm + 6, GY, swOut, k.x0 + 24, GY + 36, swOut + 20);
+            b.block(xm - 6, GY, swOut + 10.2, xm + 6, GY + 36, swOut + 20);
+            b.block(xm - 6, GY + 4, swOut, xm + 6, GY + 36, swOut + 10.2);
+            b.model('city', 'mid_k', xm, GY, swOut, 3);
+          }
+          b.with({ t: [xm, 0, swOut + back] }, () => konbini(b, { type: k.type, chain: k.chain }));
+        }
+        if (kept.length) {
+          kept.sort((p, q) => p[0] - q[0]);
+          let from = xa;
+          for (const [p, q] of kept) {
+            if (p - from >= 6) lots(from, p);
+            from = q;
+          }
+          if (xb - from >= 6) lots(from, xb);
           continue;
         }
         if (side < 0 && spec.arcadeAt !== undefined && Math.abs(xb + 3 + crossHalf - spec.arcadeAt) < 1) {

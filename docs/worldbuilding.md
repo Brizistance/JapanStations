@@ -74,6 +74,8 @@ Invented brands that appear on shop fronts in concourses (`SHOPS` in `src/statio
 | Kawaminato Shinkin Bank | 川湊信用金庫 | ATM corner |
 | Mioya Department Store | 澪屋百貨店 | The old department store facing Kawaminato Station across Kita-Ōdōri (from the Mio-gawa). Not web-checked yet |
 | Akitsushima Life Building | 秋津島生命ビル | Head office tower on Kita-Ōdōri, west of the station |
+| Asanagi | あさなぎ | Convenience store chain (teal and cream), named after the Asanagi shore. Not web-checked yet |
+| Hinode Stop | ひのでストップ | Convenience store chain (magenta and navy). Not web-checked yet |
 | Kawaminato-dō Gifts | おみやげ 川湊堂 | Souvenirs |
 | Minamo Drug | ミナモドラッグ | Drugstore |
 | Omusubi Komeya | おむすび こめ屋 | Rice balls and bento |
