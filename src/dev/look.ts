@@ -2,6 +2,7 @@
 // Positions are in the station's own frame (+x along its primary line), as in the look files.
 
 import { player } from '../player/player';
+import { perfStats } from '../render/perf';
 import { stationWorld } from '../stations';
 import { useUI } from '../ui/store';
 import { FILL_SPOTS } from '../stations/fill';
@@ -79,4 +80,12 @@ export function feature(id: string, k = 0, side: 1 | -1 = 1): string {
   const p: V3 = [f.x + side * 5, f.cf + 0.1, f.z + (f.z > 0 ? -2 : 2)];
   look(id, p, face(p, [f.x, f.cf, f.z]), -0.2);
   return f.k;
+}
+
+/** The live three.js scene, for counting what is in it. */
+export const scene = () => perfStats.scene;
+
+/** This frame's cost: draw calls and triangles over every pass, and the frame's smoothed JavaScript time in ms. */
+export function perf() {
+  return { calls: perfStats.calls, tris: perfStats.tris, ms: Math.round(perfStats.ms * 10) / 10 };
 }

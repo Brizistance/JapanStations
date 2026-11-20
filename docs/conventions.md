@@ -46,6 +46,8 @@ npm run build
 
 Signs, the map, departure boards and the timetable pick it up automatically.
 
+**Roads:** to give a station's street the road kit (cycling signals, signs, paint, vehicles: `stations/roads.ts`), set `roadKit: true` in its surface spec. Traffic keeps left; that rule lives only in `roads.ts`.
+
 ## Adding a line
 
 1. Add a `LineDef` to `LINES` with an alignment, stops, rail levels and a service pattern. Leave 290 m of track beyond each terminus for the turnback siding.

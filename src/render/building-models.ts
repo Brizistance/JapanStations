@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SignContent } from '../signs/content';
 import { drawSign } from '../signs/draw';
 import { SIGN_WORDS, TOWER_NAMES, type BuildingKind } from '../stations/buildings';
@@ -29,11 +30,13 @@ interface Proto {
   boards: Board[];
 }
 
-const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower'];
+const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza'];
+const OUTDOOR = ['plaza', 'exchange', 'road'];
+/** Daylight of single models that differ from their file: a dome above the roofs. */
+const DAYLIGHT: Record<string, number> = { tsumugi_dome: 1 };
 /** How many different sets of shop names one model variant can carry. */
 const NAME_SETS = 3;
 const ATLAS_PX = 1024;
@@ -77,7 +80,8 @@ function collect(root: THREE.Object3D, daylight = 1): Proto {
 export function loadBuildingModels(): Promise<void> {
   loading ??= Promise.all([...KINDS, ...PROPS].map((kind) => new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/buildings/${kind}.glb`).then((gltf) => {
     const daylight = PROPS.includes(kind) && !OUTDOOR.includes(kind) ? 0 : 1;
-    for (const root of gltf.scene.children) if (root.name.startsWith(`${kind}_`) && !root.name.endsWith('_lo')) protos.set(root.name, collect(root, daylight));
+    // The simplified copies (<kind>_<id>_lo) are kept too: a ModelPart asks for one with the id '<id>_lo'.
+    for (const root of gltf.scene.children) if (root.name.startsWith(`${kind}_`)) protos.set(root.name, collect(root, DAYLIGHT[root.name] ?? daylight));
   }))).then(() => undefined);
   return loading;
 }
@@ -170,5 +174,70 @@ export function buildingModel(part: ModelPart): THREE.Group | null {
   group.rotation.y = part.yaw;
   group.updateMatrix();
   group.matrixAutoUpdate = false;
+  return group;
+}
+
+/** True for a part that asks for a simplified copy or to be drawn without shop signs. */
+export const isLo = (part: ModelPart) => part.merge === true || part.id.endsWith('_lo');
+
+const MERGE_ATTRS = ['position', 'normal', 'color', 'uv', 'aEnv'];
+
+/**
+ * Many placed models as one mesh per material: a street of them costs a few draw calls instead
+ * of several per building in every pass. Sign faces merge per model variant and name set (each
+ * has its own texture). Parts whose model is not loaded are left out. The geometry is new (not
+ * shared): whoever mounts the group disposes of it.
+ * `cast`: opaque lit surfaces cast sun shadows. `noAO`: left out of the ambient-occlusion pass
+ * (for buildings too far away for contact shading to show).
+ */
+export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boolean } = {}): THREE.Group {
+  const group = new THREE.Group();
+  const byMat = new Map<string, { mat: THREE.Material; list: THREE.BufferGeometry[] }>();
+  const m4 = new THREE.Matrix4(), rot = new THREE.Matrix4();
+  for (const part of parts) {
+    const proto = protos.get(`${part.kind}_${part.id}`);
+    if (!proto) continue;
+    m4.makeTranslation(part.pos[0], part.pos[1], part.pos[2]).multiply(rot.makeRotationY(part.yaw));
+    for (const p of proto.pieces) {
+      const sign = p.mat === 'signface';
+      const set = part.seed % NAME_SETS;
+      const key = sign ? `signface:${part.kind}_${part.id}:${set}` : p.mat;
+      const src = p.geometry.index ? p.geometry.toNonIndexed() : p.geometry;
+      if (!src.getAttribute('position') || !src.getAttribute('normal')) continue;
+      // Only the attributes every model has, so the pieces always merge.
+      const g = new THREE.BufferGeometry();
+      const n = src.getAttribute('position').count;
+      for (const a of MERGE_ATTRS) {
+        const at = src.getAttribute(a);
+        g.setAttribute(a, at ? at.clone() : new THREE.BufferAttribute(new Float32Array(n * (a === 'color' ? 3 : 2)).fill(a === 'color' ? 1 : 0), a === 'color' ? 3 : 2));
+      }
+      g.applyMatrix4(m4);
+      let e = byMat.get(key);
+      if (!e) byMat.set(key, (e = { mat: sign ? signMaterial(part.kind as BuildingKind, part.id, set, proto.boards) : material(p.mat), list: [] }));
+      e.list.push(g);
+    }
+  }
+  for (const { mat, list } of byMat.values()) {
+    // Vertex colours come as RGB or RGBA depending on the file: bring a mixed set to one size.
+    const size = Math.min(...list.map((g) => g.getAttribute('color').itemSize));
+    for (const g of list) {
+      const c = g.getAttribute('color');
+      if (c.itemSize === size) continue;
+      const out = new Float32Array(c.count * size);
+      for (let k = 0; k < c.count; k++) for (let j = 0; j < size; j++) out[k * size + j] = c.getComponent(k, j);
+      g.setAttribute('color', new THREE.BufferAttribute(out, size));
+    }
+    const merged = mergeGeometries(list, false);
+    for (const g of list) g.dispose();
+    if (!merged) continue;
+    const mesh = new THREE.Mesh(merged, mat);
+    mesh.matrixAutoUpdate = false;
+    if (mat.transparent) mesh.renderOrder = 2;
+    const litOpaque = !mat.transparent && (mat as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;
+    mesh.castShadow = !!o.cast && litOpaque;
+    mesh.receiveShadow = litOpaque;
+    if (o.noAO) mesh.userData.noAO = true;
+    group.add(mesh);
+  }
   return group;
 }

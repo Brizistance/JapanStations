@@ -10,6 +10,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CarKind } from '../trains/car';
 import { getMaterial } from './materials';
 
@@ -56,7 +57,22 @@ function collect(root: THREE.Object3D): Piece[] {
     addAttributes(mesh.geometry, interior);
     out.push({ geometry: mesh.geometry, mat: (mesh.material as THREE.Material).name });
   });
-  return out;
+  // One piece per material: a car is then a handful of draw calls, not one per seat and handle.
+  const byMat = new Map<string, THREE.BufferGeometry[]>();
+  for (const p of out) {
+    const src = p.geometry.index ? p.geometry.toNonIndexed() : p.geometry;
+    const g = new THREE.BufferGeometry();
+    for (const a of ['position', 'normal', 'uv', 'aEnv']) g.setAttribute(a, src.getAttribute(a));
+    (byMat.get(p.mat) ?? byMat.set(p.mat, []).get(p.mat)!).push(g);
+  }
+  const merged: Piece[] = [];
+  for (const [mat, list] of byMat) {
+    const g = list.length === 1 ? list[0] : mergeGeometries(list, false);
+    if (!g) return out; // pieces that will not merge: keep them as they were
+    g.computeBoundingSphere();
+    merged.push({ geometry: g, mat });
+  }
+  return merged;
 }
 
 /** Start loading the model (once). Resolves when `carModel` can return it; rejects if the file is missing or broken. */

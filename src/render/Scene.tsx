@@ -1,3 +1,4 @@
+import { perfStats } from './perf';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
@@ -29,6 +30,9 @@ function World() {
     gl.toneMappingExposure = 1.0;
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFShadowMap;
+    // Counted over the whole frame (every pass), for the perf readout.
+    gl.info.autoReset = false;
+    perfStats.scene = scene;
     lighting.current = new Lighting(gl, scene);
     scene.fog = new THREE.Fog(SKY.clone(), 300, 1700);
     scene.background = SKY.clone();
@@ -61,6 +65,8 @@ function World() {
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
+    const t0 = performance.now();
+    gl.info.reset();
     clock.advance(dt);
     updateTrains(clock.time);
 
@@ -80,7 +86,10 @@ function World() {
       tickStationAudio(dt, false, camera.position, camera.rotation.y);
     }
 
-    view.update(dt, camera.position);
+    // What cannot be seen from here is not drawn (WorldView.update): indoors underground the street, on the street the halls below.
+    const zone = useUI.getState().mode === 'play' ? where.zone : null;
+    const vis = !zone ? 'any' : zone.kind === 'street' ? 'street' : !zone.sky && camera.position.y < -2.5 ? 'under' : 'any';
+    view.update(dt, camera.position, vis);
 
     // Underground the far distance fades to black; above ground to sky.
     const fog = scene.fog as THREE.Fog;
@@ -96,6 +105,9 @@ function World() {
     // Priority 1 takes over rendering from R3F.
     if (post.current) post.current.render(gradeFor(under), dt, state.clock.elapsedTime);
     else gl.render(scene, camera);
+    perfStats.calls = gl.info.render.calls;
+    perfStats.tris = gl.info.render.triangles;
+    perfStats.ms += (performance.now() - t0 - perfStats.ms) * 0.1;
   }, 1);
 
   return <primitive object={view.root} />;

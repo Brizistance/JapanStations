@@ -56,6 +56,8 @@ export interface InterchangeSpec {
    * lit well with an escalator either side, instead of a narrow enclosed shaft.
    */
   well?: true;
+  /** A domed entrance hall under its own station building, off the +z exit of the +x gate end (Tsumugibashi, rotunda.ts). */
+  rotunda?: true;
   /** A shared ticket hall halfway between the two lines, stairs up to one and down to the other (Harunodai, midlevel.ts). */
   mid?: true;
   style: StationStyle;
@@ -140,7 +142,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     seed: 23,
   },
-  // Central interchange: woven-textile mural, two lines, four exits.
+  // Central interchange: woven-textile mural, three lines, four exits, and the rotunda under the Silk Exchange.
   tsumugibashi: {
     kind: 'interchange',
     primary: 'N',
@@ -148,7 +150,12 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'tile:#ece8df', concWall: 'tile:#f2efe8', floor: 'floor:#d5d2ca', pillar: 'tile:#e6e1d6',
       accent: '#b4472f', mural: { v: 'weave', color: '#1f6f9d' },
     },
-    surface: { seed: 37, roadHalf: 12, cross: [-92, 92], left: 'mixed', right: 'mixed', trees: true, avenue: true },
+    rotunda: true,
+    surface: {
+      seed: 37, roadHalf: 12, cross: [-92, 92], left: 'mixed', right: 'mixed', trees: true, avenue: true, models: true, roadKit: true,
+      canalAt: 92, canalName: { ja: '紬橋', en: 'Tsumugi-bashi' }, canalStone: true,
+      landmark: { ja: '紬橋絹取引所', en: 'Tsumugibashi Silk Exchange', side: 1, x0: 26, x1: 73, depth: 28 },
+    },
   },
   // Nightlife: black and gold tile, neon street, canal with a red bridge.
   hyotanbori: {

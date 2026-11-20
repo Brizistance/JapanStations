@@ -5,7 +5,7 @@
 // A model's front faces local -z with its origin at the middle of the frontage on the pavement.
 // `corner` models have a second street face on their local -x side.
 
-export type BuildingKind = 'zakkyo' | 'office' | 'tower';
+export type BuildingKind = 'zakkyo' | 'office' | 'tower' | 'shophouse' | 'manshon';
 
 export interface BuildingModel {
   kind: BuildingKind;
@@ -38,6 +38,20 @@ export const BUILDING_MODELS: BuildingModel[] = [
   { kind: 'tower', id: 'c', w: 40, d: 40, h: 200 },
   { kind: 'tower', id: 'd', w: 44, d: 44, h: 175 },
   { kind: 'tower', id: 'e', w: 60, d: 30, h: 158 },
+  // Shophouses (build_shophouse.py) and apartment blocks (build_manshon.py): heights are storeys × 2.7 over a 3.1 m ground floor, plus the roof.
+  { kind: 'shophouse', id: 'a', w: 5.4, d: 9, h: 7.5 },
+  { kind: 'shophouse', id: 'b', w: 4.5, d: 10, h: 10.5 },
+  { kind: 'shophouse', id: 'c', w: 6.3, d: 9, h: 7.5 },
+  { kind: 'shophouse', id: 'd', w: 5.0, d: 9.5, h: 7.5 },
+  { kind: 'shophouse', id: 'e', w: 4.2, d: 10, h: 10 },
+  { kind: 'shophouse', id: 'f', w: 5.8, d: 9, h: 8 },
+  { kind: 'shophouse', id: 'g', w: 5.2, d: 9.5, h: 7.5 },
+  { kind: 'manshon', id: 'a', w: 20, d: 11, h: 28.5 },
+  { kind: 'manshon', id: 'b', w: 14.5, d: 12, h: 39.5 },
+  { kind: 'manshon', id: 'c', w: 24, d: 10, h: 20.5 },
+  { kind: 'manshon', id: 'd', w: 26, d: 11, h: 34 },
+  { kind: 'manshon', id: 'e', w: 17, d: 10, h: 15 },
+  { kind: 'manshon', id: 'f', w: 13.5, d: 11, h: 26 },
 ];
 
 /** Invented names for the name boards of towers. */

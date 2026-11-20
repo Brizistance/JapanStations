@@ -3,6 +3,7 @@
 // repeatable neighbourhood. Coordinates are station-frame metres (x along the line).
 
 import { DEFAULT_PLOT, rng, type Builder } from '../world/builder';
+import { kerbGaps, kerbRail, roadKit } from './roads';
 import { BUILDING_MODELS } from './buildings';
 import { GROUND_Y, vending } from './kit';
 
@@ -28,6 +29,16 @@ export interface SurfaceSpec {
   arcadeName?: { ja: string; en: string };
   /** Name plate on the canal bridge (default Hyōtan-bashi). */
   canalName?: { ja: string; en: string };
+  /** An old stone bridge (the model exchange_bridge, build_exchange.py) and stone banks with willows, in place of the red one. */
+  canalStone?: boolean;
+  /** Blender-built buildings on the lots (stations/buildings.ts) in place of the box ones: business blocks, old shophouses by a canal. */
+  models?: boolean;
+  /**
+   * The road kit (roads.ts): signals at the far side of each junction that cycle, pedestrian signals,
+   * road signs, lane markings, vehicles that face their lane's way, bus stops and street furniture,
+   * in place of the two box signals and the box cars.
+   */
+  roadKit?: boolean;
   /** Strings of paper lanterns along both canal banks. */
   canalLanterns?: boolean;
   /** What a 'sea' side is: the working port with cranes and the ferry (default), or a promenade. */
@@ -45,6 +56,11 @@ export interface SurfaceSpec {
    * the station's composer builds the slope and the valley below.
    */
   valleyZ?: number;
+  /**
+   * A lot the station's composer builds on itself (Tsumugibashi's Silk Exchange): no buildings are
+   * put on x0 … x1 of that side, and the exit boards name it.
+   */
+  landmark?: { ja: string; en: string; side: -1 | 1; x0: number; x1: number; /** How far back from the building line it reaches. */ depth?: number };
   /** Canopy material for street and park trees (default 'leaf'); a flat pink makes cherries. */
   treeLeaf?: string;
 }
@@ -278,20 +294,24 @@ export function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: num
  * district: mostly offices, some zakkyo buildings, one glass tower if asked for. Plain blocks behind.
  * `cornerAtStart`: the lot at xa stands on a street corner (a corner model, its second face towards -x).
  */
-export function fillModelLots(b: Builder, r: () => number, xa: number, xb: number, z0: number, zMax: number, o: { tower?: boolean; cornerAtStart?: boolean } = {}) {
+export function fillModelLots(b: Builder, r: () => number, xa: number, xb: number, z0: number, zMax: number, o: { tower?: boolean; cornerAtStart?: boolean; old?: boolean; noBack?: boolean } = {}): Lot[] {
   const GAP = 0.3;
   const deep: [number, number, number][] = []; // x0, x1, depth of the towers, for the back row
+  const placed: Lot[] = [];
   let x = xa + (o.cornerAtStart ? GAP : 0), n = 0, last = '', towerDue = !!o.tower;
   for (;;) {
     const room = xb - x;
     const fits = BUILDING_MODELS.filter((m) => m.w <= room && z0 + m.d < zMax - 2 && `${m.kind}_${m.id}` !== last);
-    let pool = fits.filter((m) => !!m.corner === (n === 0 && !!o.cornerAtStart) && m.kind !== 'tower');
+    // An old quarter: shophouses, a few zakkyo buildings and apartment blocks. Otherwise business blocks.
+    const kinds = o.old ? ['shophouse', 'zakkyo', 'manshon'] : ['office', 'zakkyo'];
+    let pool = fits.filter((m) => !!m.corner === (n === 0 && !!o.cornerAtStart) && kinds.includes(m.kind));
     if (towerDue && n >= 2) {
       const towers = fits.filter((m) => m.kind === 'tower');
       if (towers.length) pool = towers;
       towerDue = false;
     } else if (pool.length) {
-      const kind = r() < 0.7 ? 'office' : 'zakkyo';
+      const q = r();
+      const kind = o.old ? (q < 0.62 ? 'shophouse' : q < 0.85 ? 'zakkyo' : 'manshon') : q < 0.7 ? 'office' : 'zakkyo';
       const ofKind = pool.filter((m) => m.kind === kind);
       if (ofKind.length) pool = ofKind;
     }
@@ -299,23 +319,99 @@ export function fillModelLots(b: Builder, r: () => number, xa: number, xb: numbe
     const m = pool[Math.floor(r() * pool.length)];
     b.block(x, GY, z0, x + m.w, GY + m.h, z0 + m.d);
     b.model(m.kind, m.id, x + m.w / 2, GY, z0, Math.floor(r() * 1000));
+    placed.push([x, z0, x + m.w, z0 + m.d]);
     if (m.kind === 'tower') deep.push([x, x + m.w, m.d]);
     last = `${m.kind}_${m.id}`;
     x += m.w + GAP;
     n++;
   }
-  if (xb - x > 2) b.box('facade:grid:#b9b3a6', x, GY, z0 + 0.3, xb - 0.2, GY + 13, z0 + 10);
+  if (xb - x > 2) {
+    b.box('facade:grid:#b9b3a6', x, GY, z0 + 0.3, xb - 0.2, GY + 13, z0 + 10);
+    placed.push([x, z0, xb, z0 + 10]);
+  }
+  if (o.noBack) return placed;
   // Back row: plain blocks that close off the view, standing clear of the towers.
   const bs = STYLE.mixed;
   x = xa;
   while (xb - x > 6) {
     let w = 20 + r() * 22;
     if (xb - x - w < 16) w = xb - x;
-    const floors = Math.round(bs.floors[0] + r() * (bs.floors[1] - bs.floors[0])) + 6;
+    // Behind an old quarter's low fronts the back row is lower and closer.
+    const floors = Math.round(bs.floors[0] + r() * (bs.floors[1] - bs.floors[0])) + (o.old ? 0 : 6);
     const mat = bs.mat[Math.floor(r() * bs.mat.length)];
-    const zb = Math.max(z0 + 26, ...deep.filter((d) => d[0] < x + w && d[1] > x).map((d) => z0 + d[2] + 3));
+    const zb = Math.max(z0 + (o.old ? 15 : 26), ...deep.filter((d) => d[0] < x + w && d[1] > x).map((d) => z0 + d[2] + 3));
     if (zMax - 1 - zb > 6) b.box(mat, x + 0.5, GY, zb, x + w - 0.5, GY + floors * 3.3, zMax - 1);
     x += w;
+  }
+  return placed;
+}
+
+/** A building's lot in plan: [x0, z0, x1, z1]. */
+type Lot = [number, number, number, number];
+const lotsOverlap = (a: Lot, c: Lot, m = 0.2) => a[0] < c[2] - m && a[2] > c[0] + m && a[1] < c[3] - m && a[3] > c[1] + m;
+
+/**
+ * A row of Blender-built buildings fronting a side street or a canal bank: fronts on the line
+ * x = xf facing `face` (±1 along x), from z0 to z1, no deeper than `depth`. The first `full` are
+ * full models (you can walk up to them), the rest simplified copies. Lots in `taken` are kept
+ * clear; the row's own lots are added to it.
+ */
+function sideRow(b: Builder, r: () => number, xf: number, face: 1 | -1, z0: number, z1: number, depth: number, taken: Lot[], o: { old: boolean; full: number }) {
+  const kinds = o.old ? ['shophouse', 'shophouse', 'zakkyo'] : ['office', 'zakkyo'];
+  const L = z1 - z0;
+  let u = 0, n = 0, last = '';
+  for (let guard = 0; guard < 80 && L - u > 4; guard++) {
+    const kind = kinds[Math.floor(r() * kinds.length)];
+    const fits = BUILDING_MODELS.filter((m) => kinds.includes(m.kind) && !m.corner && m.d <= depth && m.w <= L - u && `${m.kind}_${m.id}` !== last);
+    // The kind drawn, or any kind of the row that fits (an office is too deep for a side row).
+    const pool = fits.some((m) => m.kind === kind) ? fits.filter((m) => m.kind === kind) : fits;
+    if (!pool.length) break;
+    const m = pool[Math.floor(r() * pool.length)];
+    const za = face > 0 ? z0 + u : z1 - u - m.w;
+    const lot: Lot = [face > 0 ? xf - m.d : xf, za, face > 0 ? xf : xf + m.d, za + m.w];
+    if (taken.some((t) => lotsOverlap(lot, t))) {
+      u += 2;
+      continue;
+    }
+    b.block(lot[0], GY, lot[1], lot[2], GY + m.h, lot[3]);
+    b.with({ rot: face > 0 ? 1 : 3, t: [xf, 0, face > 0 ? z0 : z1] }, () => b.model(m.kind, n < o.full ? m.id : `${m.id}_lo`, u + m.w / 2, GY, 0, Math.floor(r() * 1000)));
+    taken.push(lot);
+    last = `${m.kind}_${m.id}`;
+    u += m.w + 0.3;
+    n++;
+  }
+  // Nobody walks in behind the row: one collider over its whole length, and a plain block closing whatever is left at its end.
+  b.block(face > 0 ? xf - depth : xf + 0.4, GY, z0, face > 0 ? xf - 0.4 : xf + depth, GY + 6, z1);
+  if (L - u > 1.2) {
+    const [za, zc] = face > 0 ? [z0 + u, z1] : [z0, z1 - u];
+    const lot: Lot = [face > 0 ? xf - depth + 1 : xf, za, face > 0 ? xf : xf + depth - 1, zc];
+    if (!taken.some((t) => lotsOverlap(lot, t))) b.box('facade:grid:#b9b3a6', lot[0], GY, lot[1], lot[2], GY + 11, lot[3]);
+  }
+}
+
+/**
+ * A back row of simplified Blender-built buildings behind a front row, facing the main road:
+ * apartment blocks and zakkyo buildings in an old quarter, offices and apartment blocks elsewhere.
+ */
+function modelBackRow(b: Builder, r: () => number, xa: number, xb: number, zb: number, zMax: number, taken: Lot[], old: boolean) {
+  const kinds = old ? ['manshon', 'zakkyo', 'zakkyo'] : ['office', 'office', 'manshon'];
+  let x = xa, last = '';
+  for (let guard = 0; guard < 80 && xb - x > 5; guard++) {
+    const kind = kinds[Math.floor(r() * kinds.length)];
+    const fits = BUILDING_MODELS.filter((m) => kinds.includes(m.kind) && !m.corner && m.w <= xb - x && zb + m.d < zMax - 1 && (!old || m.h < 30) && `${m.kind}_${m.id}` !== last);
+    const pool = fits.some((m) => m.kind === kind) ? fits.filter((m) => m.kind === kind) : fits;
+    if (!pool.length) break;
+    const m = pool[Math.floor(r() * pool.length)];
+    const lot: Lot = [x, zb, x + m.w, zb + m.d];
+    if (taken.some((t) => lotsOverlap(lot, t))) {
+      x += 2;
+      continue;
+    }
+    b.block(lot[0], GY, lot[1], lot[2], GY + m.h, lot[3]);
+    b.model(m.kind, `${m.id}_lo`, x + m.w / 2, GY, zb, 0);
+    taken.push(lot);
+    last = `${m.kind}_${m.id}`;
+    x += m.w + 0.4;
   }
 }
 
@@ -329,8 +425,13 @@ export function crosswalk(b: Builder, cx: number, cz: number, len: number, width
   }
 }
 
-export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: { ja: string; en: string }) {
+/** Depth of the row of buildings fronting a side street, and of the one fronting a canal bank (model streets). */
+const SIDE_ROW = 12, CANAL_ROW = 10.5;
+
+export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: { ja: string; en: string }, at?: { id: string; dir: [number, number] }) {
   const r = rng(spec.seed);
+  // Model streets: the backdrop city round the plot is Blender-built too, old and low towards the canal.
+  if (spec.models) b.out.district = { radius: 330, old: [spec.canalAt ?? 0, 0], oldRadius: spec.canalAt !== undefined ? 150 : 0 };
   const X = PLOT_X, Z = PLOT_Z;
   const rw = spec.roadHalf;
   const swOut = cw + 5.5;
@@ -378,8 +479,10 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     crosswalk(b, mid, -rw - 3.2, 2 * half - 0.4, 4, false);
     b.deco('flat:#e9e9e4', a - 7.2, 0.004, -rw, a - 6.8, 0.01, 0);
     b.deco('flat:#e9e9e4', c + 6.8, 0.004, 0, c + 7.2, 0.01, rw);
-    signal(b, a - 7.5, rw + 0.7, -rw * 0.8, -1, true);
-    signal(b, c + 7.5, -rw - 0.7, rw * 0.8, 1, true);
+    if (!spec.roadKit) {
+      signal(b, a - 7.5, rw + 0.7, -rw * 0.8, -1, true);
+      signal(b, c + 7.5, -rw - 0.7, rw * 0.8, 1, true);
+    }
     // Centre line of the cross street.
     for (const s of [-1, 1]) b.deco('flat:#e9e9e4', mid - 0.06, 0.004, s > 0 ? rw + 7 : -Z, mid + 0.06, 0.01, s > 0 ? Z : -rw - 7);
   }
@@ -390,12 +493,18 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   for (const s of [-1, 1]) {
     const zr = s * (rw + 0.3);
     const lo = Math.min(zr - 0.04, zr + 0.04), hi = Math.max(zr - 0.04, zr + 0.04);
-    const g = [...openings].sort((p, q) => p[0] - q[0]);
+    // The road kit leaves the kerb open at its bus stops and taxi stand.
+    const gaps = spec.roadKit ? kerbGaps(streets.map(([a, c]) => [a, c] as [number, number])).filter((k) => k.s === s).map((k) => [k.x0, k.x1]) : [];
+    const g = [...openings, ...gaps].sort((p, q) => p[0] - q[0]);
     let x = -X;
     for (const [from, to] of g.concat([[X, X]])) {
       for (let xa = x; xa < from - 0.5; xa += 2.5) {
         const xb = Math.min(xa + 2.5, from);
         b.block(xa, GY, lo, xb, GY + 0.9, hi);
+        if (spec.roadKit && xb - xa > 2.45) {
+          kerbRail(b, (xa + xb) / 2, zr);
+          continue;
+        }
         b.deco('flat:#eeeeea', xa + 0.05, GY + 0.7, lo, xb - 0.05, GY + 0.82, hi);
         b.deco('flat:#eeeeea', xa + 0.05, GY + 0.35, lo, xb - 0.05, GY + 0.45, hi);
         b.deco('flat:#eeeeea', xa, GY, lo - 0.02, xa + 0.1, GY + 0.9, hi + 0.02);
@@ -418,14 +527,20 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     if (nearStreet(x, 14)) continue;
     const lane = r() < 0.5 ? -1 : 1;
     const taxi = r() < 0.3;
-    car(b, x, lane * (rw - 1.4 - (r() < 0.4 ? rw / 2 : 0)), taxi ? '#1d4d2b' : carCols[Math.floor(r() * carCols.length)], true, taxi);
+    const cz = lane * (rw - 1.4 - (r() < 0.4 ? rw / 2 : 0)), col = taxi ? '#1d4d2b' : carCols[Math.floor(r() * carCols.length)];
+    // (The road kit places its own vehicles; the draws above still happen so the street stays the same.)
+    if (!spec.roadKit) car(b, x, cz, col, true, taxi);
   }
+  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at });
 
   // ── Buildings ──
   const edges = [-X + 1, ...[...streets].sort((p, q) => p[0] - q[0]).flatMap(([a, c]) => [a - 3, c + 3]), X - 1];
   if (canal !== undefined) {
     const i = edges.findIndex((e) => e > canal);
-    edges.splice(i, 0, canal - 10, canal + 10);
+    // A stone canal has a quay walk with willows on each bank: the lots stand further back.
+    // With model buildings, a row of them fronts each bank: the avenue's lots stop short of it.
+    const bank = spec.canalStone ? (spec.models ? 14 + CANAL_ROW + 0.5 : 14) : 10;
+    edges.splice(i, 0, canal - bank, canal + bank);
   }
   for (const side of [-1, 1] as const) {
     const style = side < 0 ? spec.left : spec.right;
@@ -433,13 +548,57 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
       for (let i = 0; i < edges.length; i += 2) {
         const xa = edges[i], xb = edges[i + 1];
         if (xb - xa < 6) continue;
+        const lm = spec.landmark;
+        // Model lots: old shophouses near a canal, business blocks elsewhere, one tower on the −z side.
+        const lots = (a: number, c: number): void => {
+          if (!spec.models) return fillLots(b, r, style, a, c, swOut);
+          // The old quarter reaches 60 m from the canal: a lot that spans its edge is filled in two parts.
+          const edge = canal !== undefined ? [canal - 60, canal + 60].find((e) => e - a >= 8 && c - e >= 8) : undefined;
+          if (edge !== undefined) return void (lots(a, edge), lots(edge, c));
+          const old = canal !== undefined && Math.abs((a + c) / 2 - canal) < 60;
+          const taken = fillModelLots(b, r, a, c, swOut, PLOT_Z, { old, tower: !old && side < 0 && c - a > 60, noBack: true });
+          // Where the lot ends at a side street, a row of buildings fronts that street behind the corner.
+          const onStreet = (x: number) => streets.some(([p, q]) => Math.abs(x - (p - 3)) < 0.01 || Math.abs(x - (q + 3)) < 0.01);
+          let ia = a, ic = c;
+          if (onStreet(c) && c - a > SIDE_ROW + 2) {
+            sideRow(b, r, c, 1, swOut + 22, PLOT_Z - 2, SIDE_ROW, taken, { old, full: 2 });
+            ic = c - SIDE_ROW - 1;
+          }
+          if (onStreet(a) && c - a > SIDE_ROW + 2) {
+            sideRow(b, r, a, -1, swOut + 22, PLOT_Z - 2, SIDE_ROW, taken, { old, full: 2 });
+            ia = a + SIDE_ROW + 1;
+          }
+          modelBackRow(b, r, ia, ic, swOut + (old ? 15 : 26), PLOT_Z, taken, old);
+        };
+        if (lm && lm.side === side && lm.x0 < xb && lm.x1 > xa) {
+          // The composer's own lot: ordinary buildings either side of it only.
+          if (lm.x0 - xa >= 6) lots(xa, lm.x0);
+          if (xb - lm.x1 >= 6) lots(lm.x1, xb);
+          continue;
+        }
         if (side < 0 && spec.arcadeAt !== undefined && Math.abs(xb + 3 + crossHalf - spec.arcadeAt) < 1) {
           fillLots(b, r, 'oldtown', xa, xb, swOut);
         } else if (style === 'park') {
           // Houses either side of the park (which spans x = -62 … 22).
           if (xa < -66) fillLots(b, r, 'house', xa, Math.min(xb, -64), swOut);
           if (xb > 28) fillLots(b, r, 'house', Math.max(xa, 24), xb, swOut);
-        } else fillLots(b, r, style, xa, xb, swOut, side > 0 && spec.valleyZ !== undefined ? spec.valleyZ - 2 : PLOT_Z);
+        } else if (spec.models && (style === 'mixed' || style === 'office')) lots(xa, xb);
+        else fillLots(b, r, style, xa, xb, swOut, side > 0 && spec.valleyZ !== undefined ? spec.valleyZ - 2 : PLOT_Z);
+      }
+      // Shophouses fronting the canal on both banks, behind anything the composer built there.
+      if (canal !== undefined && spec.canalStone && spec.models) {
+        const lm = spec.landmark && spec.landmark.side === side ? spec.landmark : undefined;
+        for (const face of [1, -1] as const) {
+          const xf = canal - face * 14;
+          const [p, q] = face > 0 ? [xf - CANAL_ROW, xf] : [xf, xf + CANAL_ROW];
+          const z0 = lm && lm.x0 < q && lm.x1 > p ? swOut + (lm.depth ?? 0) + 1.5 : swOut;
+          sideRow(b, r, xf, face, z0, PLOT_Z - 2, CANAL_ROW, [], { old: true, full: 2 });
+          // Beside the composer's building the bank is a small quay garden: a line of trees and benches.
+          for (let z = swOut + 4; z < z0 - 3; z += 6.5) {
+            tree(b, xf - face * 2.6, z, 5.6, 'leaf2');
+            b.box('wood:#6b5440', xf - face * 2.9 - 0.25, GY, z + 2.4, xf - face * 2.9 + 0.25, GY + 0.45, z + 4.2);
+          }
+        }
       }
       if (style === 'park') park(b, r, swOut, spec.parkName ?? { ja: '緑坂公園', en: 'Midorizaka Park' }, spec.treeLeaf);
       if (style === 'sea') b.open(() => (spec.waterfront === 'promenade' ? promenade(b, r, swOut, seaZ, spec.treeLeaf, spec.promenadeName) : quay(b, r, swOut, seaZ, spec.quayName)));
@@ -451,6 +610,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   // ── Sidewalk life near the exits ──
   for (const h of holes) {
     const zc = (h[1] + h[3]) / 2, s = Math.sign(zc);
+    if (Math.abs(zc) > swOut) continue; // an opening inside a lot (a composer's own building), not an exit stair
     vending(b, h[0] - 2.2, GY, s * (swOut - 0.6), [0, -s], r() < 0.5 ? 'vending' : 'vending2');
     // Parked bicycles.
     for (let i = 0; i < 4; i++) {
@@ -460,7 +620,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
     }
   }
 
-  if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' }, !!spec.canalLanterns));
+  if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' }, !!spec.canalLanterns, !!spec.canalStone));
   if (spec.arcadeAt !== undefined) arcade(b, spec.arcadeAt, swOut, spec.arcadeName ?? { ja: '商店街', en: 'Shopping Arcade' });
   if (spec.avenue) {
     // The crossing avenue gets its own lane lines and trees.
@@ -589,7 +749,8 @@ function campusFront(b: Builder, z0: number, name = { ja: '川湊大学', en: 'K
   for (let x = -100; x < 50; x += 3) if (Math.abs(x) > 6) b.box('flat:#3a3f45', x, GY, z0 + 0.9, x + 2.9, GY + 1.3, z0 + 1.0);
 }
 
-function canalFeature(b: Builder, cx: number, swOut: number, Z: number, name: { ja: string; en: string }, lanterns: boolean) {
+function canalFeature(b: Builder, cx: number, swOut: number, Z: number, name: { ja: string; en: string }, lanterns: boolean, stone = false) {
+  if (stone) return stoneCanal(b, cx, swOut, Z, name);
   for (const s of [-1, 1]) {
     const za = s * (swOut + 1.5), zb = s * Z;
     const lo = Math.min(za, zb), hi = Math.max(za, zb);
@@ -621,6 +782,45 @@ function canalFeature(b: Builder, cx: number, swOut: number, Z: number, name: { 
     b.deco('glow:#ff7043', cx - 1.4, -2.3, s * (swOut + 14) - 3, cx + 1.4, -0.9, s * (swOut + 14) + 3);
   }
   b.sign({ k: 'label', text: name.ja, sub: name.en, fg: '#fff', bg: '#7a1f1f' }, cx, GY + 0.65, swOut + 1.37, [0, -1], 2.4, 0.7);
+}
+
+/**
+ * An old canal with stone banks and willows, crossed by a stone arch bridge with bronze lamps
+ * (Tsumugibashi). The bridge is a model (exchange_bridge, tools/blender/build_exchange.py: its
+ * HALF and ZA are the 7 m half width and swOut + 1.5 here); the colliders and the water are ours.
+ */
+function stoneCanal(b: Builder, cx: number, swOut: number, Z: number, name: { ja: string; en: string }) {
+  const za0 = swOut + 1.5;
+  if (Math.abs(za0 - 38) > 0.01) throw new Error('stoneCanal: the bridge model is built for parapets at z = ±38 (build_exchange.py ZA)');
+  for (const s of [-1, 1]) {
+    const za = s * za0, zb = s * Z;
+    const lo = Math.min(za, zb), hi = Math.max(za, zb);
+    b.box('water', cx - 7, -3.4, lo, cx + 7, -2.8, hi, false);
+    for (const ex of [cx - 7, cx + 7]) {
+      const o = ex < cx ? -1 : 1;
+      // Coursed stone banks, a coping, and a low stone rail with iron bars.
+      for (let k = 0; k < 6; k++) b.deco(k % 2 ? 'flat:#8d8371' : 'flat:#7d7361', Math.min(ex, ex + o * 0.4), -3.4 + k * 0.57, lo, Math.max(ex, ex + o * 0.4), -3.4 + (k + 1) * 0.57 + 0.01, hi);
+      b.deco('flat:#b3a688', Math.min(ex - o * 0.08, ex + o * 0.5), GY, lo, Math.max(ex - o * 0.08, ex + o * 0.5), GY + 0.14, hi);
+      const rx = ex + o * 0.2;
+      b.block(rx - 0.08, GY, lo, rx + 0.08, GY + 1.1, hi);
+      b.deco('metal:#2e3134', rx - 0.03, GY + 0.95, lo, rx + 0.03, GY + 1.02, hi);
+      b.deco('metal:#2e3134', rx - 0.02, GY + 0.5, lo, rx + 0.02, GY + 0.54, hi);
+      for (let z = lo + 0.2; z < hi; z += 3) b.deco('flat:#b3a688', rx - 0.12, GY, z - 0.12, rx + 0.12, GY + 1.12, z + 0.12);
+      // Willows along both banks.
+      for (let z = lo + 6; z < hi - 3; z += 11) tree(b, ex + o * 1.6, z, 6.4, 'leaf2');
+    }
+    // The bridge's parapet and its four name posts.
+    b.block(cx - 7.6, GY, za - 0.14, cx + 7.6, GY + 1.1, za + 0.14);
+    for (const x of [cx - 7.6, cx + 7.6]) b.block(x - 0.42, GY, za - 0.42, x + 0.42, GY + 3.6, za + 0.42);
+    // A cargo punt moored under the bank.
+    const bz = s * (swOut + 16);
+    b.deco('wood:#6b5440', cx - 5.6, -2.9, bz - 3.5, cx - 3.4, -2.45, bz + 3.5);
+    b.deco('wood:#4a3a2e', cx - 5.4, -2.45, bz - 3.3, cx - 3.6, -2.4, bz + 3.3);
+    for (const [k, c] of ['#1f6f9d', '#b4472f', '#efe6cf'].entries()) b.deco('flat:' + c, cx - 5.2, -2.4, bz - 2.4 + k * 1.5, cx - 3.8, -2.0, bz - 1.3 + k * 1.5);
+    // Name plate on the road face of the solid panel in the middle of each parapet.
+    b.sign({ k: 'label', text: name.ja, sub: name.en, fg: '#2a2019', bg: '#b08d3a' }, cx, GY + 0.56, za - s * 0.11, [0, -s], 2.4, 0.6);
+  }
+  b.model('exchange', 'bridge', cx, GY, 0);
 }
 
 function arcade(b: Builder, cx: number, swOut: number, name: { ja: string; en: string }) {

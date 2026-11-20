@@ -27,6 +27,7 @@ Reusable parts, all driven by the line/station data:
 - `gateLine` — automatic ticket gates, fences, station office, header signs, live departures screen.
 - `ticketMachines` — machines with the fare board above (drawn from the network).
 - `exit` — passage, stair to the street, glass canopy, entrance sign with station name, numbers and exit number.
+- `roads.ts` (`roadKit` in a surface spec, Tsumugibashi only so far) — left-hand traffic in one place: far-side signals that cycle on the sim clock (60 s), pedestrian signals, road signs, direction boards naming the next stations, lane paint, bus and bicycle lanes, vehicles facing their lane, bus stops. Models in `road.glb`. Stations without it still have the old box signals, which hang over the wrong half.
 - `surface` (`surface.ts`) — roads, kerbs, crossings, signals, guard rails, lamps, trees, utility poles, buildings with shopfronts and signs, plus features: canal + bridge, shopping arcade, park, quay, campus gate, stadium dome.
 
 Every hall also declares its track beds as **keep-out volumes** (`Builder.keepOut`), which the walk test checks nobody can reach. Use the same call for anything else that must stay closed.
@@ -142,7 +143,7 @@ A line's theme shapes the platform hall; a station's **look** shapes everything 
 | Tōmyōbori | The lantern canal at dusk | A canal of light down the middle of the spine's ceiling between timber banks, with lantern strings; the Tōmyō-bashi bridges are gateway frames across the spine; lantern-hung transfer passages |
 | Aizomechō | The dyers' street | One dye yard of indigo lengths drying against a spine wall between the stairwells' closed ends, more lengths hung across the spine; noren gate and drying cloth in each transfer bay |
 | Daigaku-mae | The campus undercroft | Brick arcade on the stretches of wall the corridor leaves free, and the noticeboard court (a cork wall facing a row of tatekan) on one bay |
-| Tsumugibashi | 紬橋地下街, an underground shopping street: the corridors are the streets, each named on plates at its corners, with a weaving theme | Shops on the walls of Tateito-dōri (the Nagisa spine, low and timber) and Ayaori-dōri (the Kikyō spine, bright and glazed, with a woven tapestry); the Tsumugi Loom at Shuttle Crossing in the Nagisa spine |
+| Tsumugibashi | 紬橋地下街, an underground shopping street: the corridors are the streets, each named on plates at its corners, with a weaving theme | Shops on the walls of Tateito-dōri (the Nagisa spine, low and timber) and Ayaori-dōri (the Kikyō spine, bright and glazed, with a woven tapestry); a remnant stall at Shuttle Crossing in the Nagisa spine. Exit 2's lobby leads on to the **Tsumugi Rotunda** under the Silk Exchange (`rotunda.ts`, models in `tsumugi.glb`): a domed round hall with the Great Loom at its centre, six silk-quarter shopfronts, and the Grand Stair up to the Exchange Hall and the avenue |
 
 To add a hero: write `looks/<station-id>.ts` following [Plans/features/station-looks/hero-brief.md](../Plans/features/station-looks/hero-brief.md), register it in `looks/index.ts`, and add a row here.
 
@@ -190,7 +191,7 @@ Entry areas (rule 9): `src/stations/entry-specs.ts` gives each non-hero station 
 |---|---|---|---|
 | Midorizaka | Warm brick | Leaf mural | Park, houses, utility poles |
 | Kita-Ōdōri | White enamel panels, gold trim | The atrium and the gilded willow; the Yanagisuji platforms keep their vaulted hall | Station plaza, the avenue |
-| Tsumugibashi | Cream tile | Woven-stripe mural along the transfer passage | Two crossing avenues |
+| Tsumugibashi | Cream tile | Woven-stripe mural along the transfer passage | Two crossing avenues; the Silk Exchange with its dome, the stone bridge Tsumugi-bashi over a canal, Blender-built blocks (shophouses by the canal) |
 | Hyōtanbori | Black + gold tile | Gourd mural | Neon signs, canal with red bridge |
 | Tsurumatsu | Green glazed tile | Pine-and-crane mural | Covered shopping arcade |
 | Kawaminato-kō | Blue-grey panels | Wave mural | Quay, cranes, ferry |

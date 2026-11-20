@@ -9,9 +9,10 @@ import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF, CAR_HALF_W } from '../trains/car';
-import { loadBuildingModels } from './building-models';
+import { loadBuildingModels, mergedModels } from './building-models';
+import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
-import type { BoxPart, GatePart } from '../world/builder';
+import type { BoxPart, GatePart, ModelPart } from '../world/builder';
 import { halfWidth, sampleChainages, structureAt } from '../world/structure';
 import { DEFAULT_PLOT, rng } from '../world/builder';
 import { boxesToGeometry, groupBy, type EnvMode } from './geometry';
@@ -23,6 +24,13 @@ import type { SignContent } from '../signs/content';
 import { buildTrack } from './track';
 
 const STATION_IN = 520, STATION_OUT = 680, TRAIN_RANGE = 750;
+/**
+ * How near an opening to the sky (an exit stair, a rotunda) you must be for the other side of the
+ * street slab to be drawn. Beyond it nothing of the other side shows through a stair mouth.
+ */
+const CULL_RANGE = 30;
+/** Just past where the fog is complete (Scene.tsx: 520 m underground, 1700 m in the open). */
+const FOG_UNDER = 540, FOG_OPEN = 1720;
 /** Within this distance of a station, its departure boards animate smoothly. */
 const FAST_RANGE = 120;
 /** A station with a bigger plot is mounted from correspondingly further away. */
@@ -30,6 +38,9 @@ const BASE_RADIUS = Math.hypot(DEFAULT_PLOT.x, DEFAULT_PLOT.z) + 5;
 
 interface StationView {
   group: THREE.Group;
+  /** Sub-groups that are wholly at street level or above, and wholly below it (part-view.ts Layer). */
+  surface: THREE.Object3D[];
+  deep: THREE.Object3D[];
   cache: SignCache;
   gates: GateSet[];
   dispose: () => void;
@@ -47,7 +58,10 @@ function mountStation(w: StationWorld): StationView {
   const st = staticGroup(w.build, STATION_ENV);
   group.add(st.group);
   const cache: SignCache = new Map();
-  group.add(makeSigns(w.build, cache).group);
+  const signs = makeSigns(w.build, cache, undefined, true).group;
+  group.add(signs);
+  const layered = [...st.group.children, ...signs.children];
+  const surface = layered.filter((o) => o.userData.layer === 'surface'), deep = layered.filter((o) => o.userData.layer === 'deep');
   // Screen doors, one set per line so each carries its line colour. Full-height
   // screens (gates marked `window`) are mostly glass; waist-high gates have a small pane.
   const byLine = new Map<string, GatePart[]>();
@@ -60,7 +74,7 @@ function mountStation(w: StationWorld): StationView {
   for (const g of gates) group.add(...g.meshes);
   group.updateMatrixWorld(true);
   return {
-    group, cache, gates,
+    group, cache, gates, surface, deep,
     dispose: () => {
       st.dispose();
       disposeCache(cache);
@@ -141,6 +155,58 @@ function mountTrain(t: TrainRuntime): TrainView {
     view.signs.push(signs);
   }
   return view;
+}
+
+/** Backdrop lots that stand in a station's model district (Build.district): filled by backdropModels() once the models have loaded. */
+const districtLots: { x: number; z: number; w: StationWorld }[] = [];
+
+/**
+ * The backdrop buildings of every model district, as simplified Blender-built copies: shophouse
+ * rows, zakkyo buildings and low apartment blocks in the old quarter, offices and apartment
+ * blocks beyond, a few towers on the skyline. Each is turned to the station's street grid.
+ */
+function backdropModels(): THREE.Group {
+  const parts: ModelPart[] = [];
+  const of = (kind: string, ok: (h: number) => boolean = () => true) => BUILDING_MODELS.filter((m) => m.kind === kind && ok(m.h));
+  let towers = 0;
+  for (const lot of districtLots) {
+    const { w } = lot, d = w.build.district!;
+    const r = rng(Math.floor(lot.x * 31 + lot.z * 17) >>> 0);
+    const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
+    const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
+    const dx = lot.x - w.frame.x, dz = lot.z - w.frame.z;
+    const lx = dx * c - dz * s, lz = dx * s + dz * c;
+    const far = Math.hypot(lx, lz), old = Math.hypot(lx - d.old[0], lz - d.old[1]) < d.oldRadius;
+    const yaw0 = w.frame.yaw + (Math.floor(r() * 2) * Math.PI) / 2;
+    // The lot is a small city block: two rows of buildings back to back, each `HALF` m either side
+    // of its centre line, with the streets between blocks left by the backdrop's 46 m pitch.
+    const HALF = 18, DEEP = 15;
+    const put = (m: { kind: string; id: string; w: number; d: number }, yaw: number, off: number, front: number) => {
+      const fx = Math.cos(yaw), fz = -Math.sin(yaw); // along the frontage (model +x)
+      const bx = Math.sin(yaw), bz = Math.cos(yaw); // into the block (model +z)
+      parts.push({ kind: m.kind, id: `${m.id}_lo`, pos: [lot.x + fx * off - bx * front, -0.03, lot.z + fz * off - bz * front], yaw, seed: 0 });
+    };
+    if (!old && r() < 0.06 && far > 190 && towers < 4) {
+      const m = pick(of('tower'));
+      put(m, yaw0, 0, m.d / 2);
+      towers++;
+      continue;
+    }
+    const kinds = old ? ['shophouse', 'shophouse', 'zakkyo', 'zakkyo', 'manshon'] : ['office', 'office', 'zakkyo', 'manshon'];
+    for (const yaw of [yaw0, yaw0 + Math.PI]) {
+      let u = -HALF;
+      for (let guard = 0; guard < 12 && HALF - u > 4; guard++) {
+        const kind = pick(kinds);
+        const fits = BUILDING_MODELS.filter((m) => kinds.includes(m.kind) && !m.corner && m.w <= HALF - u && m.d <= DEEP + 5 && (!old || m.h < 30));
+        const pool = fits.some((m) => m.kind === kind) ? fits.filter((m) => m.kind === kind) : fits;
+        if (!pool.length) break;
+        const m = pick(pool);
+        put(m, yaw, u + m.w / 2, Math.max(DEEP, m.d));
+        u += m.w + 0.4;
+      }
+    }
+  }
+  return mergedModels(parts, { noAO: true });
 }
 
 /** Low-detail city beyond the station plots, plus the ground it stands on. */
@@ -225,12 +291,20 @@ function buildBackdrop(): THREE.Group {
       const centre = Math.hypot(x - 1870, z);
       const tall = Math.max(0, 1 - centre / 1500);
       const h = 9 + r() * 16 + tall * tall * r() * 70;
-      boxes.push({ mat: mats[Math.floor(r() * mats.length)], min: [x - w / 2, -0.03, z - d / 2], max: [x + w / 2, h, z + d / 2], solid: false });
+      const mat = mats[Math.floor(r() * mats.length)];
+      // In a station's model district the lot gets Blender-built buildings instead (backdropModels).
+      const dw = STATION_WORLDS.find((s) => s.build.district && Math.hypot(s.frame.x - x, s.frame.z - z) < s.build.district.radius);
+      if (dw) {
+        districtLots.push({ x, z, w: dw });
+        continue;
+      }
+      boxes.push({ mat, min: [x - w / 2, -0.03, z - d / 2], max: [x + w / 2, h, z + d / 2], solid: false });
     }
   }
   for (const [mat, list] of groupBy(boxes)) {
     const m = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
     m.matrixAutoUpdate = false;
+    m.userData.noAO = true; // too far away for contact shading to show
     group.add(m);
   }
   return group;
@@ -242,13 +316,40 @@ export class WorldView {
   private trainViews = new Map<string, TrainView>();
   private liveTimer = 0;
   private fastTimer = 0;
+  /** The city beyond the plots, and its Blender-built districts once loaded. */
+  private backdrop: THREE.Object3D[] = [];
+  /** Track chunks deep inside tunnels (track.ts), and every chunk with where it is. */
+  private deepTrack: THREE.Object3D[] = [];
+  private chunks: { mesh: THREE.Mesh; x: number; z: number; r: number; deep: boolean }[] = [];
+  /** What cull() decided this frame, for the trains. */
+  private hide = { surface: false, deep: false };
 
   constructor() {
-    this.root.add(buildBackdrop());
-    for (const sim of NET) this.root.add(buildTrack(sim));
+    const backdrop = buildBackdrop();
+    this.backdrop.push(backdrop);
+    this.root.add(backdrop);
+    for (const sim of NET) {
+      const track = buildTrack(sim);
+      this.deepTrack.push(...track.children.filter((o) => o.userData.layer === 'deep'));
+      for (const o of track.children) {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || !o.userData.layer) continue;
+        mesh.geometry.computeBoundingSphere();
+        const b = mesh.geometry.boundingSphere!;
+        this.chunks.push({ mesh, x: b.center.x, z: b.center.z, r: b.radius, deep: o.userData.layer === 'deep' });
+      }
+      this.root.add(track);
+    }
     // Trains mounted before the model arrived are remounted with it.
     loadCarModel().then(() => this.resetTrains(), (e) => console.warn('train model not loaded, using boxes:', e));
-    loadBuildingModels().then(() => this.resetBuildings(), (e) => console.warn('building models not loaded:', e));
+    loadBuildingModels().then(() => {
+      this.resetBuildings();
+      if (districtLots.length) {
+        const district = backdropModels();
+        this.backdrop.push(district);
+        this.root.add(district);
+      }
+    }, (e) => console.warn('building models not loaded:', e));
   }
 
   /** Stations mounted before the building models arrived are dropped; update() mounts them again. */
@@ -272,7 +373,8 @@ export class WorldView {
   }
 
   /** Mount/unmount stations by distance and move the trains. Call after the sim tick. */
-  update(dt: number, cam: THREE.Vector3) {
+  update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any') {
+    this.cull(cam, vis);
     // Stations: at most one mount per frame to spread the cost.
     let mounted = false;
     // Departure boards in the station around the player redraw at ~15 Hz (scrolling tickers).
@@ -305,7 +407,9 @@ export class WorldView {
       const mid = t.cars[Math.floor(t.cars.length / 2)];
       const d = Math.hypot(mid.x - cam.x, mid.z - cam.z);
       let v = this.trainViews.get(t.id);
-      if (d > TRAIN_RANGE) {
+      // Out of range, or on the other side of the street from the player where that cannot be seen (cull()).
+      const below = mid.y < -3;
+      if (d > (this.hide.surface ? FOG_UNDER : TRAIN_RANGE) || (below ? this.hide.deep : this.hide.surface)) {
         if (v) v.group.visible = false;
         continue;
       }
@@ -337,6 +441,41 @@ export class WorldView {
       }
     }
     if (live) for (const v of this.stations.values()) redrawLive(v.cache);
+  }
+
+  /**
+   * Leave out what cannot be seen. At a station whose only openings between the street and the
+   * levels below are its exits (Build.sealed), more than CULL_RANGE from every one of them: indoors
+   * underground ('under') nothing at street level is drawn, at any station, nor the city beyond;
+   * out on the street ('street') nothing below it is. Anywhere else everything is drawn.
+   */
+  private cull(cam: THREE.Vector3, vis: 'any' | 'street' | 'under') {
+    let far = false, sealed = false;
+    if (vis !== 'any') {
+      for (const w of STATION_WORLDS) {
+        if (!w.build.sealed) continue;
+        const dx = cam.x - w.frame.x, dz = cam.z - w.frame.z;
+        const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
+        const lx = dx * c - dz * s, lz = dx * s + dz * c;
+        if (Math.abs(lx) > w.build.plot.x || Math.abs(lz) > w.build.plot.z) continue;
+        sealed = true;
+        far = w.build.holes.every(([x0, z0, x1, z1]) => Math.hypot(Math.max(x0 - lx, 0, lx - x1), Math.max(z0 - lz, 0, lz - z1)) > CULL_RANGE);
+        break;
+      }
+    }
+    const surface = !(far && vis === 'under'), deep = !(far && vis === 'street');
+    for (const v of this.stations.values()) {
+      for (const o of v.surface) o.visible = surface;
+      for (const o of v.deep) o.visible = deep;
+    }
+    for (const o of this.backdrop) o.visible = surface;
+    // Track: nothing beyond the fog (black at 520 m underground, sky at 1700 m outside), nor deep tunnel from the street.
+    const reach = vis === 'under' ? FOG_UNDER : FOG_OPEN;
+    // (An exit stair leads to a concourse, never to the running tunnels: from a sealed station's street they and the trains in them are out of sight wherever you stand.)
+    const tunnels = !(sealed && vis === 'street');
+    for (const c of this.chunks) c.mesh.visible = (tunnels || !c.deep) && Math.hypot(c.x - cam.x, c.z - cam.z) - c.r < reach;
+    this.hide.surface = !surface;
+    this.hide.deep = !tunnels;
   }
 
   dispose() {

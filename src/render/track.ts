@@ -69,6 +69,8 @@ class Sweep {
 }
 
 const TUNNEL_H = 4.65;
+/** Length of track drawn as one mesh per material. */
+const CHUNK = 400;
 
 function profiles(geom: LineGeom, type: Structure, siding: boolean, m: Sample): { p: Profile; closed: boolean }[] {
   const L = geom.def.trackOffset, W = halfWidth(geom);
@@ -113,7 +115,18 @@ export function buildTrack(sim: LineSim): THREE.Group {
   const L = geom.def.trackOffset, W = halfWidth(geom);
   // Spans where this line runs on another line's track: that line draws them.
   const hosted = samples.slice(0, -1).map((m, i) => onHostTrack(geom, (m.s + samples[i + 1].s) / 2));
-  const tunnel = new Sweep(), open = new Sweep(), sleepers = new Sweep(), rails = new Sweep();
+  // The line is drawn in chunks of CHUNK m, so the camera's frustum culls what is behind you and
+  // far-off track costs nothing. A chunk deep inside a tunnel (it and both its neighbours have no
+  // open-air sample) is tagged 'deep': it cannot be seen from the street (WorldView.cull).
+  const chunkOf = (m: Sample) => Math.floor(m.s / CHUNK);
+  const openChunks = new Set(samples.filter((m) => m.sky > 0).map(chunkOf));
+  const sweeps = new Map<string, { sw: Sweep; mat: string; chunk: number }>();
+  const sweep = (mat: string, m: Sample): Sweep => {
+    const chunk = chunkOf(m), k = `${mat}:${chunk}`;
+    let e = sweeps.get(k);
+    if (!e) sweeps.set(k, (e = { sw: new Sweep(), mat, chunk }));
+    return e.sw;
+  };
   const piers: MeshPart[] = [];
   const lights: THREE.Matrix4[] = [];
   const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(0.5, 0.14, 0.08), v = new THREE.Vector3();
@@ -126,7 +139,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
     if (type === 'station' || hosted[i]) continue;
     const siding = isSiding(geom, mid);
     const pa = profiles(geom, type, siding, a), pb = profiles(geom, type, siding, b);
-    const target = type === 'tunnel' ? tunnel : open;
+    const target = sweep(type === 'tunnel' ? 'tunnel' : 'viaduct', a);
     pa.forEach((p, k) => target.span(a, b, p.p, pb[k].p, p.closed));
 
     if (type === 'tunnel' && lit.has(a)) {
@@ -150,8 +163,8 @@ export function buildTrack(sim: LineSim): THREE.Group {
   const [r0, r1] = trackRange(geom);
   for (const end of [samples[0], samples[samples.length - 1]]) {
     const type = structureAt(geom, end.s === r0 ? r0 + 1 : r1 - 1);
-    if (type === 'tunnel') tunnel.cap(end, -W - 0.5, W + 0.5, -1, TUNNEL_H + 0.5);
-    else open.cap(end, -W - 0.5, W + 0.5, -BED, 1.1);
+    if (type === 'tunnel') sweep('tunnel', end).cap(end, -W - 0.5, W + 0.5, -1, TUNNEL_H + 0.5);
+    else sweep('viaduct', end).cap(end, -W - 0.5, W + 0.5, -BED, 1.1);
   }
 
   // Rails and sleepers for both running tracks and the two crossovers.
@@ -168,18 +181,20 @@ export function buildTrack(sim: LineSim): THREE.Group {
       if (a.s < t.s0 || b.s > t.s1 || hosted[i]) continue;
       const ca = geom.lateral(t.track, a.s), cb = geom.lateral(t.track, b.s);
       const da = geom.dy(t.track, a.s), db = geom.dy(t.track, b.s);
-      sleepers.quad(a, b, [ca - 1.25, yS + da], [ca + 1.25, yS + da], [cb - 1.25, yS + db], [cb + 1.25, yS + db], 0, 2.6);
+      sweep('sleeper', a).quad(a, b, [ca - 1.25, yS + da], [ca + 1.25, yS + da], [cb - 1.25, yS + db], [cb + 1.25, yS + db], 0, 2.6);
       for (const g of [-G, G]) {
         const ra: Profile = [[ca + g - 0.035, yS + da], [ca + g - 0.035, da], [ca + g + 0.035, da], [ca + g + 0.035, yS + da]];
         const rb: Profile = [[cb + g - 0.035, yS + db], [cb + g - 0.035, db], [cb + g + 0.035, db], [cb + g + 0.035, yS + db]];
-        rails.span(a, b, ra, rb, false);
+        sweep('rail', a).span(a, b, ra, rb, false);
       }
     }
   }
 
-  for (const [sw, mat] of [[tunnel, 'tunnel'], [open, 'viaduct'], [sleepers, 'sleeper'], [rails, 'rail']] as const) {
+  for (const { sw, mat, chunk } of sweeps.values()) {
     const m = sw.mesh(mat);
-    if (m) group.add(m);
+    if (!m) continue;
+    m.userData.layer = [chunk - 1, chunk, chunk + 1].some((c) => openChunks.has(c)) ? 'surface' : 'deep';
+    group.add(m);
   }
   const pg = meshesToGeometry(piers, { kind: 'sky' });
   if (pg) {
@@ -187,6 +202,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
     pm.castShadow = pm.receiveShadow = true;
     group.add(pm);
   }
+  // (Tunnel lamps stay one instanced mesh: they are small, and only ever seen underground.)
   if (lights.length) {
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color('#e6eeff').multiplyScalar(2.6) }), lights.length);
     lights.forEach((m, i) => im.setMatrixAt(i, m));

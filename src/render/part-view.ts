@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import type { Build, GatePart } from '../world/builder';
 import { boxesToGeometry, groupBy, meshesToGeometry, skyAt, type EnvMode } from './geometry';
-import { buildingModel } from './building-models';
+import { isLo, mergedModels } from './building-models';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
 import { separateCoplanar } from './zfight';
@@ -31,26 +31,60 @@ export function staticGroup(build: Build, mode: EnvMode, shareKey?: string): { g
   };
 }
 
+/**
+ * Which part of a station something belongs to, for leaving out what cannot be seen
+ * (WorldView.update): 'surface' is wholly at or above the street, or open to the sky; 'deep' is
+ * wholly below the street's slab; 'both' reaches from one to the other (an exit stair's walls)
+ * and is always drawn.
+ */
+export type Layer = 'surface' | 'deep' | 'both';
+/** Underside of the street's build-up (surface.ts lays asphalt from −0.6 to 0). */
+const STREET_Y = -0.6;
+export const layerOf = (y0: number, y1: number, open = false): Layer => (y0 >= STREET_Y - 0.1 ? 'surface' : y1 <= STREET_Y ? (open ? 'both' : 'deep') : 'both');
+
 function makeStatic(build: Build, mode: EnvMode): THREE.Group {
   const group = new THREE.Group();
-  const add = (g: THREE.BufferGeometry | null, mat: string) => {
+  // A station's parts go in three groups by layer; anything else (a train car) in one.
+  const station = mode.kind === 'station';
+  const layers = new Map<Layer, THREE.Group>();
+  const into = (l: Layer): THREE.Group => {
+    let g = layers.get(l);
+    if (!g) {
+      g = new THREE.Group();
+      g.userData.layer = l;
+      g.matrixAutoUpdate = false;
+      layers.set(l, g);
+      group.add(g);
+    }
+    return g;
+  };
+  const add = (g: THREE.BufferGeometry | null, mat: string, layer: Layer) => {
     if (!g) return;
     const material = getMaterial(mat);
     const m = new THREE.Mesh(g, material);
     m.matrixAutoUpdate = false;
     if (material.transparent) m.renderOrder = 2;
-    // Only lit, opaque surfaces take part in sun shadows.
+    // Only lit, opaque surfaces take part in sun shadows, and nothing below the street casts one.
     const litOpaque = !material.transparent && (material as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;
-    m.castShadow = litOpaque;
+    m.castShadow = litOpaque && layer !== 'deep';
     m.receiveShadow = litOpaque;
-    group.add(m);
+    into(layer).add(m);
   };
-  for (const [mat, boxes] of groupBy(separateCoplanar(build.boxes))) add(boxesToGeometry(boxes, mode), mat);
-  for (const [mat, parts] of groupBy(build.meshes)) add(meshesToGeometry(parts, mode), mat);
-  for (const part of build.models) {
-    const model = buildingModel(part);
-    if (model) group.add(model);
+  const boxLayer = (b: Build['boxes'][number]): Layer => (station ? layerOf(b.min[1], b.max[1], b.open) : 'both');
+  for (const layer of ['surface', 'deep', 'both'] as const) {
+    const boxes = build.boxes.filter((b) => boxLayer(b) === layer);
+    for (const [mat, list] of groupBy(separateCoplanar(boxes))) add(boxesToGeometry(list, mode), mat, layer);
+    const meshes = build.meshes.filter((p) => (station ? layerOf(p.pos[1] - p.size[1] / 2, p.pos[1] + p.size[1] / 2, p.open) : 'both') === layer);
+    for (const [mat, parts] of groupBy(meshes)) add(meshesToGeometry(parts, mode), mat, layer);
   }
+  // Blender-built models, merged: one mesh per material for the full models (they cast shadows),
+  // one for the simplified copies (too far back for contact shading or their shadows to show).
+  // A model standing below the street (a rotunda's shell) reaches up through it: 'both'.
+  const below = (p: Build['models'][number]) => station && p.pos[1] < STREET_Y - 0.1;
+  const full = build.models.filter((p) => !isLo(p) && !below(p)), lo = build.models.filter((p) => isLo(p) && !below(p)), under = build.models.filter(below);
+  if (full.length) into(station ? 'surface' : 'both').add(mergedModels(full, { cast: true }));
+  if (lo.length) into(station ? 'surface' : 'both').add(mergedModels(lo, { noAO: true }));
+  if (under.length) into('both').add(mergedModels(under, { cast: true }));
   return group;
 }
 
@@ -138,6 +172,7 @@ export class GateSet {
   }
 }
 
-export function makeSigns(build: Build, cache: SignCache, resolve?: (c: SignContent) => SignContent): SignSet {
-  return new SignSet(build.signs, cache, resolve);
+/** A build's signs. `layered`: sorted into 'surface' and 'deep' sub-groups, as the static geometry is (a station). */
+export function makeSigns(build: Build, cache: SignCache, resolve?: (c: SignContent) => SignContent, layered = false): SignSet {
+  return new SignSet(build.signs, cache, resolve, layered ? (p) => (layerOf(p.pos[1], p.pos[1]) === 'surface' ? 'surface' : 'deep') : undefined);
 }

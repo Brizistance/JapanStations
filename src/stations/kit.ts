@@ -10,6 +10,7 @@ import type { ExitInfo } from './looks/types';
 import { themeFor } from './themes';
 import { wayfindExit } from './wayfinding';
 import { floorExit } from './floor';
+import { throughExit } from './through';
 import type { HallInfo } from './themes/types';
 
 export const PF_H = 1.1; // platform height above rail
@@ -686,6 +687,7 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
   const GY = GROUND_Y;
   const rise = GY - cf, run = Math.round(rise * 1.72 * 100) / 100;
   const wall = style.concWall, ceil = look.finishes?.ceil ?? 'ceil';
+  const thru = throughExit(station.id, num);
   if (ext > 0) {
     b.box(style.floor, -4, cf - 0.5, 0, 0, cf, ext);
     b.box(wall, -4.3, cf, 0, -4, cf + 3.2, ext);
@@ -707,7 +709,14 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
   b.with({ t: [0, 0, ext] }, () => {
     b.box(style.floor, -4, cf - 0.5, 0, 0, cf, 4.0);
     stairs(b, { x0: 0, x1: run, z0: 1.2, z1: 4.0, yLow: cf, yHigh: GY, rails: [false, false], mat: 'flat:#aaa79f' });
-    b.box(wall, -4.3, cf, 4.0, 0, cf + 3.2, 4.3);
+    if (thru) {
+      // The lobby carries on through its end wall (through.ts): a doorway clear to 2.4 m.
+      b.box(wall, -4.3, cf, 4.0, thru.x0, cf + 3.2, 4.3);
+      b.box(wall, thru.x1, cf, 4.0, 0, cf + 3.2, 4.3);
+      b.box(wall, thru.x0, cf + 2.4, 4.0, thru.x1, cf + 3.2, 4.3);
+      b.sign({ k: 'guide', ja: thru.ja, en: thru.en, bg: 'white', arrow: 'up' }, (thru.x0 + thru.x1) / 2, cf + 2.55, 3.98, [0, -1], thru.x1 - thru.x0 - 0.1, 0.26);
+      b.protect(thru.x0, cf, 3.6, thru.x1, cf + 2.7, 4.3);
+    } else b.box(wall, -4.3, cf, 4.0, 0, cf + 3.2, 4.3);
     b.box(wall, -4.3, cf, 0, -4, cf + 3.2, 4.0);
     b.box(wall, 0, cf, 0, 0.3, cf + 3.2, 0.9);
     for (const [z0, z1] of [[0.9, 1.2], [4.0, 4.3]]) {
@@ -724,7 +733,7 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
     b.box(wall, -0.3, cf + 2.7, 1.2, 0, xo > 0 ? cf + 3.1 : GY + 1.0, 4.0);
     b.box(ceil, -4.3, cf + 2.7, 0, -0.3, cf + 3.2, 4.3);
     ceilingLight(b, -3.2, -1, 1.6, 2.2, cf + 2.7);
-    b.deco('flat:#4b4d50', -4, cf, 3.975, 0, cf + 0.13, 4.0);
+    if (!thru) b.deco('flat:#4b4d50', -4, cf, 3.975, 0, cf + 0.13, 4.0);
     b.hole(xo, 1.2, run, 4.0);
   });
   // The street end, in a frame starting where the stair comes out into the open: `top` long.
@@ -745,12 +754,12 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
   b.with({ t: [0, 0, ext] }, () => {
     // Signs inside.
     b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num, arrow: 'up' }, -0.31, cf + 2.95, 2.6, [-1, 0], 2.4, 0.42);
-    b.sign({ k: 'poster', v: num.charCodeAt(0) + station.id.length }, -2, cf + 1.5, 3.98, [0, -1], 1.2, 1.7);
+    if (!thru) b.sign({ k: 'poster', v: num.charCodeAt(0) + station.id.length }, -2, cf + 1.5, 3.98, [0, -1], 1.2, 1.7);
     b.zone('passage', -4, cf - 0.2, 0, run, GY + 2.4, 4.0, `${num}番出口`, `Exit ${num}`);
   });
   b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num }, -2, cf + (ext > 0 ? 2.25 : 2.72), -0.02, [0, -1], 2.6, 0.5);
   b.protect(-3.4, cf + (ext > 0 ? 1.95 : 2.42), -0.4, -0.6, cf + 3.0, 0.02);
-  const info: ExitInfo = { b, station, style, wall, floor: style.floor, cf, gy: GY, num, ext, run, open: xo };
+  const info: ExitInfo = { b, station, style, wall, floor: style.floor, cf, gy: GY, num, ext, run, open: xo, through: thru ? [thru.x0, thru.x1] : undefined };
   wayfindExit(info);
   floorExit(info);
   b.guard(() => {

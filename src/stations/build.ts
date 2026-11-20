@@ -14,6 +14,7 @@ import {
 } from './kit';
 import { buildHub } from './hub';
 import { buildAtrium } from './atrium';
+import { buildRotunda } from './rotunda';
 import { buildNagisaEast } from './nagisa-east';
 import { buildOpenAir } from './open-air';
 import { buildStacked } from './stacked';
@@ -793,7 +794,11 @@ function buildInterchange(
       b.deco('glassDark', -2.2, cf + 0.9, s * 1.41, 2.2, cf + 1.9, s * 1.43);
     }
   }
-  surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji });
+  // Before the street: the rotunda cuts its own openings in it.
+  if (spec.rotunda) buildRotunda(c, cf, sw, outer, 29 + exitAt(spec.exits?.[0], 1) + 4);
+  surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji }, { id: station.id, dir: other.primaryDir });
+  // Everything below the street here is closed in: the exits (and a rotunda) are the only openings.
+  b.out.sealed = true;
 }
 
 /**

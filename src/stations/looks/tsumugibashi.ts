@@ -12,8 +12,10 @@
 //   (Weft Lane, middle), 綜絖小路 Sōkō-kōji (east).
 // - The transfer bays: 糸屋横丁 Itoya-yokochō (off Tateito-dōri), 真綿小路 Mawata-kōji (off
 //   Ayaori-dōri). The exit corridors are streets too, named on the lobby wall at their far end.
-// - 杼の辻 Hi-no-tsuji (Shuttle Crossing): the hand loom (紬の機) stands in Tateito-dōri on free
-//   floor as near as it fits to where Yokoito-kōji comes in, with a 2.4 m lane each side.
+// - 杼の辻 Hi-no-tsuji (Shuttle Crossing): a remnant stall stands in Tateito-dōri on free floor as
+//   near as it fits to where Yokoito-kōji comes in, with a 2.4 m lane each side. The loom that
+//   stood here is now the Great Loom (紬の大機) in the rotunda (../rotunda.ts), reached through
+//   exit 2's passage.
 //
 // The walls carry the shops: solid 1 m units where the spine's floor is free, shallow shop
 // windows (decoration) everywhere else, interleaved with shutters and service doors. Ceilings:
@@ -65,7 +67,7 @@ const DOORS: Record<Era, { color: string; frame: string }> = {
 // ── Shops ────────────────────────────────────────────────────────────────────────────────────
 
 /** District shops of the silk quarter (invented; to be recorded in docs/worldbuilding.md). */
-const DISTRICT = {
+export const DISTRICT = {
   hataya: { ja: '紬織物 はたや', en: 'Hataya Tsumugi Silks', bg: '#3b2a4a', fg: '#f1e4c8', kind: 'goods' },
   yoriito: { ja: '糸屋 よりいと', en: 'Yoriito Yarn & Thread', bg: '#f1e4c8', fg: '#b4472f', kind: 'goods' },
   ayaginu: { ja: 'きもの 綾衣', en: 'Kimono Ayaginu', bg: '#7a1f2b', fg: '#f6e7c8', kind: 'goods' },
@@ -692,74 +694,16 @@ function loomSpot(i: ConcInfo): [number, number] | null {
 }
 
 /**
- * A hand loom (takabata) on a plinth, warp along x: the weaver's bench and the cloth beam at
- * +x, the warp beam at −x, heddles and the reed between, a half-woven cloth and a shuttle.
- * Glass rail round it; plaques on both long sides, the crossing's name at both ends.
+ * The remnant stall at Shuttle Crossing (the hand loom that stood here is now the Great Loom in
+ * the rotunda): a Blender model (tools/blender/build_tsumugi.py) with a collider under it.
  */
-function loom(i: ConcInfo, x: number, z: number) {
+function remnantStall(i: ConcInfo, x: number, z: number) {
   const { b, cf } = i;
   i.claim(x - LX, z - LZ, x + LX, z + LZ);
-  const y0 = cf + 0.25;
-  // Plinth, its top edge, and an invisible collider over the loom.
-  b.box('flat:#4a3a2e', x - 1.5, cf, z - 1.25, x + 1.5, y0, z + 1.25);
-  b.deco('flat:#d8c8a0', x - 1.52, y0 - 0.04, z - 1.27, x + 1.52, y0, z + 1.27);
-  b.block(x - 1.5, y0, z - 1.25, x + 1.5, cf + 2.4, z + 1.25);
-  // Glass rail.
-  const g0 = x - LX, g1 = x + LX, h0 = z - LZ, h1 = z + LZ, gy = cf + 0.95;
-  b.box('glass', g0, cf, h0, g1, gy, h0 + 0.03);
-  b.box('glass', g0, cf, h1 - 0.03, g1, gy, h1);
-  b.box('glass', g0, cf, h0, g0 + 0.03, gy, h1);
-  b.box('glass', g1 - 0.03, cf, h0, g1, gy, h1);
-  b.deco('metal:#b9bdc2', g0 - 0.02, gy, h0 - 0.02, g1 + 0.02, gy + 0.04, h0 + 0.05);
-  b.deco('metal:#b9bdc2', g0 - 0.02, gy, h1 - 0.05, g1 + 0.02, gy + 0.04, h1 + 0.02);
-  b.deco('metal:#b9bdc2', g0 - 0.02, gy, h0, g0 + 0.05, gy + 0.04, h1);
-  b.deco('metal:#b9bdc2', g1 - 0.05, gy, h0, g1 + 0.02, gy + 0.04, h1);
-  const plaque = { k: 'label' as const, text: '紬の機', sub: 'The Tsumugi Loom', fg: '#f4efe2', bg: '#4a3324' };
-  b.sign(plaque, x, cf + 0.7, h0 - 0.012, [0, -1], 0.9, 0.3);
-  b.sign(plaque, x, cf + 0.7, h1 + 0.012, [0, 1], 0.9, 0.3);
-  const cross = { k: 'label' as const, text: ST.hinotsuji.ja, sub: ST.hinotsuji.en, fg: ST.hinotsuji.fg, bg: ST.hinotsuji.color };
-  b.sign(cross, g0 - 0.012, cf + 0.7, z, [-1, 0], 0.9, 0.3);
-  b.sign(cross, g1 + 0.012, cf + 0.7, z, [1, 0], 0.9, 0.3);
-
-  // Frame: tall posts at the back (−x), short at the front, side rails, the overhead frame.
-  const bx = x - 1.2, fx = x + 1.15, zs = 0.8;
-  for (const sz of [-1, 1]) {
-    const pz = z + sz * zs;
-    b.deco(TIMBER, bx - 0.06, y0, pz - 0.06, bx + 0.06, y0 + 2.12, pz + 0.06);
-    b.deco(TIMBER, fx - 0.05, y0, pz - 0.05, fx + 0.05, y0 + 0.95, pz + 0.05);
-    b.deco(TIMBER, bx, y0 + 0.7, pz - 0.04, fx, y0 + 0.8, pz + 0.04);
-    b.deco(TIMBER, bx, y0 + 2.02, pz - 0.05, x + 0.1, y0 + 2.12, pz + 0.05);
-  }
-  b.deco(TIMBER, bx - 0.06, y0 + 2.02, z - zs - 0.06, bx + 0.06, y0 + 2.14, z + zs + 0.06);
-  b.deco(TIMBER, x - 0.02, y0 + 2.02, z - zs - 0.06, x + 0.1, y0 + 2.14, z + zs + 0.06);
-  // Warp beam (back) and cloth beam (front) with the cloth rolled on it.
-  b.deco(TIMBER, bx + 0.08, y0 + 0.62, z - zs, bx + 0.22, y0 + 0.76, z + zs);
-  b.deco(TIMBER, fx - 0.16, y0 + 0.72, z - zs, fx - 0.04, y0 + 0.84, z + zs);
-  // Warp: fine threads in the four colours, upper and lower shed.
-  const wy = y0 + 0.86, n = 16;
-  for (let k = 0; k < n; k++) {
-    const tz = z - 0.6 + (k * 1.2) / (n - 1), up = k % 2 ? 0.05 : 0;
-    b.deco(`flat:${THREADS[Math.floor(k / 2) % 4]}`, bx + 0.15, wy + up, tz - 0.006, x + 0.25, wy + up + 0.012, tz + 0.006);
-  }
-  // The woven cloth from the reed to the cloth beam: warp stripes of the four colours.
-  for (let k = 0; k < 4; k++) b.deco(`flat:${THREADS[k]}`, x + 0.25, wy - 0.01, z - 0.6 + k * 0.3, fx - 0.1, wy + 0.005, z - 0.3 + k * 0.3);
-  b.deco(`flat:${INDIGO}`, fx - 0.19, y0 + 0.69, z - 0.66, fx - 0.01, y0 + 0.87, z + 0.66);
-  // Heddle bars hung from the overhead frame, and the reed (beater).
-  for (const [hx, hy] of [[x - 0.35, wy + 0.42], [x - 0.15, wy + 0.32]] as [number, number][]) {
-    b.deco('wood:#8a6a48', hx - 0.02, hy, z - 0.7, hx + 0.02, hy + 0.04, z + 0.7);
-    b.deco('wood:#8a6a48', hx - 0.02, hy - 0.5, z - 0.7, hx + 0.02, hy - 0.46, z + 0.7);
-    b.deco('flat:#2b2d30', hx - 0.005, hy + 0.04, z - 0.01, hx + 0.005, y0 + 2.02, z + 0.01);
-  }
-  b.deco('wood:#8a6a48', x + 0.18, wy - 0.3, z - 0.72, x + 0.24, wy + 0.4, z - 0.66);
-  b.deco('wood:#8a6a48', x + 0.18, wy - 0.3, z + 0.66, x + 0.24, wy + 0.4, z + 0.72);
-  b.deco('wood:#8a6a48', x + 0.18, wy + 0.36, z - 0.72, x + 0.24, wy + 0.42, z + 0.72);
-  b.deco('flat:#c9b48a', x + 0.2, wy - 0.26, z - 0.66, x + 0.22, wy + 0.36, z + 0.66);
-  // Shuttle lying in the shed, with its bobbin.
-  b.deco('wood:#a8662f', x + 0.06, wy + 0.02, z - 0.2, x + 0.12, wy + 0.07, z + 0.2);
-  b.deco(`flat:${CREAM}`, x + 0.07, wy + 0.03, z - 0.08, x + 0.11, wy + 0.075, z + 0.08);
-  // Bench and treadles at the front.
-  b.deco(TIMBER, fx + 0.05, y0, z - 0.45, fx + 0.3, y0 + 0.45, z + 0.45);
-  for (const tz of [-0.2, 0.2]) b.deco('wood:#8a6a48', x + 0.3, y0 + 0.02, z + tz - 0.05, fx - 0.1, y0 + 0.06, z + tz + 0.05);
+  b.block(x - 1.3, cf, z - 0.65, x + 1.3, cf + 2.2, z + 0.65);
+  b.model('tsumugi', 'stall', x, cf, z);
+  b.sign({ k: 'shop', ja: 'はぎれ市', en: 'Remnant Market', bg: INDIGO, fg: '#f1e4c8' }, x, cf + 2.62, z - 0.83, [0, -1], 2.2, 0.3);
+  b.deco(TIMBER, x - 1.14, cf + 2.45, z - 0.82, x + 1.14, cf + 2.79, z - 0.79);
 }
 
 /**
@@ -1137,10 +1081,10 @@ export const look: StationLook = {
 
   concourse(i) {
     const rand = () => i.rand();
-    // The loom first (it wants the best free floor), then the walls, the stairwells, the
+    // The remnant stall first (it wants the best free floor), then the walls, the stairwells, the
     // ceiling, the unpaid halls.
     const spot = loomSpot(i);
-    if (spot) loom(i, spot[0], spot[1]);
+    if (spot) remnantStall(i, spot[0], spot[1]);
     spineWalls(i, rand);
     spineWells(i, rand);
     spineCeiling(i);
@@ -1180,9 +1124,9 @@ export const look: StationLook = {
     }
     // The lobby: a shop window facing the stair, and the street's name on the back wall.
     const shop = EXIT_SHOPS[(parseInt(e.num, 10) || 0) % EXIT_SHOPS.length];
-    showcase(t, { axis: 'z', at: -4, n: 1 }, ext + 0.3, ext + 3.7, shop, 'old', { top: cf + 2.7, k: 0.016 });
+    if (!e.through) showcase(t, { axis: 'z', at: -4, n: 1 }, ext + 0.3, ext + 3.7, shop, 'old', { top: cf + 2.7, k: 0.016 });
     const st = EXIT_STREETS[e.num];
-    if (st) plate(t, { axis: 'x', at: L, n: -1 }, -2, st, 2.53, 0.004, 0.3);
+    if (st && !e.through) plate(t, { axis: 'x', at: L, n: -1 }, -2, st, 2.53, 0.004, 0.3);
     exitHandrails(e, ['far']);
   },
 

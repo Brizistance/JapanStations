@@ -100,6 +100,8 @@ export interface ModelPart {
   yaw: number;
   /** Picks which set of shop names the signs carry. */
   seed: number;
+  /** Drawn merged with the other such parts, one mesh per material: for many small or simple models (no shop signs). */
+  merge?: boolean;
 }
 
 export interface Build {
@@ -117,6 +119,17 @@ export interface Build {
   plot: { x: number; z: number };
   /** Volumes nobody may be able to walk into (track beds, closed-off shells). Checked by the walk test. */
   keepOut: { min: V3; max: V3; en: string }[];
+  /**
+   * The backdrop city within `radius` of the station is Blender-built (simplified copies) instead of
+   * plain blocks: low and old within `oldRadius` of the frame point `old`, business blocks beyond.
+   */
+  district?: { radius: number; old: [number, number]; oldRadius: number };
+  /**
+   * The only ways to see between the street and the levels below it are the openings in `holes`
+   * (exit stairs and the like). The renderer then leaves out whichever of the two cannot be seen
+   * from where the player is (render/world-view.ts). Set by composers for which that is true.
+   */
+  sealed?: boolean;
   /** Areas outside the plot (frame x0, z0, x1, z1) the backdrop city keeps off (a valley's hillsides). */
   clear?: [number, number, number, number][];
 }

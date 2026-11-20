@@ -2027,6 +2027,10 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'dest': return drawDest(ctx, W, H, c);
     case 'lcd': return drawLcd(ctx, W, H, c);
     case 'floormark': return drawFloormark(ctx, W, H, c);
+    case 'signal': return drawSignal(ctx, W, H, c);
+    case 'roadsign': return drawRoadSign(ctx, W, H, c.v);
+    case 'roadboard': return drawRoadBoard(ctx, W, H, c.rows);
+    case 'roadmark': return drawRoadMark(ctx, W, H, c.v);
   }
 }
 
@@ -2045,3 +2049,299 @@ export function signSize(c: SignContent, w: number, h: number): [number, number]
 }
 
 export { isLed, platformTrains } from './departures';
+
+// ── Roads (stations/roads.ts) ────────────────────────────────────────────────────────────────
+
+/** Length of the signal cycle in seconds, and where each road's green, yellow and red fall in it. */
+export const SIGNAL_CYCLE = 60;
+/**
+ * State of the signals of one road at sim time t. Main road (axis 0): green 0–25, yellow 25–28,
+ * red to 60; the roads crossing it (axis 1) the same, half a cycle later, so there are 2 s of
+ * all-red between them. `walk` is the pedestrian head that goes with that traffic: green for the
+ * first 20 s, flashing for 5, then red.
+ */
+export function signalState(axis: 0 | 1, t: number): { car: 'green' | 'yellow' | 'red'; walk: 'go' | 'flash' | 'stop' } {
+  const u = (((t + (axis ? SIGNAL_CYCLE / 2 : 0)) % SIGNAL_CYCLE) + SIGNAL_CYCLE) % SIGNAL_CYCLE;
+  return { car: u < 25 ? 'green' : u < 28 ? 'yellow' : 'red', walk: u < 20 ? 'go' : u < 25 ? 'flash' : 'stop' };
+}
+
+function drawSignal(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'signal' }>) {
+  const st = signalState(c.axis, clock.time);
+  ctx.fillStyle = '#101214';
+  ctx.fillRect(0, 0, W, H);
+  if (c.v === 'car') {
+    const lamps: [string, string, boolean][] = [['#19f0a8', '#0b2a22', st.car === 'green'], ['#ffc21a', '#2e2608', st.car === 'yellow'], ['#ff3524', '#2e0c0a', st.car === 'red']];
+    const R = Math.min(H * 0.4, W / 7.4);
+    lamps.forEach(([on, off, lit], i) => {
+      ctx.fillStyle = lit ? on : off;
+      ctx.beginPath();
+      ctx.arc(W * (0.18 + i * 0.32), H / 2, R, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    return;
+  }
+  // Pedestrian head: the standing man (red) over the walking man (green), each lit in its colour.
+  const blink = Math.floor(clock.time * 2) % 2 === 0;
+  const man = (cy: number, col: string, walking: boolean) => {
+    const u = H * 0.022;
+    ctx.fillStyle = col;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = u * 2.6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(W / 2, cy - u * 7, u * 2.1, 0, Math.PI * 2);
+    ctx.fill();
+    const line = (x0: number, y0: number, x1: number, y1: number) => {
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + x0 * u, cy + y0 * u);
+      ctx.lineTo(W / 2 + x1 * u, cy + y1 * u);
+      ctx.stroke();
+    };
+    line(0, -4, 0, 2);
+    if (walking) {
+      line(0, -3, -4, 0);
+      line(0, -3, 4, -1);
+      line(0, 2, -4, 8);
+      line(0, 2, 4, 8);
+    } else {
+      line(-3, -3, -3, 2);
+      line(3, -3, 3, 2);
+      line(-1.4, 2, -1.4, 8);
+      line(1.4, 2, 1.4, 8);
+    }
+  };
+  ctx.fillStyle = '#1a0807';
+  ctx.fillRect(W * 0.08, H * 0.04, W * 0.84, H * 0.44);
+  ctx.fillStyle = '#07160f';
+  ctx.fillRect(W * 0.08, H * 0.52, W * 0.84, H * 0.44);
+  man(H * 0.27, st.walk === 'stop' ? '#ff3a28' : '#3a1210', false);
+  man(H * 0.75, st.walk === 'go' || (st.walk === 'flash' && blink) ? '#19f0a8' : '#0c2a20', true);
+}
+
+function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { k: 'roadsign' }>['v']) {
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2;
+  const poly = (pts: [number, number][], fill: string) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(cx + x * R, cy + y * R) : ctx.moveTo(cx + x * R, cy + y * R)));
+    ctx.closePath();
+    ctx.fill();
+  };
+  const disc = (r: number, fill: string) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  const tri = (k: number): [number, number][] => [[-0.98 * k, -0.84 * k], [0.98 * k, -0.84 * k], [0, 0.86 * k]];
+  const penta = (k: number): [number, number][] => [[0, -0.98 * k], [0.92 * k, -0.3 * k], [0.92 * k, 0.96 * k], [-0.92 * k, 0.96 * k], [-0.92 * k, -0.3 * k]];
+  const GREY = '#8b9197';
+  switch (v) {
+    case 'back-tri': return poly(tri(1), GREY);
+    case 'back-round': return disc(0.98, GREY);
+    case 'back-penta': return poly(penta(1), GREY);
+    case 'stop':
+      poly(tri(1), '#f4f4f0');
+      poly(tri(0.92), '#c8102e');
+      text(ctx, '止まれ', cx, cy - R * 0.36, R * 0.42, { align: 'center', color: '#fff', weight: 800 });
+      text(ctx, 'STOP', cx, cy + R * 0.06, R * 0.2, { align: 'center', color: '#fff', weight: 800 });
+      return;
+    case 'speed40':
+      disc(0.98, '#c8102e');
+      disc(0.76, '#f4f4f0');
+      text(ctx, '40', cx, cy + R * 0.03, R * 0.92, { align: 'center', color: '#1f4fa0', weight: 800 });
+      return;
+    case 'noparking':
+      disc(0.98, '#c8102e');
+      disc(0.78, '#1f4fa0');
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = '#c8102e';
+      ctx.fillRect(-R * 0.11, -R * 0.9, R * 0.22, R * 1.8);
+      ctx.restore();
+      return;
+    case 'crossing': {
+      poly(penta(1), '#f4f4f0');
+      poly(penta(0.92), '#1f4fa0');
+      poly([[0, -0.62], [0.66, 0.6], [-0.66, 0.6]], '#f4f4f0');
+      // A walker on the stripes.
+      ctx.fillStyle = '#1f4fa0';
+      ctx.beginPath();
+      ctx.arc(cx, cy - R * 0.16, R * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1f4fa0';
+      ctx.lineWidth = R * 0.07;
+      ctx.lineCap = 'round';
+      const l = (x0: number, y0: number, x1: number, y1: number) => {
+        ctx.beginPath();
+        ctx.moveTo(cx + x0 * R, cy + y0 * R);
+        ctx.lineTo(cx + x1 * R, cy + y1 * R);
+        ctx.stroke();
+      };
+      l(0, -0.06, 0, 0.22);
+      l(0, 0.0, -0.16, 0.14);
+      l(0, 0.0, 0.16, 0.08);
+      l(0, 0.22, -0.16, 0.46);
+      l(0, 0.22, 0.16, 0.46);
+      for (const x of [-0.42, -0.14, 0.14, 0.42]) l(x - 0.05, 0.54, x + 0.05, 0.54);
+      return;
+    }
+  }
+}
+
+/**
+ * Direction board in the format of Japan's sign 108の2-A (方面及び方向): one diagram of the junction
+ * in white on blue, a thick shaft for the road ahead with its arrowhead near the top, an arm to
+ * each side road standing just clear of the shaft, and the curved fillet of the left turn (traffic
+ * keeps left). Each place is named in kanji with its romaji beneath: the one ahead over the
+ * shaft's arrow, the others over their arms. Layout after the diagrams of signs 108-A and 108の2-A
+ * on Wikimedia Commons (see docs/references.md); the names are ours, from the network.
+ */
+function drawRoadBoard(ctx: Ctx, W: number, H: number, rows: { ja: string; en: string; arrow: Arrow }[]) {
+  const BLUE = '#0066b3', WHITE = '#ffffff';
+  const round = (x: number, y: number, w: number, h: number, r: number, fill: string) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    ctx.fill();
+  };
+  // Blue plate with a thin white border just inside its edge.
+  round(0, 0, W, H, H * 0.03, BLUE);
+  round(W * 0.008, W * 0.008, W - W * 0.016, H - W * 0.016, H * 0.026, WHITE);
+  round(W * 0.016, W * 0.016, W - W * 0.032, H - W * 0.032, H * 0.02, BLUE);
+  const by = (a: Arrow) => rows.find((r) => r.arrow === a);
+  const ahead = by('up'), toL = by('left'), toR = by('right');
+  // Kanji with its romaji beneath. Short names are spaced out, as on the real signs.
+  const place = (r: { ja: string; en: string }, cx: number, y: number, size: number, maxW: number) => {
+    const chars = [...r.ja];
+    if (chars.length <= 2) {
+      const gap = size * 1.75;
+      chars.forEach((ch, k) => text(ctx, ch, cx + (k - (chars.length - 1) / 2) * gap, y, size, { align: 'center', color: WHITE, weight: 700 }));
+    } else text(ctx, r.ja, cx, y, size, { align: 'center', color: WHITE, weight: 700, maxW });
+    text(ctx, r.en, cx, y + size * 0.92, size * 0.5, { align: 'center', color: WHITE, weight: 600, maxW });
+  };
+  ctx.fillStyle = WHITE;
+  const sw = W * 0.075, sx = W / 2; // the shaft
+  const armY = H * 0.735, armT = H * 0.085; // the arms' centre line and thickness
+  const head = (tipX: number, tipY: number, dx: number, dy: number, len: number, half: number) => {
+    // Arrowhead with its tip at (tipX, tipY), pointing along (dx, dy).
+    const bx = tipX - dx * len, byy = tipY - dy * len;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(bx - dy * half, byy + dx * half);
+    ctx.lineTo(bx + dy * half, byy - dx * half);
+    ctx.closePath();
+    ctx.fill();
+  };
+  // The road ahead (or, at a T, the stem up to the arms).
+  const top = ahead ? H * 0.37 : armY - armT / 2;
+  ctx.fillRect(sx - sw / 2, top, sw, H * 0.955 - top);
+  if (ahead) {
+    head(sx, H * 0.285, 0, -1, H * 0.115, W * 0.07);
+    place(ahead, sx, H * 0.115, H * 0.125, W * 0.9);
+  }
+  const gap = W * 0.01;
+  for (const [r, s] of [[toL, -1], [toR, 1]] as const) {
+    if (!r) continue;
+    const x0 = sx + s * (sw / 2 + gap), tip = sx + s * W * 0.33;
+    ctx.fillRect(Math.min(x0, tip - s * H * 0.08), armY - armT / 2, Math.abs(tip - s * H * 0.08 - x0), armT);
+    head(tip, armY, s, 0, H * 0.105, H * 0.082);
+    place(r, sx + s * W * 0.25, H * 0.5, H * 0.112, W * 0.42);
+  }
+  // The left turn's fillet: a quarter circle from under the left arm round to the shaft.
+  if (toL) {
+    const rad = W * 0.09, cx = sx - sw / 2, cy = armY + armT / 2;
+    ctx.strokeStyle = WHITE;
+    ctx.lineWidth = W * 0.013;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, Math.PI / 2, Math.PI);
+    ctx.stroke();
+  }
+}
+
+function drawRoadMark(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { k: 'roadmark' }>['v']) {
+  const PAINT = '#e6e6e0';
+  // Lettering on a road is stretched along the road: one glyph per cell, top (far) to bottom (near).
+  const stack = (chars: string[], col = PAINT) => {
+    const cell = H / chars.length;
+    chars.forEach((ch, i) => {
+      ctx.save();
+      ctx.translate(W / 2, cell * (i + 0.5));
+      ctx.scale(1, (cell * 0.92) / (W * 0.9));
+      text(ctx, ch, 0, 0, W * 0.9, { align: 'center', color: col, weight: 800 });
+      ctx.restore();
+    });
+  };
+  const shaft = (x: number, y0: number, y1: number, w: number) => ctx.fillRect(x - w / 2, y0, w, y1 - y0);
+  ctx.fillStyle = PAINT;
+  switch (v) {
+    case 'stop': return stack(['止', 'ま', 'れ']);
+    case 'bus': return stack(['バ', 'ス', '専', '用']);
+    case '40': return stack(['40'], '#e8b400');
+    case 'diamond': {
+      ctx.strokeStyle = PAINT;
+      ctx.lineWidth = W * 0.14;
+      ctx.beginPath();
+      ctx.moveTo(W / 2, H * 0.03);
+      ctx.lineTo(W * 0.92, H / 2);
+      ctx.lineTo(W / 2, H * 0.97);
+      ctx.lineTo(W * 0.08, H / 2);
+      ctx.closePath();
+      ctx.stroke();
+      return;
+    }
+    case 'bike': {
+      ctx.strokeStyle = PAINT;
+      ctx.lineWidth = W * 0.07;
+      const r = W * 0.19, y = H * 0.62;
+      for (const x of [W * 0.27, W * 0.73]) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(W * 0.27, y);
+      ctx.lineTo(W * 0.45, y - r * 1.5);
+      ctx.lineTo(W * 0.68, y - r * 1.5);
+      ctx.lineTo(W * 0.73, y);
+      ctx.moveTo(W * 0.45, y - r * 1.5);
+      ctx.lineTo(W * 0.52, y);
+      ctx.lineTo(W * 0.27, y);
+      ctx.stroke();
+      return;
+    }
+    default: {
+      // Lane arrows: a long shaft with a head, and a branch for a turn.
+      const head = (x: number, y: number, a: number, s: number) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(a);
+        ctx.beginPath();
+        ctx.moveTo(0, -s);
+        ctx.lineTo(s * 0.62, s * 0.2);
+        ctx.lineTo(-s * 0.62, s * 0.2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      };
+      const x = v === 'ahead' ? W / 2 : v === 'ahead-left' ? W * 0.66 : W * 0.34;
+      shaft(x, H * 0.2, H * 0.98, W * 0.16);
+      head(x, H * 0.2, 0, W * 0.3);
+      if (v !== 'ahead') {
+        const s = v === 'ahead-left' ? -1 : 1;
+        ctx.save();
+        ctx.translate(x, H * 0.7);
+        ctx.rotate(s * 0.6);
+        ctx.fillRect(-W * 0.07, -H * 0.3, W * 0.14, H * 0.3);
+        ctx.restore();
+        head(x + s * Math.sin(0.6) * H * 0.3, H * 0.7 - Math.cos(0.6) * H * 0.3, s * 0.6, W * 0.26);
+      }
+    }
+  }
+}

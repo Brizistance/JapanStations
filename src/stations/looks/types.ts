@@ -276,6 +276,8 @@ export interface ExitInfo {
   run: number;
   /** Where the stair comes out from under the street (0 for a stair open all the way up). */
   open: number;
+  /** A doorway x0 … x1 in the lobby's end wall (z = ext + 4), clear to cf + 2.4, where the lobby leads on (through.ts). Keep it clear. */
+  through?: [number, number];
 }
 
 /**

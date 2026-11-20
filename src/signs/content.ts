@@ -46,6 +46,19 @@ export type SignContent =
    * numbers that way (`nums`, のりば / Platforms) or, with `transfer`, のりかえ / Transfer. With
    * neither, a small badge repeated along a line band. `text` / `sub` are free text instead.
    */
-  | { k: 'floormark'; arrow?: Arrow; line?: LineId; text?: string; sub?: string; nums?: number[]; transfer?: boolean };
+  | { k: 'floormark'; arrow?: Arrow; line?: LineId; text?: string; sub?: string; nums?: number[]; transfer?: boolean }
+  /**
+   * The lenses of a traffic signal (stations/roads.ts), live from the sim clock: a horizontal
+   * vehicle head (green, yellow, red from the left) or a pedestrian head (red man over green man).
+   * `axis` is the road whose traffic it goes with: 0 the main road, 1 the roads crossing it. A
+   * pedestrian head has the axis of the traffic that runs parallel to its crosswalk.
+   */
+  | { k: 'signal'; v: 'car' | 'ped'; axis: 0 | 1 }
+  /** A road sign's face (the `back-…` ones are the grey backs of the three shapes). Cut out to its shape. */
+  | { k: 'roadsign'; v: 'stop' | 'speed40' | 'noparking' | 'crossing' | 'back-tri' | 'back-round' | 'back-penta' }
+  /** Blue overhead direction board: what lies ahead, to the left and to the right. */
+  | { k: 'roadboard'; rows: { ja: string; en: string; arrow: Arrow }[] }
+  /** Paint on the road, cut out, its top towards the direction of travel. */
+  | { k: 'roadmark'; v: 'ahead' | 'ahead-left' | 'ahead-right' | 'stop' | '40' | 'diamond' | 'bus' | 'bike' };
 
 export const signKey = (c: SignContent, w: number, h: number) => `${JSON.stringify(c)}|${w.toFixed(2)}x${h.toFixed(2)}`;

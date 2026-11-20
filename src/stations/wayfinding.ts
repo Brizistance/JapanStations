@@ -914,7 +914,9 @@ export function wayfindExit(e: ExitInfo): void {
   const { b, station, cf, ext, num } = e;
   // Lobby: what is near this exit, on the end wall people face as they arrive from the concourse
   // (beside the poster at x = −2).
-  flat(b, { k: 'exits', station: station.id, only: [num] }, -3.3, cf + 1.55, ext + 3.98, [0, -1], 1.1, 0.9, true);
+  // (On the side wall instead where the end wall has a doorway through it.)
+  if (e.through) flat(b, { k: 'exits', station: station.id, only: [num] }, -3.98, cf + 1.55, ext + 2.6, [1, 0], 1.1, 0.9, true);
+  else flat(b, { k: 'exits', station: station.id, only: [num] }, -3.3, cf + 1.55, ext + 3.98, [0, -1], 1.1, 0.9, true);
   // Foot of the stair, facing people coming down: the way to the gates, with this station's lines.
   // On the stair face of the bulkhead above the stair foot (the kit's exit sign is on its back).
   const lines = linesAt(station.id).map((l) => l.id);

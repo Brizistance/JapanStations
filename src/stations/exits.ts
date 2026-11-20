@@ -278,6 +278,8 @@ interface Feature {
   side: -1 | 0 | 1;
   /** A named or landmark place, listed before the plain blocks around an exit. */
   named: boolean;
+  /** Listed only for exits within this distance (default 150 m): a building with its own entrance. */
+  reach?: number;
 }
 
 /** Rail level of a line at this station. */
@@ -404,6 +406,7 @@ function streetFeatures(s: SurfaceSpec): Feature[] {
       out.push({ n: KIND.dome, x0: cx - r, x1: cx + r, side, named: true });
     } else out.push({ n: style === 'campus' ? s.campusName ?? KIND.campus : KIND[style], x0: -X, x1: X, side, named: style === 'campus' });
   }
+  if (s.landmark) out.push({ n: { ja: s.landmark.ja, en: s.landmark.en }, x0: s.landmark.x0, x1: s.landmark.x1, side: s.landmark.side, named: true, reach: 30 });
   if (s.arcadeAt !== undefined) {
     const a = s.arcadeAt, h = STREET.arcadeHalf;
     out.push({ n: s.arcadeName ?? DEFAULT_ARCADE, x0: a - h, x1: a + h, side: -1, named: true });
@@ -448,7 +451,7 @@ function nearExit(fs: Feature[], rect: PlanRect, side: -1 | 1): Named[] {
       const gap = Math.max(0, f.x0 - x1, x0 - f.x1), across = f.side && f.side !== side ? 45 : 0;
       return { f, i, d: gap + across, key: gap + across - (f.named ? 40 : 0) };
     })
-    .filter((c) => c.d <= 150)
+    .filter((c) => c.d <= (c.f.reach ?? 150))
     .sort((a, b) => a.key - b.key || a.i - b.i)
     .map((c) => c.f.n)
     .filter((n) => !seen.has(n.ja) && !!seen.add(n.ja))

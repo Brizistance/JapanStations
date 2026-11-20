@@ -94,6 +94,7 @@ Each station's street spec names its own campus, quay and promenade (`campusName
 | Station | Place |
 |---|---|
 | Daigaku-mae | 川湊大学 Kawaminato University (the default) |
+| Tsumugibashi | 紬橋絹取引所 Tsumugibashi Silk Exchange (1926; `landmark` in `specs.ts`), the station building on the avenue's south side, a brick and stone front with a copper dome. East of it the avenue crosses 紬堀 Tsumugi-bori (the old silk merchants' canal) on 紬橋 Tsumugi-bashi, the stone arch bridge the station is named after. Under its dome: 紬橋ロトンダ the Tsumugi Rotunda, with 紬の大機 the Great Loom as the meeting point; 取引所通り Exchange Passage, 大階段 the Grand Stair, 取引所ホール the Exchange Hall. Rotunda shops (`SHOPS` in `rotunda.ts`): たんもの屋, おび清, むすび, まわた屋, かたぞめ, いとぐるま. Invented 2026-11-19 |
 | Kaiseichō | 川湊第一高等学校 Kawaminato Daiichi High School |
 | Seiryōdai | 川湊工科大学 Kawaminato Institute of Technology |
 | Kawaminato-kō | 川湊港フェリーターミナル Kawaminato Ferry Terminal (the default) |
