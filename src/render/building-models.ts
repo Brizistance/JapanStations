@@ -30,8 +30,10 @@ interface Proto {
 }
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower'];
-/** Station props built the same way (tools/blender/build_hub.py). They stand indoors: no daylight on them. */
-const PROPS = ['hub'];
+/** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
+const PROPS = ['hub', 'plaza'];
+/** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
+const OUTDOOR = ['plaza'];
 /** How many different sets of shop names one model variant can carry. */
 const NAME_SETS = 3;
 const ATLAS_PX = 1024;
@@ -74,7 +76,7 @@ function collect(root: THREE.Object3D, daylight = 1): Proto {
 /** Start loading the models (once). Rejects if a file is missing or broken. */
 export function loadBuildingModels(): Promise<void> {
   loading ??= Promise.all([...KINDS, ...PROPS].map((kind) => new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/buildings/${kind}.glb`).then((gltf) => {
-    const daylight = PROPS.includes(kind) ? 0 : 1;
+    const daylight = PROPS.includes(kind) && !OUTDOOR.includes(kind) ? 0 : 1;
     for (const root of gltf.scene.children) if (root.name.startsWith(`${kind}_`) && !root.name.endsWith('_lo')) protos.set(root.name, collect(root, daylight));
   }))).then(() => undefined);
   return loading;

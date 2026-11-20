@@ -33,6 +33,15 @@ import type { HubSpec } from './specs';
 import { SHOPS, car, crosswalk, fillLots, fillModelLots, signal, tree, type Shop } from './surface';
 
 export const HUB_PLOT = { x: 190, z: 160 };
+/**
+ * The avenue's landmark buildings (tools/blender/build_plaza.py; exits.ts lists them too): west
+ * edge of the lot, frontage, depth, height, name. They face north across the avenue.
+ */
+export const LANDMARKS = {
+  hq: { x0: -118, w: 44, d: 44, h: 120, ja: '秋津島生命ビル', en: 'Akitsushima Life Building' },
+  bank: { x0: -39.4, w: 26, d: 30, h: 16, ja: '川湊信用金庫 本店', en: 'Kawaminato Shinkin Bank — Head Office' },
+  depato: { x0: 13.3, w: 40, d: 40, h: 38, ja: '澪屋百貨店', en: 'Mioya Department Store' },
+};
 
 const GY = GROUND_Y;
 /** Clear height of the B1 passages and halls, and of the Central Passage. */
@@ -148,6 +157,12 @@ function prop(b: Builder, id: string, x: number, y: number, z: number, rot: 0 | 
   b.with({ rot, t: [x, 0, z] }, () => b.model('hub', id, 0, y, 0));
   if (half) b.block(x - half[0], y, z - half[1], x + half[0], y + tall, z + half[1]);
 }
+
+/** One of the plaza's own buildings (tools/blender/build_plaza.py), its front at z facing south (`south`) or north. */
+function building(b: Builder, id: string, x: number, z: number, south: boolean) {
+  b.with({ rot: south ? 2 : 0, t: [x, 0, z] }, () => b.model('plaza', id, 0, GY, 0));
+}
+const NAME_FG = '#f3e3a0', NAME_BG = '#12382c';
 
 /** Double-sided sign hanging across the z axis: `front` faces south (+z), `back` faces north. */
 function hangZ(b: Builder, front: SignContent, back: SignContent, x: number, y: number, z: number, w: number, h: number, ceil: number) {
@@ -958,24 +973,14 @@ function atrium(h: H) {
     }
   }
 
-  // ── South front: glass wall with the station doors ──
+  // ── South front: the modelled stone front, glazed in the middle, open at the station doors ──
   const dw = 9, zf = FRONT - 0.3;
-  for (const [xa, xb] of [[-HX, -dw], [dw, HX]]) {
-    b.block(xa, GY, zf, xb, ROOF, FRONT);
-    b.deco('glass', xa, GY, zf + 0.1, xb, ROOF, zf + 0.2);
-  }
+  for (const [xa, xb] of [[-HX, -dw], [dw, HX]]) b.block(xa, GY, zf, xb, ROOF, FRONT);
   b.block(-dw, GY + 3.4, zf, dw, ROOF, FRONT);
-  b.deco('glass', -dw, GY + 3.4, zf + 0.1, dw, ROOF, zf + 0.2);
-  for (let x = -HX; x <= HX; x += 5.5) {
-    const door = Math.abs(x) < dw - 0.2;
-    b.deco(TRIM, x - 0.12, door ? GY + 3.4 : GY, zf - 0.04, x + 0.12, ROOF, FRONT + 0.04);
-  }
-  for (const y of [GY + 3.4, F2 - SLAB, F3 - SLAB, ROOF - 0.9]) b.deco(TRIM, -HX, y, zf - 0.04, HX, y + 0.9, FRONT + 0.04);
-  for (const sx of [-1, 1]) b.box(TRIM, Math.min(sx * dw, sx * (dw + 0.3)), GY, zf, Math.max(sx * dw, sx * (dw + 0.3)), GY + 3.4, FRONT);
-  b.deco('flat:#0d3b66', -17, GY + 4.4, FRONT, 17, GY + 7.6, FRONT + 0.25);
-  b.sign({ k: 'label', text: '川湊駅', sub: 'Kawaminato Station', fg: '#fff', bg: '#0d3b66' }, 0, GY + 6.0, FRONT + 0.27, [0, 1], 32, 3.0);
-  b.sign({ k: 'clock' }, 0, 20, FRONT + 0.06, [0, 1], 4.4, 4.4, { dynamic: true });
-  b.sign({ k: 'entrance', station: st.id }, 0, GY + 3.85, FRONT + 0.28, [0, 1], 8, 0.9);
+  building(b, 'front', 0, FRONT, true);
+  b.sign({ k: 'label', text: '川湊駅　KAWAMINATO STATION', fg: NAME_FG, bg: NAME_BG }, 0, GY + 23.9, FRONT + 0.68, [0, 1], 33, 1.8);
+  b.sign({ k: 'clock' }, 0, GY + 16, FRONT + 0.99, [0, 1], 4.9, 4.9, { dynamic: true });
+  b.sign({ k: 'entrance', station: st.id }, 0, GY + 4.5, FRONT + 3.52, [0, 1], 8, 0.9);
 
   // ── The wings either side of the inner hall: solid, but for the private-railway concourse ──
   const MASS = 'panel:#e4e0d4';
@@ -986,10 +991,6 @@ function atrium(h: H) {
   b.box(MASS, IX + 0.4, F2 - SLAB, HN, HX, ROOF, pz0);
   b.box(MASS, IX + 0.4, F2 - SLAB, pz1, HX, ROOF, zf);
   b.box(MASS, IX + 0.4, F2 + 4.6, pz0, HX, ROOF, pz1);
-  // Lit shop windows in the wings' street fronts.
-  for (const s of [-1, 1]) {
-    for (let x = IX + 3; x + 5 < HX; x += 6.5) b.deco('glow:#f6ead0', Math.min(s * x, s * (x + 5)), GY + 0.4, zf - 0.02, Math.max(s * x, s * (x + 5)), GY + 2.9, zf + 0.04);
-  }
 
   // ── Inner hall walls. Glazed where a future railway will open onto the galleries. ──
   stoneZ(b, PANEL, -IX - 0.4, -IX, HN, FRONT, GY, ROOF);
@@ -1192,7 +1193,10 @@ function shells(h: H) {
   b.box('facade:grid:#d8d5cc', HX + 0.4, F2 + 7.5, HN, BLDG, 34, FRONT);
   b.box('facade:grid:#d8d5cc', HX + 0.4, 6.0, z1, BLDG, F2 + 7.5, FRONT);
   b.box('facade:grid:#d8d5cc', HX + 0.4, 6.0, HN, BLDG, F2 + 7.5, z0);
-  b.sign({ k: 'label', text: '川湊ステーションビル', sub: 'Kawaminato Station Building', fg: '#fff', bg: '#0d3b66' }, 78, 29.5, FRONT + 0.05, [0, 1], 44, 3.4);
+  building(b, 'stationbldg', (HX + 0.4 + BLDG) / 2, FRONT, true);
+  b.sign({ k: 'label', text: '川湊ステーションビル', sub: 'Kawaminato Station Building', fg: NAME_FG, bg: NAME_BG }, 82.2, GY + 32.6, FRONT + 0.32, [0, 1], 42, 3.2);
+  b.sign({ k: 'shop', ja: '川湊ステーションビル', bg: NAME_BG, fg: NAME_FG, vertical: true }, 48, GY + 19.5, FRONT + 1.52, [0, 1], 2.6, 20);
+  b.sign({ k: 'label', text: '川湊ステーションビル', sub: 'Station Building — shops', fg: NAME_FG, bg: NAME_BG }, 78.2, GY + 4.0, FRONT + 0.58, [0, 1], 6, 1.4);
   b.deco(STONE, HX + 0.4, F2 - SLAB, z0, 58, F2, z1);
   b.deco('concrete', 58, 5.4, z0, END, 6.0, z1);
   for (const z of [-104, -88, -72]) {
@@ -1279,8 +1283,25 @@ function street(h: H, seed: number) {
   }
 
   // ── City blocks south of the avenue ──
-  fillModelLots(b, r, -X + 1, -YS - 3, S_FRONT, Z, { tower: true });
-  fillModelLots(b, r, YS + 3, X - 1, S_FRONT, Z, { tower: true, cornerAtStart: true });
+  // Three landmarks stand on fixed lots: the old bank and the department store on the two
+  // corners facing the station, the life-insurance tower further west. Generic lots fill the rest.
+  const landmark = (id: string, x0: number, w: number, d: number, hgt: number) => {
+    b.block(x0, GY, S_FRONT, x0 + w, GY + hgt, S_FRONT + d);
+    building(b, id, x0 + w / 2, S_FRONT, false);
+    if (Z - 1 - (S_FRONT + d + 3) > 6) b.box('facade:grid:#b9b3a6', x0 + 0.5, GY, S_FRONT + d + 3, x0 + w - 0.5, GY + 38, Z - 1);
+  };
+  const [bk, hq, dp] = [LANDMARKS.bank, LANDMARKS.hq, LANDMARKS.depato];
+  fillModelLots(b, r, -X + 1, hq.x0 - 1, S_FRONT, Z, { tower: true });
+  landmark('hq', hq.x0, hq.w, hq.d, hq.h);
+  fillModelLots(b, r, hq.x0 + hq.w + 0.5, bk.x0 - 1, S_FRONT, Z);
+  landmark('bank', bk.x0, bk.w, bk.d, bk.h);
+  landmark('depato', dp.x0, dp.w, dp.d, dp.h);
+  fillModelLots(b, r, dp.x0 + dp.w + 1, X - 1, S_FRONT, Z, { tower: true });
+  const mid = (q: { x0: number; w: number }) => q.x0 + q.w / 2;
+  b.sign({ k: 'label', text: hq.ja, sub: hq.en, fg: NAME_FG, bg: NAME_BG }, mid(hq), GY + 9.5, S_FRONT - 0.57, [0, -1], 6.2, 0.9);
+  b.sign({ k: 'label', text: bk.ja, sub: bk.en, fg: NAME_FG, bg: NAME_BG }, mid(bk), GY + 5.87, S_FRONT + 0.39, [0, -1], 2.9, 0.6);
+  b.sign({ k: 'clock' }, mid(bk), GY + 13.75, S_FRONT - 1.47, [0, -1], 1.7, 1.7, { dynamic: true });
+  b.sign({ k: 'label', text: dp.ja, sub: dp.en, fg: NAME_FG, bg: NAME_BG }, dp.x0 + 30, GY + 41.5, S_FRONT + 4.78, [0, -1], 17.5, 4.0);
 
   // ── The station plaza ──
   // Bus terminal (east): three lanes, two islands, four stops.
@@ -1292,11 +1313,10 @@ function street(h: H, seed: number) {
     [140, -37.5, '鶴松・下町', 'Tsurumatsu / Old town'],
   ];
   stops.forEach(([x, z, ja, en], i) => {
-    for (const px of [-5, 5]) b.box('flat:#8d949b', x + px - 0.08, GY, z - 0.08, x + px + 0.08, GY + 2.7, z + 0.08);
-    b.deco('flat:#eef0f2', x - 6, GY + 2.7, z - 1.2, x + 6, GY + 2.84, z + 1.2);
-    b.box('flat:#3b4046', x - 3, GY, z - 0.25, x + 3, GY + 0.45, z + 0.25);
+    building(b, 'busshelter', x, z - 1.2, false);
+    b.block(x - 5.9, GY, z + 0.85, x + 5.9, GY + 2.3, z + 1.15);
     for (const s of [-1, 1] as const) {
-      b.sign({ k: 'label', text: `バスのりば ${i + 1}　${ja}`, sub: `Bus stop ${i + 1} — ${en}`, fg: '#fff', bg: '#0d3b66' }, x, GY + 2.3, z + s * 1.21, [0, s], 7, 0.62);
+      b.sign({ k: 'label', text: `バスのりば ${i + 1}　${ja}`, sub: `Bus stop ${i + 1} — ${en}`, fg: NAME_FG, bg: NAME_BG }, x, GY + 2.3, z + s * 1.26, [0, s], 6.8, 0.48);
     }
   });
   const coach = (x: number, z: number) => {
@@ -1308,12 +1328,17 @@ function street(h: H, seed: number) {
   coach(84, -53.5);
   coach(128, -42.5);
   coach(104, -31);
+  // Covered walk from the station doors along the Station Building to the buses; a kiosk on the plaza.
+  building(b, 'buscanopy', 75, -58.5, true);
+  building(b, 'kiosk', -14, -46, true);
+  b.block(-16.1, GY, -49.1, -11.9, GY + 3, -46);
+  b.sign({ k: 'label', text: 'きっぷ・ご案内', sub: 'Tickets / Information', fg: NAME_FG, bg: NAME_BG }, -14, GY + 2.6, -45.94, [0, 1], 3.0, 0.36);
   // Taxi rank (west).
   for (let i = 0; i < 6; i++) car(b, -66 - i * 6.2, -41.2, '#1d4d2b', true, true);
-  b.box('flat:#8d949b', -62.06, GY, -33, -61.94, GY + 2.6, -32.88);
-  b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, -62, GY + 2.3, -32.86, [0, 1], 3.2, 0.7);
-  b.deco('flat:#eef0f2', -74, GY + 2.7, -33.6, -58, GY + 2.84, -31.4);
-  for (const px of [-73, -59]) b.box('flat:#8d949b', px - 0.08, GY, -32.6, px + 0.08, GY + 2.7, -32.44);
+  building(b, 'taxishelter', -66, -33.6, false);
+  b.block(-73.9, GY, -31.6, -58.1, GY + 2.3, -31.35);
+  b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, -66, GY + 2.3, -33.66, [0, -1], 10.8, 0.48);
+  b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, -66, GY + 2.3, -31.34, [0, 1], 10.8, 0.48);
   // The pedestrian middle: trees, benches, and the plaza's name.
   for (const [tx, tz] of [[-36, -30], [-24, -44], [24, -44], [36, -30], [-40, -54], [40, -54]]) tree(b, tx, tz, 6.5, 'leaf');
   for (const sx of [-1, 1]) {
@@ -1325,9 +1350,12 @@ function street(h: H, seed: number) {
   b.sign({ k: 'guide', ja: `地下鉄 ${c.station.nameJa}駅`, en: `Metro: ${c.station.nameRomaji} Sta. — inside, down the escalators`, bg: 'navy', badges: h.lines, arrow: 'up' }, 0, GY + 1.2, -22.31, [0, -1], 6.2, 0.9);
 
   // ── West block: the station hotel; and a tower beyond the taxi rank ──
-  b.box('facade:office:#8fa6b8', -BLDG, GY, HN, -HX - 0.4, 46, FRONT);
-  b.sign({ k: 'label', text: '川湊ステーションホテル', sub: 'Kawaminato Station Hotel', fg: '#f3e3a0', bg: '#12382c' }, -78, 41, FRONT + 0.05, [0, 1], 44, 3.4);
-  b.deco('glassDark', -96, GY, FRONT, -60, GY + 3.4, FRONT + 0.06);
+  const hx = -(HX + 0.4 + BLDG) / 2;
+  b.block(-BLDG, GY, HN, -HX - 0.4, 46, FRONT);
+  building(b, 'hotel', hx, FRONT, true);
+  for (const sx of [-8.6, -3.2, 3.2, 8.6]) b.block(hx + sx - 0.4, GY, FRONT + 6.0, hx + sx + 0.4, GY + 4.9, FRONT + 6.8);
+  b.sign({ k: 'label', text: '川湊ステーションホテル', sub: 'Kawaminato Station Hotel', fg: NAME_FG, bg: NAME_BG }, hx, GY + 48.6, FRONT - 2.78, [0, 1], 32, 3.4);
+  b.sign({ k: 'label', text: '川湊ステーションホテル', sub: 'Kawaminato Station Hotel', fg: NAME_FG, bg: NAME_BG }, hx, GY + 5.2, FRONT + 7.22, [0, 1], 12, 0.55);
   b.box('facade:apt:#d5cbb8', -X + 4, GY, -106, -BLDG - 8, 31, -68);
 }
 

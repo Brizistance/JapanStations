@@ -427,6 +427,10 @@ function hubFeatures(): Feature[] {
     { n: n('川湊ステーションホテル', 'Kawaminato Station Hotel'), x0: -bldg, x1: -hx - 0.4, side: -1, named: true },
     { n: n('川湊駅前広場', 'Kawaminato Station Plaza'), x0: -56, x1: 56, side: -1, named: true },
     { n: n('川湊駅', 'Kawaminato Station'), x0: -hx, x1: hx, side: -1, named: true },
+    // The avenue's landmarks (hub.ts LANDMARKS).
+    { n: n('秋津島生命ビル', 'Akitsushima Life Building'), x0: -118, x1: -74, side: 1, named: true },
+    { n: n('川湊信用金庫 本店', 'Kawaminato Shinkin Bank Head Office'), x0: -39.4, x1: -13.4, side: 1, named: true },
+    { n: n('澪屋百貨店', 'Mioya Department Store'), x0: 13.3, x1: 53.3, side: 1, named: true },
     { n: KIND.office, x0: -X, x1: -13, side: 1, named: false },
     { n: KIND.office, x0: 13, x1: X, side: 1, named: false },
   ];
