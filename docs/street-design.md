@@ -103,6 +103,12 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 **Hyōtanbori (2026-11-20):** nightlife model lots (`night`), the grand canal and station pieces in `src/stations/hyotanbori-street.ts` (spec `canalGrand`, `pieces`; models `build_hyotan.py`).
 
+**Kaiseichō (2026-11-20):** model old town with small streets and ginkgo street trees; the high school (walk-in forecourt, porch, clock tower) and Gakurindō Stationery as `pieces` (`kaiseicho-street.ts`, models `build_kaisei.py`).
+
+**Small-street signals (2026-11-20):** each signalled small-street junction has a head on each side with its own crosswalk; spec `smallSignals` sets the share per station (default 0.4).
+
+**Tsurumatsu (2026-11-20):** model old town (spec `oldTown`), the shōtengai built from models (spec `arcadeModel`, `tsurumatsu-street.ts`: gate, roof bays, shop rows), Tsuru-no-yu bath as a `piece` (models `build_tsuru.py`); arcade rows leave the corner piece's flank open.
+
 **Minamihorie (2026-11-20):** the quiet canal (spec `canalQuiet`, `minamihorie-street.ts`), clock tower, Café Horie and Kinoha as `pieces` (models `build_horie.py`); canal rows stand back behind any piece on their corner.
 
 **Map edges (2026-11-21):** model streets carry on 210 m past the plot (`continuation` in `surface.ts`, `CONTINUE`) with side streets, crossings, lamps and kerb rails; full models on the first block, simplified beyond. The backdrop lays district blocks on the station's own grid (`districtGrid` in `render/world-view.ts`); the daytime haze is nearer (`atmosphere.ts`).

@@ -209,9 +209,13 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'tile:#5f8f7b', concWall: 'tile:#e7eee9', floor: 'floor:#cfcabd', pillar: 'tile:#5f8f7b',
       accent: '#b9482b', mural: { v: 'pines', color: '#2e6b4f' },
     },
+    // Outside: an old quarter of shophouses on model streets, the Tsurumatsu Shōtengai under its glazed
+    // roof up the side street at x = −60 behind a crane-crested gate, Tsuru-no-yu bath on its corner.
     surface: {
-      seed: 53, roadHalf: 7, cross: [-60, 64], left: 'oldtown', right: 'oldtown', poles: true,
-      arcadeAt: -60, arcadeName: { ja: '鶴松商店街', en: 'Tsurumatsu Shōtengai' },
+      seed: 53, roadHalf: 7, cross: [-60, 64], left: 'mixed', right: 'mixed', poles: true, models: true, roadKit: true, tee: true, oldTown: true, smallStreets: true, smallSignals: 0.75,
+      arcadeAt: -60, arcadeModel: true, arcadeName: { ja: '鶴松商店街', en: 'Tsurumatsu Shōtengai' },
+      konbini: [{ type: 'corner', chain: 'asanagi', side: 1, x0: 30 }],
+      pieces: [{ id: 'sento', side: -1, x0: -53, ja: '鶴の湯', en: 'Tsuru-no-yu Bathhouse' }],
     },
   },
   // Port station: cool blue-grey panels, wave mural, quay and cranes outside. Nagisa Line above,
@@ -433,7 +437,8 @@ export const SPECS: Record<StationId, StationSpec> = {
       ],
     },
   },
-  // Meiji school town: red-brick walls, pine mural, a school campus on one side.
+  // Meiji school town: below, a red-brick school hall; outside a ginkgo avenue, the 1902 Kawaminato
+  // Daiichi High School behind its wall across from the station, quiet old streets, Gakurindō stationery.
   kaiseicho: {
     kind: 'underground',
     concourse: [-34, 22],
@@ -443,8 +448,14 @@ export const SPECS: Record<StationId, StationSpec> = {
       wall: 'brick:#a4553e', concWall: 'tile:#f0ebe1', floor: 'floor:#cfc8bb', pillar: 'tile:#e9e1d0',
       accent: '#1f3d2e', mural: { v: 'pines', color: '#2b5a43' },
     },
-    surface: { seed: 191, roadHalf: 8, cross: [-66, 62], left: 'campus', right: 'house', trees: true, poles: true,
-      campusName: { ja: '川湊第一高等学校', en: 'Kawaminato Daiichi High School' },
+    surface: {
+      seed: 191, roadHalf: 8, cross: [-66, 62], left: 'mixed', right: 'mixed', poles: true, models: true, roadKit: true, oldTown: true,
+      smallStreets: true, smallSignals: 0.6, treeKinds: ['ginkgo'],
+      konbini: [{ type: 'corner', chain: 'hinode', side: 1, x0: 34 }],
+      pieces: [
+        { id: 'school', side: -1, x0: -9.3, ja: '川湊第一高等学校', en: 'Kawaminato Daiichi High School' },
+        { id: 'bunbo', side: 1, x0: -24, ja: '文具 学林堂', en: 'Gakurindō Stationery' },
+      ],
     },
   },
   // Southern terminus above the container port; the Ichō Line deep below, reached down two

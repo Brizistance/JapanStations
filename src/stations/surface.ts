@@ -8,6 +8,8 @@ import { PLACES, place, type PlaceKind } from './places';
 import { PIECES, type PieceId } from './pieces';
 import { grandCanal, piece } from './hyotanbori-street';
 import { HORIE_PIECES, horiePiece, quietCanal } from './minamihorie-street';
+import { TSURU_PIECES, tsuruArcade, tsuruPiece } from './tsurumatsu-street';
+import { KAISEI_PIECES, kaiseiPiece } from './kaiseicho-street';
 import { modelTree, type TreeKind } from './trees';
 import { kerbGaps, kerbRail, mark, pedSignal, poleLine, roadKit, roadModel, roadSign, shortSignal, streetLamp, trafficLane, type LampKind } from './roads';
 import { BUILDING_MODELS, type BuildingModel } from './buildings';
@@ -43,8 +45,14 @@ export interface SurfaceSpec {
   canalGrand?: boolean;
   /** A quiet canal (minamihorie-street.ts): stone walks under cherries, the teal bridge, steps to the water. */
   canalQuiet?: boolean;
+  /** The arcade built from models (tsurumatsu-street.ts): gate, glazed roof bays, shop rows down both sides. */
+  arcadeModel?: boolean;
+  /** An old quarter all through (model streets): shophouses and small blocks, not only near a canal. */
+  oldTown?: boolean;
   /** Central-Osaka small streets through the model blocks: 6.5 m streets back from the main road and one parallel to it, poles and wires, traffic both ways. */
   smallStreets?: boolean;
+  /** Share of small streets with a signal where they cross the parallel one (default 0.4). */
+  smallSignals?: number;
   /** Road names for the blue boards (docs/worldbuilding.md): the main road, the crossing roads west to east. */
   roadNames?: { main: { ja: string; en: string }; cross: { ja: string; en: string }[] };
   /** Junction names west to east, for the plates on the signals (default: the area and a chōme). */
@@ -629,7 +637,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
       const smallSegment = (xa: number, xb: number, kept: [number, number, number][]) => {
         const night = style === 'neon';
         const P0 = swOut + SMALL_P, P1 = P0 + SMALL_W;
-        const isOld = (x: number) => canal !== undefined && Math.abs(x - canal) < 60;
+        const isOld = (x: number) => !!spec.oldTown || (canal !== undefined && Math.abs(x - canal) < 60);
         const onStreet = (x: number) => streets.some(([p, q]) => Math.abs(x - (p - 3)) < 0.01 || Math.abs(x - (q + 3)) < 0.01);
         const exitAt = (x0: number, x1: number) => {
           const mp = b.pt(x0 - 1.6, 0, rw - 0.2), mq = b.pt(x1 + 1.6, 0, P1 + 0.5);
@@ -722,7 +730,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
             const facing = laneXs.some((lx) => Math.abs(lx - wx) < 14);
             const traffic = !bay && !junction && !facing;
             if (traffic) laneXs.push(wx);
-            smallStreet(b, r, s0, s0 + SMALL_W, rw, swOut, P0, P1, traffic, stationName, dense);
+            smallStreet(b, r, s0, s0 + SMALL_W, rw, swOut, P0, P1, traffic, stationName, dense, spec.smallSignals);
             mouths.push([b.pt(s0 - 1.6, 0, rw - 0.2), b.pt(s0 + SMALL_W + 1.6, 0, swOut + 0.2)]);
           }
         });
@@ -767,7 +775,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           // The old quarter reaches 60 m from the canal: a lot that spans its edge is filled in two parts.
           const edge = canal !== undefined ? [canal - 60, canal + 60].find((e) => e - a >= 8 && c - e >= 8) : undefined;
           if (edge !== undefined) return void (lots(a, edge), lots(edge, c));
-          const old = canal !== undefined && Math.abs((a + c) / 2 - canal) < 60;
+          const old = !!spec.oldTown || (canal !== undefined && Math.abs((a + c) / 2 - canal) < 60);
           const night = style === 'neon';
           const taken: Lot[] = [];
           // Where the lot ends at a side street, a row of buildings fronts that street behind the corner.
@@ -842,7 +850,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           // A piece may run on past the segment's end, onto a corner the canal rows leave open (Hyōtan Kaikan).
           if (k.side !== side || k.x0 < xa || k.x0 >= xb) continue;
           kept.push([k.x0, k.x0 + kw, PIECES[k.id].d]);
-          b.with({ t: [k.x0 + kw / 2, 0, swOut] }, () => (HORIE_PIECES.includes(k.id) ? horiePiece : piece)(b, k));
+          b.with({ t: [k.x0 + kw / 2, 0, swOut] }, () => (HORIE_PIECES.includes(k.id) ? horiePiece : TSURU_PIECES.includes(k.id) ? tsuruPiece : KAISEI_PIECES.includes(k.id) ? kaiseiPiece : piece)(b, k));
         }
         if (spec.smallStreets && spec.models && (style === 'mixed' || style === 'office' || style === 'neon')) {
           smallSegment(xa, xb, kept);
@@ -857,7 +865,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
             // Behind a kept lot the block goes on too (not where a canal's own rows stand).
             const nearCanal = canal !== undefined && Math.abs((p + q) / 2 - canal) < (quayAt ?? 10) + CANAL_ROW + 8;
             if (spec.models && !nearCanal) {
-              const old = canal !== undefined && Math.abs((p + q) / 2 - canal) < 60;
+              const old = !!spec.oldTown || (canal !== undefined && Math.abs((p + q) / 2 - canal) < 60);
               // Lined up with the neighbouring blocks' lanes where the kept lot is shallow enough (then reachable through them).
               const z0 = Math.max(swOut + 21, swOut + d + 1);
               rearRows(b, r, Math.max(p, xa), Math.min(q, xb), z0, old || style === 'neon', style === 'neon', stationName, z0 === swOut + 21);
@@ -949,7 +957,12 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   if (canal !== undefined && spec.canalQuiet) quietCanal(b, canal, swOut, Z, spec.canalName ?? { ja: '南堀江橋', en: 'Minamihorie-bashi' });
   else if (canal !== undefined && spec.canalGrand) grandCanal(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' });
   else if (canal !== undefined) b.open(() => canalFeature(b, canal, swOut, Z, spec.canalName ?? { ja: '瓢箪橋', en: 'Hyōtan-bashi' }, !!spec.canalLanterns, !!spec.canalStone));
-  if (spec.arcadeAt !== undefined) arcade(b, spec.arcadeAt, swOut, spec.arcadeName ?? { ja: '商店街', en: 'Shopping Arcade' });
+  if (spec.arcadeAt !== undefined && spec.arcadeModel) {
+    // The roof stops short of a piece on the arcade's +x corner (the bath at Tsurumatsu).
+    const a = spec.arcadeAt, corner = (spec.pieces ?? []).filter((k) => k.side < 0 && k.x0 > a && k.x0 < a + 10).map((k) => PIECES[k.id].d);
+    tsuruArcade(b, a, swOut, PLOT_Z, spec.arcadeName ?? { ja: '商店街', en: 'Shopping Arcade' }, Math.max(0, ...corner),
+      spec.smallStreets ? [SMALL_P, SMALL_P + SMALL_W] : undefined);
+  } else if (spec.arcadeAt !== undefined) arcade(b, spec.arcadeAt, swOut, spec.arcadeName ?? { ja: '商店街', en: 'Shopping Arcade' });
   // Model streets carry on past the plot, with side streets, so the edge of the map reads as a city.
   // (Everything past the plot is drawn merged: it is seen, never walked, and would cost thousands of draw calls.)
   const merged0 = b.out.models.length;
@@ -1621,7 +1634,7 @@ function doorstep(b: Builder, r: () => number, x: number, z: number, ax: number,
  * a kerb mirror at its mouth, a 30 sign for the way in, utility poles down one side. With `traffic`:
  * a lane out (stop line, then left onto the main road) and a lane in (left turns off the main road).
  */
-function smallStreet(b: Builder, r: () => number, x0: number, x1: number, rw: number, swOut: number, p0: number, p1: number, traffic: boolean, name: { ja: string; en: string }, heavy = true) {
+function smallStreet(b: Builder, r: () => number, x0: number, x1: number, rw: number, swOut: number, p0: number, p1: number, traffic: boolean, name: { ja: string; en: string }, heavy = true, signals = 0.4) {
   const z1 = PLOT_Z - 1, xc = (x0 + x1) / 2, m = mirrored(b) ? -1 : 1;
   // The lane out keeps left: towards x0 in a plain frame, x1 in a mirrored one.
   const outX = xc - m * 1.1, kerbX = m > 0 ? x0 + 0.4 : x1 - 0.4, farX = m > 0 ? x1 - 0.4 : x0 + 0.4;
@@ -1636,7 +1649,7 @@ function smallStreet(b: Builder, r: () => number, x0: number, x1: number, rw: nu
   roadSign(b, 'speed30', farX, swOut + 5, [0, -1], 0.6);
   roadModel(b, 'mirror', farX, GY, swOut + 0.6, [0, 1]);
   b.block(farX - 0.08, GY, swOut + 0.52, farX + 0.08, GY + 2.6, swOut + 0.68);
-  poleLine(b, { axis: 'z', from: swOut + 4, to: z1 - 1, at: x0 + 0.3, road: 1, step: 22, skip: (u) => u > p0 - 2.5 && u < p1 + 2.5, drops: 0.9, name });
+  poleLine(b, { axis: 'z', from: swOut + 4, to: z1 - 1, at: x0 + 0.3, road: 1, step: 22, skip: (u) => u > p0 - 3.6 && u < p1 + 3.6, drops: 0.9, name });
   for (let z = swOut + 26; z < z1 - 4; z += 22) if (z < p0 - 3 || z > p1 + 3) streetLamp(b, 'lamp_small', x1 - 0.3, z, [-1, 0]);
   // On the pavement beside its mouth: one of the street's things, backed against the corner building.
   {
@@ -1650,14 +1663,23 @@ function smallStreet(b: Builder, r: () => number, x0: number, x1: number, rw: nu
   const stops: LanePart['stops'] = [{ at: zFrom - swOut, axis: 0, exit: zFrom + rw }];
   // Now and then a signal where it crosses the parallel street (like the narrow junctions' short-arm
   // pole): a crosswalk over the small street, a stop line, pedestrian heads at both ends.
-  if (r() < 0.4) {
+  if (r() < signals) {
     const zc = p1 + 0.8, zs = p1 + 4.3;
     for (let x = x0 + 0.95; x < x1 - 0.9; x += 0.9) b.deco('flat:#e9e9e4', x, GY + 0.018, zc, x + 0.45, GY + 0.024, zc + 3);
     b.deco('flat:#e9e9e4', Math.min(outX - 1.2, xc), GY + 0.018, zs, Math.max(outX + 1.2, xc), GY + 0.024, zs + 0.3);
     const KANJI = ['一', '二', '三', '四', '五'], n = Math.floor(r() * KANJI.length);
-    shortSignal(b, kerbX, p0 - 0.6, [0, -1], 0, { ja: `${name.ja}${KANJI[n]}丁目`, en: `${name.en} ${n + 1}` });
+    const jn = { ja: `${name.ja}${KANJI[n]}丁目`, en: `${name.en} ${n + 1}` };
+    shortSignal(b, kerbX, p0 - 0.6, [0, -1], 0, jn);
     pedSignal(b, x0 + 0.35, zc + 1.5, [1, 0], 1, { button: true });
     pedSignal(b, x1 - 0.35, zc + 1.5, [-1, 0], 1, { button: true });
+    // The same on the main road's side of the junction: a head for traffic coming in from the main
+    // road on the far corner, a crosswalk and its pedestrian heads, a stop line on the lane in.
+    const zc2 = p0 - 3.8, zs2 = p0 - 4.6, inX = xc + m * 1.1;
+    for (let x = x0 + 0.95; x < x1 - 0.9; x += 0.9) b.deco('flat:#e9e9e4', x, GY + 0.018, zc2, x + 0.45, GY + 0.024, zc2 + 3);
+    b.deco('flat:#e9e9e4', Math.min(inX - 1.2, xc), GY + 0.018, zs2, Math.max(inX + 1.2, xc), GY + 0.024, zs2 + 0.3);
+    shortSignal(b, farX, p1 + 0.6, [0, 1], 0, jn);
+    pedSignal(b, x0 + 0.35, zc2 + 1.5, [1, 0], 1, { button: true });
+    pedSignal(b, x1 - 0.35, zc2 + 1.5, [-1, 0], 1, { button: true });
     stops.unshift({ at: zFrom - zs, axis: 0, exit: zFrom - (p0 - 1) });
   }
   b.out.lanes.push({ from: b.pt(outX, 0, zFrom), to: b.pt(outX, 0, -rw), speed: 6, flow: 1.6, use: 'minor', taxi: 0, stops, halts: [], dead: true });
