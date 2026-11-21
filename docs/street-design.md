@@ -12,13 +12,43 @@ The owner's rules for every street-level redesign, agreed 2026-11-19 after the T
 6. **Names are invented and recorded.** Landmark and shop names never copy a real business. New ones go in `docs/worldbuilding.md`; junction names come from the area (rule 2).
 7. **Every walkable space is filled with detail, with alleys and small streets all round, as in Japan** (owner, 2026-11-21). Lanes and alleys cut the blocks into small pieces, their density by district: dense in nightlife and old-town districts, sparser in office districts and suburbs. They hold tiny shops and bars, houses and apartments (doors, plants, bikes, mailboxes), back-of-house clutter (bins, AC units, pipes, meters, crates, wires) and small surprises (a tiny shrine, a vending corner, coin parking, a pocket park). Everything inside the plot is walkable; past its edge the streets carry on and are only seen. No bare building backs or sides, no empty lots, no view ending in empty land.
 
+Added from the owner interview, 2026-11-20, after the Hyōtanbori, Minamihorie and Tsumugibashi passes:
+
+8. **Osaka small streets in every redesign.**
+   - Every future station outside gets the small-street layout: 6.5 m streets back from the main road, a parallel back street, open alleys and back lanes, poles and wires, and two-way scooter and kei traffic.
+   - Its density follows the district, and so does the street life: vending clusters, plants, AC units, A-boards, のぼり flags and bikes. There is more in old and nightlife quarters, less by offices.
+9. **Nothing floats.**
+   - Every object stands on the ground or on a real wall.
+   - Wall clutter (AC units, wall lamps, meters, service drops, pipes) is modelled into the buildings, never placed by guessing where walls are. Hitboxes are not walls: they reach above the roof and over open stairs, balconies and corridors.
+   - Nothing is placed against an alley's open mouth.
+10. **Everything that looks walkable is walkable.** No hitbox-blocked lanes or gaps; slivers too narrow to enter are closed visibly.
+11. **Night must look right.**
+    - Every street, small street and back lane is lit by its lamps.
+    - Signs, shop windows and lit windows glow softly and never glare or blow out to white.
+    - Check every redesign at 21:00 as well as by day.
+12. **The signal standard.**
+    - At narrow junctions: the Honjō-nishi short-arm pole, with the junction plate beside its top and a thin LED head.
+    - Pedestrian heads hang on the vehicle mast wherever one stands by a crosswalk.
+    - Some small-street crossings get a signal with a crosswalk.
+    - Every station gets blue 通り/筋 road-name boards and invented junction names.
+13. **One hero piece each, inside and out.**
+    - Each station gets one or two invented landmark pieces on top of the shared kit.
+    - A redesign always covers both the street and the station inside: platform, concourse and exits.
+    - The owner picks which station comes next each time.
+
 ## How to work
 
 1. **Ask questions first:** what to model, which landmarks, style, extras. Offer the district-based default and ask for changes or new ideas.
 2. **Short plan in chat, then wait for a yes.** No plan files unless asked.
 3. **Build**, then `npm run typecheck` and the full `npm test`.
 4. **Check exits and collision:** nothing may block an exit stair or the station doors, and every model a player can reach needs a collider (`b.block`). Trees, lamps, shelters and vehicles included.
-5. **Finish with screenshots** from several street-level points, including the view a player sees first, and say what was not viewed.
+5. **Finish with screenshots** from several street-level points, including the view a player sees first, by day and at 21:00, and say what was not viewed.
+6. **Run the data checks** before reporting:
+   - no wall item without a wall behind it, and no AC unit above its wall top
+   - no blocked lane
+   - the walk and traffic tests
+7. **Run the station-checker agent** once per station (CLAUDE.md).
+8. **Work in fewer, bigger rounds.** The owner sends screenshots of anything wrong.
 
 ## How each rule is met in code
 
