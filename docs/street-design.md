@@ -10,6 +10,7 @@ The owner's rules for every street-level redesign, agreed 2026-11-19 after the T
 4. **Landmarks per station.** Each redesigned station gets a few one-off landmark buildings of its own.
 5. **The look comes from the district, and the owner is still asked.** Building mix, heights and materials follow the station's district in `src/data/network.ts` and match the station's interior theme. Before building, ask the owner whether they want changes or have new ideas.
 6. **Names are invented and recorded.** Landmark and shop names never copy a real business. New ones go in `docs/worldbuilding.md`; junction names come from the area (rule 2).
+7. **Every walkable space is filled with detail, with alleys and small streets all round, as in Japan** (owner, 2026-11-21). Lanes and alleys cut the blocks into small pieces, their density by district: dense in nightlife and old-town districts, sparser in office districts and suburbs. They hold tiny shops and bars, houses and apartments (doors, plants, bikes, mailboxes), back-of-house clutter (bins, AC units, pipes, meters, crates, wires) and small surprises (a tiny shrine, a vending corner, coin parking, a pocket park). Everything inside the plot is walkable; past its edge the streets carry on and are only seen. No bare building backs or sides, no empty lots, no view ending in empty land.
 
 ## How to work
 
@@ -73,6 +74,41 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 **Hyōtanbori (2026-11-20):** nightlife model lots (`night`), the grand canal and station pieces in `src/stations/hyotanbori-street.ts` (spec `canalGrand`, `pieces`; models `build_hyotan.py`).
 
 **Minamihorie (2026-11-20):** the quiet canal (spec `canalQuiet`, `minamihorie-street.ts`), clock tower, Café Horie and Kinoha as `pieces` (models `build_horie.py`); canal rows stand back behind any piece on their corner.
+
+**Map edges (2026-11-21):** model streets carry on 210 m past the plot (`continuation` in `surface.ts`, `CONTINUE`) with side streets, crossings, lamps and kerb rails; full models on the first block, simplified beyond. The backdrop lays district blocks on the station's own grid (`districtGrid` in `render/world-view.ts`); the daytime haze is nearer (`atmosphere.ts`).
+
+**Boulevard (2026-11-21):** Tsumugibashi's avenue runs on 435 m to Kita-Ōdōri (spec `boulevard`, `surface.ts`): median trees, side streets with building rows, frontage rising to towers, landmark corners (つむぎ百貨店 Tsumugi Department Store, 時計の辻 Clock Corner, ホテル 柳筋 Hotel Yanagisuji). Past the plots everything is merged, nothing underground is drawn, and AO is off.
+
+**Detail by distance (2026-11-21):** building models with a simplified copy go in 150 m cells (`lodModels`/`updateLod` in `render/building-models.ts`): full models near the camera, merged lazily one cell a frame. Leftover gaps in building rows become alleys (`alley` in `surface.ts`). Districts reach 450 m; daytime haze 200–800 m. Measure frame rate with the browser pane visible: a hidden pane throttles to 1 fps.
+
+**Backs and lanes (2026-11-21):** every building set has detailed backs and sides (`backs()` in `tools/blender/buildkit.py`: windows, pipes, AC units, meters, back doors, fire escapes on tall ones). Back lanes behind the front rows are dressed (`backLane`), and each plot side street carries on 170 m past the edge with a cross street (`sideStreetOut`).
+
+**Rule 7 in code (2026-11-21):** on a model street each block between side streets is cut by lanes back from the pavement (`crossLane`; every 30 m in old and nightlife quarters, 42 m mixed, 60 m offices) and filled behind its front row by `rearRows`: lanes parallel to the street with rows of small buildings facing them, doorstep plants, mailboxes and bikes, and now and then a lane shrine, pocket park, vending corner or coin parking (`coinParking`). Lots behind kept pieces are filled too. Alleys end at low block walls. `walk.test.ts` reaches as far as small street zones.
+
+**Small-street traffic (2026-11-21):** each lane back from a main road is a one-way `minor` lane (`crossLane` in `surface.ts`; `use: 'minor'` in `traffic/system.ts`): scooters, bicycles, kei trucks, the odd small car come from past the plot's back, stop before the pavement (main-road phase) and turn left onto the road. No traffic where the mouth meets a bus stop or taxi stand, an exit stair, a junction within 35 m, or another lane facing it. The mouth's kerb rail, lamps and trees are cleared.
+
+**Osaka small streets (2026-11-20):** `smallStreets` in a surface spec (Hyōtanbori, Minamihorie, Tsumugibashi) replaces the 3 m lanes with 6.5 m streets every 45 m (old or nightlife quarters) or 62 m, plus one parallel street 20 m behind the pavement. They have white edge lines, 止まれ, stop and 30 signs, a kerb mirror, and poles and wires down one side. Low `machi` buildings (build_machi.py) front them, with doorstep clutter. Traffic runs both ways: out by a stop line, in by left turns off the main road (`P_MINOR`).
+
+**Small streets, second pass (2026-11-20):** each road segment goes through `smallSegment` in `surface.ts`:
+- Small streets avoid kept lots and exit stairs.
+- The parallel street (`SMALL_P` = 28 m back) runs through the whole segment, out across the pavement onto side streets, and through the canal rows to the quay.
+- A second row faces the parallel street, and rows are stacked behind (`stackRows`), so no paving is left bare.
+- The rows sometimes include a shrine, pocket park or coin parking.
+- No balconied flats line the small streets.
+- Side walls have more pipes and meters and painted wall ads (`backs(signs=)`).
+- Bike lanes have blue dashes and bus lanes a white line, with no solid colour bands.
+
+**No blocked gaps (2026-11-20):** a gap between buildings that looks like a lane is walkable. In small-street blocks, colliders sit on each building only, and the gaps behind rows are back lanes (`backGap`: paving, a drain, bins, a lamp, wires). Slivers under 1.2 m are closed. Wires crossing a small street end on the opposite wall at a bracket with insulators and a drop to a meter (`poleLine` `wall`).
+
+**Street life (2026-11-20, small-street stations):**
+- Each block gets a vending cluster on the main pavement: 2–4 lit machines, a bin at each end, sometimes under a corrugated nook roof with a bench (`vendCluster`).
+- Doorsteps get herb boxes, potted pines, plant shelves, green curtains, A-board menus, food-sample cases and のぼり flags. There are more in old and nightlife quarters.
+- AC racks of 2–8 units go up walls that exist (`wallAC`).
+- About 40% of the crossings where a small street meets the parallel street get the short-arm signal: a crosswalk, a stop line and pedestrian heads, with outbound traffic stopping on the main road's phase.
+
+**Wall clutter lives in the buildings (2026-11-20):** AC units on brackets, bracket lamps, service-drop insulators and meters are modelled on side and back walls by `backs()` in `buildkit.py`, only where a wall exists (`side_z`). The street code no longer places anything on walls: no `wallAC`, no back-lane wall lamps or wires, no wire crossings to buildings. Lanes are lit at night from each building's back-door lamp (`lamps.ts`, `BACK_DOOR`).
+
+**Lights, signals, props (2026-11-20):** street lights follow the quarter: `lamp_led` by offices, `lamp_suzuran` in nightlife quarters, `lamp_shop` among shops, `lamp_twin` down a boulevard median, `lamp_small` in small streets. At some narrow junctions the side street gets `sigshort` instead of the utility-pole bracket (`(seed + junction) % 2`). It carries the junction plate on top, a short arm with the head, the pedestrian head and a no-parking sign. Wherever a signal mast stands by a crosswalk, the pedestrian head hangs on that mast (`mastPed`). Blue road-name boards hang on the masts. Props: post boxes, phone boxes, bike racks, planters, benches, garbage stations, barber poles. Vehicles: courier and plain vans, kei vans, more minivans and scooters.
 
 ## Ideas for later (the owner's picks)
 

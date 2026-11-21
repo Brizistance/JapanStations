@@ -152,7 +152,11 @@ function World() {
     treeWind.value = state.clock.elapsedTime;
     // Priority 1 takes over rendering from R3F.
     const shafts = under || !atm.sunLit ? 0 : Math.min(1, atm.lightPower / 1.2) * (0.35 + 0.65 * atm.dusk);
-    if (post.current) post.current.render(under ? gradeFor() : outdoorGrade(atm.day, atm.dusk, atm.direct), dt, state.clock.elapsedTime, SUN, shafts);
+    // Out in the city beyond the nearest station's plot (continued streets, boulevards) AO costs far more than it shows.
+    const nw = nearestStation(camera.position.x, camera.position.z).world;
+    const ndx = camera.position.x - nw.frame.x, ndz = camera.position.z - nw.frame.z, nc = Math.cos(nw.frame.yaw), ns = Math.sin(nw.frame.yaw);
+    const inPlot = Math.abs(ndx * nc - ndz * ns) < nw.build.plot.x + 10 && Math.abs(ndx * ns + ndz * nc) < nw.build.plot.z + 10;
+    if (post.current) post.current.render(under ? gradeFor() : outdoorGrade(atm.day, atm.dusk, atm.direct), dt, state.clock.elapsedTime, SUN, shafts, inPlot || camera.position.y < -1);
     else gl.render(scene, camera);
     perfStats.calls = gl.info.render.calls;
     perfStats.tris = gl.info.render.triangles;

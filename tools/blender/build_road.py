@@ -536,7 +536,7 @@ def kei(p, col):
     p.box('flat:#f0e040', -0.17, 0.52, L / 2 - 0.01, 0.17, 0.68, L / 2 + 0.016)
 
 
-def van(p, col):
+def van(p, col, stripe='#1d8a4e'):
     """A delivery van: short nose, tall box, no rear side glass."""
     L, W = 4.7, 1.72
     car_body(p, col, L, W, 1.95, 1.0, 0.75, 0.05, rake_f=0.45, rake_r=0.05)
@@ -546,7 +546,8 @@ def van(p, col):
     for s in (-1, 1):
         x = s * (W / 2 - 0.09 + 0.02)
         p.box('flat:' + col, min(x, x + s * 0.01), 1.03, 0.1, max(x, x + s * 0.01), 1.9, L / 2 - 0.1)
-        p.box('flat:#1d8a4e', s * (W / 2 + 0.005) - 0.005, 0.6, -1.0, s * (W / 2 + 0.005) + 0.005, 0.72, 2.2)
+        if stripe:
+            p.box('flat:' + stripe, s * (W / 2 + 0.005) - 0.005, 0.6, -1.0, s * (W / 2 + 0.005) + 0.005, 0.72, 2.2)
 
 
 def compact(p, col):
@@ -757,6 +758,338 @@ def scooter(p, col='#c8372d', jacket='#3d6b4f'):
     p.box(HOUSING, -0.1, 1.46, -0.075, 0.1, 1.56, -0.05)                                                                # visor
 
 
+# ── More street lights, a short signal, street props (2026-11-20) ──
+
+# The short-arm signal (sigshort): where its head hangs, and the junction plate on top of the pole.
+SHORT = dict(hx=-1.9, hy=5.45, plate_x=0.92, plate_y=6.25, plate_w=1.7, plate_h=0.5)
+
+
+def sigshort(p):
+    """Narrow-junction signal, as on Osaka's side streets: a straight pole, a straight arm out over
+    the road with a thin LED head at its tip, the junction's name plate on brackets beside the pole's
+    top (away from the road), bands for a pedestrian head and a clamp for a no-parking sign lower down.
+    The head and the plate's lettering are separate."""
+    base(p, 0.22)
+    taper(p, POLE, 0.03, 6.6, 0.115, 0.08, n=4)
+    p.cyl(POLE_DK, (0, 6.62, 0), 1, 0.09, 0.04, seg=10)
+    # The arm: one straight pipe, a clamp at the pole and an end cap behind the head.
+    tube(p, POLE, (0, SHORT['hy'], 0.1), (SHORT['hx'] - 0.55, SHORT['hy'], 0.1), 0.045)
+    p.cyl(POLE_DK, (0, SHORT['hy'], 0), 1, 0.13, 0.2, seg=10)
+    p.box(POLE, SHORT['hx'] - 0.08, SHORT['hy'] - 0.1, 0.05, SHORT['hx'] + 0.08, SHORT['hy'] + 0.1, 0.14)
+    # The plate beside the top of the pole: two brackets out from it, a blank board.
+    w, h, px, py = SHORT['plate_w'], SHORT['plate_h'], SHORT['plate_x'], SHORT['plate_y']
+    for y in (py - 0.15, py + 0.15):
+        p.cyl(POLE_DK, (0, y, 0), 1, 0.1, 0.05, seg=10, caps=False)
+        tube(p, POLE, (0, y, 0.0), (px - w / 2 + 0.05, y, 0.0), 0.02, seg=5)
+    p.box(POLE_DK, px - w / 2, py - h / 2, -0.03, px + w / 2, py + h / 2, 0.03)
+    # Bands for the pedestrian head (at 2.65, hung on the road side) and the sign clamp.
+    for y in (2.45, 2.85, 2.05):
+        p.cyl(POLE_DK, (0, y, 0), 1, 0.125, 0.05, seg=10, caps=False)
+    p.box(POLE, -0.025, 2.45, -0.2, 0.025, 2.5, 0)
+    p.box(POLE, -0.025, 2.8, -0.2, 0.025, 2.85, 0)
+    p.box(POLE, -0.14, 1.1, 0.09, 0.14, 1.5, 0.24)
+
+
+def pedband(p):
+    """Two bands and a bracket that hang a pedestrian head on a signal mast (radius ~0.14 at 2.65 m):
+    the head (a separate model) hangs at y 2.65, z -0.3."""
+    for y in (2.45, 2.85):
+        p.cyl(POLE_DK, (0, y, 0), 1, 0.155, 0.05, seg=10, caps=False)
+        p.box(POLE, -0.025, y - 0.02, -0.2, 0.025, y + 0.02, -0.13)
+
+
+def lamp_led(p):
+    """Modern LED street light: a slim tapered pole, a straight arm rising a little, a thin blade head."""
+    p.cyl(POLE_DK, (0, 0.2, 0), 1, 0.14, 0.4, seg=10)
+    taper(p, 'flat:#a7adb2', 0.4, 7.6, 0.085, 0.055, n=4)
+    tube(p, 'flat:#a7adb2', (0, 7.5, 0), (0, 7.75, -1.6), 0.045, seg=8)
+    p.box('flat:#5b6066', -0.15, 7.7, -2.35, 0.15, 7.8, -1.5)
+    p.box('light', -0.12, 7.68, -2.3, 0.12, 7.7, -1.56)
+
+
+def lamp_twin(p):
+    """Twin-arm avenue light for a median: a tall mast, an arm out over each carriageway (along ±z)."""
+    p.cyl(POLE_DK, (0, 0.3, 0), 1, 0.22, 0.6, seg=12)
+    taper(p, POLE, 0.6, 10.2, 0.13, 0.09, n=5)
+    for sz in (-1, 1):
+        prev = (0, 9.6, 0)
+        for k in range(1, 6):
+            t = k / 5
+            q = (0, 9.6 + 0.6 * math.sin(t * math.pi / 2), sz * 2.6 * t)
+            tube(p, POLE, prev, q, 0.06, seg=8)
+            prev = q
+        p.box(POLE_DK, -0.2, prev[1] - 0.1, min(prev[2], prev[2] + sz * 0.9), 0.2, prev[1] + 0.05, max(prev[2], prev[2] + sz * 0.9))
+        p.box('light', -0.16, prev[1] - 0.13, min(prev[2] + sz * 0.05, prev[2] + sz * 0.85), 0.16, prev[1] - 0.1, max(prev[2] + sz * 0.05, prev[2] + sz * 0.85))
+    p.cyl(POLE_DK, (0, 10.22, 0), 1, 0.1, 0.05, seg=10)
+
+
+def lamp_suzuran(p):
+    """Lily-of-the-valley lamp (すずらん灯) for an old shopping street: a dark post, a curled crown of
+    four hooks, a bell-shaped globe hanging from each, two banner arms."""
+    dark, brass = 'flat:#2a2622', 'flat:#a8853a'
+    p.cyl(dark, (0, 0.35, 0), 1, 0.15, 0.7, seg=10)
+    tube(p, dark, (0, 0.7, 0), (0, 4.7, 0), 0.06, seg=8)
+    p.cyl(brass, (0, 4.72, 0), 1, 0.09, 0.08, seg=8)
+    tube(p, dark, (0, 4.7, 0), (0, 5.05, 0), 0.03, seg=6)
+    p.cyl(brass, (0, 5.1, 0), 1, 0.05, 0.1, seg=8)
+    for k in range(4):
+        a = k * math.pi / 2 + math.pi / 4
+        dx, dz = math.cos(a), math.sin(a)
+        tube(p, dark, (0, 4.6, 0), (dx * 0.4, 4.85, dz * 0.4), 0.022, seg=5)
+        tube(p, dark, (dx * 0.4, 4.85, dz * 0.4), (dx * 0.62, 4.75, dz * 0.62), 0.022, seg=5)
+        tube(p, dark, (dx * 0.62, 4.75, dz * 0.62), (dx * 0.62, 4.6, dz * 0.62), 0.015, seg=5)
+        c = (dx * 0.62, 0, dz * 0.62)
+        p.cyl(brass, (c[0], 4.56, c[2]), 1, 0.05, 0.05, seg=8)
+        p.cyl('light', (c[0], 4.42, c[2]), 1, 0.11, 0.2, seg=10)
+        p.cyl('light', (c[0], 4.29, c[2]), 1, 0.15, 0.06, seg=10)
+    for y0, y1, col in ((2.3, 3.6, 'flat:#c9a227'), ):
+        for sx in (-1, 1):
+            tube(p, dark, (0, y1 + 0.05, 0), (sx * 0.75, y1 + 0.05, 0), 0.016, seg=4)
+            tube(p, dark, (0, y0, 0), (sx * 0.75, y0, 0), 0.016, seg=4)
+            p.box(col if sx < 0 else 'flat:#8f2020', min(0.08 * sx, sx * 0.72), y0 + 0.03, -0.012, max(0.08 * sx, sx * 0.72), y1, 0.012)
+
+
+def lamp_small(p):
+    """Small-street light (防犯灯) on its own slim pole: a short arm and a small flat LED box."""
+    p.cyl(POLE_DK, (0, 0.1, 0), 1, 0.08, 0.2, seg=8)
+    taper(p, 'flat:#9ea3a7', 0.2, 4.6, 0.055, 0.045, n=2, seg=8)
+    tube(p, 'flat:#9ea3a7', (0, 4.4, 0), (0, 4.65, -0.7), 0.025, seg=6)
+    p.box('flat:#5b6066', -0.1, 4.62, -1.0, 0.1, 4.7, -0.6)
+    p.box('light', -0.08, 4.6, -0.97, 0.08, 4.62, -0.63)
+    p.box('flat:#e8e6de', -0.07, 2.2, -0.065, 0.07, 2.5, -0.055)
+
+
+def postbox(p):
+    """Street post box: a red pillar with a rounded top and two slots (no marks)."""
+    red = 'flat:#c8241c'
+    p.box('flat:#5a5a5a', -0.24, 0, -0.2, 0.24, 0.08, 0.2)
+    p.box(red, -0.22, 0.08, -0.18, 0.22, 1.05, 0.18)
+    p.cyl(red, (0, 1.05, 0), 2, 0.22, 0.36, seg=14)
+    for x in (-0.11, 0.11):
+        p.box(HOUSING, x - 0.07, 0.86, -0.185, x + 0.07, 0.89, -0.18)
+    p.box(WHITE, -0.12, 0.45, -0.185, 0.12, 0.62, -0.18)
+
+
+def phonebox(p):
+    """Public phone booth: a grey-green frame, glass all round, a phone shelf (front -z, door there)."""
+    fr = 'flat:#55706a'
+    p.box('flat:#8a8a86', -0.5, 0, -0.5, 0.5, 0.06, 0.5)
+    for sx in (-0.47, 0.47):
+        for sz in (-0.47, 0.47):
+            p.box(fr, sx - 0.03, 0.06, sz - 0.03, sx + 0.03, 2.2, sz + 0.03)
+    p.box(fr, -0.52, 2.2, -0.52, 0.52, 2.36, 0.52)
+    p.box('flat:#e9e7df', -0.5, 2.36, -0.5, 0.5, 2.4, 0.5)
+    for a, n in (((-0.47, 0.2, -0.47), (0, 0, -1)), ((-0.47, 0.2, 0.47), (0, 0, 1))):
+        z = a[2]
+        for h in (n, (0, 0, -n[2])):
+            p.face('glassTint', [(-0.44, 0.2, z), (0.44, 0.2, z), (0.44, 2.15, z), (-0.44, 2.15, z)], h)
+    for x in (-0.47, 0.47):
+        for h in ((-1, 0, 0), (1, 0, 0)):
+            p.face('glassTint', [(x, 0.2, -0.44), (x, 0.2, 0.44), (x, 2.15, 0.44), (x, 2.15, -0.44)], h)
+    p.box(fr, -0.44, 0.95, 0.3, 0.44, 0.99, 0.44)
+    p.box('flat:#3f8f5a', -0.13, 1.1, 0.36, 0.13, 1.5, 0.44)
+    p.box('light', -0.3, 2.18, -0.3, 0.3, 2.2, 0.3)
+
+
+def gomist(p):
+    """Garbage station: a green folding cage of steel mesh on a concrete pad, a sign board on the back."""
+    g = 'flat:#3d7a4a'
+    p.box('flat:#a49e92', -1.0, 0, -0.55, 1.0, 0.06, 0.55)
+    for sx in (-0.97, 0.97):
+        for sz in (-0.52, 0.52):
+            p.box(g, sx - 0.025, 0.06, sz - 0.025, sx + 0.025, 1.0, sz + 0.025)
+    for y in (0.06, 0.52, 1.0):
+        for sz in (-0.52, 0.52):
+            p.box(g, -0.97, y, sz - 0.015, 0.97, y + 0.03, sz + 0.015)
+        for sx in (-0.97, 0.97):
+            p.box(g, sx - 0.015, y, -0.52, sx + 0.015, y + 0.03, 0.52)
+    for k in range(13):
+        x = -0.9 + k * 0.15
+        for sz in (-0.52, 0.52):
+            p.box(g, x - 0.006, 0.06, sz - 0.006, x + 0.006, 1.0, sz + 0.006)
+    p.box(g, -0.99, 1.0, -0.54, 0.99, 1.04, 0.54)
+    p.box(WHITE, -0.4, 1.06, 0.5, 0.4, 1.5, 0.53)
+    # Bags inside.
+    for x, c in ((-0.55, '#e8e8e2'), (-0.1, '#d8dcd0'), (0.4, '#ececdf')):
+        p.cyl('flat:' + c, (x, 0.3, 0.05), 1, 0.25, 0.5, seg=8)
+
+
+def bikerack(p):
+    """Bicycle rack: a rail along x with eight front-wheel slots, each with its lock."""
+    for x in (-2.0, 2.0):
+        p.box(POLE_DK, x - 0.03, 0, -0.03, x + 0.03, 0.55, 0.03)
+    p.box(POLE, -2.0, 0.5, -0.03, 2.0, 0.55, 0.03)
+    for k in range(8):
+        x = -1.75 + k * 0.5
+        p.box(POLE, x - 0.06, 0.0, -0.45, x - 0.05, 0.25, 0.0)
+        p.box(POLE, x + 0.05, 0.0, -0.45, x + 0.06, 0.25, 0.0)
+        p.box('flat:#c8a020', x - 0.05, 0.3, -0.06, x + 0.05, 0.45, -0.03)
+
+
+def bench_s(p):
+    """Street bench: a steel frame, five timber slats, an arm in the middle (front -z)."""
+    for x in (-0.8, 0.8):
+        p.box(POLE_DK, x - 0.03, 0, -0.2, x + 0.03, 0.42, 0.2)
+        p.box(POLE_DK, x - 0.03, 0.42, 0.18, x + 0.03, 0.85, 0.22)
+    for k in range(3):
+        z = -0.2 + k * 0.13
+        p.box(TIMBER, -0.95, 0.42, z, 0.95, 0.46, z + 0.11)
+    for k in range(2):
+        p.box(TIMBER, -0.95, 0.58 + k * 0.15, 0.19, 0.95, 0.7 + k * 0.15, 0.23)
+    p.box(POLE_DK, -0.03, 0.46, -0.18, 0.03, 0.66, 0.15)
+
+
+def barberpole(p):
+    """Barber's sign pole (サインポール): a glass cylinder of red, white and blue bands under caps, on a wall bracket at +z."""
+    p.box(POLE_DK, -0.04, 0.75, 0.0, 0.04, 0.82, 0.2)
+    p.cyl('flat:#d8d8d8', (0, 1.27, 0), 1, 0.12, 0.06, seg=12)
+    p.cyl('flat:#d8d8d8', (0, 0.73, 0), 1, 0.12, 0.06, seg=12)
+    cols = ['flat:#c8241c', WHITE, 'flat:#1f5fae', WHITE]
+    for k in range(8):
+        p.cyl(cols[k % 4], (0, 0.79 + k * 0.055 + 0.0275, 0), 1, 0.1, 0.055, seg=12, caps=False)
+    p.cyl('light', (0, 1.33, 0), 1, 0.07, 0.06, seg=10)
+
+
+def planter(p):
+    """A long concrete planter of low shrubs."""
+    p.box('flat:#b3ada0', -0.9, 0, -0.3, 0.9, 0.5, 0.3)
+    for k in range(5):
+        x = -0.7 + k * 0.35
+        p.cyl('flat:#4f7f45' if k % 2 else 'flat:#5f9050', (x, 0.62, 0), 1, 0.2, 0.28, seg=8)
+
+
+def keivan(p, col):
+    """A kei van: the tall kei body with blank rear sides and a roof ladder rack."""
+    kei(p, col)
+    L, W = 3.4, 1.48
+    for s in (-1, 1):
+        x = s * (W / 2 - 0.07)
+        p.box('flat:' + col, min(x, x + s * 0.012), 1.0, 0.0, max(x, x + s * 0.012), 1.62, L / 2 - 0.15)
+        p.box('flat:#2a2c30', s * 0.6 - 0.02, 1.74, -0.6, s * 0.6 + 0.02, 1.78, 1.5)
+    for z in (-0.4, 0.5, 1.4):
+        p.box('flat:#2a2c30', -0.6, 1.76, z - 0.02, 0.6, 1.79, z + 0.02)
+
+
+# ── Street life (2026-11-20): vending nook, bins, plants, AC racks, menu boards, banner flags ──
+
+def vendroof(p):
+    """A vending nook: a corrugated lean-to roof on two posts over 3 m of machines (which stand in
+    front of its back panel, a separate model), a strip light under it, a bench at one end."""
+    st, sheet = 'flat:#6f726b', 'flat:#9ea4a6'
+    for x in (-1.75, 1.75):
+        p.box(st, x - 0.04, 0, -0.95, x + 0.04, 2.45, -0.87)
+    p.box('flat:#c9c6bc', -1.8, 0, 0.42, 1.8, 2.6, 0.5)
+    for k in range(14):
+        x = -1.85 + k * 0.27
+        p.prism(sheet, [(-1.05, 2.45), (0.55, 2.65), (0.55, 2.68), (-1.05, 2.48)], 'x', x, x + 0.25)
+    p.box(st, -1.85, 2.4, -1.02, 1.85, 2.46, -0.95)
+    p.box('light', -1.5, 2.43, -0.5, 1.5, 2.45, -0.38)
+    # The bench, at the +x end in front of the machines' line.
+    p.box(TIMBER, 1.85, 0.42, -0.6, 2.85, 0.46, -0.2)
+    for x in (1.95, 2.75):
+        p.box(st, x - 0.03, 0, -0.55, x + 0.03, 0.42, -0.25)
+
+
+def recycle(p):
+    """Recycling bin for cans and bottles beside a vending machine: a blue box, a white lid with two holes."""
+    p.box('flat:#2f6fb0', -0.22, 0, -0.2, 0.22, 0.72, 0.2)
+    p.box('flat:#f2f2ee', -0.23, 0.72, -0.21, 0.23, 0.8, 0.21)
+    for x in (-0.1, 0.1):
+        p.cyl('flat:#26292b', (x, 0.81, -0.05), 1, 0.05, 0.01, seg=10)
+    p.box('flat:#f2f2ee', -0.15, 0.4, -0.205, 0.15, 0.55, -0.2)
+
+
+def herbbox(p):
+    """Styrofoam boxes of herbs and greens on the doorstep, one stacked on a crate."""
+    foam = 'flat:#efefea'
+    for x, y in ((-0.3, 0.0), (0.3, 0.0), (0.05, 0.32)):
+        if y:
+            p.box('flat:#3a5a9a', x - 0.28, 0, -0.16, x + 0.28, 0.3, 0.16)
+        p.box(foam, x - 0.27, y, -0.15, x + 0.27, y + 0.22, 0.15)
+        for k in range(3):
+            p.cyl(('flat:#5f9050', 'flat:#4f7f45', 'flat:#7aa860')[k], (x - 0.16 + k * 0.16, y + 0.32, 0), 1, 0.1, 0.22, seg=6)
+
+
+def potpine(p):
+    """A potted black pine on the doorstep, pruned in pads."""
+    p.cyl('flat:#6a4a35', (0, 0.17, 0), 1, 0.22, 0.34, seg=10)
+    tube(p, 'flat:#4a3a2c', (0, 0.34, 0), (0.08, 0.8, 0.02), 0.04, seg=6)
+    tube(p, 'flat:#4a3a2c', (0.08, 0.8, 0.02), (-0.05, 1.15, 0.0), 0.03, seg=6)
+    for x, y, r in ((0.15, 0.78, 0.2), (-0.12, 0.98, 0.18), (0.0, 1.2, 0.15)):
+        p.cyl('flat:#3d5f35', (x, y, 0), 1, r, 0.1, seg=10)
+
+
+def plantshelf(p):
+    """A stepped wooden plant shelf against the wall (back at +z), crowded with pots."""
+    for k, (y, z) in enumerate(((0.3, -0.15), (0.65, 0.0), (1.0, 0.15))):
+        p.box(TIMBER, -0.6, y - 0.03, z - 0.13, 0.6, y, z + 0.13)
+        for j in range(4):
+            x = -0.45 + j * 0.3
+            p.cyl('flat:#9a5a3a', (x, y + 0.08, z), 1, 0.08, 0.16, seg=8)
+            p.cyl(('flat:#4f8f45', 'flat:#6aa84f', 'flat:#3f7a3a', 'flat:#c86a8a')[(j + k) % 4], (x, y + 0.24, z), 1, 0.1, 0.16, seg=8)
+    for x in (-0.58, 0.58):
+        p.box(TIMBER, x - 0.02, 0, -0.28, x + 0.02, 1.0, 0.28)
+
+
+def greencurtain(p):
+    """A green curtain (緑のカーテン): morning glories climbing a net in front of a window (wall at +z)."""
+    p.box('flat:#26292b', -0.8, 2.2, -0.12, 0.8, 2.24, 0.0)
+    p.box('flat:#9a5a3a', -0.8, 0, -0.35, 0.8, 0.3, -0.05)
+    for k in range(9):
+        x = -0.72 + k * 0.18
+        h = 1.4 + (k * 37 % 7) * 0.11
+        p.box('flat:#4f8f45' if k % 2 else 'flat:#3f7a3a', x - 0.07, 0.3, -0.12, x + 0.07, 0.3 + h, -0.08)
+        if k % 3 == 1:
+            p.cyl('flat:#6a7fd0', (x, 0.3 + h * 0.7, -0.13), 2, 0.05, 0.02, seg=8)
+
+
+def acrack(p, n):
+    """Air-conditioning outdoor units on a wall rack (wall at +z), `n` stacked in columns of up to 3."""
+    cols = (n + 2) // 3
+    for c in range(cols):
+        x = -((cols - 1) * 0.95) / 2 + c * 0.95
+        rows = min(3, n - c * 3)
+        for k in range(rows):
+            y = k * 0.85
+            p.box('flat:#8b9197', x - 0.45, y, -0.42, x + 0.45, y + 0.04, 0)
+            p.box('flat:#d8d8d2', x - 0.42, y + 0.04, -0.36, x + 0.42, y + 0.66, 0)
+            p.cyl('flat:#5f6266', (x - 0.1, y + 0.35, -0.37), 2, 0.22, 0.01, seg=12)
+            tube(p, 'flat:#c9c6bc', (x + 0.38, y + 0.2, -0.1), (x + 0.38, y + 0.2, 0.0), 0.03, seg=5)
+        p.box('flat:#8b9197', x - 0.47, -0.05, -0.05, x - 0.43, rows * 0.85, 0)
+        p.box('flat:#8b9197', x + 0.43, -0.05, -0.05, x + 0.47, rows * 0.85, 0)
+    p.box('flat:#c9c6bc', -0.04, -1.5, -0.08, 0.04, 0.0, -0.02)
+
+
+def aboard(p):
+    """A-frame menu board: two framed blank boards leaning together (the menu is a game sign)."""
+    for s in (-1, 1):
+        p.prism('flat:#4a3426', [(s * 0.02, 0.95), (s * 0.3, 0.0), (s * 0.33, 0.0), (s * 0.05, 0.95)], 'x', -0.32, 0.32)
+    p.box('flat:#4a3426', -0.3, 0.92, -0.04, 0.3, 0.98, 0.04)
+
+
+def menucase(p):
+    """A food-sample case: a glass box on legs with plastic dishes (front -z)."""
+    for x in (-0.55, 0.55):
+        p.box('flat:#5f6266', x - 0.02, 0, -0.25, x + 0.02, 0.8, -0.21)
+        p.box('flat:#5f6266', x - 0.02, 0, 0.21, x + 0.02, 0.8, 0.25)
+    p.box('flat:#d9d4c4', -0.6, 0.8, -0.27, 0.6, 0.84, 0.27)
+    p.box('flat:#3a3d42', -0.6, 0.84, 0.22, 0.6, 1.5, 0.27)
+    for k in range(6):
+        x, z = -0.4 + (k % 3) * 0.4, -0.08 + (k // 3) * 0.18
+        p.cyl('flat:#f2f2ee', (x, 0.86, z), 1, 0.13, 0.03, seg=12)
+        p.cyl(('flat:#d9a03a', 'flat:#b3462b', 'flat:#e8d9a0', 'flat:#7a5030', 'flat:#e0c060', 'flat:#c86a3a')[k], (x, 0.92, z), 1, 0.1, 0.07, seg=10)
+    p.face('glassTint', [(-0.6, 0.84, -0.27), (0.6, 0.84, -0.27), (0.6, 1.5, -0.27), (-0.6, 1.5, -0.27)], (0, 0, -1))
+    p.box('flat:#5f6266', -0.62, 1.5, -0.29, 0.62, 1.54, 0.29)
+    p.box('light', -0.5, 1.48, -0.15, 0.5, 1.5, 0.15)
+
+
+def nobori(p):
+    """A banner-flag pole (のぼり): a steel pole on a water-filled base, a crossbar, the banner blank (a game sign)."""
+    p.cyl('flat:#2b2f33', (0, 0.08, 0), 1, 0.2, 0.16, seg=10)
+    p.cyl('flat:#c9c6bc', (0, 1.4, 0), 1, 0.015, 2.7, seg=6)
+    p.box('flat:#c9c6bc', -0.25, 2.7, -0.01, 0.0, 2.72, 0.01)
+
+
 PROPS = {
     'signal9': (lambda p: signal(p, ARMS['signal9']), 10), 'signal7': (lambda p: signal(p, ARMS['signal7']), 8), 'signal3': (lambda p: signal(p, ARMS['signal3']), 4),
     'pedpole': (pedpole, 1.5), 'pedhead': (lambda p: pedhead(p, False), 1), 'pedhead_flat': (lambda p: pedhead(p, True), 1),
@@ -767,6 +1100,16 @@ PROPS = {
     'mirror': (mirror, 1.5), 'bollard': (bollard, 1), 'rail': (rail, 3), 'upole': (upole, 3), 'upole_l': (lambda p: upole(p, False), 3),
     'lamp_hw': (lamp_hw, 3), 'lamp_shop': (lamp_shop, 3), 'lamp_park': (lamp_park, 2), 'fingerpost': (fingerpost, 3), 'mapstand': (mapstand, 3), 'wand': (wand, 1),
     'xing_mast': (xing_mast, 3), 'xing_gate': (xing_gate, 2),
+    'sigshort': (sigshort, 2.5), 'pedband': (pedband, 1), 'lamp_led': (lamp_led, 3), 'lamp_twin': (lamp_twin, 6), 'lamp_suzuran': (lamp_suzuran, 2),
+    'lamp_small': (lamp_small, 2), 'postbox': (postbox, 1), 'phonebox': (phonebox, 1.5), 'gomist': (gomist, 2.5), 'bikerack': (bikerack, 4.5),
+    'bench_s': (bench_s, 2.2), 'barberpole': (barberpole, 1), 'planter': (planter, 2.2),
+    'vendroof': (vendroof, 6), 'recycle': (recycle, 1), 'herbbox': (herbbox, 1.5), 'potpine': (potpine, 1), 'plantshelf': (plantshelf, 1.5),
+    'greencurtain': (greencurtain, 2), 'acrack2': (lambda p: acrack(p, 2), 1.5), 'acrack3': (lambda p: acrack(p, 3), 1.5), 'acrack5': (lambda p: acrack(p, 5), 2.5),
+    'acrack8': (lambda p: acrack(p, 8), 3.5), 'aboard': (aboard, 1), 'menucase': (menucase, 1.5), 'nobori': (nobori, 1),
+    'van_b': (lambda p: van(p, '#f1efe8', '#2b5f9e'), 3), 'van_s': (lambda p: van(p, '#a9aeb3', None), 3),
+    'kei_v': (lambda p: keivan(p, '#eeeeea'), 3), 'kei_vb': (lambda p: keivan(p, '#3f6f9e'), 3),
+    'minivan_s': (lambda p: minivan(p, '#a9aeb3'), 3), 'minivan_b': (lambda p: minivan(p, '#2f4f7a'), 3),
+    'scooter_k': (lambda p: scooter(p, '#2a2d32', '#5a4a3a'), 2), 'scooter_w': (lambda p: scooter(p, '#eeeeea', '#8a2f2f'), 2),
     'sedan_w': (lambda p: sedan(p, '#e6e6e2'), 3), 'sedan_k': (lambda p: sedan(p, '#2a2d32'), 3), 'sedan_r': (lambda p: sedan(p, '#8f2020'), 3),
     'sedan_b': (lambda p: sedan(p, '#27508a'), 3), 'sedan_s': (lambda p: sedan(p, '#9aa0a6'), 3),
     'taxi': (lambda p: sedan(p, '#1d4d2b', taxi=True), 3),
@@ -783,7 +1126,8 @@ PROPS = {
 
 # Everything that drives, once more without its wheels (see BARE).
 DRIVEN = ['sedan_w', 'sedan_k', 'sedan_r', 'sedan_b', 'sedan_s', 'sedan_g', 'sedan_n', 'taxi', 'kei_y', 'kei_w', 'kei_p', 'kei_g', 'van', 'bus', 'bus_c',
-          'truck', 'keitruck', 'gomi', 'scooter', 'scooter_b', 'compact_w', 'compact_r', 'compact_t', 'minivan_k', 'minivan_w', 'cycle', 'cycle_b']
+          'truck', 'keitruck', 'gomi', 'scooter', 'scooter_b', 'compact_w', 'compact_r', 'compact_t', 'minivan_k', 'minivan_w', 'cycle', 'cycle_b',
+          'van_b', 'van_s', 'kei_v', 'kei_vb', 'minivan_s', 'minivan_b', 'scooter_k', 'scooter_w']
 
 
 def bare(fn):

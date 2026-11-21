@@ -166,6 +166,7 @@ def build_hi(v):
         ground(p, s, v2, rng)
         for q in (p, s):
             q.turned(None, 0)
+    backs(p, v['w'], v['d'], levels(v), rng, sides=(1,) if v.get('corner') else (-1, 1), fire=True, signs=s)
     return p, s
 
 
@@ -181,12 +182,14 @@ def build_lo(v):
         p.box(v.get('glass', CURTAIN) if curtain else WINDOW, x0 + m, y + (0.4 if curtain else 0.9), -0.03, x1 - m, y + FH - 0.5, 0)
         if curtain:
             p.box(v['wall'], x0, y - 0.55, -0.03, x1, y + 0.4, 0)
-        p.box(WINDOW, x0 - 0.03, y + 0.9, 2.0, x0, y + FH - 0.5, D - 2.0)
+        p.box(WINDOW_LIT, x0 - 0.03, y + 0.9, 2.0, x0, y + FH - 0.5, D - 2.0)
     p.box(LOBBY, x0 + 0.4, 0.3, -0.03, x1 - 0.4, G0 - 1.2, 0)
     p.box(v['base'], x0, G0 - 1.2, -0.04, x1, G0 - 0.5, 0)
     if v['shop']:
         sign(p, v['shop'], x0 + 0.05, G0 + 0.6, -1.0, x0 + 0.3, G0 + 0.6 + 2 * FH, -0.1, glyphs=False)
     p.box(LOUVRE, x0 + v['w'] * 0.3, H + PARAPET, D * 0.45, x1 - 1.2, H + 3.7, D - 1.5)
+    tank(p, x0 + 1.6, H + PARAPET, D - 2.4)
+    p.box(ACU, x0 + 0.6, H + PARAPET, D * 0.35, x0 + 1.5, H + PARAPET + 0.7, D * 0.35 + 0.35)
     return p
 
 

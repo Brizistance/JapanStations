@@ -5,7 +5,7 @@
 // A model's front faces local -z with its origin at the middle of the frontage on the pavement.
 // `corner` models have a second street face on their local -x side.
 
-export type BuildingKind = 'zakkyo' | 'office' | 'tower' | 'shophouse' | 'manshon' | 'canalfront' | 'yokocho' | 'boutique';
+export type BuildingKind = 'zakkyo' | 'office' | 'tower' | 'shophouse' | 'manshon' | 'canalfront' | 'yokocho' | 'boutique' | 'machi';
 
 export interface BuildingModel {
   kind: BuildingKind;
@@ -66,6 +66,15 @@ export const BUILDING_MODELS: BuildingModel[] = [
   { kind: 'boutique', id: 'd', w: 4.8, d: 9, h: 11.2 },
   { kind: 'boutique', id: 'e', w: 8.6, d: 10, h: 9.8 },
   { kind: 'boutique', id: 'f', w: 5.8, d: 9.5, h: 8.3 },
+  // Machi (build_machi.py, small streets): low mixed houses, shops and flats, 3.0 m ground floor, 2.8 m storeys.
+  { kind: 'machi', id: 'a', w: 6.0, d: 10, h: 10.5 },
+  { kind: 'machi', id: 'b', w: 5.0, d: 9, h: 7.7 },
+  { kind: 'machi', id: 'c', w: 8.0, d: 11, h: 16.1 },
+  { kind: 'machi', id: 'd', w: 5.6, d: 10, h: 13.3 },
+  { kind: 'machi', id: 'e', w: 6.6, d: 10, h: 10.5 },
+  { kind: 'machi', id: 'f', w: 4.6, d: 9, h: 7.7 },
+  { kind: 'machi', id: 'g', w: 7.2, d: 11, h: 13.3 },
+  { kind: 'machi', id: 'h', w: 5.4, d: 9.5, h: 10.5 },
 ];
 
 /** Invented names for the name boards of towers. */
@@ -93,6 +102,15 @@ export const BOUTIQUE_NAMES: { ja: string; en: string }[] = [
   { ja: '帆布 かもめ', en: 'Kamome Canvas Bags' }, { ja: '花と緑 そよ風', en: 'Soyokaze Flowers' }, { ja: '紅茶 リバーサイド', en: 'Riverside Tea' },
   { ja: '古書 堀川文庫', en: 'Horikawa Old Books' }, { ja: '革小物 ノット', en: 'Knot Leather' }, { ja: 'ジェラート 凪', en: 'Gelato Nagi' },
 ];
+/** The small streets' neighbourhood shops (build_machi.py): names for their boards, words for the blade signs. */
+export const MACHI_NAMES: { ja: string; en: string }[] = [
+  { ja: '理容 しらかわ', en: 'Shirakawa Barber' }, { ja: 'コインランドリー 泡', en: 'Awa Coin Laundry' }, { ja: '内科 たちばな医院', en: 'Tachibana Clinic' },
+  { ja: 'パン 小麦堂', en: 'Komugidō Bakery' }, { ja: '不動産 みなと住建', en: 'Minato Jūken Realty' }, { ja: '酒 まるやま', en: 'Maruyama Liquor' },
+  { ja: 'たばこ 福田', en: 'Fukuda Tobacco' }, { ja: 'クリーニング 白鳥', en: 'Hakuchō Cleaners' }, { ja: '薬局 あおば', en: 'Aoba Pharmacy' },
+  { ja: 'お好み焼 ひろ', en: 'Okonomiyaki Hiro' }, { ja: '喫茶 灯台', en: 'Kissa Tōdai' }, { ja: '電器 カワデン', en: 'Kawaden Electric' },
+  { ja: '美容室 ルナ', en: 'Salon Luna' }, { ja: '鍼灸 やすらぎ', en: 'Yasuragi Acupuncture' }, { ja: '定食 いちょう', en: 'Teishoku Ichō' },
+];
+export const MACHI_WORDS = ['理容', '薬', '酒', 'たばこ', '不動産', '喫茶', 'お好み焼', 'クリーニング', '鍼灸', '定食', '美容室', '質'];
 export const BOUTIQUE_WORDS = ['カフェ', '雑貨', '古着', '家具', '花', '紅茶', '器', 'パン'];
 export const YOKOCHO_WORDS = ['焼鳥', 'スナック', 'おでん', 'バー', '串焼', '立呑み', '酒場', '餃子', 'ホルモン', 'もつ焼', '小料理', 'カラオケ'];
 

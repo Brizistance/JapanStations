@@ -140,6 +140,7 @@ def shop_hi(v):
     shopfront(p, s, v, rng)
     upstairs(p, s, v, rng)
     top(p, v)
+    backs(p, v['w'], v['d'], [G0 + i * FH for i in range(v['floors'])], rng, back=False, signs=s)
     return p, s
 
 

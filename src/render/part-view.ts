@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import type { Build, GatePart } from '../world/builder';
 import { boxesToGeometry, groupBy, meshesToGeometry, skyAt, type EnvMode } from './geometry';
-import { isLo, mergedModels } from './building-models';
+import { dropLod, isLo, lodModels, mergedModels } from './building-models';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
 import { separateCoplanar } from './zfight';
@@ -25,9 +25,12 @@ export function staticGroup(build: Build, mode: EnvMode, shareKey?: string): { g
   const group = makeStatic(build, mode);
   return {
     group,
-    dispose: () => group.traverse((o) => {
-      if (!o.userData.shared) (o as THREE.Mesh).geometry?.dispose();
-    }),
+    dispose: () => {
+      dropLod(group);
+      group.traverse((o) => {
+        if (!o.userData.shared) (o as THREE.Mesh).geometry?.dispose();
+      });
+    },
   };
 }
 
@@ -81,7 +84,10 @@ function makeStatic(build: Build, mode: EnvMode): THREE.Group {
   // one for the simplified copies (too far back for contact shading or their shadows to show).
   // A model standing below the street (a rotunda's shell) reaches up through it: 'both'.
   const below = (p: Build['models'][number]) => station && p.pos[1] < STREET_Y - 0.1;
-  const full = build.models.filter((p) => !isLo(p) && !below(p)), lo = build.models.filter((p) => isLo(p) && !below(p)), under = build.models.filter(below);
+  // Buildings with a simplified copy go in detail cells (full near the camera, simplified beyond).
+  const { group: cells, rest } = lodModels(build.models.filter((p) => !below(p)));
+  if (cells.children.length) into(station ? 'surface' : 'both').add(cells);
+  const full = rest.filter((p) => !isLo(p)), lo = rest.filter((p) => isLo(p)), under = build.models.filter(below);
   if (full.length) into(station ? 'surface' : 'both').add(mergedModels(full, { cast: true }));
   if (lo.length) into(station ? 'surface' : 'both').add(mergedModels(lo, { noAO: true }));
   if (under.length) into('both').add(mergedModels(under, { cast: true }));

@@ -36,9 +36,9 @@ WINDOW_LIT = 'windowLit'     # window glass the game may light at night (same co
 BEACON = 'beacon'            # red aircraft warning lights
 LIT_SHARE = 0.35
 # 'leafcard' and 'bark' are the trees' textured materials (build_trees.py): they keep their own UVs.
-SPECIAL = ('light', 'glassTint', SIGNFACE, WINDOW_DARK, WINDOW_LIT, BEACON, 'leafcard', 'bark')
-VCOL = (PAINT, SIGNFACE, WINDOW_DARK, WINDOW_LIT, BEACON, 'leafcard', 'bark')
-PREVIEW = {'leafcard': (1, 1, 1, 1), 'bark': (1, 1, 1, 1), WINDOW_DARK: (1, 1, 1, 1), WINDOW_LIT: (1, 1, 1, 1), BEACON: (1, 1, 1, 1),'light': (1.0, 0.96, 0.9, 1.0), 'glassTint': (0.62, 0.77, 0.81, 0.35), PAINT: (1, 1, 1, 1), SIGNFACE: (1, 1, 1, 1)}
+SPECIAL = ('light', 'glassTint', SIGNFACE, WINDOW_DARK, WINDOW_LIT, 'windowDim', BEACON, 'leafcard', 'bark')
+VCOL = (PAINT, SIGNFACE, WINDOW_DARK, WINDOW_LIT, 'windowDim', BEACON, 'leafcard', 'bark')
+PREVIEW = {'leafcard': (1, 1, 1, 1), 'bark': (1, 1, 1, 1), WINDOW_DARK: (1, 1, 1, 1), WINDOW_LIT: (1, 1, 1, 1), 'windowDim': (1, 1, 1, 1), BEACON: (1, 1, 1, 1),'light': (1.0, 0.96, 0.9, 1.0), 'glassTint': (0.62, 0.77, 0.81, 0.35), PAINT: (1, 1, 1, 1), SIGNFACE: (1, 1, 1, 1)}
 
 
 def G(p):
@@ -396,6 +396,130 @@ def win(p, x0, y0, x1, y1, z, out=-1, frame=FRAME, glass=WINDOW):
     if x1 - x0 > 1.1:
         m = (x0 + x1) / 2
         p.box(frame, m - 0.025, y0, z + out * 0.05, m + 0.025, y1, z + out * 0.075)
+
+
+def wall_ac(p, plane, at, out, y, c, stack=1):
+    """Air-conditioning outdoor units on a steel bracket against a wall: the wall is the plane
+    x = at (plane 'x', units along z) or z = at (plane 'z', units along x), facing `out` (±1);
+    `stack` units one above another from y, centred on c along the wall."""
+    def box(mat, n0, n1, y0, y1, a0, a1):   # n: out from the wall, a: along it
+        if plane == 'x':
+            p.box(mat, min(at + out * n0, at + out * n1), y0, a0, max(at + out * n0, at + out * n1), y1, a1)
+        else:
+            p.box(mat, a0, y0, min(at + out * n0, at + out * n1), a1, y1, max(at + out * n0, at + out * n1))
+    for k in range(stack):
+        yy = y + k * 0.82
+        box(STEEL, 0.0, 0.44, yy - 0.05, yy, c - 0.4, c - 0.36)
+        box(STEEL, 0.0, 0.44, yy - 0.05, yy, c + 0.36, c + 0.4)
+        box(ACU, 0.04, 0.4, yy, yy + 0.62, c - 0.42, c + 0.42)
+        box(DARK, 0.4, 0.41, yy + 0.1, yy + 0.52, c - 0.32, c + 0.12)
+        box(STEEL, 0.4, 0.412, yy + 0.29, yy + 0.33, c - 0.3, c + 0.1)
+
+
+def wall_lamp(p, plane, at, out, y, c):
+    """A bracket lamp on a wall (see wall_ac for plane, at, out): an arm, a dark shade, a lit bulb."""
+    def box(mat, n0, n1, y0, y1, a0, a1):
+        if plane == 'x':
+            p.box(mat, min(at + out * n0, at + out * n1), y0, a0, max(at + out * n0, at + out * n1), y1, a1)
+        else:
+            p.box(mat, a0, y0, min(at + out * n0, at + out * n1), a1, y1, max(at + out * n0, at + out * n1))
+    box(STEEL, 0.0, 0.34, y + 0.18, y + 0.22, c - 0.02, c + 0.02)
+    box(DARK, 0.18, 0.46, y + 0.1, y + 0.18, c - 0.14, c + 0.14)
+    box('light', 0.24, 0.4, y - 0.02, y + 0.1, c - 0.08, c + 0.08)
+
+
+def backs(p, w, d, ys, rng, sides=(-1, 1), back=True, fire=False, wall=None, signs=None, side_z=None):
+    """Detail for the back (z = d, facing +z) and the sides (x = ±w/2, facing out) of a building
+    whose upper storeys start at ys[:-1] (ys[-1] is the roof): windows in rows, drain and gas
+    pipes, air-conditioning units on brackets, electricity meters, a back door, and on tall
+    buildings a steel fire-escape stair. Seen from back lanes and the gaps between buildings."""
+    x0, x1 = -w / 2, w / 2
+    H = ys[-1]
+    G = ys[0] if len(ys) > 1 else 3.0
+    floors = ys[:-1]
+    if back:
+        # Windows on every upper floor, a few lit at night.
+        n = max(1, int((w - 0.8) / 2.2))
+        for y in floors:
+            for k in range(n):
+                xa = x0 + 0.6 + k * (w - 1.2) / n + 0.3
+                xb = xa + min(1.1, (w - 1.2) / n - 0.6)
+                if xb - xa < 0.4:
+                    continue
+                win(p, xa, y + 0.9, xb, y + 2.0, d, out=1, glass=WINDOW_LIT)
+                if rng.random() < 0.4 and xb + 1.0 < x1 - 0.3:
+                    wall_ac(p, 'z', d, 1, y + 0.2, xb + 0.55, 2 if rng.random() < 0.35 else 1)
+        # A back door with a small canopy, meters beside it, a drain pipe and a gas pipe.
+        dx = x0 + 0.5 if w > 3 else x0 + 0.2
+        p.box('flat:#3a3d42', dx, 0, d, dx + 0.9, 2.1, d + 0.04)
+        p.box('flat:#5f6266', dx - 0.1, 2.2, d, dx + 1.0, 2.26, d + 0.6)
+        wall_lamp(p, 'z', d, 1, 2.55, dx + 0.45)
+        p.box('flat:#d9d5c4', dx + 1.15, 1.2, d, dx + 1.6, 1.75, d + 0.18)
+        p.box('flat:#d9d5c4', dx + 1.15, 0.5, d, dx + 1.6, 0.95, d + 0.18)
+        p.cyl('flat:#6f726b', (x1 - 0.25, H / 2, d + 0.08), 1, 0.05, H, seg=6, caps=False)
+        p.cyl('flat:#c9a227', (dx + 1.9, G / 2, d + 0.06), 1, 0.025, G, seg=5, caps=False)
+        if fire and w >= 5.5 and len(floors) >= 3:
+            # Steel fire-escape: a landing at every upper floor, flights between them, rails.
+            fx0, fx1 = x1 - 2.6, x1 - 0.4
+            for i, y in enumerate(floors):
+                p.box(STEEL, fx0, y - 0.08, d, fx1, y, d + 1.1)
+                p.box(STEEL, fx0, y + 1.0, d + 1.06, fx1, y + 1.04, d + 1.1)
+                for x in (fx0, fx1 - 0.04):
+                    p.box(STEEL, x, y, d + 1.06, x + 0.04, y + 1.04, d + 1.1)
+                p.box('flat:#3a3d42', fx0 + 0.3, y, d - 0.01, fx0 + 1.1, y + 2.0, d + 0.02)
+                lo = floors[i - 1] if i else 0.0
+                steps = 10
+                for k in range(steps):
+                    yy = lo + (y - lo) * (k + 1) / steps
+                    xa = fx1 - (fx1 - fx0) * (k + 1) / steps if i % 2 else fx0 + (fx1 - fx0) * k / steps
+                    p.box(STEEL, xa, yy - 0.04, d + 1.15, xa + (fx1 - fx0) / steps, yy, d + 1.85)
+            p.box(STEEL, fx0 - 0.04, 0, d + 1.8, fx0, floors[-1] + 1.0, d + 1.85)
+            p.box(STEEL, fx1, 0, d + 1.8, fx1 + 0.04, floors[-1] + 1.0, d + 1.85)
+    for s in sides:
+        x = x1 if s > 0 else x0
+        # Where this side has a wall (an open stair, balconies or a corridor leave none): sz0 … sz1.
+        sz0, sz1 = (side_z.get(s, (0.0, d)) if isinstance(side_z, dict) else side_z) if side_z else (0.0, d)
+        # Small windows along the side every 3.5 m, a pipe, an AC unit here and there.
+        for y in floors:
+            z = max(1.8, sz0 + 0.5)
+            while z < sz1 - 1.2:
+                za, zb = z, z + 0.9
+                p.box(FRAME, min(x, x + s * 0.05), y + 1.0, za, max(x, x + s * 0.05), y + 2.0, zb)
+                p.box(WINDOW_LIT, min(x + s * 0.05, x + s * 0.06), y + 1.06, za + 0.06, max(x + s * 0.05, x + s * 0.06), y + 1.94, zb - 0.06)
+                if rng.random() < 0.4 and zb + 1.6 < sz1 - 0.2:
+                    wall_ac(p, 'x', x, s, y + 0.25, zb + 1.1, 2 if rng.random() < 0.4 else 1)
+                z += 3.5
+        if sz1 - sz0 < 3.2:
+            continue
+        p.cyl('flat:#6f726b', (x + s * 0.08, H / 2, sz1 - 0.6), 1, 0.05, H, seg=6, caps=False)
+        # Gas and water: a pipe up from the ground, meters at eye height, a vent, a cable run.
+        p.cyl('flat:#c9a227', (x + s * 0.06, G / 2, sz1 - 1.3), 1, 0.025, G, seg=5, caps=False)
+        for zz in (sz1 - 2.2, sz1 - 2.75):
+            if zz > sz0 + 0.1:
+                p.box('flat:#d9d5c4', min(x, x + s * 0.16), 1.25, zz, max(x, x + s * 0.16), 1.75, zz + 0.4)
+        p.box('flat:#2b2b2b', min(x, x + s * 0.04), 0.3, sz0 + 0.6, max(x, x + s * 0.04), H - 0.8, sz0 + 0.66)
+        if s > 0 and H > 5:
+            # The service drop comes in here: a bracket with insulators at the top of the cable run, the meter below.
+            p.box(STEEL, min(x, x + s * 0.35), H - 0.85, sz0 + 0.58, max(x, x + s * 0.35), H - 0.8, sz0 + 0.68)
+            p.cyl('flat:#e8e6de', (x + s * 0.32, H - 0.95, sz0 + 0.63), 1, 0.045, 0.12, seg=8)
+            p.box('flat:#d9d5c4', min(x, x + s * 0.18), 1.55, sz0 + 0.4, max(x, x + s * 0.18), 2.15, sz0 + 0.86)
+        if floors and rng.random() < 0.55:
+            wall_lamp(p, 'x', x, s, min(3.1, H - 0.6), sz1 - 1.6)
+        if floors:
+            zm = (sz0 + sz1) / 2
+            p.box('flat:#b9b6ac', min(x, x + s * 0.12), floors[0] + 2.3, zm, max(x, x + s * 0.12), floors[0] + 2.55, zm + 0.25)
+        # A painted wall ad on a tall enough gable, high up where it shows over the neighbours.
+        if signs is not None and H >= 9.5 and d >= 6 and rng.random() < 0.6:
+            tall = rng.random() < 0.45
+            aw = min(sz1 - sz0 - 1.6, 1.4 if tall else 3.2 + rng.random() * 2.2)
+            ah = min(H - G - 1.0, 4.5 + rng.random() * 3 if tall else 2.0 + rng.random() * 1.2)
+            if aw > 1.0 and ah > 1.2:
+                za = sz0 + 0.8 + rng.random() * max(0.01, sz1 - sz0 - 1.6 - aw)
+                ya = H - 0.7 - ah
+                col = rng.choice(['#c8241c', '#1f5fae', '#e8a020', '#2f8f5a', '#f2efe6', '#6a3d8f', '#e86a1c'])
+                sign(signs, col, min(x, x + s * 0.08), ya, za, max(x, x + s * 0.08), ya + ah, za + aw)
+        if wall:
+            p.box(wall, min(x, x + s * 0.02), H - 0.6, sz0 + 0.2, max(x, x + s * 0.02), H - 0.5, sz1)
 
 
 def tank(p, x, y, z, r=0.85, h=1.65):

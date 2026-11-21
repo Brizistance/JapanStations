@@ -111,9 +111,11 @@ export class Post {
     this.composer.setSize(w, h);
   }
 
-  /** `sun`: unit vector towards the sun; `shafts`: 0…1, how strong the sun shafts are right now. */
-  render(grade: Grade, dt: number, time: number, sun: THREE.Vector3, shafts: number) {
+  /** `sun`: unit vector towards the sun; `shafts`: 0…1, how strong the sun shafts are right now; `ao`: false to skip contact shading this frame. */
+  render(grade: Grade, dt: number, time: number, sun: THREE.Vector3, shafts: number, ao = true) {
     if (this.rays && this.composer.passes.includes(this.rays)) this.rays.aim(sun, shafts);
+    // Contact shading only where it shows: off out in the city beyond the stations' plots.
+    if (this.ao) this.ao.enabled = ao;
     this.finish.update(grade, dt, time);
     this.composer.render(dt);
   }

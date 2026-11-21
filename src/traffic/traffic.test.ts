@@ -310,9 +310,11 @@ describe('street lanes', () => {
   it('keep left', () => {
     for (const w of withLanes) {
       for (const l of w.build.lanes) {
+        // (A small street's single one-way lane has no other way to keep left of.)
+        if (l.use === 'minor') continue;
         // A lane and one going the other way on the same road: this one lies to the left of the other.
         const dx = l.to[0] - l.from[0], dz = l.to[2] - l.from[2], n = Math.hypot(dx, dz);
-        const opp = w.build.lanes.find((o) => (o.to[0] - o.from[0]) * dx + (o.to[2] - o.from[2]) * dz < 0
+        const opp = w.build.lanes.find((o) => o.use !== 'minor' && (o.to[0] - o.from[0]) * dx + (o.to[2] - o.from[2]) * dz < 0
           && Math.abs((o.from[0] - l.from[0]) * dz - (o.from[2] - l.from[2]) * dx) / n < 30);
         if (!opp) continue;
         // Left of the direction (dx, dz), seen from above with x east and z south, is (dz, −dx).

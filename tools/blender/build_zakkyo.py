@@ -208,6 +208,8 @@ def build_hi(v):
     if v['stair']:
         stair_bay(p, s, v, rng, fx1)
     roof(p, s, v, rng, fx1)
+    backs(p, v['w'], v['d'], levels(v), rng, sides=(1,) if v.get('corner') else (-1, 1), fire=v['floors'] >= 5, signs=s,
+          side_z={1: (STAIR_D if v['stair'] else R, v['d']), -1: (R, v['d'])})
     return p, s
 
 
@@ -223,8 +225,8 @@ def build_lo(v):
     p.box(v['wall'], x0, 0, 0, x1, H + PARAPET, D)
     for y in ys[:-1]:
         if v.get('corner'):
-            p.box(WINDOW, x0 - 0.03, y + 0.85, 0.35, x0, y + FH - 0.35, D - 0.35)
-        p.box(WINDOW, a, y + 0.85, -0.03, b, y + FH - 0.35, 0)
+            p.box(WINDOW_LIT, x0 - 0.03, y + 0.85, 0.35, x0, y + FH - 0.35, D - 0.35)
+        p.box(WINDOW_LIT, a, y + 0.85, -0.03, b, y + FH - 0.35, 0)
         if rng.random() < 0.55:
             rng.uniform(0, 1)
             sign(p, rng.choice(SIGN_COLOURS), a, y - 0.25, -0.07, b, y + 0.7, -0.03, glyphs=False)

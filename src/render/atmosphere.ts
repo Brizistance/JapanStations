@@ -59,9 +59,9 @@ interface WeatherLook {
 }
 
 const LOOKS: Record<Weather, WeatherLook> = {
-  clear: { cover: 0.16, direct: 1, grey: 0, greyLevel: 1, fogNear: 300, fogFar: 1700, heavy: 0.15, wet: 0, rain: 0 },
-  cloudy: { cover: 0.56, direct: 0.72, grey: 0.3, greyLevel: 0.98, fogNear: 300, fogFar: 1600, heavy: 0.35, wet: 0, rain: 0 },
-  overcast: { cover: 1, direct: 0.1, grey: 0.85, greyLevel: 0.82, fogNear: 220, fogFar: 1300, heavy: 0.55, wet: 0, rain: 0 },
+  clear: { cover: 0.16, direct: 1, grey: 0, greyLevel: 1, fogNear: 200, fogFar: 800, heavy: 0.15, wet: 0, rain: 0 },
+  cloudy: { cover: 0.56, direct: 0.72, grey: 0.3, greyLevel: 0.98, fogNear: 180, fogFar: 740, heavy: 0.35, wet: 0, rain: 0 },
+  overcast: { cover: 1, direct: 0.1, grey: 0.85, greyLevel: 0.82, fogNear: 140, fogFar: 640, heavy: 0.55, wet: 0, rain: 0 },
   rain: { cover: 1, direct: 0.04, grey: 0.92, greyLevel: 0.56, fogNear: 50, fogFar: 620, heavy: 0.85, wet: 1, rain: 1 },
   fog: { cover: 0.7, direct: 0.22, grey: 0.85, greyLevel: 0.95, fogNear: 3, fogFar: 170, heavy: 0.3, wet: 0.25, rain: 0 },
 };

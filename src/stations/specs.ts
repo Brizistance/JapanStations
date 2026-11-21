@@ -153,6 +153,12 @@ export const SPECS: Record<StationId, StationSpec> = {
     rotunda: true,
     surface: {
       seed: 37, roadHalf: 12, cross: [-92, 92], left: 'mixed', right: 'mixed', trees: true, avenue: true, models: true, roadKit: true,
+      // The avenue carries on north as a boulevard to Kita-Ōdōri's plot (680 m away, its plot reaching 160 m south).
+      // And south to Hyōtanbori's plot (650 m away, reaching 85 m north).
+      boulevard: { to: -520, south: 565 },
+      smallStreets: true,
+      roadNames: { main: { ja: '紬通', en: 'Tsumugi-dōri' }, cross: [{ ja: '絹屋町筋', en: 'Kinuyamachi-suji' }, { ja: '紬堀筋', en: 'Tsumugibori-suji' }] },
+      junctions: [{ ja: '紬橋西', en: 'Tsumugibashi-nishi' }, { ja: '紬橋東詰', en: 'Tsumugibashi-higashizume' }],
       canalAt: 92, canalName: { ja: '紬橋', en: 'Tsumugi-bashi' }, canalStone: true,
       landmark: { ja: '紬橋絹取引所', en: 'Tsumugibashi Silk Exchange', side: 1, x0: 26, x1: 73, depth: 28 },
       // A corner shop by the side street and a shop in the base of an avenue block.
@@ -179,7 +185,9 @@ export const SPECS: Record<StationId, StationSpec> = {
     // Minami's canal street: zakkyo buildings of bars, the grand vermilion Hyōtan-bashi just past exits 3 and 4,
     // Hyōtan Kaikan with its giant gourd on the canal corner, an arcade up the side street, a lane of bars.
     surface: {
-      seed: 41, roadHalf: 9, cross: [-64, 62], canalAt: 62, left: 'neon', right: 'neon', models: true, roadKit: true, canalGrand: true, tee: true,
+      seed: 41, roadHalf: 9, cross: [-64, 62], canalAt: 62, left: 'neon', right: 'neon', models: true, roadKit: true, canalGrand: true, tee: true, smallStreets: true,
+      roadNames: { main: { ja: '柳筋', en: 'Yanagi-suji' }, cross: [{ ja: '灯籠町通', en: 'Tōrōmachi-dōri' }, { ja: '瓢箪橋通', en: 'Hyōtanbashi-dōri' }] },
+      junctions: [{ ja: '灯籠町', en: 'Tōrōmachi' }, { ja: '瓢箪橋東', en: 'Hyōtanbashi-higashi' }],
       arcadeAt: -64, arcadeName: { ja: '瓢箪堀商店街', en: 'Hyōtanbori Shōtengai' },
       landmark: { ja: '瓢箪会館', en: 'Hyōtan Kaikan', side: 1, x0: 35, x1: 47.6, depth: 16 },
       konbini: [{ type: 'corner', chain: 'asanagi', side: -1, x0: -33 }],
@@ -412,7 +420,9 @@ export const SPECS: Record<StationId, StationSpec> = {
       accent: '#2f7f7a', mural: { v: 'waves', color: '#2f7f7a' },
     },
     surface: {
-      seed: 181, roadHalf: 7.5, cross: [-64, 60], canalAt: 60, left: 'mixed', right: 'mixed', models: true, roadKit: true, canalQuiet: true,
+      seed: 181, roadHalf: 7.5, cross: [-64, 60], canalAt: 60, left: 'mixed', right: 'mixed', models: true, roadKit: true, canalQuiet: true, smallStreets: true,
+      roadNames: { main: { ja: '柳筋', en: 'Yanagi-suji' }, cross: [{ ja: '白椿通', en: 'Shirotsubaki-dōri' }, { ja: '水面通', en: 'Minamo-dōri' }] },
+      junctions: [{ ja: '南堀江西', en: 'Minamihorie-nishi' }, { ja: '水面橋', en: 'Minamobashi' }],
       treeKinds: ['zelkova', 'dogwood', 'tokaede'],
       canalName: { ja: '南堀江橋', en: 'Minamihorie-bashi' },
       konbini: [{ type: 'corner', chain: 'hinode', side: -1, x0: -33 }],

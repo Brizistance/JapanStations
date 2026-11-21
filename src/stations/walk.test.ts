@@ -60,7 +60,8 @@ describe('station walkability', () => {
       // Force every platform gate shut, whatever the timetable says.
       for (const k of w.frame.blockers) k.isOpen = () => false;
       // Explore at least the standard area, and further where a station's zones reach further.
-      const inner = w.frame.zones.filter((z) => z.kind !== 'street');
+      // (Small street zones count too: the pocket parks and shrines down the lanes behind the street.)
+      const inner = w.frame.zones.filter((z) => z.kind !== 'street' || z.max[0] - z.min[0] < 40);
       const reach = (i: 0 | 2) => Math.max(...inner.map((z) => Math.max(Math.abs(z.min[i]), Math.abs(z.max[i])))) + 4;
       const pts = flood(w, Math.max(72, reach(0)), Math.max(40, reach(2)));
       const l: V3 = [0, 0, 0];

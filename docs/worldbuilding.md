@@ -250,3 +250,4 @@ Shops and posters use invented names only, defined in `src/stations/surface.ts` 
 - **North-east hills**: hillside housing and a new town — Tsukimizaka, Yamabukidai
 
 - Street places (2026-11-20, names not web-checked): 柳筋ポケットパーク Yanagisuji Pocket Park (Kita-Ōdōri), 紬稲荷神社 Tsumugi Inari Shrine (Tsumugibashi), 北大通交番 and 紬橋交番 police boxes.
+- Road names (2026-11-20, not web-checked; north–south roads are 筋 -suji, east–west 通 -dōri, as in Osaka): 柳筋 Yanagi-suji is the main road at Hyōtanbori and Minamihorie. Its cross streets are 灯籠町通 Tōrōmachi-dōri and 瓢箪橋通 Hyōtanbashi-dōri at Hyōtanbori, and 白椿通 Shirotsubaki-dōri and 水面通 Minamo-dōri at Minamihorie. At Tsumugibashi the main road is 紬通 Tsumugi-dōri, crossed by 絹屋町筋 Kinuyamachi-suji and 紬堀筋 Tsumugibori-suji. Junction plates: 灯籠町, 瓢箪橋東, 南堀江西, 水面橋, 紬橋西, 紬橋東詰. The names are in `roadNames` and `junctions` in `specs.ts`.

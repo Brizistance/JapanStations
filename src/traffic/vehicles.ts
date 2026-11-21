@@ -39,9 +39,9 @@ export const RIG: Record<string, Rig> = {
 /** Private cars as parked along the streets (the road kit draws from this list: its length is part of every street's look). */
 export const CARS = ['sedan_w', 'sedan_k', 'sedan_r', 'sedan_b', 'sedan_s', 'kei_y', 'kei_w', 'kei_p', 'kei_g', 'van'];
 /** Private cars as driven. */
-export const DRIVEN = [...CARS, 'sedan_g', 'sedan_n', 'compact_w', 'compact_r', 'compact_t', 'minivan_k', 'minivan_w', 'kei_w', 'sedan_w', 'sedan_s'];
+export const DRIVEN = [...CARS, 'sedan_g', 'sedan_n', 'compact_w', 'compact_r', 'compact_t', 'minivan_k', 'minivan_w', 'kei_w', 'sedan_w', 'sedan_s', 'van_b', 'van_s', 'minivan_s', 'minivan_b', 'kei_v'];
 /** Every model that drives. */
-export const MOVING = [...new Set([...DRIVEN, 'taxi', 'bus', 'bus_c', 'truck', 'gomi', 'keitruck', 'scooter', 'scooter_b', 'cycle', 'cycle_b'])];
+export const MOVING = [...new Set([...DRIVEN, 'taxi', 'bus', 'bus_c', 'truck', 'gomi', 'keitruck', 'scooter', 'scooter_b', 'scooter_k', 'scooter_w', 'kei_vb', 'cycle', 'cycle_b'])];
 
 /** Heavy vehicles pull away slowly and keep under the limit. */
 export const HEAVY = new Set(['bus', 'truck', 'gomi']);

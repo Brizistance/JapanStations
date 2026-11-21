@@ -167,6 +167,8 @@ const R_LEFT = 6, R_RIGHT = 9.5, TURN_PULL = 1.7;
 /** Seconds of green a driver waits to make a turn before going another way. */
 const GIVE_UP = 18;
 const P_LEFT = 0.15, P_RIGHT = 0.1, P_RIGHT_NARROW = 0.04;
+/** The share of a main road's kerb-side traffic turning off into any one small street. */
+const P_MINOR = 0.04;
 
 // ── Routes ──
 
@@ -218,12 +220,17 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
     const t = dx * a.ux + dz * a.uz, u = -(dx * b.ux + dz * b.uz);
     if (t <= 0 || t > a.len + 0.5 || u < 0 || b.len - u < 15) continue;
     const stop = [...a.part.stops].reverse().find((s) => s.at < t);
-    if (!stop || t - stop.at > 45) continue;
+    // Into a small street from the main road: a left turn anywhere along the block, no stop line needed.
+    const intoMinor = b.part.use === 'minor' && a.part.use !== 'minor';
+    if (!intoMinor && (!stop || t - stop.at > 45)) continue;
     const left = a.ux * b.uz - a.uz * b.ux < 0;
+    if (intoMinor && !left) continue;
+    // Out of a small street only to the left, into the near side of the road: no crossing the traffic.
+    if (a.part.use === 'minor' && !left) continue;
     // Turn from the lane on that side into the lane on that side: nobody cuts across a lane going the same way.
     const theirs = beside(b, lanes).filter((s) => !kerbside(s.lane));
     if (left ? !leftmost || theirs.some((s) => s.off < -0.5) : !rightmost || theirs.some((s) => s.off > 0.5)) continue;
-    const r = Math.min(left ? R_LEFT : R_RIGHT, t - stop.at - 0.5, b.len - u - 6);
+    const r = Math.min(left ? R_LEFT : R_RIGHT, stop ? t - stop.at - 0.5 : R_LEFT, b.len - u - 6);
     if (r < 3.5) continue;
     const first = line(0, a, 0, t - r);
     const sx = first.x + a.ux * first.len, sz = first.z + a.uz * first.len;
@@ -260,7 +267,7 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
       }
     }
     // A right-turner waiting for a gap holds up everybody behind it: few turn right into a narrow side street.
-    const share = left ? P_LEFT : theirs.length > 1 ? P_RIGHT : P_RIGHT_NARROW;
+    const share = intoMinor ? P_MINOR : left ? P_LEFT : theirs.length > 1 ? P_RIGHT : P_RIGHT_NARROW;
     const turn: Turn = { route, left, share, at: t, px: a.part.from[0] + a.ux * t, pz: a.part.from[2] + a.uz * t, arc0: first.len, arc1: first.len + arcLen, speed: Math.sqrt(TURN_PULL * r), hold: first.len, oncoming, facing: [] };
     if (near < Infinity) {
       // As far round the arc as a car's front right corner stays on its own side of the road.
@@ -391,6 +398,11 @@ function pickModel(lane: Lane, time: number): string {
   const taxis = Math.min(0.7, part.taxi * (night ? 5 : rush ? 1.4 : 1)), trucks = hour >= 5 && hour < 11.5 ? 2 : night ? 0.3 : 1;
   const buses = part.use !== 'general';
   if (part.use === 'cycle') return rand() < 0.5 ? 'cycle' : 'cycle_b';
+  // A small street: mostly scooters and bicycles, kei trucks on their rounds, now and then a small car.
+  if (part.use === 'minor') {
+    const m = rand();
+    return m < 0.18 ? 'scooter' : m < 0.28 ? 'scooter_b' : m < 0.36 ? 'scooter_k' : m < 0.42 ? 'scooter_w' : m < 0.58 ? 'cycle' : m < 0.68 ? 'cycle_b' : m < 0.8 ? 'keitruck' : m < 0.88 ? (rand() < 0.5 ? 'kei_v' : 'kei_vb') : rand() < 0.5 ? 'kei_w' : 'compact_w';
+  }
   // Two bus companies run in the city: one keeps to the bus lanes.
   if (buses && lane.sinceBus >= BUS_EVERY * (part.use === 'bus' ? 1 : 1.3)) return part.use === 'bus' || rand() < 0.5 ? 'bus' : 'bus_c';
   const u = rand();

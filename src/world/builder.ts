@@ -112,8 +112,8 @@ export interface LanePart {
   speed: number;
   /** Vehicles a minute entering at the busiest hour. */
   flow: number;
-  /** A bus lane takes buses, taxis and scooters only; `all` is a general lane that buses use too; `cycle` is the bicycle lane at the kerb. */
-  use: 'general' | 'bus' | 'all' | 'cycle';
+  /** A bus lane takes buses, taxis and scooters only; `all` is a general lane that buses use too; `cycle` is the bicycle lane at the kerb; `minor` a small street's single lane (scooters, bicycles, kei trucks, the odd small car). */
+  use: 'general' | 'bus' | 'all' | 'cycle' | 'minor';
   /** A stretch (metres from `from`) its traffic goes round, `side` metres to the right: the bicycle lane past a taxi stand. */
   avoid?: { from: number; to: number; side: number };
   /** Share of taxis among the cars (more at big stations). */

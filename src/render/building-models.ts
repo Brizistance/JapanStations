@@ -13,7 +13,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SignContent } from '../signs/content';
 import { drawSign } from '../signs/draw';
-import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, SIGN_WORDS, TOWER_NAMES, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
+import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, MACHI_NAMES, MACHI_WORDS, SIGN_WORDS, TOWER_NAMES, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
 import { SHOPS } from '../stations/surface';
 import { rng, type ModelPart } from '../world/builder';
 import { lit } from './lit';
@@ -31,7 +31,7 @@ interface Proto {
   boards: Board[];
 }
 
-const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique'];
+const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique', 'machi'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
 const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
@@ -167,7 +167,10 @@ function material(name: string): THREE.Material {
       m = lit({ color: '#ffffff', vertexColors: true, map: sheet('trees_bark'), roughness: 0.92, metalness: 0 }, { macro: 0.04, macroRough: 0.05 });
       break;
     case 'windowLit': // the same glass by day; lit from inside at night
-      m = lit({ color: '#ffffff', vertexColors: true, roughness: 0.16, metalness: 0.25 }, { macro: 0, macroRough: 0, night: 1.2 });
+      m = lit({ color: '#ffffff', vertexColors: true, roughness: 0.16, metalness: 0.25 }, { macro: 0, macroRough: 0, night: 0.8 });
+      break;
+    case 'windowDim': // a shop window at street level: matte, a soft glow at night (a big lit pane would glare)
+      m = lit({ color: '#ffffff', vertexColors: true, roughness: 0.6, metalness: 0 }, { macro: 0, macroRough: 0, night: 0.3 });
       break;
     case 'beacon':
       m = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a').multiplyScalar(2.2) });
@@ -205,6 +208,7 @@ function boardContent(kind: BuildingKind, b: Board, r: () => number): SignConten
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
   const fg = luminance(b.col) > 0.3 ? '#1f2023' : '#ffffff';
   if (kind === 'boutique') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(BOUTIQUE_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(BOUTIQUE_NAMES), bg: b.col, fg };
+  if (kind === 'machi') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(MACHI_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(MACHI_NAMES), bg: b.col, fg };
   if (kind === 'yokocho') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(YOKOCHO_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(YOKOCHO_NAMES), bg: b.col, fg };
   if (b.h > b.w * 1.4) return { k: 'shop', ja: pick(SIGN_WORDS), bg: b.col, fg, vertical: true };
   if (kind === 'tower' && b.w > 8) return { k: 'shop', ...pick(TOWER_NAMES), bg: b.col, fg };
@@ -246,7 +250,7 @@ function signMaterial(kind: BuildingKind, id: string, set: number, boards: Board
   tex.flipY = false;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  m = lit({ map: tex, roughness: 0.5, metalness: 0 }, { macro: 0, macroRough: 0, glow: 1.7 });
+  m = lit({ map: tex, roughness: 0.5, metalness: 0 }, { macro: 0, macroRough: 0, glow: 0.55 });
   materials.set(key, m);
   return m;
 }
@@ -346,4 +350,79 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
     group.add(mesh);
   }
   return group;
+}
+
+// ── Detail by distance ───────────────────────────────────────────────────────────────────────
+
+/** Size of a detail cell, and how near (camera to cell centre) a cell shows its full models. */
+const LOD_CELL = 150, LOD_NEAR = 190;
+/**
+ * Every mounted detail cell: its centre in its group's frame, its simplified copies, and its full
+ * models, merged only once the camera first comes near (`parts` until then).
+ */
+interface LodCell { group: THREE.Object3D; x: number; z: number; lo: THREE.Object3D; full: THREE.Object3D | null; parts: ModelPart[] }
+const lodCells = new Set<LodCell>();
+const lodV = new THREE.Vector3();
+
+/**
+ * Building parts that have both a full model and a simplified copy, wherever they stand and
+ * whichever they asked for, in LOD_CELL cells: the simplified copies merged now, the full models
+ * merged when the camera first comes near (updateLod), so what is near is always detailed, the rest
+ * is cheap, and mounting a station stays quick. Returns the group and the parts it did not take
+ * (props, trees: no simplified copy).
+ */
+export function lodModels(parts: ModelPart[]): { group: THREE.Group; rest: ModelPart[] } {
+  const group = new THREE.Group();
+  const rest: ModelPart[] = [];
+  const cells = new Map<string, { cx: number; cz: number; full: ModelPart[]; lo: ModelPart[] }>();
+  for (const p of parts) {
+    const base = p.id.replace(/_lo$/, '');
+    if (p.kind === 'trees' || !protos.has(`${p.kind}_${base}`) || !protos.has(`${p.kind}_${base}_lo`)) {
+      rest.push(p);
+      continue;
+    }
+    const cx = Math.floor(p.pos[0] / LOD_CELL), cz = Math.floor(p.pos[2] / LOD_CELL), key = `${cx},${cz}`;
+    let c = cells.get(key);
+    if (!c) cells.set(key, (c = { cx, cz, full: [], lo: [] }));
+    c.full.push({ ...p, id: base, merge: false });
+    c.lo.push({ ...p, id: `${base}_lo` });
+  }
+  for (const c of cells.values()) {
+    const lo = mergedModels(c.lo, { noAO: true });
+    group.add(lo);
+    lodCells.add({ group, x: (c.cx + 0.5) * LOD_CELL, z: (c.cz + 0.5) * LOD_CELL, lo, full: null, parts: c.full });
+  }
+  return { group, rest };
+}
+
+/**
+ * Show each detail cell's full models near the camera and its simplified copies elsewhere. A near
+ * cell whose full models are not merged yet keeps its simplified copies until they are: one cell is
+ * merged per frame, so walking up to a block never stalls a frame for long.
+ */
+export function updateLod(cam: THREE.Vector3) {
+  let built = false;
+  for (const c of lodCells) {
+    lodV.set(c.x, 0, c.z).applyMatrix4(c.group.matrixWorld);
+    let near = Math.hypot(lodV.x - cam.x, lodV.z - cam.z) < LOD_NEAR;
+    if (near && !c.full) {
+      if (built) near = false;
+      else {
+        c.full = mergedModels(c.parts, { cast: true });
+        c.group.add(c.full);
+        built = true;
+      }
+    }
+    if (c.full) c.full.visible = near;
+    c.lo.visible = !near;
+  }
+}
+
+/** Forget the detail cells of a group being thrown away. */
+export function dropLod(group: THREE.Object3D) {
+  for (const c of lodCells) {
+    let o: THREE.Object3D | null = c.group;
+    while (o && o !== group) o = o.parent;
+    if (o) lodCells.delete(c);
+  }
 }

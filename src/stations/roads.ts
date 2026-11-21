@@ -26,7 +26,7 @@ import { CARS, VEH } from '../traffic/vehicles';
 import { GROUND_Y as GY } from './kit';
 
 /** Street lights by environment. */
-export type LampKind = 'lamp_hw' | 'lamp_shop' | 'lamp_park';
+export type LampKind = 'lamp_hw' | 'lamp_shop' | 'lamp_park' | 'lamp_led' | 'lamp_twin' | 'lamp_suzuran' | 'lamp_small';
 
 /** A street light at (x, z) with its front (the arm, the banner) towards f. */
 export function streetLamp(b: Builder, kind: LampKind, x: number, z: number, f: V2) {
@@ -46,7 +46,7 @@ function wire(b: Builder, p: [number, number, number], q: [number, number, numbe
   const alongX = Math.abs(q[0] - p[0]) >= Math.abs(q[2] - p[2]);
   const u0 = alongX ? p[0] : p[2], u1 = alongX ? q[0] : q[2];
   const [a, c, ya, yc] = u0 <= u1 ? [u0, u1, p[1], q[1]] : [u1, u0, q[1], p[1]];
-  const n = Math.max(2, Math.min(8, Math.round((c - a) / 4)));
+  const n = Math.max(4, Math.min(12, Math.round((c - a) / 1.5)));
   const y = (t: number) => ya + (yc - ya) * t - sag * 4 * t * (1 - t);
   const run = () => {
     for (let i = 0; i < n; i++) {
@@ -75,6 +75,8 @@ export interface PoleLine {
   cross?: number;
   /** For the address plates on the poles. */
   name?: { ja: string; en: string };
+  /** The crossing wires end at the wall of the building across the road (`cross` m away): a bracket, insulators, a drop to the meter. */
+  wall?: boolean;
 }
 
 /**
@@ -99,10 +101,40 @@ export function poleLine(b: Builder, o: PoleLine) {
       wire(b, at(u, LV[1][1], LV[1][0]), at(u, o.drops, 5.4), 0.25, 0.012);
       wire(b, at(u, TEL[0][1], TEL[0][0]), at(u, o.drops, 4.9), 0.2, 0.012);
     }
-    if (o.cross && i % 2 === 0) {
-      wire(b, at(u, LV[0][1], LV[0][0]), at(u, -o.cross, 6.6), 0.5, 0.012);
-      wire(b, at(u, TEL[1][1], TEL[1][0]), at(u, -o.cross, 5.6), 0.5, 0.02);
-    }
+    const cross = o.cross;
+    if (cross && i % 2 === 0) b.later(() => {
+      // With `wall`, the wires run to the face of the building across (found from its hitbox once
+      // everything is built), and only where one stands there tall enough to take them.
+      let reach = cross;
+      if (o.wall) {
+        const solid = (t: number, y: number) => {
+          const [wx, wy, wz] = b.pt(...at(u, -t, y));
+          return b.out.boxes.some((bx) => bx.solid && bx.min[1] < wy && bx.max[1] > wy && bx.min[0] < wx && bx.max[0] > wx && bx.min[2] < wz && bx.max[2] > wz);
+        };
+        let face = NaN;
+        for (let t = Math.max(1, cross - 1.5); t <= cross + 2.5; t += 0.05) if (solid(t, 4) && solid(t, 8.6)) { face = t; break; } // the hitbox reaches 1.5 m above the wall (roof railings)
+        if (Number.isNaN(face)) return;
+        reach = face - 0.03;
+      }
+      const sag = Math.min(0.35, reach * 0.04);
+      wire(b, at(u, LV[0][1], LV[0][0]), at(u, -reach, 6.6), sag, 0.012);
+      wire(b, at(u, TEL[1][1], TEL[1][0]), at(u, -reach, 5.6), sag, 0.02);
+      if (o.wall) {
+        // On the wall: a steel bracket with an insulator, the wire down to the meter box on the wall.
+        for (const y of [6.6, 5.6]) {
+          const [p, , q] = at(u, -reach, 0), [p2, , q2] = at(u, -reach - 0.3, 0);
+          b.deco('flat:#5f6266', Math.min(p, p2) - 0.03, GY + y - 0.03, Math.min(q, q2) - 0.03, Math.max(p, p2) + 0.03, GY + y + 0.03, Math.max(q, q2) + 0.03);
+          b.mesh('flat:#e8e6de', 'cyl', p, GY + y - 0.08, q, 0.05, 0.1, 0.05);
+        }
+        const [mx, , mz] = at(u, -reach + 0.04, 0), [bx0, , bz0] = at(u, -reach + 0.2, 0), [bx1, , bz1] = at(u, -reach - 0.02, 0);
+        b.deco(WIRE, mx - 0.012, GY + 2.2, mz - 0.012, mx + 0.012, GY + 6.6, mz + 0.012);
+        // The meter box against the wall: 0.44 along it, 0.2 out from it.
+        const along = o.axis === 'x' ? 0 : 1;
+        const lo: [number, number] = [Math.min(bx0, bx1), Math.min(bz0, bz1)], hi: [number, number] = [Math.max(bx0, bx1), Math.max(bz0, bz1)];
+        if (along === 0) { lo[0] = mx - 0.22; hi[0] = mx + 0.22; } else { lo[1] = mz - 0.22; hi[1] = mz + 0.22; }
+        b.deco('flat:#d9d5c4', lo[0], GY + 1.6, lo[1], hi[0], GY + 2.2, hi[1]);
+      }
+    });
     if (o.name && i % 2 === 0) {
       const n = Math.floor(i / 2);
       const [px, , pz] = at(u, -0.175, 0);
@@ -198,6 +230,8 @@ export interface RoadGeo {
   lamp?: LampKind;
   /** Names of the junctions, west to east, where the default (the area's name and a chōme number) will not do. */
   junctions?: { ja: string; en: string }[];
+  /** Road names (docs/worldbuilding.md): the main road's and the crossing roads', west to east, on blue boards on the signal masts. */
+  roads?: { main: { ja: string; en: string }; cross: { ja: string; en: string }[] };
   /** How busy the street is (1: an ordinary shopping street) and the share of taxis among its cars. */
   busy?: number;
   taxi?: number;
@@ -326,7 +360,7 @@ function poleSignal(b: Builder, x: number, z: number, h: V2, axis: 0 | 1) {
  * A pedestrian signal at (x, z) facing f (towards the people crossing to it). `flat` is the thin head
  * with countdown bars; `button` adds the push-button box, `speaker` the audible signal.
  */
-function pedSignal(b: Builder, x: number, z: number, f: V2, axis: 0 | 1, o: { flat?: boolean; button?: boolean; speaker?: boolean } = {}) {
+export function pedSignal(b: Builder, x: number, z: number, f: V2, axis: 0 | 1, o: { flat?: boolean; button?: boolean; speaker?: boolean } = {}) {
   put(b, 'pedpole', x, GY, z, f);
   b.block(x - 0.1, GY, z - 0.1, x + 0.1, GY + 2.2, z + 0.1);
   const [hx, hz] = off(f, 0, -0.24);
@@ -349,7 +383,51 @@ const BACK: Record<string, SignV> = { stop: 'back-tri', speed40: 'back-round', s
 const FINGER: [number, number][] = [[2.5, 1], [2.26, -1], [2.02, 1]];
 
 /** A road sign on its own pole at (x, z), its face towards f. */
-function roadSign(b: Builder, v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 'nostopping' | 'crossing' | 'school' | 'hydrant', x: number, z: number, f: V2, size = 0.7, below?: 'school') {
+/** build_road.py SHORT: the short-arm signal's head and plate. */
+const SHORT = { hx: -1.9, hy: 5.45, plateX: 0.92, plateY: 6.25, plateW: 1.7, plateH: 0.5 };
+
+/**
+ * The narrow junction's other signal: a straight pole with a short arm and a horizontal head at
+ * its tip, the junction's name plate standing on top, a no-parking sign clamped low on the pole
+ * (the pedestrian head goes on it too: mastPed).
+ */
+export function shortSignal(b: Builder, x: number, z: number, h: V2, axis: 0 | 1, name: { ja: string; en: string }) {
+  const f: V2 = [-h[0], -h[1]];
+  put(b, 'sigshort', x, GY, z, f);
+  b.block(x - 0.13, GY, z - 0.13, x + 0.13, GY + 3, z + 0.13);
+  // The model turns but never flips: in a mirrored frame its arm and plate lie on the other side.
+  const d1 = b.dir([1, 0]), d2 = b.dir([0, 1]), lat = d1[0] * d2[1] - d1[1] * d2[0] < 0 ? -1 : 1;
+  const [ox, oz] = off(f, lat * SHORT.hx, 0);
+  carHead(b, x + ox, GY + SHORT.hy, z + oz, f, axis, true);
+  for (const s of [1, -1]) {
+    const [px, pz] = off(f, lat * SHORT.plateX, -s * 0.035);
+    b.sign({ k: 'junction', ...name }, x + px, GY + SHORT.plateY, z + pz, s > 0 ? f : [-f[0], -f[1]], SHORT.plateW, SHORT.plateH);
+  }
+  const [nx, nz] = off(f, 0, -0.15);
+  b.sign({ k: 'roadsign', v: 'noparking' }, x + nx, GY + 1.75, z + nz, f, 0.55, 0.55);
+  b.sign({ k: 'roadsign', v: BACK.noparking }, x + nx - f[0] * 0.02, GY + 1.75, z + nz - f[1] * 0.02, [-f[0], -f[1]], 0.55, 0.55);
+}
+
+/** A pedestrian head hung on a signal mast at (x, z) on two bands, facing f (across the crosswalk), with its push button. */
+function mastPed(b: Builder, x: number, z: number, f: V2, axis: 0 | 1, o: { flat?: boolean; button?: boolean } = {}) {
+  put(b, 'pedband', x, GY, z, f);
+  const [hx, hz] = off(f, 0, -0.3);
+  put(b, o.flat ? 'pedhead_flat' : 'pedhead', x + hx, GY + 2.65, z + hz, f);
+  const [ox, oz] = off(f, 0, -(0.3 + (o.flat ? 0.047 : 0.105)));
+  b.sign({ k: 'signal', v: 'ped', axis, bars: !!o.flat }, x + ox, GY + 2.65, z + oz, f, 0.42, 0.74);
+  if (o.button) {
+    const [bx, bz] = off(f, 0, -0.15);
+    put(b, 'pushbtn', x + bx, GY + 1.2, z + bz, f);
+  }
+}
+
+/** A blue road-name board on a mast at (x, z), facing f, 4.3 m up. */
+function roadName(b: Builder, x: number, z: number, f: V2, n: { ja: string; en: string }) {
+  const [ox, oz] = off(f, 0, -0.17);
+  b.sign({ k: 'label', text: n.ja, sub: n.en, fg: '#ffffff', bg: '#1f5fae' }, x + ox, GY + 4.3, z + oz, f, 1.5, 0.46);
+}
+
+export function roadSign(b: Builder, v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 'nostopping' | 'crossing' | 'school' | 'hydrant', x: number, z: number, f: V2, size = 0.7, below?: 'school') {
   put(b, 'signpole', x, GY, z, f);
   b.block(x - 0.06, GY, z - 0.06, x + 0.06, GY + 2, z + 0.06);
   const y = GY + 2.72;
@@ -365,7 +443,7 @@ function roadSign(b: Builder, v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 
 }
 
 /** Paint on the road at (x, z), its top towards the direction of travel h. */
-function mark(b: Builder, v: Extract<SignContent, { k: 'roadmark' }>['v'], x: number, z: number, h: V2, w: number, len: number) {
+export function mark(b: Builder, v: Extract<SignContent, { k: 'roadmark' }>['v'], x: number, z: number, h: V2, w: number, len: number) {
   b.sign({ k: 'roadmark', v }, x, 0.016, z, null, w, len, { top: h });
 }
 
@@ -441,11 +519,22 @@ export function roadKit(b: Builder, g: RoadGeo) {
     put(b, 'sigbox', a - 1.5, GY, -(rw + 2.7), [0, 1]);
     b.block(a - 1.86, GY, -(rw + 2.96), a - 1.14, GY + 1.56, -(rw + 2.44));
     zones.push([a - 9, c + 9]);
+    /** Signal masts standing at this junction's corners: a pedestrian head goes on one beside a crosswalk instead of a post of its own. */
+    const masts: { x: number; z: number }[] = [];
+    // Narrow junctions with a signal of their own take either the utility-pole bracket or the short-arm pole.
+    const short = sideLit && (g.seed + ji) % 2 === 1;
+    if (short) for (const sz of [1, -1] as const) {
+      if (g.tee && sz === 1) continue;
+      masts.push({ x: mid + left([0, sz])[0] * (half + 0.9), z: sz * (rw + 1.3) });
+    }
     // Main road: far-side signals, heads over the general and bus lanes.
     for (const sx of [1, -1] as const) {
       const h: V2 = [sx, 0], l = left(h);
       const mx = sx > 0 ? c + 1.2 : a - 1.2, mz = l[1] * (rw + 0.7);
       vehicleSignal(b, mx, mz, h, rw + 0.7 - (GEN + LANE) / 2, 0, jname, { flat: avenue, arrow: avenue && wide });
+      masts.push({ x: mx, z: mz });
+      const cn = g.roads?.cross[ji];
+      if (cn) roadName(b, mx, mz, [-sx, 0], cn);
       // Queue at the stop line (x = a − 7 going +x, c + 7 going −x).
       const stop = sx > 0 ? a - 7.4 : c + 7.4;
       // A repeater on the near side at the stop line of a wide junction.
@@ -466,8 +555,11 @@ export function roadKit(b: Builder, g: RoadGeo) {
     for (const xw of [a - 4, c + 4]) {
       const e = xw < mid ? -2.4 : 2.4;
       const po = { flat: avenue, button: !wide, speaker: avenue };
-      pedSignal(b, xw + e, -(rw + 0.8), [0, 1], 1, po);
-      pedSignal(b, xw + e, rw + 0.8, [0, -1], 1, po);
+      for (const s of [-1, 1] as const) {
+        const m = masts.find((q) => Math.sign(q.z) === s && Math.abs(q.x - xw) < 4.5);
+        if (m) mastPed(b, m.x, m.z, [0, -s], 1, po);
+        else pedSignal(b, xw + e, s * (rw + 0.8), [0, -s], 1, po);
+      }
       // Bollards at the crosswalk mouths.
       for (const s of [-1, 1]) for (const dx of [-1.6, 0, 1.6]) {
         put(b, 'bollard', xw + dx, GY, s * (rw + 0.35), [0, -1]);
@@ -496,6 +588,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
       b.deco('flat:#e9e9e4', Math.min(mid, lx(half - 0.2)), 0.004, stopZ - 0.2, Math.max(mid, lx(half - 0.2)), 0.01, stopZ + 0.2);
       if (wide) {
         vehicleSignal(b, lx(half + 0.7), sz * (rw + 1.2), h, half + 0.7 - half / 2, 1, jname);
+        if (g.roads) roadName(b, lx(half + 0.7), sz * (rw + 1.2), [0, -sz], g.roads.main);
         // Two lanes each way: a queue in each.
         for (const [d, n] of [[half * 0.27, 2], [half * 0.74, 1]] as const) {
           // (The queue is moving traffic now; the draws stay so the street keeps its look.)
@@ -510,7 +603,10 @@ export function roadKit(b: Builder, g: RoadGeo) {
         pedSignal(b, c + 0.8, zc - sz * 2.4, [-1, 0], 0, { flat: avenue, speaker: avenue });
       } else {
         // A side street: stop sign on the left kerb, 止まれ on the road, a mirror at the far corner.
-        if (sideLit) poleSignal(b, lx(half + 0.9), sz * (rw + 1.3), h, 1);
+        if (short) {
+          shortSignal(b, lx(half + 0.9), sz * (rw + 1.3), h, 1, jname);
+          if (g.roads) roadName(b, lx(half + 0.9), sz * (rw + 1.3), [0, -sz], g.roads.main);
+        } else if (sideLit) poleSignal(b, lx(half + 0.9), sz * (rw + 1.3), h, 1);
         else {
           roadSign(b, 'stop', lx(half + 0.55), stopZ - sz * 0.6, [0, -sz], 0.8);
           mark(b, 'stop', lx(half / 2), stopZ - sz * 4.6, h, 1.9, 5.6);
@@ -604,10 +700,14 @@ export function roadKit(b: Builder, g: RoadGeo) {
     if (x1 - x0 < 12) continue;
     for (const sx of [1, -1] as const) {
       const h: V2 = [sx, 0], l = left(h), s = l[1];
-      // Bicycle lane: a blue strip at the kerb. Bus lane: a tinted band with its lettering.
-      b.deco('flat:#2f6fb0', x0, 0.002, Math.min(s * (rw - 1.4), s * (rw - 0.15)), x1, 0.007, Math.max(s * (rw - 1.4), s * (rw - 0.15)));
+      // Bicycle lane, as Japanese roads paint it: blue arrow-feather dashes at the kerb, not a solid
+      // strip. Bus lane: no tint, a broad white line and its lettering.
+      for (let x = x0 + 2; x < x1 - 2; x += 5) {
+        const zi = s * (rw - 1.35), zo = s * (rw - 0.25);
+        b.deco('flat:#2f6fb0', x, 0.004, Math.min(zi, zo), x + 1.6, 0.009, Math.max(zi, zo));
+      }
       b.deco('flat:#e9e9e4', x0, 0.004, s * (rw - 1.5) - 0.06, x1, 0.01, s * (rw - 1.5) + 0.06);
-      b.deco('flat:#6d4a40', x0, 0.002, Math.min(s * (LANE + 0.15), s * (rw - 1.62)), x1, 0.006, Math.max(s * (LANE + 0.15), s * (rw - 1.62)));
+      b.deco('flat:#e9e9e4', x0, 0.004, s * (LANE + 0.15) - 0.1, x1, 0.01, s * (LANE + 0.15) + 0.1);
       const from = sx > 0 ? x0 : x1; // where this direction enters the stretch
       for (let d = 14; d < x1 - x0 - 26; d += 44) {
         mark(b, 'bus', from + sx * d, laneZ(sx, BUS), h, 1.9, 7.4);
@@ -621,7 +721,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
       // Street lights on this kerb, staggered between the two sides.
       if (g.lamp) {
         const gaps = kerbGaps(streets).filter((k) => k.s === s);
-        for (let x = x0 + (s > 0 ? 12 : 26); x < x1 - 6; x += 28) if (!gaps.some((k) => x > k.x0 - 1 && x < k.x1 + 1)) streetLamp(b, g.lamp, x, s * (rw + 0.95), [0, -s]);
+        for (let x = x0 + (s > 0 ? 8 : 19); x < x1 - 6; x += 22) if (!gaps.some((k) => x > k.x0 - 1 && x < k.x1 + 1)) streetLamp(b, g.lamp, x, s * (rw + 0.95), [0, -s]);
       }
       // (Mid-block traffic moves now; the draws stay so the street keeps its look.)
       for (let k = 0; k < Math.floor((x1 - x0) / 34); k++) {

@@ -172,6 +172,7 @@ def build_hi(v):
     terrace(p, s, v, rng)
     upper(p, s, v, rng)
     roof(p, v, rng)
+    backs(p, v['w'], v['d'], levels(v), rng, fire=v['floors'] >= 5, signs=s, side_z=(TER, v['d']))
     return p, s
 
 
@@ -184,11 +185,14 @@ def build_lo(v):
     p.box(v['wall'], x0, 0, 0, x1, H + PARAPET, D)
     p.box(WINDOW_LIT, x0 + 0.3, 0.5, -0.03, x1 - 0.3, G0 - 0.4, 0)
     for y in ys[:-1]:
-        p.box(WINDOW, x0 + 0.3, y + 0.8, -0.03, x1 - 0.3, y + FH - 0.35, 0)
+        p.box(WINDOW_LIT, x0 + 0.3, y + 0.8, -0.03, x1 - 0.3, y + FH - 0.35, 0)
         sign(p, rng.choice(SIGN_COLOURS), x0 + 0.5, y - 0.25, -0.07, x1 - 0.5, y + 0.6, -0.03, glyphs=False)
     sign(p, rng.choice(SIGN_COLOURS), x0 + 0.05, G0 + 0.4, -1.15, x0 + 0.29, H - 0.4, -0.2, glyphs=False)
     if v['big'] == 'roof':
         sign(p, rng.choice(SIGN_COLOURS), x0, H + 1.6, 0.35, x1, H + 4.9, 0.5, glyphs=False)
+    if v['big'] != 'roof':
+        tank(p, x0 + 1.4, H + PARAPET, D - 2.0, r=0.7, h=1.4)
+    p.box(ACU, x1 - 1.6, H + PARAPET, D * 0.5, x1 - 0.7, H + PARAPET + 0.65, D * 0.5 + 0.32)
     return p
 
 

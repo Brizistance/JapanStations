@@ -226,6 +226,7 @@ def build_hi(v):
     volume(p, v)
     ground(p, s, v, rng)
     upper(p, s, v, rng)
+    backs(p, v['w'], v['d'], levels(v), rng, signs=s, side_z=(2.3 if v['kind'] == 'terrace' else 1.0, v['d']))
     return p, s
 
 
@@ -238,9 +239,10 @@ def build_lo(v):
     p.box(v['wall'], x0, 0, 0, x1, H, D)
     p.box(WINDOW_LIT, x0 + 0.3, 0.4, -0.03, x1 - 0.3, G0 - 0.6, 0)
     for y in ys[:-1]:
-        p.box(WINDOW, x0 + 0.5, y + 0.8, -0.03, x1 - 0.5, y + FH - 0.35, 0)
+        p.box(WINDOW_LIT, x0 + 0.5, y + 0.8, -0.03, x1 - 0.5, y + FH - 0.35, 0)
     sign(p, v['awning'][0], x0 + 0.4, G0 - 0.95, -0.05, x1 - 0.4, G0 - 0.3, 0.0, glyphs=False)
     rng.random()
+    p.box(ACU, x0 + 0.6, H, D * 0.5, x0 + 1.5, H + 0.65, D * 0.5 + 0.32)
     return p
 
 

@@ -9,7 +9,7 @@ import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF, CAR_HALF_W } from '../trains/car';
-import { loadBuildingModels, mergedModels } from './building-models';
+import { loadBuildingModels, lodModels, mergedModels, updateLod } from './building-models';
 import { headlights } from './lamps';
 import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
@@ -160,7 +160,7 @@ function mountTrain(t: TrainRuntime): TrainView {
 }
 
 /** Backdrop lots that stand in a station's model district (Build.district): filled by backdropModels() once the models have loaded. */
-const districtLots: { x: number; z: number; w: StationWorld }[] = [];
+const districtLots: { x: number; z: number; w: StationWorld; near?: boolean }[] = [];
 
 /**
  * The backdrop buildings of every model district, as simplified Blender-built copies: shophouse
@@ -168,7 +168,7 @@ const districtLots: { x: number; z: number; w: StationWorld }[] = [];
  * blocks beyond, a few towers on the skyline. Each is turned to the station's street grid.
  */
 function backdropModels(): THREE.Group {
-  const parts: ModelPart[] = [];
+  const parts: ModelPart[] = [], farParts: ModelPart[] = [];
   const of = (kind: string, ok: (h: number) => boolean = () => true) => BUILDING_MODELS.filter((m) => m.kind === kind && ok(m.h));
   let towers = 0;
   for (const lot of districtLots) {
@@ -179,14 +179,17 @@ function backdropModels(): THREE.Group {
     const dx = lot.x - w.frame.x, dz = lot.z - w.frame.z;
     const lx = dx * c - dz * s, lz = dx * s + dz * c;
     const far = Math.hypot(lx, lz), old = Math.hypot(lx - d.old[0], lz - d.old[1]) < d.oldRadius;
-    const yaw0 = w.frame.yaw + (Math.floor(r() * 2) * Math.PI) / 2;
-    // The lot is a small city block: two rows of buildings back to back, each `HALF` m either side
-    // of its centre line, with the streets between blocks left by the backdrop's 46 m pitch.
-    const HALF = 18, DEEP = 15;
+    // Blocks on the station's own street grid (districtGrid): fronts along its streets, never turned.
+    const yaw0 = w.frame.yaw;
+    // The lot is a city block: two rows of buildings back to back, each `HALF` m either side of its
+    // centre line along the frontage, with streets left between the blocks by the grid's pitch.
+    const HALF = 30, DEEP = 15;
     const put = (m: { kind: string; id: string; w: number; d: number }, yaw: number, off: number, front: number) => {
       const fx = Math.cos(yaw), fz = -Math.sin(yaw); // along the frontage (model +x)
       const bx = Math.sin(yaw), bz = Math.cos(yaw); // into the block (model +z)
-      parts.push({ kind: m.kind, id: `${m.id}_lo`, pos: [lot.x + fx * off - bx * front, -0.03, lot.z + fz * off - bz * front], yaw, seed: 0 });
+      // Close to the street area the full models stand (seen from the pavement); simplified ones beyond.
+      // Blocks next to where you can walk go in detail cells; the rest is one simplified mesh (memory).
+      (lot.near ? parts : farParts).push({ kind: m.kind, id: `${m.id}_lo`, pos: [lot.x + fx * off - bx * front, -0.03, lot.z + fz * off - bz * front], yaw, seed: 0 });
     };
     if (!old && r() < 0.06 && far > 190 && towers < 4) {
       const m = pick(of('tower'));
@@ -208,7 +211,45 @@ function backdropModels(): THREE.Group {
       }
     }
   }
-  return mergedModels(parts, { noAO: true });
+  // Detail cells: the blocks near the camera full, the rest simplified (updateLod).
+  const { group, rest } = lodModels(parts);
+  if (farParts.length) group.add(mergedModels(farParts, { noAO: true }));
+  if (rest.length) group.add(mergedModels(rest, { noAO: true }));
+  return group;
+}
+
+/**
+ * The backdrop blocks of each model district, on the station's own street grid: 62 m blocks along
+ * the main road between the side streets of its continuation (surface.ts CONTINUE), 46 m deep
+ * across it, kept off the plot, the continuation and its cleared strips, and off the roads. The
+ * blocks just behind the plot stand as full models (`near`).
+ */
+function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRoad: (x: number, z: number, m: number) => boolean) {
+  for (const w of STATION_WORLDS) {
+    const d = w.build.district;
+    if (!d) continue;
+    const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
+    const toWorld = (lx: number, lz: number) => ({ x: w.frame.x + lx * c + lz * s, z: w.frame.z - lx * s + lz * c });
+    const { x: px, z: pz } = w.build.plot;
+    const n = Math.ceil(d.radius / 46) + 1;
+    for (let i = -n; i <= n; i++) {
+      for (let j = -n; j <= n; j++) {
+        const lx = 17 + 70 * i, lz = (j >= 0 ? 1 : -1) * (108 + 46 * Math.abs(j < 0 ? j + 1 : j));
+        if (Math.hypot(lx, lz) > d.radius) continue;
+        // The whole block must stand clear of the plot and anything kept clear.
+        const corners = [[-31, -15], [31, -15], [31, 15], [-31, 15], [0, 0]].map(([a, b]) => toWorld(lx + a, lz + b));
+        if (corners.some((p) => inPlot(p.x, p.z, 1))) continue;
+        const ctr = toWorld(lx, lz);
+        if (onRoad(ctr.x, ctr.z, 18)) continue;
+        // Where two districts overlap, a block belongs to the nearer station only.
+        const own = Math.hypot(w.frame.x - ctr.x, w.frame.z - ctr.z);
+        if (STATION_WORLDS.some((o) => o !== w && o.build.district && Math.hypot(o.frame.x - ctr.x, o.frame.z - ctr.z) < own)) continue;
+        const edge = Math.max(Math.abs(lx) - px, Math.abs(lz) - pz);
+        // Full models only right behind the plot's own back rows; simplified copies everywhere else (frame rate).
+        districtLots.push({ x: ctr.x, z: ctr.z, w, near: edge < 110 });
+      }
+    }
+  }
 }
 
 /** Low-detail city beyond the station plots, plus the ground it stands on. */
@@ -331,13 +372,11 @@ function buildBackdrop(): THREE.Group {
       // In a station's model district the lot gets Blender-built buildings instead (backdropModels).
       const dw = STATION_WORLDS.find((s) => s.build.district && Math.hypot(s.frame.x - x, s.frame.z - z) < s.build.district.radius);
       if (onRoad(x, z, dw ? 26 : 20)) continue;
-      if (dw) {
-        districtLots.push({ x, z, w: dw });
-        continue;
-      }
+      if (dw) continue; // laid out on the station's own grid below (districtGrid)
       boxes.push({ mat, min: [x - w / 2, -0.03, z - d / 2], max: [x + w / 2, h, z + d / 2], solid: false });
     }
   }
+  districtGrid(inPlot, onRoad);
   for (const [mat, list] of groupBy(boxes)) {
     const m = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
     m.matrixAutoUpdate = false;
@@ -421,6 +460,7 @@ export class WorldView {
   /** Mount/unmount stations by distance and move the trains. Call after the sim tick. */
   update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any') {
     this.cull(cam, vis);
+    updateLod(cam);
     // Stations: at most one mount per frame to spread the cost.
     for (const tick of this.trackTicks) tick(clock.time);
     let mounted = false;
@@ -502,6 +542,19 @@ export class WorldView {
    */
   private cull(cam: THREE.Vector3, vis: 'any' | 'street' | 'under') {
     let far = false, sealed = false;
+    // Out in the city beyond every station's plot (the continued streets, the boulevards), at street
+    // level: nothing below the street can be seen from there, the stations' halls nor the tunnels.
+    if (vis === 'any' && cam.y > -1) {
+      const inPlot = STATION_WORLDS.some((w) => {
+        const dx = cam.x - w.frame.x, dz = cam.z - w.frame.z;
+        const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
+        return Math.abs(dx * c - dz * s) < w.build.plot.x && Math.abs(dx * s + dz * c) < w.build.plot.z;
+      });
+      if (!inPlot) {
+        vis = 'street';
+        far = sealed = true;
+      }
+    }
     if (vis !== 'any') {
       for (const w of STATION_WORLDS) {
         if (!w.build.sealed) continue;
