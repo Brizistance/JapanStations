@@ -23,7 +23,7 @@ const SOUND_SPEED = 343;
 type V3 = [number, number, number];
 
 let ctx: AudioContext | null = null;
-let trainBus: GainNode, carBus: GainNode, stepBus: GainNode, ambBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode, out: AudioNode;
+let trainBus: GainNode, carBus: GainNode, roadBus: GainNode, stepBus: GainNode, ambBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode, out: AudioNode;
 let echoIn: GainNode, stepEcho: GainNode, ambEcho: GainNode;
 const vol = { voice: 0.8, sfx: 0.8 };
 
@@ -96,6 +96,8 @@ function unlock() {
     trainBus.connect(hearing);
     carBus = c.createGain();
     carBus.connect(out);
+    roadBus = c.createGain();
+    roadBus.connect(out);
     stepBus = c.createGain();
     stepEcho = c.createGain();
     stepEcho.gain.value = 0;
@@ -116,6 +118,8 @@ if (typeof window !== 'undefined') {
   window.addEventListener('keydown', unlock, { capture: true });
 }
 const live = () => ctx !== null && ctx.state === 'running';
+/** True once the browser lets sound play (after the first click or key). */
+export const audioLive = () => live();
 
 function applyVolume() {
   if (!ctx) return;
@@ -123,6 +127,7 @@ function applyVolume() {
   for (const ch of channels.values()) ch.input?.gain.setTargetAtTime(vol.voice, t, 0.05);
   trainBus.gain.setTargetAtTime(vol.sfx, t, 0.05);
   carBus.gain.setTargetAtTime(vol.sfx * 0.7, t, 0.05);
+  roadBus.gain.setTargetAtTime(vol.sfx * 0.55, t, 0.05);
   stepBus.gain.setTargetAtTime(vol.sfx * 0.45, t, 0.05);
   ambBus.gain.setTargetAtTime(vol.sfx * 0.5, t, 0.05);
 }
@@ -145,7 +150,7 @@ function load(path: string): Promise<AudioBuffer | null> {
     p = fetch(`${BASE}${path}.mp3`)
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
       .then((b) => ctx!.decodeAudioData(b))
-      .catch(() => null); // Not generated yet: stay silent.
+      .catch(() => made(path)); // Not generated yet: one made here if there is one, or silence.
     cache.set(path, p);
   }
   return p;
@@ -246,7 +251,7 @@ export interface SoundHandle {
 }
 
 /** Play an effect at a moving position. Returns a handle to stop it (loops run until stopped). */
-export function playAt(name: string, pos: () => V3 | null, opts: { loop?: boolean; gain?: number } = {}): SoundHandle {
+export function playAt(name: string, pos: () => V3 | null, opts: { loop?: boolean; gain?: number; road?: boolean } = {}): SoundHandle {
   let a: Attached | null = null, stopped = false;
   if (live()) {
     void load(name.includes('/') ? name : `sfx/${name}`).then((buf) => {
@@ -258,7 +263,7 @@ export function playAt(name: string, pos: () => V3 | null, opts: { loop?: boolea
       const src = c.createBufferSource();
       src.buffer = buf;
       src.loop = !!opts.loop;
-      src.connect(gain).connect(p).connect(trainBus);
+      src.connect(gain).connect(p).connect(opts.road ? roadBus : trainBus);
       a = { src, gain, panner: p, pos };
       attached.add(a);
       src.onended = () => attached.delete(a!);
@@ -281,8 +286,72 @@ export interface PosLoopHandle {
   stop(fadeS?: number): void;
 }
 
-/** A looping sound that follows a moving position (a train running past), steered live. */
-export function loopAt(name: string, pos: () => V3 | null): PosLoopHandle {
+// ── Sounds made here, played until a recording of the same name exists (scripts/gen-sfx.ts) ──
+
+/** Seconds of noise, its ends blended so it loops. `soft`: how much of the hiss is smoothed away (0 … 1). `hum`: an engine note under it, Hz. */
+function noise(c: AudioContext, seconds: number, soft: number, hum = 0): AudioBuffer {
+  const n = Math.floor(c.sampleRate * seconds), fade = Math.floor(c.sampleRate * 0.25);
+  const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  const raw = new Float32Array(n + fade);
+  let low = 0, seed = 12345 + Math.round(soft * 1000) + hum;
+  for (let i = 0; i < raw.length; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+    low += ((seed / 2147483648) - low) * (1 - soft);
+    raw[i] = low * (1 + soft * 40) * 0.08 + (hum ? 0.12 * Math.sin((2 * Math.PI * hum * i) / c.sampleRate) + 0.06 * Math.sin((4 * Math.PI * hum * i) / c.sampleRate) : 0);
+  }
+  for (let i = 0; i < n; i++) d[i] = i < fade ? raw[i] * (i / fade) + raw[n + i] * (1 - i / fade) : raw[i];
+  return buf;
+}
+
+/** A short burst of hiss dying away: a bus's air brake. */
+function hiss(c: AudioContext): AudioBuffer {
+  const n = Math.floor(c.sampleRate * 0.8), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  let seed = 777, last = 0;
+  for (let i = 0; i < n; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+    const w = seed / 2147483648;
+    // Keep the highs: the difference of neighbouring samples.
+    d[i] = (w - last) * 0.35 * Math.exp((-5 * i) / n) * Math.min(1, i / 300);
+    last = w;
+  }
+  return buf;
+}
+
+/** Notes one after another, then silence to make up `seconds`: each is [from Hz, to Hz, seconds]. A pedestrian signal's call. */
+function call(c: AudioContext, seconds: number, notes: [number, number, number][]): AudioBuffer {
+  const n = Math.floor(c.sampleRate * seconds), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  let at = 0, phase = 0;
+  for (const [f0, f1, len] of notes) {
+    const m = Math.floor(c.sampleRate * len);
+    for (let i = 0; i < m && at + i < n; i++) {
+      const t = i / m;
+      phase += (2 * Math.PI * (f0 + (f1 - f0) * t)) / c.sampleRate;
+      d[at + i] = Math.sin(phase) * 0.3 * Math.min(1, t * 12, (1 - t) * 12);
+    }
+    at += m + Math.floor(c.sampleRate * 0.04);
+  }
+  return buf;
+}
+
+const MADE: Record<string, (c: AudioContext) => AudioBuffer> = {
+  'sfx/road-car': (c) => noise(c, 4, 0.94),
+  'sfx/road-heavy': (c) => noise(c, 4, 0.965, 62),
+  'sfx/road-scooter': (c) => noise(c, 3, 0.9, 148),
+  'sfx/road-idle': (c) => noise(c, 3, 0.975, 38),
+  'sfx/road-wet': (c) => noise(c, 4, 0.55),
+  'sfx/bus-brake': hiss,
+  'sfx/signal-piyo': (c) => call(c, 1.1, [[2500, 1900, 0.11], [2100, 1600, 0.13]]),
+  'sfx/signal-kakko': (c) => call(c, 1.5, [[1060, 1060, 0.2], [840, 840, 0.26]]),
+};
+function made(path: string): AudioBuffer | null {
+  return ctx && MADE[path] ? MADE[path](ctx) : null;
+}
+
+/**
+ * A looping sound that follows a moving position (a train running past), steered live.
+ * `road`: heard in the street whatever the station's hearing (road traffic).
+ */
+export function loopAt(name: string, pos: () => V3 | null, road = false): PosLoopHandle {
   let a: Attached | null = null, lp: BiquadFilterNode | null = null, stopped = false;
   let want = { rate: 1, gain: 0, cutoff: 18000 };
   const apply = () => {
@@ -305,7 +374,7 @@ export function loopAt(name: string, pos: () => V3 | null): PosLoopHandle {
       const src = c.createBufferSource();
       src.buffer = buf;
       src.loop = true;
-      src.connect(lp).connect(gain).connect(p).connect(trainBus);
+      src.connect(lp).connect(gain).connect(p).connect(road ? roadBus : trainBus);
       a = { src, gain, panner: p, pos };
       attached.add(a);
       src.onended = () => attached.delete(a!);

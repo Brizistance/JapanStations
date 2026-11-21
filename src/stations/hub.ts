@@ -37,6 +37,7 @@ import { modelTree, type TreeKind } from './trees';
 import { posterWall, shopAlcove, shopFits, shopPreset, shopRoom } from './shopfronts';
 import { KONBINI, konbini } from './konbini';
 import { kerbGaps, kerbRail, poleLine, roadKit, roadModel, streetLamp } from './roads';
+import { VEH } from '../traffic/vehicles';
 import { SHOPS, crosswalk, fillModelLots, type Shop } from './surface';
 
 export const HUB_PLOT = { x: 190, z: 160 };
@@ -1448,7 +1449,7 @@ function street(h: H, seed: number, dir: [number, number]) {
   b.deco('flat:#e9e9e4', -YS - 7.2, 0.004, -AV, -YS - 6.8, 0.01, 0);
   b.deco('flat:#e9e9e4', YS + 6.8, 0.004, 0, YS + 7.2, 0.01, AV);
   const cross: [number, number][] = [[-YS, YS]];
-  roadKit(b, { X, Z, rw: AV, swOut: S_FRONT, streets: cross, seed, name: { ja: c.station.nameJa, en: c.station.nameRomaji }, at: { id: c.station.id, dir }, tee: true, lamp: 'lamp_hw', junctions: [{ ja: '川湊駅前', en: 'Kawaminato Sta.' }] });
+  roadKit(b, { X, Z, rw: AV, swOut: S_FRONT, streets: cross, seed, name: { ja: c.station.nameJa, en: c.station.nameRomaji }, at: { id: c.station.id, dir }, tee: true, lamp: 'lamp_hw', busy: 1.25, taxi: 0.3, junctions: [{ ja: '川湊駅前', en: 'Kawaminato Sta.' }] });
   // The backdrop city round the hub is Blender-built too: business blocks, no plain boxes.
   b.out.district = { radius: 620, old: [0, 0], oldRadius: 0 };
   // Kerb guard rail, open at the junction, the kit's bus stops and taxi stand, and the plaza's drives.
@@ -1464,20 +1465,13 @@ function street(h: H, seed: number, dir: [number, number]) {
       x = Math.max(x, to);
     }
   }
-  // More traffic: vehicles down Yanagi-suji (keeping left).
-  const VEH: Record<string, [number, number, number]> = { sedan: [4.5, 1.72, 1.45], taxi: [4.5, 1.72, 1.6], kei: [3.4, 1.48, 1.72], van: [4.7, 1.72, 1.95], bus: [10.5, 2.5, 3.2] };
+  // Parked vehicles of the plaza (Yanagi-suji's traffic moves: the road kit lays its lanes, and vehicles turn in and out at the avenue).
   const vehicle = (id: string, x: number, z: number, f: [number, number]) => {
     const [len, wid, hgt] = VEH[id.split('_')[0]];
     const hx = f[0] !== 0 ? len / 2 : wid / 2, hz = f[0] !== 0 ? wid / 2 : len / 2;
     roadModel(b, id, x, 0, z, f);
     b.block(x - hx, 0, z - hz, x + hx, hgt, z + hz);
   };
-  vehicle('sedan_s', 2.7, 58, [0, 1]);
-  vehicle('van', 7.2, 71, [0, 1]);
-  vehicle('kei_w', 2.7, 104, [0, 1]);
-  vehicle('taxi', -2.7, 86, [0, -1]);
-  vehicle('sedan_b', -7.2, 121, [0, -1]);
-  vehicle('kei_g', -2.7, 137, [0, -1]);
 
   // ── Street trees, lamps and furniture along the kerbs and the building fronts ──
   const kerbClear = (x: number, s: number, m: number) =>

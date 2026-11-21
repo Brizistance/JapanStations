@@ -21,7 +21,8 @@
 
 import { LINES, stationById } from '../data/network';
 import type { Arrow, SignContent } from '../signs/content';
-import { rng, type Builder, type V2 } from '../world/builder';
+import { rng, type Builder, type LanePart, type V2 } from '../world/builder';
+import { CARS, VEH } from '../traffic/vehicles';
 import { GROUND_Y as GY } from './kit';
 
 /** Street lights by environment. */
@@ -197,15 +198,25 @@ export interface RoadGeo {
   lamp?: LampKind;
   /** Names of the junctions, west to east, where the default (the area's name and a chōme number) will not do. */
   junctions?: { ja: string; en: string }[];
+  /** How busy the street is (1: an ordinary shopping street) and the share of taxis among its cars. */
+  busy?: number;
+  taxi?: number;
 }
 
 // build_road.py: arm lengths, the lens housing's place on an arm, the direction board's place.
 const ARMS: [string, number][] = [['signal3', 2.6], ['signal7', 6.4], ['signal9', 8.7]];
 const HEAD_Y = 5.55, HEAD_IN = 0.75;
 const BOARD = { cx: -4.6, cy: 6.4, w: 3.5, h: 2.94 }; // the sign's face: 1.19 : 1, as sign 108の2-A
-/** Vehicles: length, width and height by model family. */
-const VEH: Record<string, [number, number, number]> = { sedan: [4.5, 1.72, 1.45], taxi: [4.5, 1.72, 1.6], kei: [3.4, 1.48, 1.72], van: [4.7, 1.72, 1.95], bus: [10.5, 2.5, 3.2] };
-const CARS = ['sedan_w', 'sedan_k', 'sedan_r', 'sedan_b', 'sedan_s', 'kei_y', 'kei_w', 'kei_p', 'kei_g', 'van'];
+/** A main road this wide (half width) has a bus lane clear of the taxi stand: buses, taxis and scooters drive in it. */
+const BUS_LANE_RW = 11;
+
+/**
+ * A traffic lane for the moving vehicles (traffic/system.ts), from (x0, z0) to (x1, z1) on the road
+ * surface. Stop lines and bus stops are given as distances from its start.
+ */
+export function trafficLane(b: Builder, x0: number, z0: number, x1: number, z1: number, o: Omit<LanePart, 'from' | 'to'>) {
+  b.out.lanes.push({ from: b.pt(x0, 0, z0), to: b.pt(x1, 0, z1), ...o });
+}
 
 /** The left of someone travelling in direction h (unit, frame xz). */
 const left = (h: V2): V2 => [h[1], -h[0]];
@@ -409,6 +420,11 @@ export function roadKit(b: Builder, g: RoadGeo) {
     return true;
   };
   const anyCar = () => CARS[Math.floor(r() * CARS.length)];
+  const busLane = rw >= BUS_LANE_RW, busy = g.busy ?? 1, taxi = g.taxi ?? 0.15;
+  /** Stop lines and bus stops along the main road, for traffic going +x and −x, as distances from where it enters. */
+  const mainStops: LanePart['stops'][] = [[], []], halts: LanePart['halts'][] = [[], []];
+  /** How far from the centre line the lane runs that buses and taxis use: the bus lane where the road has a clear one. */
+  const KERB_LANE = busLane ? BUS : GEN;
 
   // ── Junctions ──
   const zones: [number, number][] = []; // x-ranges of the main road taken by a junction
@@ -434,13 +450,11 @@ export function roadKit(b: Builder, g: RoadGeo) {
       const stop = sx > 0 ? a - 7.4 : c + 7.4;
       // A repeater on the near side at the stop line of a wide junction.
       if (wide) sideSignal(b, stop - sx * 0.8, l[1] * (rw + 0.7), h, 0, avenue);
-      let q = stop - sx * 2.6;
-      for (let k = 0; k < 2; k++) {
-        const id = anyCar();
-        vehicle(id, q - sx * (VEH[id.split('_')[0]][0] / 2 - 2.25), laneZ(sx, GEN), h);
-        q -= sx * 6.2;
-      }
-      if (r() < 0.6) vehicle(anyCar(), stop - sx * 2.9, laneZ(sx, BUS), h);
+      // (The queue is moving traffic now; the draws stay so the street keeps its look.)
+      for (let k = 0; k < 2; k++) anyCar();
+      if (r() < 0.6) anyCar();
+      const at = sx > 0 ? stop + X : X - stop, exit = sx > 0 ? c + 7.4 + X : X - (a - 7.4);
+      mainStops[sx > 0 ? 0 : 1].push({ at: at - 0.5, axis: 0, exit });
       // Arrows before the stop line: ahead or right from the general lane, ahead or left from the bus lane.
       mark(b, wide ? 'ahead-right' : 'ahead', stop - sx * 16, laneZ(sx, GEN), h, 1.3, 5);
       mark(b, 'ahead-left', stop - sx * 16, laneZ(sx, BUS), h, 1.3, 5);
@@ -466,6 +480,17 @@ export function roadKit(b: Builder, g: RoadGeo) {
       const h: V2 = [0, sz], l = left(h);
       // Its traffic's half: x from the centre line out to the kerb on its left.
       const lx = (d: number) => mid + l[0] * d;
+      /**
+       * A lane of this road for the moving traffic, d from its centre line. A road that runs through is
+       * one lane from edge to edge. One that ends at the main road (a tee) is a lane in, which everybody
+       * leaves by turning, and a lane out on its other half, which only turning traffic feeds.
+       */
+      const crossLane = (dir: 1 | -1, d: number, o: { speed: number; flow: number; use: 'general' | 'all' }) => {
+        const stops = [{ at: Z - (rw + 6.4) - 0.5, axis: 1 as const, exit: Z + rw + 6.4 }];
+        if (!g.tee) return trafficLane(b, lx(d), -dir * Z, lx(d), dir * Z, { ...o, taxi, stops, halts: [] });
+        trafficLane(b, lx(d), -dir * Z, lx(d), dir * (GEN + 0.1), { ...o, taxi, stops, halts: [], dead: true });
+        trafficLane(b, 2 * mid - lx(d), dir * (GEN + 0.1), 2 * mid - lx(d), -dir * Z, { ...o, flow: 0, taxi, stops: [], halts: [] });
+      };
       // Stop line before the crosswalk (which lies 1.2 … 5.2 m outside the main road's kerb).
       const stopZ = -sz * (rw + 6.4);
       b.deco('flat:#e9e9e4', Math.min(mid, lx(half - 0.2)), 0.004, stopZ - 0.2, Math.max(mid, lx(half - 0.2)), 0.01, stopZ + 0.2);
@@ -473,11 +498,9 @@ export function roadKit(b: Builder, g: RoadGeo) {
         vehicleSignal(b, lx(half + 0.7), sz * (rw + 1.2), h, half + 0.7 - half / 2, 1, jname);
         // Two lanes each way: a queue in each.
         for (const [d, n] of [[half * 0.27, 2], [half * 0.74, 1]] as const) {
-          let q = stopZ - sz * 2.8;
-          for (let k = 0; k < n; k++) {
-            vehicle(anyCar(), lx(d), q, h);
-            q -= sz * 6.2;
-          }
+          // (The queue is moving traffic now; the draws stay so the street keeps its look.)
+          for (let k = 0; k < n; k++) anyCar();
+          crossLane(sz, d, { speed: 30 / 3.6, flow: (n > 1 ? 5 : 3.5) * busy, use: g.tee ? 'general' : 'all' });
         }
         mark(b, 'ahead', lx(half * 0.27), stopZ - sz * 16, h, 1.3, 5);
         mark(b, 'ahead-left', lx(half * 0.74), stopZ - sz * 16, h, 1.3, 5);
@@ -493,7 +516,9 @@ export function roadKit(b: Builder, g: RoadGeo) {
           mark(b, 'stop', lx(half / 2), stopZ - sz * 4.6, h, 1.9, 5.6);
         }
         put(b, 'mirror', lx(-(half + 0.7)) , GY, sz * (rw + 1.2), [0, -sz]);
-        if (r() < 0.8) vehicle(r() < 0.5 ? 'kei_w' : 'kei_y', lx(half / 2), stopZ - sz * 2.4, h);
+        if (r() < 0.8) r();
+        // Side-street traffic waits for the main road's red, signal or stop sign alike.
+        crossLane(sz, half / 2, { speed: 25 / 3.6, flow: 1.6 * busy, use: 'general' });
         // Delineator posts at the corner on its left as you turn in.
         for (const dz of [0.5, 1.5, 2.5]) put(b, 'wand', lx(half + 0.35), GY, -sz * (rw + 0.4 + dz), [0, -1]);
         // 30 km/h and the school route warning as you turn in; utility poles and their wires down its left kerb.
@@ -558,14 +583,14 @@ export function roadKit(b: Builder, g: RoadGeo) {
     put(b, 'shelter', x, GY, s * (rw + 2.7), f);
     b.block(x - 1.95, GY, s * (rw + 2.7) + s * 0.6, x + 1.95, GY + 2.4, s * (rw + 2.7) + s * 0.8);
     b.block(x - 1.4, GY, s * (rw + 2.7) + s * 0.15, x + 1.4, GY + 0.5, s * (rw + 2.7) + s * 0.6);
-    // The bus stands at it, pulled in to the kerb (the guard rail is left open here: kerbGaps).
-    vehicle('bus', x + sx * 0.5, laneZ(sx, rw - 1.45), h);
+    // Buses pull in to the kerb here, wait and pull out again (the guard rail is left open here: kerbGaps).
+    halts[sx > 0 ? 0 : 1].push({ at: (sx > 0 ? x + X : X - x) + 0.5, side: rw - 1.45 - KERB_LANE });
   }
   // Taxis waiting at the kerb on the −x-bound side, behind one another.
-  for (let k = 0; k < 3; k++) {
-    const x = TAXI_X + k * 5.6;
-    if (clear(x, 3)) vehicle('taxi', x, laneZ(-1, rw - 1.05), [-1, 0]);
-  }
+  // They come and go (traffic/system.ts): the stand is as long as the kerb is clear behind its first place.
+  let places = 0;
+  while (places < 3 && clear(TAXI_X + places * 5.6, 3)) places++;
+  if (places) halts[1].push({ at: X - TAXI_X, side: rw - 1.05 - KERB_LANE, rank: places });
 
   // Along a canal: shopping-street lamps on both banks, clear of the bridge.
   if (g.canal !== undefined) {
@@ -598,12 +623,26 @@ export function roadKit(b: Builder, g: RoadGeo) {
         const gaps = kerbGaps(streets).filter((k) => k.s === s);
         for (let x = x0 + (s > 0 ? 12 : 26); x < x1 - 6; x += 28) if (!gaps.some((k) => x > k.x0 - 1 && x < k.x1 + 1)) streetLamp(b, g.lamp, x, s * (rw + 0.95), [0, -s]);
       }
-      // Moving traffic, mid-block.
+      // (Mid-block traffic moves now; the draws stay so the street keeps its look.)
       for (let k = 0; k < Math.floor((x1 - x0) / 34); k++) {
         const x = x0 + 8 + r() * (x1 - x0 - 16);
-        if (clear(x, 4)) vehicle(anyCar(), x, laneZ(sx, r() < 0.7 ? GEN : BUS), h);
+        if (clear(x, 4)) {
+          anyCar();
+          r();
+        }
       }
     }
+  }
+
+  // ── Moving traffic: the main road's lanes, each way ──
+  const main = rw >= 8 ? 40 / 3.6 : 30 / 3.6;
+  for (const sx of [1, -1] as const) {
+    const i = sx > 0 ? 0 : 1, stops = mainStops[i].sort((p, q) => p.at - q.at);
+    trafficLane(b, -sx * X, laneZ(sx, GEN), sx * X, laneZ(sx, GEN), { speed: main, flow: (rw >= BUS_LANE_RW ? 7 : rw >= 8 ? 6.5 : 5) * busy, use: busLane ? 'general' : 'all', taxi, stops, halts: busLane ? [] : halts[i] });
+    if (busLane) trafficLane(b, -sx * X, laneZ(sx, BUS), sx * X, laneZ(sx, BUS), { speed: main, flow: 2.6 * busy, use: 'bus', taxi, stops, halts: halts[i] });
+    // Cyclists keep to the bicycle lane at the kerb, and go round the taxi stand that stands in it.
+    const round = sx < 0 && places ? { from: X - TAXI_X - (places - 1) * 6.2 - 11, to: X - TAXI_X + 4, side: 2.3 } : undefined;
+    trafficLane(b, -sx * X, laneZ(sx, BIKE), sx * X, laneZ(sx, BIKE), { speed: 15 / 3.6, flow: 1.5 * busy, use: 'cycle', taxi: 0, stops, halts: [], avoid: round });
   }
 
 }

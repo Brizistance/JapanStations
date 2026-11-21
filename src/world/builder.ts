@@ -104,9 +104,43 @@ export interface ModelPart {
   merge?: boolean;
 }
 
+/** One straight traffic lane (traffic/system.ts drives vehicles along it, `from` → `to`). */
+export interface LanePart {
+  from: V3;
+  to: V3;
+  /** Speed limit, m/s. */
+  speed: number;
+  /** Vehicles a minute entering at the busiest hour. */
+  flow: number;
+  /** A bus lane takes buses, taxis and scooters only; `all` is a general lane that buses use too; `cycle` is the bicycle lane at the kerb. */
+  use: 'general' | 'bus' | 'all' | 'cycle';
+  /** A stretch (metres from `from`) its traffic goes round, `side` metres to the right: the bicycle lane past a taxi stand. */
+  avoid?: { from: number; to: number; side: number };
+  /** Share of taxis among the cars (more at big stations). */
+  taxi: number;
+  /**
+   * Signal stop lines, as metres from `from`: the stop line, the signal's road (signs/draw.ts
+   * `axis`) and the far side of the junction, which must be free before a vehicle drives in.
+   */
+  stops: { at: number; axis: 0 | 1; exit: number }[];
+  /**
+   * Places to pull in at the kerb, `at` metres from `from` and `side` metres to the left of the lane
+   * (0: stop in the lane). A bus stop, where buses wait a while; or with `rank` a taxi stand of that
+   * many places, whose front is at `at`: taxis queue there and leave one by one.
+   */
+  halts: { at: number; side: number; rank?: number }[];
+  /** Zebra crossings without a signal: stop `at` metres from `from` while somebody on foot is inside `zone` (x0, z0, x1, z1). */
+  yields?: { at: number; zone: [number, number, number, number] }[];
+  /** Level crossings: stop `at` metres from `from` while that line's crossing at the station is closed. */
+  gates?: { at: number; line: string; station: string }[];
+  /** The lane ends inside the plot (a side street meeting a main road): everybody turns off it at its last junction. */
+  dead?: boolean;
+}
+
 export interface Build {
   boxes: BoxPart[];
   models: ModelPart[];
+  lanes: LanePart[];
   ramps: RampPart[];
   signs: SignPart[];
   gates: GatePart[];
@@ -172,7 +206,7 @@ export interface SignOpts {
 
 export class Builder {
   readonly out: Build = {
-    boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], models: [], holes: [],
+    boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], models: [], lanes: [], holes: [],
     spawn: { pos: [0, 0, 0], yaw: 0 },
     plot: { ...DEFAULT_PLOT },
     keepOut: [],

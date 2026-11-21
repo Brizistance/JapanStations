@@ -9,11 +9,13 @@ import { PIECES, type PieceId } from './pieces';
 import { grandCanal, piece } from './hyotanbori-street';
 import { HORIE_PIECES, horiePiece, quietCanal } from './minamihorie-street';
 import { modelTree, type TreeKind } from './trees';
-import { kerbGaps, kerbRail, poleLine, roadKit, streetLamp, type LampKind } from './roads';
+import { kerbGaps, kerbRail, poleLine, roadKit, streetLamp, trafficLane, type LampKind } from './roads';
 import { BUILDING_MODELS } from './buildings';
 import { GROUND_Y, vending } from './kit';
 
 export type BlockStyle = 'office' | 'mixed' | 'neon' | 'apartment' | 'house' | 'oldtown' | 'godown' | 'warehouse' | 'campus' | 'park' | 'sea' | 'dome';
+/** How much traffic a street of each kind carries (1: an ordinary shopping street). */
+const BUSY: Record<BlockStyle, number> = { office: 1.2, mixed: 1.1, neon: 1.1, apartment: 0.7, house: 0.5, oldtown: 0.5, godown: 0.5, warehouse: 0.65, campus: 0.6, park: 0.6, sea: 0.6, dome: 0.85 };
 
 export interface SurfaceSpec {
   seed: number;
@@ -554,20 +556,31 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   }
 
   // ── Traffic ──
+  // (It moves now, traffic/system.ts; the draws of the parked box cars stay so the street keeps its look.)
   const carCols = ['#e8e8e8', '#30343a', '#9c1f1f', '#1f4e8c', '#c9c2a8', '#5f6a72'];
   for (let i = 0; i < 9; i++) {
     const x = -X + 14 + r() * (2 * X - 28);
     if (nearStreet(x, 14)) continue;
-    const lane = r() < 0.5 ? -1 : 1;
-    const taxi = r() < 0.3;
-    const cz = lane * (rw - 1.4 - (r() < 0.4 ? rw / 2 : 0)), col = taxi ? '#1d4d2b' : carCols[Math.floor(r() * carCols.length)];
-    // (The road kit places its own vehicles; the draws above still happen so the street stays the same.)
-    if (!spec.roadKit) car(b, x, cz, col, true, taxi);
+    r();
+    if (!(r() < 0.3)) r();
+    r();
+  }
+  // How busy the street is follows what stands along it.
+  const busy = ((BUSY[spec.left] + BUSY[spec.right]) / 2) * (spec.avenue ? 1.2 : 1);
+  if (!spec.roadKit) {
+    // No signals here: traffic flows through, one lane each way, two on a wide road. It keeps left.
+    for (const sx of [1, -1] as const) {
+      // The zebra crossings over the main road have no signal: vehicles stop for somebody on one, or about to step onto it.
+      const yields = streets.flatMap(([a, c]) => [a - 4, c + 4]).map((xw) => ({ at: (sx > 0 ? xw + X : X - xw) - 3, zone: [xw - 2.5, -(rw + 5), xw + 2.5, rw + 5] as [number, number, number, number] })).sort((p, q) => p.at - q.at);
+      for (const [d, share] of rw >= 7 ? [[rw / 4, 1], [(3 * rw) / 4, 0.55]] : [[rw / 2, 1]]) {
+        trafficLane(b, -sx * X, -sx * d, sx * X, -sx * d, { speed: (rw >= 8 ? 40 : 30) / 3.6, flow: (rw >= 8 ? 13 : 9) * busy * share, use: rw >= 7 ? 'all' : 'general', taxi: 0.12, stops: [], halts: [], yields });
+      }
+    }
   }
   // The kit's street lights follow the street: highway masts on an avenue or by offices, shopping-street lamps by shops; none where the utility poles carry them.
   const kitLamp: LampKind | undefined = spec.avenue || spec.left === 'office' || spec.right === 'office' ? 'lamp_hw'
     : spec.left === 'mixed' || spec.left === 'neon' || spec.right === 'mixed' || spec.right === 'neon' ? 'lamp_shop' : spec.poles ? undefined : 'lamp_hw';
-  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at, lamp: kitLamp, tee: spec.tee });
+  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at, lamp: kitLamp, tee: spec.tee, busy });
 
   // ── Buildings ──
   const edges = [-X + 1, ...[...streets].sort((p, q) => p[0] - q[0]).flatMap(([a, c]) => [a - 3, c + 3]), X - 1];

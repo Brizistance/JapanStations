@@ -27,11 +27,14 @@ export interface Fx {
   clouds: boolean;
   /** Sun shafts. */
   godRays: boolean;
+  /** Moving road traffic on the streets (traffic/system.ts), and how much of it: a share of the normal amount. */
+  traffic: boolean;
+  density: 0.5 | 1 | 1.6;
   /** Highest device pixel ratio rendered. */
   scale: 1 | 1.5 | 2;
 }
 
-export type FxSwitch = Exclude<keyof Fx, 'scale'>;
+export type FxSwitch = Exclude<keyof Fx, 'scale' | 'density'>;
 
 export interface Graphics {
   preset: Preset | 'custom';
@@ -39,14 +42,15 @@ export interface Graphics {
 }
 
 export const PRESETS: Record<Preset, Fx> = {
-  low: { shadows: false, ao: false, bloom: false, ssr: false, grade: false, vignette: false, grain: false, chroma: false, lensDirt: false, hq: false, clouds: false, godRays: false, scale: 1 },
-  high: { shadows: true, ao: true, bloom: true, ssr: false, grade: true, vignette: true, grain: true, chroma: false, lensDirt: false, hq: false, clouds: false, godRays: false, scale: 1.5 },
-  ultra: { shadows: true, ao: true, bloom: true, ssr: true, grade: true, vignette: true, grain: true, chroma: true, lensDirt: true, hq: true, clouds: true, godRays: true, scale: 2 },
+  low: { shadows: false, ao: false, bloom: false, ssr: false, grade: false, vignette: false, grain: false, chroma: false, lensDirt: false, hq: false, clouds: false, godRays: false, traffic: true, density: 1, scale: 1 },
+  high: { shadows: true, ao: true, bloom: true, ssr: false, grade: true, vignette: true, grain: true, chroma: false, lensDirt: false, hq: false, clouds: false, godRays: false, traffic: true, density: 1, scale: 1.5 },
+  ultra: { shadows: true, ao: true, bloom: true, ssr: true, grade: true, vignette: true, grain: true, chroma: true, lensDirt: true, hq: true, clouds: true, godRays: true, traffic: true, density: 1, scale: 2 },
 };
 
 export const PRESET_ORDER: Preset[] = ['low', 'high', 'ultra'];
-export const SWITCHES: FxSwitch[] = ['shadows', 'ao', 'bloom', 'ssr', 'grade', 'vignette', 'grain', 'chroma', 'lensDirt', 'hq', 'clouds', 'godRays'];
+export const SWITCHES: FxSwitch[] = ['shadows', 'ao', 'bloom', 'ssr', 'grade', 'vignette', 'grain', 'chroma', 'lensDirt', 'hq', 'clouds', 'godRays', 'traffic'];
 const SCALES: Fx['scale'][] = [1, 1.5, 2];
+export const DENSITIES: Fx['density'][] = [0.5, 1, 1.6];
 
 export const DEFAULT_GRAPHICS: Graphics = { preset: 'high', fx: { ...PRESETS.high } };
 
@@ -91,6 +95,7 @@ export function loadGraphics(store: KV | null): Graphics {
       const fx: Fx = { ...PRESETS.high };
       for (const k of SWITCHES) if (typeof v.fx?.[k] === 'boolean') fx[k] = v.fx[k] as boolean;
       if (SCALES.includes(v.fx?.scale as Fx['scale'])) fx.scale = v.fx!.scale as Fx['scale'];
+      if (DENSITIES.includes(v.fx?.density as Fx['density'])) fx.density = v.fx!.density as Fx['density'];
       // A save from before a switch existed takes that switch from the preset the rest matches.
       const missing = SWITCHES.filter((k) => typeof v.fx?.[k] !== 'boolean');
       if (missing.length) {

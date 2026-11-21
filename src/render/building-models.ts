@@ -192,6 +192,11 @@ export function signTint(kind: string, id: string): [number, number, number] | n
   for (const b of boards) sum.add(c.set(b.col));
   return [sum.r / boards.length, sum.g / boards.length, sum.b / boards.length];
 }
+/** The meshes of one model, by material, to draw it many times over (the road traffic); null until loaded. */
+export function modelPieces(kind: string, id: string): { geometry: THREE.BufferGeometry; material: THREE.Material }[] | null {
+  const proto = protos.get(`${kind}_${id}`);
+  return proto ? proto.pieces.map((p) => ({ geometry: p.geometry, material: material(p.mat) })) : null;
+}
 /** True once the building models are in memory. */
 export const modelsLoaded = () => protos.size > 0;
 

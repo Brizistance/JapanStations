@@ -15,6 +15,7 @@ import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
 import type { BoxPart, GatePart, ModelPart } from '../world/builder';
 import { halfWidth, sampleChainages, structureAt } from '../world/structure';
+import { runOnRoads, runOnStrips } from '../world/runon';
 import { DEFAULT_PLOT, rng } from '../world/builder';
 import { boxesToGeometry, groupBy, type EnvMode } from './geometry';
 import { withEnvMod } from './lit';
@@ -260,6 +261,40 @@ function buildBackdrop(): THREE.Group {
   ground.position.y = -0.03;
   group.add(ground);
 
+  // Roads that run on past a plot's edge (world/runon.ts): paved, and kept clear of buildings.
+  const roads = STATION_WORLDS.map((w) => ({ w, strips: runOnStrips(w) })).filter((s) => s.strips.length);
+  for (const { w, strips } of roads) {
+    const parts: BoxPart[] = strips.map(([sx0, sz0, sx1, sz1]) => ({ mat: 'asphalt', min: [sx0, -0.4, sz0], max: [sx1, 0, sz1], solid: false }));
+    // A pavement along each side, and a broken line down the middle.
+    for (const { rect: [rx0, rz0, rx1, rz1], alongX } of runOnRoads(w)) {
+      const PAVE = 3.5, mid = alongX ? (rz0 + rz1) / 2 : (rx0 + rx1) / 2;
+      for (const s of [-1, 1]) {
+        const e = s < 0 ? (alongX ? rz0 : rx0) : alongX ? rz1 : rx1, lo = Math.min(e, e + s * PAVE), hi = Math.max(e, e + s * PAVE);
+        parts.push(alongX ? { mat: 'paver', min: [rx0, -0.4, lo], max: [rx1, 0.14, hi], solid: false } : { mat: 'paver', min: [lo, -0.4, rz0], max: [hi, 0.14, rz1], solid: false });
+      }
+      for (let u = alongX ? rx0 : rz0; u + 3 < (alongX ? rx1 : rz1); u += 6) {
+        parts.push(alongX ? { mat: 'flat:#e9e9e4', min: [u, 0.004, mid - 0.07], max: [u + 3, 0.01, mid + 0.07], solid: false } : { mat: 'flat:#e9e9e4', min: [mid - 0.07, 0.004, u], max: [mid + 0.07, 0.01, u + 3], solid: false });
+      }
+    }
+    for (const [mat, list] of groupBy(parts)) {
+      const paving = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
+      paving.position.set(w.frame.x, 0, w.frame.z);
+      paving.rotation.y = w.frame.yaw;
+      paving.updateMatrix();
+      paving.matrixAutoUpdate = false;
+      paving.userData.noAO = true;
+      group.add(paving);
+    }
+  }
+  const onRoad = (x: number, z: number, m: number) =>
+    roads.some(({ w, strips }) => {
+      const dx = x - w.frame.x, dz = z - w.frame.z;
+      if (Math.abs(dx) > 600 || Math.abs(dz) > 600) return false;
+      const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
+      const lx = dx * c - dz * s, lz = dx * s + dz * c;
+      return strips.some(([sx0, sz0, sx1, sz1]) => lx > sx0 - m && lx < sx1 + m && lz > sz0 - m && lz < sz1 + m);
+    });
+
   // Blocks of plain buildings near anything you can see from the surface.
   const r = rng(2026);
   const boxes: BoxPart[] = [];
@@ -295,6 +330,7 @@ function buildBackdrop(): THREE.Group {
       const mat = mats[Math.floor(r() * mats.length)];
       // In a station's model district the lot gets Blender-built buildings instead (backdropModels).
       const dw = STATION_WORLDS.find((s) => s.build.district && Math.hypot(s.frame.x - x, s.frame.z - z) < s.build.district.radius);
+      if (onRoad(x, z, dw ? 26 : 20)) continue;
       if (dw) {
         districtLots.push({ x, z, w: dw });
         continue;

@@ -452,7 +452,15 @@ def xing_gate(p):
 
 # ── Vehicles: nose to -z ──
 
+# The moving traffic draws its own wheels, which turn (src/render/traffic-view.ts): the
+# '<id>_body' copies of the vehicles are built without them. src/traffic/vehicles.ts (RIG)
+# mirrors the wheel and lamp positions given to wheels() and lamps() below.
+BARE = [False]
+
+
 def wheels(p, half_w, zs, r=0.31, w=0.2):
+    if BARE[0]:
+        return
     for z in zs:
         for s in (-1, 1):
             x = s * (half_w - w / 2 + 0.01)
@@ -541,14 +549,49 @@ def van(p, col):
         p.box('flat:#1d8a4e', s * (W / 2 + 0.005) - 0.005, 0.6, -1.0, s * (W / 2 + 0.005) + 0.005, 0.72, 2.2)
 
 
-def bus(p):
+def compact(p, col):
+    """A small hatchback."""
+    L, W = 3.9, 1.69
+    car_body(p, col, L, W, 1.5, 0.94, 0.95, 0.1, rake_f=0.5, rake_r=0.32)
+    wheels(p, W / 2, (-1.25, 1.2), r=0.29, w=0.18)
+    lamps(p, W / 2, -L / 2, L / 2, 0.7, wide=0.3)
+
+
+def minivan(p, col):
+    """A family minivan: tall, glass all round, a short nose."""
+    L, W = 4.7, 1.72
+    car_body(p, col, L, W, 1.85, 1.0, 0.85, 0.06, rake_f=0.55, rake_r=0.08)
+    wheels(p, W / 2, (-1.5, 1.35))
+    lamps(p, W / 2, -L / 2, L / 2, 0.74)
+    for s in (-1, 1):   # roof rails
+        p.box('flat:#2a2c30', s * 0.62 - 0.02, 1.85, -1.0, s * 0.62 + 0.02, 1.9, 1.9)
+
+
+def gomi(p):
+    """A rubbish truck: cab over the engine, a rounded compactor body with a hopper at the back."""
+    L, W, H = 5.6, 2.0, 2.5
+    hw, hl = W / 2, L / 2
+    cab_over(p, '#f1efe8', W - 0.1, -hl, -hl + 1.45, 0.58, 2.15)
+    p.box('flat:#26282c', -hw + 0.25, 0.42, -hl + 0.3, hw - 0.25, 0.7, hl - 0.05)
+    body = 'flat:#2f6f8f'
+    p.prism(body, [(-hl + 1.6, 0.8), (hl - 1.0, 0.8), (hl - 1.0, H), (-hl + 2.0, H), (-hl + 1.6, H - 0.4)], 'x', -hw, hw)
+    p.prism('flat:#d9d7ce', [(hl - 1.0, 0.75), (hl, 1.0), (hl, 1.9), (hl - 0.5, H - 0.1), (hl - 1.0, H)], 'x', -hw + 0.02, hw - 0.02)
+    for s in (-1, 1):
+        x = s * (hw + 0.006)
+        p.box('flat:#eeeeea', x - 0.006, 1.5, -hl + 1.9, x + 0.006, 1.72, hl - 1.2)
+    p.box(AMBER, -0.12, H, -hl + 2.1, 0.12, H + 0.12, -hl + 2.3)   # beacon housing
+    wheels(p, hw, (-hl + 0.95, hl - 1.5), r=0.38, w=0.25)
+    lamps(p, hw, -hl, hl, 0.8, wide=0.3)
+
+
+def bus(p, band='flat:#1f6f9d', trim='flat:#b4472f'):
     """A city bus: low floor, big windows, destination box over the windscreen (blank)."""
     L, W, H = 10.5, 2.5, 3.0
     hw, hl = W / 2, L / 2
-    body, band = 'flat:#f1efe6', 'flat:#1f6f9d'
+    body = 'flat:#f1efe6'
     p.box(body, -hw, 0.35, -hl, hw, H, hl)
     p.box(band, -hw - 0.006, 0.35, -hl - 0.006, hw + 0.006, 1.0, hl + 0.006)
-    p.box('flat:#b4472f', -hw - 0.008, 1.0, -hl - 0.008, hw + 0.008, 1.08, hl + 0.008)
+    p.box(trim, -hw - 0.008, 1.0, -hl - 0.008, hw + 0.008, 1.08, hl + 0.008)
     p.box('flat:#2a2c30', -hw + 0.05, 0.25, -hl - 0.04, hw - 0.05, 0.5, hl + 0.04)
     p.box('flat:#d9d7ce', -hw + 0.3, H, -hl + 0.6, hw - 0.3, H + 0.22, hl - 1.2)   # roof units
     g = 0.012
@@ -573,6 +616,147 @@ def bus(p):
         p.box(HOUSING, s * hw - 0.02, 2.2, -hl - 0.3, s * hw + s * 0.22, 2.55, -hl - 0.2)   # mirrors on arms
 
 
+def cab_over(p, col, W, z0, z1, y0, y1):
+    """A cab-over truck's cab from z0 (nose) back to z1: screen, side glass, mirrors."""
+    hw, paint, g = W / 2, 'flat:' + col, 0.012
+    cab = [(z0, y0), (z1, y0), (z1, y1), (z0 + 0.22, y1), (z0, y1 - 0.75)]
+    p.prism(paint, cab, 'x', -hw, hw)
+    belt = y0 + (y1 - y0) * 0.45
+    p.face(WINDOW_DARK, [(-hw + 0.1, belt, z0 - g), (hw - 0.1, belt, z0 - g), (hw - 0.14, y1 - 0.1, z0 + 0.19), (-hw + 0.14, y1 - 0.1, z0 + 0.19)], (0, 0.3, -1), col=WINDOW)
+    for s in (-1, 1):
+        x = s * (hw + g)
+        p.face(WINDOW_DARK, [(x, belt, z0 + 0.3), (x, belt, z1 - 0.2), (x, y1 - 0.12, z1 - 0.2), (x, y1 - 0.12, z0 + 0.42)], (s, 0, 0), col=WINDOW)
+        p.box(HOUSING, min(s * hw, s * (hw + 0.2)), belt + 0.1, z0 + 0.1, max(s * hw, s * (hw + 0.2)), belt + 0.42, z0 + 0.2)   # mirrors
+        p.box('flat:#2a2c30', s * (hw + 0.004) - 0.004, belt - 0.2, z1 - 0.5, s * (hw + 0.004) + 0.004, belt - 0.16, z1 - 0.34)   # door handles
+    p.box('flat:#2a2c30', -hw + 0.04, y0 - 0.12, z0 - 0.04, hw - 0.04, y0 + 0.16, z0 + 0.06)   # bumper
+    p.box('flat:#2a2c30', -hw * 0.55, y0 + 0.24, z0 - 0.015, hw * 0.55, y0 + 0.4, z0 + 0.02)   # grille
+
+
+def truck(p):
+    """A 2 t delivery truck: cab over the engine, a box body with an invented carrier's band."""
+    L, W, H = 6.2, 2.1, 2.9
+    hw, hl = W / 2, L / 2
+    cab_over(p, '#f1efe8', W - 0.1, -hl, -hl + 1.55, 0.6, 2.25)
+    p.box('flat:#26282c', -hw + 0.25, 0.42, -hl + 0.3, hw - 0.25, 0.72, hl - 0.05)   # chassis
+    p.box('flat:#eceae2', -hw, 0.85, -hl + 1.7, hw, H, hl)                            # box body
+    p.box(STEEL, -hw - 0.01, 0.8, -hl + 1.68, hw + 0.01, 0.88, hl + 0.01)             # its floor frame
+    for s in (-1, 1):
+        x = s * (hw + 0.006)
+        p.box('flat:#1f7a5c', x - 0.006, 1.5, -hl + 1.9, x + 0.006, 1.85, hl - 0.2)   # the carrier's band
+        p.box('flat:#e8a020', x - 0.007, 1.85, -hl + 1.9, x + 0.007, 1.92, hl - 0.2)
+        p.box('flat:#26282c', x - 0.006, 0.5, 0.2, x + 0.006, 0.82, 1.3)              # side guard
+    # Rear doors: two leaves and their bars.
+    p.box('flat:#d9d7ce', -hw + 0.06, 0.95, hl, hw - 0.06, H - 0.08, hl + 0.015)
+    p.box('flat:#8d9094', -0.012, 0.95, hl + 0.015, 0.012, H - 0.08, hl + 0.03)
+    for x in (-0.45, 0.45):
+        p.box(STEEL, x - 0.015, 1.0, hl + 0.015, x + 0.015, H - 0.15, hl + 0.04)
+    wheels(p, hw, (-hl + 1.0, hl - 1.5), r=0.4, w=0.26)
+    lamps(p, hw, -hl, hl, 0.82, wide=0.3)
+
+
+def keitruck(p):
+    """A kei truck: tiny cab, an open bed with drop sides, yellow plates."""
+    L, W = 3.4, 1.48
+    hw, hl = W / 2, L / 2
+    cab_over(p, '#f0efe8', W, -hl, -hl + 1.15, 0.42, 1.78)
+    p.box('flat:#26282c', -hw + 0.2, 0.3, -hl + 0.2, hw - 0.2, 0.55, hl - 0.05)
+    # Bed: floor, three drop sides, the guard frame behind the cab.
+    z0 = -hl + 1.2
+    p.box('flat:#e4e2da', -hw, 0.62, z0, hw, 0.7, hl)
+    for s in (-1, 1):
+        p.box('flat:#f0efe8', min(s * hw, s * (hw - 0.03)), 0.7, z0, max(s * hw, s * (hw - 0.03)), 0.98, hl)
+    p.box('flat:#f0efe8', -hw, 0.7, hl - 0.03, hw, 0.98, hl)
+    for x in (-hw + 0.05, hw - 0.05):
+        tube(p, STEEL, (x, 0.7, z0 + 0.03), (x, 1.72, z0 + 0.03), 0.02, seg=6)
+    tube(p, STEEL, (-hw + 0.05, 1.72, z0 + 0.03), (hw - 0.05, 1.72, z0 + 0.03), 0.02, seg=6)
+    # A load: two crates under a sheet.
+    p.box('flat:#3f6b8a', -0.5, 0.7, z0 + 0.25, 0.45, 1.12, z0 + 1.25)
+    p.box('flat:#b9a27a', -0.4, 0.7, z0 + 1.35, 0.3, 0.98, hl - 0.2)
+    wheels(p, hw, (-hl + 0.55, hl - 0.6), r=0.27, w=0.16)
+    lamps(p, hw, -hl, hl, 0.6, wide=0.24)
+    p.box('flat:#f0e040', -0.17, 0.32, -hl - 0.05, 0.17, 0.48, -hl - 0.03)
+    p.box('flat:#f0e040', -0.17, 0.4, hl - 0.01, 0.17, 0.56, hl + 0.016)
+
+
+def rider(p, jacket, zs, y0, hands):
+    """Somebody sitting astride at z = zs with the seat at y0, reaching for the bars at `hands` (y, z)."""
+    dark, skin, trousers = 'flat:#26282c', 'flat:#d9b08c', 'flat:#2f3a52'
+    hy, hz = hands
+    for s in (-1, 1):
+        x = s * 0.12
+        p.prism(trousers, [(zs + 0.24, y0 + 0.08), (zs - 0.07, y0 + 0.16), (zs - 0.2, y0 + 0.04), (zs + 0.18, y0 - 0.02)], 'x', x - 0.065, x + 0.065)    # thigh
+        p.prism(trousers, [(zs - 0.1, y0 + 0.14), (zs - 0.22, y0 + 0.1), (zs - 0.28, y0 - 0.34), (zs - 0.16, y0 - 0.34)], 'x', x - 0.055, x + 0.055)  # shin
+        p.box(dark, x - 0.055, y0 - 0.37, zs - 0.4, x + 0.055, y0 - 0.3, zs - 0.14)                                                             # shoe
+        tube(p, jacket, (s * 0.2, y0 + 0.66, zs - 0.02), (s * 0.27, hy + 0.04, hz + 0.04), 0.045, seg=6)                                        # arm
+        p.box(skin, s * 0.27 - 0.04, hy - 0.02, hz - 0.04, s * 0.27 + 0.04, hy + 0.05, hz + 0.06)                                               # hand
+    p.prism(jacket, [(zs + 0.3, y0 + 0.08), (zs + 0.02, y0 + 0.08), (zs - 0.12, y0 + 0.7), (zs + 0.12, y0 + 0.74)], 'x', -0.2, 0.2)               # torso
+    p.box(skin, -0.06, y0 + 0.68, zs - 0.08, 0.06, y0 + 0.77, zs + 0.04)                                                                        # neck
+    p.cyl('flat:#eeeeea', (0, y0 + 0.8, zs - 0.04), 1, 0.14, 0.26, seg=10)                                                                      # helmet
+    p.box(HOUSING, -0.1, y0 + 0.76, zs - 0.195, 0.1, y0 + 0.86, zs - 0.17)                                                                      # visor
+
+
+def cycle(p, frame, jacket):
+    """A city bicycle and its rider: step-through frame, front basket, mudguards."""
+    dark = 'flat:#26282c'
+    zf, zr, r = -0.52, 0.5, 0.33
+    if not BARE[0]:
+        for z in (zf, zr):
+            p.cyl(RUBBER, (0, r, z), 0, r, 0.045, seg=14)
+            p.cyl(RIM, (0, r, z), 0, r * 0.86, 0.05, seg=12)
+    fr = 'flat:' + frame
+    tube(p, fr, (0, r, zr), (0, 0.62, 0.12), 0.02, seg=6)             # seat stay
+    tube(p, fr, (0, r, zr), (0, 0.3, 0.0), 0.02, seg=6)               # chain stay
+    tube(p, fr, (0, 0.3, 0.0), (0, 0.95, 0.16), 0.022, seg=6)         # seat tube
+    tube(p, fr, (0, 0.3, 0.0), (0, 0.78, zf + 0.2), 0.024, seg=6)     # down tube
+    tube(p, fr, (0, r, zf), (0, 1.02, zf + 0.24), 0.02, seg=6)        # fork and head
+    tube(p, dark, (-0.26, 1.04, zf + 0.26), (0.26, 1.04, zf + 0.26), 0.014, seg=6)   # bars
+    p.box(dark, -0.07, 0.94, 0.08, 0.07, 0.99, 0.32)                  # saddle
+    p.box('flat:#8d9094', -0.16, 0.74, zf - 0.22, 0.16, 0.96, zf + 0.06)   # basket
+    p.box('light', -0.03, 0.66, zf - 0.03, 0.03, 0.72, zf - 0.01)
+    p.box(TAIL, -0.03, 0.5, zr + 0.3, 0.03, 0.56, zr + 0.32)
+    rider(p, 'flat:' + jacket, 0.2, 0.98, (1.04, zf + 0.26))
+
+
+def scooter(p, col='#c8372d', jacket='#3d6b4f'):
+    """A delivery scooter and its rider: step-through body, a carrier box behind the seat."""
+    body, dark, skin = 'flat:' + col, 'flat:#26282c', 'flat:#d9b08c'
+    zf, zr, r = -0.62, 0.58, 0.22
+    for z in (() if BARE[0] else (zf, zr)):
+        p.cyl(RUBBER, (0, r, z), 0, r, 0.11, seg=12)
+        p.cyl(RIM, (0, r, z), 0, r * 0.5, 0.122, seg=8)
+    # Front mudguard, leg shield, floor board, seat hump, tail.
+    p.box(body, -0.08, r + 0.2, zf - 0.2, 0.08, r + 0.27, zf + 0.2)
+    p.prism(body, [(zf + 0.06, 0.3), (zf + 0.2, 0.3), (zf + 0.32, 0.95), (zf + 0.2, 0.98)], 'x', -0.2, 0.2)
+    p.box(dark, -0.17, 0.26, zf + 0.2, 0.17, 0.33, 0.15)
+    p.prism(body, [(0.1, 0.26), (zr + 0.28, 0.4), (zr + 0.3, 0.68), (0.12, 0.7)], 'x', -0.17, 0.17)
+    p.box(dark, -0.15, 0.7, 0.1, 0.15, 0.78, zr + 0.12)                                # seat
+    # Steering column, handlebar, headlamp, mirrors, tail lamp, plate.
+    tube(p, dark, (0, 0.5, zf + 0.12), (0, 1.02, zf + 0.3), 0.03, seg=6)
+    tube(p, dark, (-0.3, 1.02, zf + 0.3), (0.3, 1.02, zf + 0.3), 0.02, seg=6)
+    p.box(body, -0.11, 0.86, zf + 0.14, 0.11, 1.04, zf + 0.3)
+    p.box('light', -0.07, 0.9, zf + 0.125, 0.07, 1.0, zf + 0.145)
+    for s in (-1, 1):
+        tube(p, dark, (s * 0.24, 1.02, zf + 0.3), (s * 0.3, 1.22, zf + 0.28), 0.008, seg=5)
+        p.box(dark, s * 0.3 - 0.05, 1.2, zf + 0.27, s * 0.3 + 0.05, 1.28, zf + 0.285)
+    p.box(TAIL, -0.07, 0.56, zr + 0.3, 0.07, 0.63, zr + 0.315)
+    p.box(WHITE, -0.08, 0.4, zr + 0.3, 0.08, 0.52, zr + 0.31)
+    # The carrier box.
+    p.box('flat:#eeeeea', -0.2, 0.8, zr - 0.02, 0.2, 1.18, zr + 0.36)
+    p.box(body, -0.202, 0.92, zr - 0.022, 0.202, 1.0, zr + 0.362)
+    # The rider: legs on the board, body leaning to the bars, arms, helmet with a dark visor.
+    for s in (-1, 1):
+        x = s * 0.12
+        p.prism('flat:#2f3a52', [(0.36, 0.78), (0.05, 0.86), (-0.08, 0.74), (0.3, 0.68)], 'x', x - 0.065, x + 0.065)   # thigh
+        p.prism('flat:#2f3a52', [(0.02, 0.84), (-0.1, 0.8), (-0.16, 0.36), (-0.04, 0.36)], 'x', x - 0.055, x + 0.055)  # shin
+        p.box(dark, x - 0.055, 0.33, -0.28, x + 0.055, 0.4, -0.02)                                                     # shoe
+        tube(p, 'flat:' + jacket, (s * 0.2, 1.36, 0.1), (s * 0.27, 1.06, zf + 0.34), 0.045, seg=6)                       # arm
+        p.box(skin, s * 0.27 - 0.04, 1.0, zf + 0.26, s * 0.27 + 0.04, 1.07, zf + 0.36)                                 # hand
+    p.prism('flat:' + jacket, [(0.42, 0.78), (0.14, 0.78), (0.0, 1.4), (0.24, 1.44)], 'x', -0.2, 0.2)                    # torso
+    p.box(skin, -0.06, 1.38, 0.04, 0.06, 1.47, 0.16)                                                                   # neck
+    p.cyl('flat:#eeeeea', (0, 1.5, 0.08), 1, 0.14, 0.26, seg=10)                                                      # helmet
+    p.box(HOUSING, -0.1, 1.46, -0.075, 0.1, 1.56, -0.05)                                                                # visor
+
+
 PROPS = {
     'signal9': (lambda p: signal(p, ARMS['signal9']), 10), 'signal7': (lambda p: signal(p, ARMS['signal7']), 8), 'signal3': (lambda p: signal(p, ARMS['signal3']), 4),
     'pedpole': (pedpole, 1.5), 'pedhead': (lambda p: pedhead(p, False), 1), 'pedhead_flat': (lambda p: pedhead(p, True), 1),
@@ -588,7 +772,32 @@ PROPS = {
     'taxi': (lambda p: sedan(p, '#1d4d2b', taxi=True), 3),
     'kei_y': (lambda p: kei(p, '#e8c93a'), 3), 'kei_w': (lambda p: kei(p, '#f0efe8'), 3), 'kei_p': (lambda p: kei(p, '#d9a3b0'), 3), 'kei_g': (lambda p: kei(p, '#7fa58a'), 3),
     'van': (lambda p: van(p, '#f1efe8'), 3), 'bus': (bus, 4),
+    'truck': (truck, 4), 'keitruck': (keitruck, 3), 'scooter': (scooter, 2),
+    'scooter_b': (lambda p: scooter(p, '#2b5f9e', '#30343a'), 2), 'gomi': (gomi, 4),
+    'bus_c': (lambda p: bus(p, 'flat:#2f7d4f', 'flat:#e8a020'), 4),
+    'sedan_g': (lambda p: sedan(p, '#2f4a3a'), 3), 'sedan_n': (lambda p: sedan(p, '#b9a98a'), 3),
+    'compact_w': (lambda p: compact(p, '#eeece4'), 3), 'compact_r': (lambda p: compact(p, '#b8402f'), 3), 'compact_t': (lambda p: compact(p, '#3f8f94'), 3),
+    'minivan_k': (lambda p: minivan(p, '#30333a'), 3), 'minivan_w': (lambda p: minivan(p, '#e9e7df'), 3),
+    'cycle': (lambda p: cycle(p, '#3a6f5a', '#c9b24a'), 2), 'cycle_b': (lambda p: cycle(p, '#8a2f2f', '#4a5f8a'), 2),
 }
+
+# Everything that drives, once more without its wheels (see BARE).
+DRIVEN = ['sedan_w', 'sedan_k', 'sedan_r', 'sedan_b', 'sedan_s', 'sedan_g', 'sedan_n', 'taxi', 'kei_y', 'kei_w', 'kei_p', 'kei_g', 'van', 'bus', 'bus_c',
+          'truck', 'keitruck', 'gomi', 'scooter', 'scooter_b', 'compact_w', 'compact_r', 'compact_t', 'minivan_k', 'minivan_w', 'cycle', 'cycle_b']
+
+
+def bare(fn):
+    def build(p):
+        BARE[0] = True
+        try:
+            fn(p)
+        finally:
+            BARE[0] = False
+    return build
+
+
+for _k in DRIVEN:
+    PROPS[_k + '_body'] = (bare(PROPS[_k][0]), PROPS[_k][1])
 
 
 def build_hi(v):

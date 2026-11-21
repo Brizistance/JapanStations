@@ -31,7 +31,7 @@ const ENTRANCE: RGB = [1.25, 1.35, 1.4], SHOP: RGB = [1.25, 1.0, 0.65], CAR: RGB
 const KONBINI: RGB = [1.15, 1.2, 1.2], PENDANT: RGB = [1.2, 0.9, 0.55];
 /** Buildings with shops at street level. */
 const SHOPFRONTS = new Set(['zakkyo', 'shophouse']);
-const CARS = /^(sedan|taxi|kei|van|bus$)/;
+const CARS = /^(sedan|taxi|kei|van|truck|bus$)/;
 const RANGE = 130, RANGE_FAR = 260;
 
 let fixed: Lamp[] | null = null;
@@ -74,6 +74,8 @@ function collect(): Lamp[] {
 /** Lights that move: filled by the train views each frame (world-view.ts). */
 export const headlights: { x: number; y: number; z: number }[] = [];
 const HEAD: RGB = [2.0, 1.9, 1.6];
+/** Headlights of the road traffic: filled by the traffic view each frame (traffic-view.ts). */
+export const carLights: { x: number; y: number; z: number }[] = [];
 
 const near: { l: Lamp; d: number }[] = [];
 const moving: Lamp[] = [];
@@ -97,6 +99,7 @@ export function updateLamps(cam: THREE.Vector3, night: number, max: number, dt: 
   near.length = 0;
   moving.length = 0;
   for (const h of headlights) moving.push({ x: h.x, y: h.y, z: h.z, r: 18, c: HEAD });
+  for (const h of carLights) moving.push({ x: h.x, y: h.y, z: h.z, r: 8, c: CAR });
   for (const list of [fixed ?? list0, moving]) {
     for (const l of list) {
       const dx = l.x - cam.x, dz = l.z - cam.z;

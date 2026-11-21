@@ -6,6 +6,9 @@ import { EYE, input, player, teleport, tickPlayer, nearestStation, where } from 
 import { clock } from '../sim';
 import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
+import { updateTraffic } from '../traffic/street';
+import { tickTrafficAudio } from '../audio/traffic';
+import { TrafficView } from './traffic-view';
 import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { toWorld } from '../world/collision';
@@ -36,6 +39,7 @@ function World() {
   const post = useRef<Post | null>(null);
   const rain = useRef<Rain | null>(null);
   const dots = useRef<LampDots | null>(null);
+  const traffic = useRef<TrafficView | null>(null);
   useEffect(() => {
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.0;
@@ -48,6 +52,8 @@ function World() {
     rain.current = new Rain(scene);
     dots.current = new LampDots();
     scene.add(dots.current.points);
+    traffic.current = new TrafficView();
+    scene.add(traffic.current.root);
     atmosphereAt(clock.time, useUI.getState().weather, atm);
     SKY.fromArray(atm.fogColor);
     scene.fog = new THREE.Fog(SKY.clone(), 300, 1700);
@@ -62,6 +68,9 @@ function World() {
       if (dots.current) scene.remove(dots.current.points);
       dots.current?.dispose();
       dots.current = null;
+      if (traffic.current) scene.remove(traffic.current.root);
+      traffic.current?.dispose();
+      traffic.current = null;
     };
   }, [scene, camera, gl, view]);
   // The post-processing chain only exists while some effect needs it (not on Low).
@@ -91,6 +100,9 @@ function World() {
     gl.info.reset();
     clock.advance(dt);
     updateTrains(clock.time);
+    // Road traffic moves before the player does, so the vehicles are solid where they now are.
+    const walking = useUI.getState().mode === 'play';
+    updateTraffic(clock.time, walking ? { x: player.body.pos[0], z: player.body.pos[2] } : camera.position, walking && !where.train ? player.body.pos : null, fx.traffic, fx.density);
 
     if (useUI.getState().mode === 'play') {
       tickPlayer(dt);
@@ -132,6 +144,8 @@ function World() {
     light?.update(camera.position, near.yaw, fx.shadows, atm, dt);
     const riding = useUI.getState().mode === 'play' && where.train != null;
     rain.current?.update(gl, camera.position, atm, dt, vis !== 'under' && camera.position.y > -12, riding, light && dots.current ? [light.dome, dots.current.points] : []);
+    traffic.current?.update(vis !== 'under', under ? 0 : atm.night, dt, state.clock.elapsedTime);
+    tickTrafficAudio(camera.position, under || useUI.getState().mode !== 'play', atm.wet > 0.5, clock.time);
     updateLamps(camera.position, under ? 0 : atm.night, fx.hq ? 64 : 24, dt);
     dots.current?.update(under ? 0 : atm.night);
     ssrWet.on = atm.wet > 0.5;

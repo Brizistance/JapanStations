@@ -1,7 +1,7 @@
 // Graphics presets and per-effect switches. Used on the main menu and in the in-game
 // panel (G). Settings live in the store and apply live.
 
-import { PRESET_ORDER, type Fx, type FxSwitch, type Preset } from '../render/graphics';
+import { DENSITIES, PRESET_ORDER, type Fx, type FxSwitch, type Preset } from '../render/graphics';
 import { useUI } from './store';
 
 const PRESET_LABEL: Record<Preset, [string, string]> = {
@@ -31,6 +31,7 @@ const SWITCH_INFO: [FxSwitch, string, string, string, Cost][] = [
   ['hq', '高精細', 'Extra detail', 'Sharper shadows, finer occlusion, longer reflections', 'heavy'],
   ['clouds', '立体雲', 'Volumetric clouds', 'Clouds with depth, lit by the sun (otherwise a flat sheet)', 'heavy'],
   ['godRays', '光芒', 'Sun shafts', 'Rays of light around the sun', 'medium'],
+  ['traffic', '道路の交通', 'Road traffic', 'Cars, buses and scooters driving on the streets', 'light'],
 ];
 const COST_LABEL: Record<Cost, string> = { light: 'light', medium: 'medium', heavy: 'heavy' };
 
@@ -86,6 +87,19 @@ export function EffectSwitches() {
           {SCALES.map((s) => (
             <button key={s} className={fx.scale === s ? 'on' : ''} aria-pressed={fx.scale === s} onClick={() => setFx({ scale: s })}>
               {s}×
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="gfx-scale" style={fx.traffic ? undefined : { opacity: 0.4 }} role="group" aria-label="Traffic density">
+        <span>
+          <b>交通量</b> Traffic density
+          <small>How many vehicles drive</small>
+        </span>
+        <div>
+          {DENSITIES.map((d, i) => (
+            <button key={d} className={fx.density === d ? 'on' : ''} aria-pressed={fx.density === d} disabled={!fx.traffic} onClick={() => setFx({ density: d })}>
+              {['Light', 'Normal', 'Busy'][i]}
             </button>
           ))}
         </div>

@@ -29,6 +29,7 @@ import { eraOf, fitting, setEra } from './fittings';
 import { WC, toilets } from './toilets';
 import { themeFor } from './themes';
 import { car, surface, tree, PLOT_X, PLOT_Z } from './surface';
+import { trafficLane } from './roads';
 import { wayfindConcourse, wayfindElevated, wayfindPassage } from './wayfinding';
 import { floorConcourse, floorPassage } from './floor';
 import { bayName, planStairwells, planWalls, type RoomSpec, type StairwellPlan } from './rooms';
@@ -988,6 +989,8 @@ function buildElevated(c: Ctx, spec: ElevatedSpec, under?: { ctx: Ctx; dir: [num
   b.block(-X, -1, -Z - 1, X, 40, -Z);
   b.block(-X, -1, Z, X, 40, Z + 1);
   for (let x = -X; x < X; x += 6) b.deco('flat:#e9e9e4', x, 0.004, 30.93, x + 3, 0.01, 31.07);
+  // Moving traffic in the far lane (keeping left, it runs towards −x); the near one is the bus and taxi bay.
+  trafficLane(b, X, 33.5, -X, 33.5, { speed: 30 / 3.6, flow: 3, use: 'general', taxi: 0.1, stops: [], halts: [] });
   // Plaza: bus stop, taxi rank, trees, convenience store.
   b.box('flat:#8d949b', -2, GY, 23.6, -1.85, GY + 2.6, 23.75);
   b.box('flat:#8d949b', 8, GY, 23.6, 8.15, GY + 2.6, 23.75);

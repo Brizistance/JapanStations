@@ -69,8 +69,22 @@ export const CAR_SFX: Sfx[] = [
   { name: 'car-door-open', seconds: 3, prompt: `Inside a Japanese commuter train: a short two-tone door chime, then the doors slide open with a pneumatic hiss. ${IN_CAR} No voice.` },
   { name: 'car-door-close', seconds: 3.5, prompt: `Inside a Japanese commuter train: the door-closing chime, then the doors slide shut with a soft thud. ${IN_CAR} No voice.` },
 ];
+// ── The street's traffic (audio/traffic.ts). Until these are generated the engine makes stand-ins of the same names. ──
+
+export const ROAD_SFX: Sfx[] = [
+  { name: 'road-car', seconds: 6, loop: true, prompt: 'A small petrol car driving past at a steady 40 km/h on a dry city street, heard from the pavement: soft tyre roar and a quiet engine, constant, seamless loop. No horn, no voice, no music.' },
+  { name: 'road-heavy', seconds: 6, loop: true, prompt: 'A diesel city bus driving at steady speed on a city street, heard from the pavement: low engine rumble and heavy tyre noise, constant, seamless loop. No horn, no voice.' },
+  { name: 'road-scooter', seconds: 5, loop: true, prompt: 'A 50cc delivery scooter riding at steady speed on a city street, heard from the pavement: a light buzzing engine, constant pitch, seamless loop. No horn, no voice.' },
+  { name: 'road-idle', seconds: 6, loop: true, prompt: 'A petrol car idling at a red light, heard from beside it: a quiet steady engine purr, constant, seamless loop. No voice, no music.' },
+  { name: 'road-wet', seconds: 6, loop: true, prompt: 'Car tyres hissing on a wet road in the rain at steady speed, heard from the pavement: a constant spray and hiss, seamless loop. No engine, no voice.' },
+  { name: 'bus-brake', seconds: 1.5, prompt: 'A city bus coming to a stop: one short sharp hiss of air brakes releasing. No voice.' },
+  { name: 'signal-piyo', seconds: 1.2, loop: true, prompt: 'Japanese pedestrian crossing audible signal for the blind: a two-note electronic bird chirp, high then lower, clean, then a short silence, seamless loop. No voice, no traffic.' },
+  { name: 'signal-kakko', seconds: 1.6, loop: true, prompt: 'Japanese pedestrian crossing audible signal for the blind: a two-note electronic cuckoo call, then a short silence, clean, seamless loop. No voice, no traffic.' },
+];
+
 export const SFX: Sfx[] = [
   ...CAR_SFX,
+  ...ROAD_SFX,
   {
     name: 'chime',
     prompt: `Japanese train station attention chime: four clean electronic bell tones ascending, like a school bell, before an announcement. ${PA} ${NO_VOICE}`,
