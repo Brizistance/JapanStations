@@ -4,6 +4,7 @@
 import { STATION_WORLDS, stationWorld } from '../stations';
 import { trainOfFrame, trains, type TrainRuntime } from '../trains/system';
 import { carry, stepBody, zoneAt, type Body, type Frame } from '../world/collision';
+import { rideLifts } from '../world/lifts';
 import type { Zone } from '../world/builder';
 import { HOME_STATION } from '../data/network';
 import type { StationWorld } from '../stations';
@@ -92,7 +93,9 @@ export function tickPlayer(dt: number) {
   const steps = Math.max(1, Math.ceil(dt / 0.02));
   const h = dt / steps;
   let jump = input.jump;
-  for (let i = 0; i < steps; i++) {
+  // (A lift carries whoever stands in it: no walking or falling meanwhile.)
+  const lifted = rideLifts(b, dt, STATION_WORLDS);
+  for (let i = 0; i < steps && !lifted; i++) {
     stepBody(b, all, vx * h, vz * h, h, jump);
     jump = false;
   }

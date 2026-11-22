@@ -138,8 +138,16 @@ export interface LanePart {
   dead?: boolean;
 }
 
+/** A lift's car in plan (frame x and z) and the floor heights it serves, lowest first (world/lifts.ts). */
+export interface LiftPart {
+  min: V2;
+  max: V2;
+  levels: number[];
+}
+
 export interface Build {
   boxes: BoxPart[];
+  lifts: LiftPart[];
   models: ModelPart[];
   lanes: LanePart[];
   ramps: RampPart[];
@@ -207,7 +215,7 @@ export interface SignOpts {
 
 export class Builder {
   readonly out: Build = {
-    boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], models: [], lanes: [], holes: [],
+    boxes: [], ramps: [], signs: [], gates: [], zones: [], meshes: [], models: [], lanes: [], holes: [], lifts: [],
     spawn: { pos: [0, 0, 0], yaw: 0 },
     plot: { ...DEFAULT_PLOT },
     keepOut: [],
@@ -381,6 +389,11 @@ export class Builder {
     if (this.out.boxes.length === n || Math.abs(x1 - x0) < 1e-6) return;
     const d = this.dir([1, 0]), axis = d[0] !== 0 ? 0 : 2, s = d[0] !== 0 ? d[0] : d[1];
     this.out.boxes[n].slope = { axis, from: this.pt(x0, 0, z0)[axis], k: (rise / (x1 - x0)) * s };
+  }
+  /** A lift's car, x0 … x1 by z0 … z1 in the current frame, serving these floor heights. */
+  lift(x0: number, z0: number, x1: number, z1: number, levels: number[]) {
+    const p = this.pt(x0, 0, z0), q = this.pt(x1, 0, z1);
+    this.out.lifts.push({ min: [Math.min(p[0], q[0]), Math.min(p[2], q[2])], max: [Math.max(p[0], q[0]), Math.max(p[2], q[2])], levels: levels.map((y) => this.pt(0, y, 0)[1]) });
   }
   /** Invisible collider. */
   block(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {

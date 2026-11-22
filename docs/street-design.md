@@ -33,22 +33,36 @@ Added from the owner interview, 2026-11-20, after the Hyōtanbori, Minamihorie a
     - Every station gets blue 通り/筋 road-name boards and invented junction names.
 13. **One hero piece each, inside and out.**
     - Each station gets one or two invented landmark pieces on top of the shared kit.
-    - A redesign always covers both the street and the station inside: platform, concourse and exits.
+    - A redesign always covers both the street and the station inside (rule 19 says how far inside).
     - The owner picks which station comes next each time.
+
+Added from the owner interview, 2026-11-21, after the Kita-Ōdōri rebuild (`src/stations/hub-street.ts` is the worked example for all of these):
+
+14. **The standard set, at every station.**
+    - No bare ground inside a block: every leftover patch is put to use by its size (coin car park, pocket park, shrine, tiny-shop lane, bicycle park, service yard, dressed back lane).
+    - Every road that reaches the plot's edge runs on about 200 m between rows of buildings, with a cross street half way.
+    - A lift you can ride: at least street to concourse, and on to the platform where there is room.
+    - A real street grid: a second parallel street and cross streets, a signal wherever two streets with traffic cross, one-way local streets joined by left turns only.
+15. **Size by station class.** Interchanges and hero stations get one large landmark building you can walk into and a full grid. Ordinary stations get the standard set, new main-street fronts and one or two small landmark pieces. Only the hub has a terminal, towers and a viaduct.
+16. **Main streets are purpose-built.** Whatever fronts the station's main street and its exits is modelled for that station. Stock kits (zakkyo, machi, shophouse, office, manshon) only on back streets, in lanes and past the plot's edge.
+17. **A real Japanese place as the model.** For each station, propose one real district type that fits its ward (Umeda was the hub's) and get the owner's yes before planning. The layout takes after it; no real name is copied.
+18. **Main boulevards keep the height line.** A cornice at 31 m with towers set back above it, as on Yanagi-suji. Lesser streets vary freely.
+19. **Below ground, the whole concourse.** Ticket hall, gates, paid corridors, passages, shops and exits are redesigned to match the new outside. Platforms stay unless the owner asks. (Kita-Ōdōri's gates and paid side were left as they were; they are owed this.)
+20. **Research before building.** Before any new kind of thing (a level crossing, a bus terminal, a shrine approach, an expressway), look up how it is really done in Japan, in Kansai where it differs; write the sources into this doc; ask the owner questions.
+21. **The signal standard is the researched one** (see Traffic signals below). It replaces rule 12's first two points.
+22. **Every invented name is web-checked** before it goes in, and `docs/worldbuilding.md` says which were. (At Kita-Ōdōri only eight were; the rest are owed.)
 
 ## How to work
 
-1. **Ask questions first:** what to model, which landmarks, style, extras. Offer the district-based default and ask for changes or new ideas.
+1. **Interview the owner first, as a Japanese urban planner would:** the real place to take after (rule 17), what to model, which landmarks, extras. Offer a recommended answer to each question.
 2. **Short plan in chat, then wait for a yes.** No plan files unless asked.
-3. **Build**, then `npm run typecheck` and the full `npm test`.
-4. **Check exits and collision:** nothing may block an exit stair or the station doors, and every model a player can reach needs a collider (`b.block`). Trees, lamps, shelters and vehicles included.
-5. **Finish with screenshots** from several street-level points, including the view a player sees first, by day and at 21:00, and say what was not viewed.
-6. **Run the data checks** before reporting:
+3. **Build in stages:** streets first, then the buildings you walk into, then below ground. The owner looks after each stage.
+4. After each stage run `npm run typecheck` and the full `npm test`, and the data checks:
    - no wall item without a wall behind it, and no AC unit above its wall top
-   - no blocked lane
+   - no blocked lane; nothing blocking an exit stair or a door; a collider (`b.block`) on every model a player can reach
    - the walk and traffic tests
-7. **Run the station-checker agent** once per station (CLAUDE.md).
-8. **Work in fewer, bigger rounds.** The owner sends screenshots of anything wrong.
+5. **Sign-off is the owner's.** Take a few sanity views (the first view a player sees, one junction, one interior, by day and at 21:00), say plainly what was not looked at, and report. The owner walks it and sends screenshots of what is wrong. No full browser checklist and no checker agent unless asked.
+6. **Work in fewer, bigger rounds.**
 
 ## How each rule is met in code
 
@@ -81,7 +95,7 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 - **Streetlights by environment** (`streetLamp`): `lamp_hw` highway masts on avenues and by offices; `lamp_shop` by shops (`mixed`, `neon`); `lamp_park` by parks, campuses and the sea, and on forecourts. Where a street has `poles: true` and houses or apartments, the utility poles carry the lights instead.
 - **Power lines** (`poleLine`): poles with a crossarm, three high-voltage wires, three low-voltage wires and two telecom cables, all sagging between poles; drops to the buildings behind; lines crossing the road from every second pole; a transformer on every second pole; green address plates (station name plus a chōme number). Wires are generated in code so they follow the street.
-- **Where wires go** is the spec's `poles` flag (residential, old-town and hill streets) plus every narrow side street of a road-kit station. Business centres bury them on the main road: Kita-Ōdōri has them only in the back lane behind the avenue.
+- **Where wires go** is the spec's `poles` flag (residential, old-town and hill streets) plus every narrow side street of a road-kit station. Business centres bury them on the main road: Kita-Ōdōri has them only along Minami-niban-dōri.
 - **Signs added**: junction name plates, 30 km/h over a school-route warning on narrow side streets, no-stopping at kerb bus stops, a hydrant sign, a finger post and a standing area map at every junction, delineator posts at side-street corners, shopping-street lamps along canal banks.
 - **Not built yet**: one-way and no-entry signs, pedestrian-only hours with time plates, street-name plates on walls, convex mirrors beyond the kit's own, school-zone road paint, evacuation signs.
 
@@ -91,7 +105,7 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 - **Types:** `corner` (stand-alone, 14 × 9 m), `ground` (in the base of the `mid_k` block, 12 × 10 m), `kiosk` (open-fronted, inside a station, 8 × 5 m), `roadside` (16 × 10 m behind a car park with a pole sign; modelled, not placed yet).
 - **Chains:** Maruhoshi Mart, Asanagi, Hinode Stop (`CHAINS`). Stock is plain colour blocks; nothing is copied from a real shop.
 - **Placing one:** at a `surface.ts` station, add to the spec's `konbini` list (`{ type, chain, side, x0 }`); its lot is kept out of the ordinary fill. In a composer like `hub.ts`, reserve the lot and call `konbini` inside `b.with`.
-- **Placed so far:** Kita-Ōdōri (a `ground` shop on the avenue, a `kiosk` in the Central Passage) and Tsumugibashi (a `corner` shop by the side street, a `ground` shop on the avenue). Long term: every station.
+- **Placed so far:** Kita-Ōdōri (a `corner` shop on Minami-ichiban-dōri, a `kiosk` in the Central Passage) and Tsumugibashi (a `corner` shop by the side street, a `ground` shop on the avenue). Long term: every station.
 - Below the street a shop uses the `konbiniu_…` copies of the fittings, which take no daylight.
 
 ## Level crossing kit (built 2026-11-19, not placed anywhere)
@@ -103,7 +117,11 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 **Hyōtanbori (2026-11-20):** nightlife model lots (`night`), the grand canal and station pieces in `src/stations/hyotanbori-street.ts` (spec `canalGrand`, `pieces`; models `build_hyotan.py`).
 
-**Kita-Ōdōri, urban pass (2026-11-21):** two boulevards south (Nishihama-suji, Shinonome-suji; road kit `ends`, `flows`), a scramble at Shinonome-suji (kit `scramble`: same 60 s cycle, all-walk 47–56 s), the Kawaminato Expressway over the avenue with its own traffic at deck height (vehicles on another level never block or turn), the south deck, yokochō alleys behind the front row and Ekiura Yokochō north-west, the 322 m Kawaminato Sky Crown ending Yanagi-suji, towers twr_f…k (`build_city.py`), a tower-dense backdrop (`district.towers`). Later the same day: gādoshita (高架下) under the rail decks (Higashi-ura; `underRow` in hub.ts), the signalled side street Akitsushima-dōri and pedestrian Mioya-dōri, Ura-suji parallel street, every gap packed (`fillRect`, `lowBlock`), and the hub's own ring of merged blocks beyond the plot (the shared backdrop keeps off run-on roads). Road kit gained `busX`, `taxiX`, `lit`; traffic ignores vehicles on another level.
+**Kita-Ōdōri, the terminal district (2026-11-21, stage 1 of 3):** the old plaza, Sky Crown, expressway and scramble are gone. `src/stations/hub-street.ts` lays a grid of 筋 and 通 (the file's head has the plan): the avenue and four wide streets on the road kit (`tees` for Yanagi-suji, which ends at the terminal), Minami-ichiban-dōri and Kōka-dōri with their own signalled junctions (`junction`, `sideRoad`; 14 signalled junctions in all, one shared cycle: axis 0 east–west, axis 1 north–south), three one-way local streets joined by left turns only, corner cut-offs, a median on the avenue. Models: `build_kitafront.py` (13 avenue fronts), `build_mioya.py` (the terminal department store), `build_gate.py` (the Gate Towers), `build_viaduct.py` (AR viaduct: arch bays, walk-through bays, station bays, girder bridges), `build_ring.py`, `build_kitaarcade.py`, `build_kitacity.py`, sharing `kitakit.py`. Names, clocks and screens are placed from `src/stations/anchors/*.ts`, which the scripts write (`mark`). Screens are a live sign (`{ k: 'screen' }`). Road signs gained one-way and no-entry. Stage 2 (same day) opened the terminal: `build_mioya.py` leaves the grand concourse's room in the `store` model and dresses it with a second model, `hall` (interior faces; `DAYLIGHT` 0.45); the colliders, galleries, stairs and signs are in the terminal block of `hub-street.ts`. A building you walk into needs both: the outer model's faces do not show from inside. Stage 3 (same day) added Miochika's south town at B1 (`town` in `hub.ts`, models `build_miochika.py`) with exits 11–14: two rise in bays cut into the Gate Towers' podium fronts (`RX0` … in `build_gate.py`, mirrored by the colliders), two on the local streets' pavements. The gates and everything inside them were kept: they are fitted to the platform stairs. Owner's round of fixes, same day:
+- **Lifts you can ride** (`src/world/lifts.ts`, `src/stations/lift.ts`, `Builder.lift`): a shaft with a floor at every level; whoever stands in it is carried to the next. At the hub: food floor, grand concourse and gallery; street to Miochika beside exits 13 and 14; the footbridge's four towers.
+- **Yanagi-suji's fronts** south of Minami-ichiban-dōri are purpose-built (`suji_a` … `suji_h` in `build_kitafront.py`): a colonnaded street storey, a cornice at the old 31 m line, towers set back above.
+- **No bare ground inside a block** (rule 7): after the buildings are placed, `hub-street.ts` finds every free rectangle in each block's interior and dresses it by size: coin car park, pocket park or shrine; a row of tiny shops with a lane; bicycle park or service yard; a back lane.
+- **Past the plot's edge** every street runs on 200 m between rows of simplified buildings, with a cross street half way (Yanagi-suji excepted: Tsumugibashi's boulevard arrives there).
 
 **Midorizaka (2026-11-21):** a different street plan: the park (pond, bridge, trellis, playground) opens onto the pavement where the station's pavilions stand; across the road a bus and taxi rotary (standing buses and taxis; moving traffic stays on the main road) and Midorizaka Ginza, all `pieces` (`midorizaka-street.ts`, models `build_midori.py`).
 
@@ -164,9 +182,18 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 ## Traffic signals
 
-Three mountings (`src/stations/roads.ts`, models in `tools/blender/build_road.py`): a tapered pole with a curved arm and stay (`vehicleSignal`), a standing head on a straight pole as a repeater at the stop line of wide junctions (`sideSignal`), and a head on a bracket from a concrete utility pole (`poleSignal`), which gives every other narrow side street its own signal instead of a stop sign. Heads are separate models: the hooded 300 mm type with a back board, and the thin 250 mm LED type on avenues (main road half width 8 m or more). Avenues also get a right-turn arrow lamp at wide junctions, pedestrian heads with countdown bars and audible-signal speakers; push-button crossings get button boxes; each junction has a control cabinet. The arrow has its own 4 s after the main road's yellow (`signalState` in `src/signs/draw.ts`).
+Mounting follows Japanese practice as researched 2026-11-21 (the owner asked for Kansai). `vehicleSignal`, `shortSignal`, `pedSignal` in `src/stations/roads.ts`; models in `tools/blender/build_road.py`.
 
-References (2026-11-20): the 2017 National Police Agency change to flat heads with 250 mm lenses (newswitch.jp/p/10304, kuruma-news.jp/post/107499); a maker's flat head of about 1050 x 350 x 88 mm, tilted 15 degrees; pole types from Maruichi Steel Tube's signal pole catalogue. Not verified: mounting heights (4.5 m over the road and 2.5 m for pedestrian heads are the commonly quoted clearances). The game's flat heads hang upright, not tilted, because signs cannot lean.
+- **Where heads stand:** the main head beyond the junction on the left; a second head for the other way hangs back to back with it on the same arm, which is that traffic's near-side head (`back`). No separate repeater poles.
+- **Arms are short:** a straight steel pole with two parallel beams, 2.0 m or at most 3.5 m (`sigp2`, `sigp3`), the head fixed between the beams at the tip. The long curved arms (`signal7`, `signal9`) are no longer placed.
+- **By era (`PoleStyle`):** `new` as above with thin LED heads; `old` (spec `oldTown`, or an old-town or nightlife side) keeps the single curved arm `signal3` and hooded heads, one in three with the green-and-white striped back board (`head_zebra`); `shared` (road kit `shared: true`) hangs the signal on a matt dark grey pole that carries the street light too (`siglight2`, `siglight3`), after Osaka's Midosuji guideline. At the hub: the avenue and Yanagi-suji.
+- **Never on a utility pole.** A narrow street's own signal stands on the short-arm steel pole (`sigshort`).
+- **Name plate:** on the arm, road side, between the pole and the head, its foot on the upper beam (owner, 2026-11-21); a pole with a plate always has the 3.5 m arm. On the old curved arm and the short-arm pole it stands on posts over the arm.
+- **Heights:** vehicle heads' middle 5.55 m (underside 5.4 m thin, 5.2 m hooded); pedestrian heads' middle 3.1 m (underside 2.7 m). Lamp order green, yellow, red from the left, red nearest the road's centre.
+- **Audible signals** are the bird calls (ピヨピヨ / カッコー, `src/audio/traffic.ts`), with a speaker on the pedestrian heads of every wide crossing.
+- Right-turn arrows on avenues at wide junctions, countdown bars on thin pedestrian heads, push buttons on narrow crossings, a control cabinet at each junction. The arrow has its own 4 s after the main road's yellow (`signalState`).
+
+Sources: Osaka Prefectural Police signal pages (police.pref.osaka.lg.jp/kotsu/kisei/shingouki/12203.html, 12112.html; audible signals are the bird-call type), Osaka City's Midosuji road-space guideline draft (signals share lighting poles, dark grey about N4), ja.wikipedia.org 日本の交通信号機 (far-left main head and auxiliary heads, 2.0 to 3.5 m arms, steel replacing concrete poles, utility poles discouraged, pedestrian heads 2.5 m or more), kuruma-news.jp/post/73048 (striped back boards dying out), and for flat heads newswitch.jp/p/10304, kuruma-news.jp/post/107499. Not verified against a primary standard: the exact minimum heights. The game's flat heads hang upright, not tilted, because signs cannot lean.
 
 ## Small street places
 

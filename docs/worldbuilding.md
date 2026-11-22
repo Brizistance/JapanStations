@@ -13,8 +13,8 @@
 |---|---|---|
 | **Kawaminato Metro (川湊メトロ)** | Underground metro, 6 lines | Built |
 | **Akitsushima Railway (秋津島鉄道, AR)** | JR-style main line: through platforms on the viaduct at Kawaminato Station | Named 2026-11-18, not built. Plans: [akitsushima-railway.md](akitsushima-railway.md) |
-| _TBD_ private railway | Dead-end terminal in the Kawaminato Station Building | Space reserved, not named |
-| _TBD_ high-speed line | Top deck at Kawaminato Station | Space reserved, not named |
+| _TBD_ private railway | Dead-end terminal in the Mioya Terminal Building (Hankyu style): its concourse is on the deck level at the north end of the grand concourse | Not named; gate line hoarded, no platforms yet |
+| _TBD_ high-speed line | Not at Kawaminato Station any more (dropped from the site, 2026-11-21); its station is undecided | Not named |
 
 The other two future operators are deliberately unnamed. Their space at the hub is signed only **将来線予定地 / Reserved for future line** plus the kind of railway. Name them when one is actually built.
 
@@ -72,7 +72,7 @@ Invented brands that appear on shop fronts in concourses (`SHOPS` in `src/statio
 | Sorano Zakka | そらの雑貨店 | Gift shop |
 | Photo Minato | フォトミナト | Photo booth |
 | Kawaminato Shinkin Bank | 川湊信用金庫 | ATM corner |
-| Mioya Department Store | 澪屋百貨店 | The old department store facing Kawaminato Station across Kita-Ōdōri (from the Mio-gawa). Not web-checked yet |
+| Mioya Department Store | 澪屋百貨店 | The terminal department store over the Kita-Ōdōri platforms: the Mioya Terminal Building (澪屋ターミナルビル), with ホテル澪屋 Hotel Mioya beside it (from the Mio-gawa). Web-checked 2026-11-21 |
 | Akitsushima Life Building | 秋津島生命ビル | Head office tower on Kita-Ōdōri, west of the station |
 | Asanagi | あさなぎ | Convenience store chain (teal and cream), named after the Asanagi shore. Not web-checked yet |
 | Hinode Stop | ひのでストップ | Convenience store chain (magenta and navy). Not web-checked yet |
@@ -97,7 +97,7 @@ Each station's street spec names its own campus, quay and promenade (`campusName
 |---|---|
 | Daigaku-mae | 川湊大学 Kawaminato University (the default) |
 | Tsumugibashi | 紬橋絹取引所 Tsumugibashi Silk Exchange (1926; `landmark` in `specs.ts`), the station building on the avenue's south side, a brick and stone front with a copper dome. East of it the avenue crosses 紬堀 Tsumugi-bori (the old silk merchants' canal) on 紬橋 Tsumugi-bashi, the stone arch bridge the station is named after. Under its dome: 紬橋ロトンダ the Tsumugi Rotunda, with 紬の大機 the Great Loom as the meeting point; 取引所通り Exchange Passage, 大階段 the Grand Stair, 取引所ホール the Exchange Hall. Rotunda shops (`SHOPS` in `rotunda.ts`): たんもの屋, おび清, むすび, まわた屋, かたぞめ, いとぐるま. Invented 2026-11-19 |
-| Kita-Ōdōri (street) | 川湊スカイクラウン Kawaminato Sky Crown (322 m supertall at the head of Yanagi-suji); roads 西浜筋 Nishihama-suji, 東雲筋 Shinonome-suji (scramble at 北大通東 Kita-Ōdōri East), 川湊高速 1号環状線 Kawaminato Expressway Route 1 (Loop) over 北大通; 北大通デッキ Kita-Ōdōri deck; alleys 西浜横丁 Nishihama Yokochō, 柳小路 Yanagi-kōji, 北大通 裏通り Ura-dōri, 東雲横丁 Shinonome Yokochō, 駅裏横丁 Ekiura Yokochō with 柳森稲荷 Yanagimori Inari |
+| Kita-Ōdōri (street) | Rebuilt 2026-11-21, Umeda style (names web-checked that day). Streets: 北大通 avenue; 筋 浜手筋 Hamate-suji, 柳筋 Yanagi-suji, 汐見筋 Shiomi-suji, 千鳥筋 Chidori-suji; 通 南一番通 Minami-ichiban-dōri, 南二番通 Minami-niban-dōri, 高架通 Kōka-dōri, 駅裏通 Ekiura-dōri; local 西小路, 澪屋西通, 澪屋東通; 北栄通商店街 Hokuei-dōri arcade and 北栄横丁 alleys. Landmarks: 北大通ゲートタワー Kita-Ōdōri Gate Towers (twin, sky lobby over Yanagi-suji), カミナリ電機 Kaminari Denki, 川湊座 Kawaminato-za, 澪標銀行 Miotsukushi Bank, キタモード Kita Mode, 川湊新報 Kawaminato Shinpō, 東雲イン Shinonome Inn, 北大通センタービル, 浜手ビルヂング, 北栄ビル, 千鳥スクエア, カプセル&サウナ 湯けむり, カラオケ 歌舟, パーラー 七福, ゲーム ポンポン, 柳森稲荷 Yanagimori Inari, 汐見ポケットパーク. On Yanagi-suji (not web-checked): 澪標銀行 柳筋支店, 柳テラス Yanagi Terrace, 川湊海上ビル, 柳筋会館, 北大通証券, 楊柳堂 本店 Yōryūdō, 川湊ガスビル, みお生命 柳筋ビル; small places 千鳥児童遊園, 浜手ひろば, 北栄稲荷. The Sky Crown, the expressway, the scramble and the old plaza are gone |
 | Midorizaka | 緑坂公園 Midorizaka Park, 緑坂駅前広場 Midorizaka Station Plaza (buses 北丘団地・緑坂循環, 川湊駅・北大通), 緑坂銀座 Midorizaka Ginza: パン工房 ぶどうの木 Budō-no-ki Bakery, 花 みどり Midori Flowers, 八百屋 丘の上, コインランドリー, 本とおもちゃ ぶんぶん, 和菓子 若葉, クリーニング 白樺, 喫茶 ひだまり; in the exit 1 pavilion 喫茶 緑の窓 Midori-no-Mado Coffee |
 | Kaiseichō | 川湊第一高等学校 Kawaminato Daiichi High School (founded 1902, 明治三十五年); street: 文具 学林堂 Gakurindō Stationery; station: 文具と古書 開成堂 Kaiseidō Stationery & Old Books (walk-in) |
 | Seiryōdai | 川湊工科大学 Kawaminato Institute of Technology |
@@ -222,15 +222,15 @@ Numbers start at 11 on each line (an Osaka habit), which leaves 01–10 free for
 
 ## The hub: one complex, two names
 
-Osaka/Umeda style. The **metro** station is **Kita-Ōdōri (北大通)**: that is the name on platforms, exits and the map. The **railway building** above it is **Kawaminato Station (川湊駅)**: that is the name on the facade and on signs pointing up from the concourse. Nothing in the network data is called Kawaminato Station yet, because no railway serves it.
+Osaka/Umeda style. The **metro** station is **Kita-Ōdōri (北大通)**: that is the name on platforms, exits and the map. Above it stand the **Mioya Terminal Building** (the department store, with the private railway's terminal inside) and, on the viaduct behind, **Kawaminato Station (川湊駅)**, the AR Main Line's station. Nothing in the network data is called Kawaminato Station yet, because no railway serves it.
 
 | Thing | Name |
 |---|---|
-| Meeting spot | **Kin no Yanagi (金の柳)**: a gilded willow with a working clock, on the atrium floor. Named for Yanagi-suji. |
-| Underground shopping street | **Yanagi Mall (ヤナギモール)**, east and west wings under Kita-Ōdōri avenue |
-| Forecourt | Kawaminato Station Plaza (川湊駅前広場) |
-| East block | Kawaminato Station Building (川湊ステーションビル) |
-| West block | Kawaminato Station Hotel (川湊ステーションホテル) |
+| Meeting spot | **Mio no Hiroba (澪のひろば)**: the square with the water clock in Miochika's South Town. (Kin no Yanagi, the gilded willow, went with the old atrium in 2026-11.) |
+| Underground shopping street | **Miochika (みおちか, 澪地下街)**: Miochika Ōdōri under the avenue (east and west), West Town (西の町), East Town (東の町), South Town (南の町); the Mioya Food Floor (澪屋 食品館) under the terminal |
+| Terminal building | Mioya Terminal Building (澪屋ターミナルビル): Mioya Department Store, a street arcade and the public Mioya Terrace (澪屋テラス) over it |
+| Footbridge | Kita-Ōdōri footbridge (北大通歩道橋): a ring over the avenue and Yanagi-suji, joined to the terrace |
+| Hotel | Hotel Mioya (ホテル澪屋), west of the terminal building |
 | Stadium at Kamomehama | Kawaminato Dome (川湊ドーム) |
 
 ## Fictional brands (signage)

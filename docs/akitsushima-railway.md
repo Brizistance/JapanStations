@@ -1,6 +1,6 @@
 # Akitsushima Railway (AR): future plans
 
-**Status:** pass 1 done (2026-11-19): the Main Line is in the data, the timetable and on the route map (`RAIL_LINES` / `RAIL_STATIONS` in `network.ts`, `RAIL_NET` in `sim/index.ts`). Nothing is in the 3D world yet. Draft from 2026-11-18. Space for it is already reserved at Kawaminato Station: viaduct through-platforms (2F/3F "future railway concourses" in `hub.ts`). Station names below are drafts and have **not** been web-checked yet.
+**Status:** pass 1 done (2026-11-19): the Main Line is in the data, the timetable and on the route map (`RAIL_LINES` / `RAIL_STATIONS` in `network.ts`, `RAIL_NET` in `sim/index.ts`). Nothing is in the 3D world yet. Draft from 2026-11-18. Its viaduct through Kita-Ōdōri is built as scenery (2026-11-21, `hub-street.ts`, `build_viaduct.py`): four tracks at +9 m, two island platforms over the terminal's block, no trains and no times. The high-speed deck is no longer planned at this site. Station names below are drafts and have **not** been web-checked yet.
 
 ## The company
 

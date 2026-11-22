@@ -20,7 +20,7 @@ interface Entry {
 }
 export type SignCache = Map<string, Entry>;
 
-const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock', 'signal', 'crossing', 'womenonly']);
+const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock', 'signal', 'crossing', 'womenonly', 'screen']);
 const FAST = new Set(['dep', 'depAll']);
 /** Printed or physical things (posters, murals, machine fronts, doors): lit by the room, not self-lit. */
 const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap', 'floormark', 'queue', 'timetable', 'strip', 'carguide', 'roadsign', 'roadboard', 'roadmark', 'junction', 'address']);
@@ -80,7 +80,7 @@ function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
     // LCD boards glow less than LED dots but more than the printed signs, which stay below bloom.
     const mat = isLed(c) ? ledMaterial(tex, W, H) : PRINTED.has(c.k)
       ? lit({ map: tex, roughness: c.k === 'machine' ? 0.35 : 0.55, metalness: 0 }, { macro: 0, macroRough: 0, glow: GLOW[c.k] })
-      : new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(FAST.has(c.k) ? 1.35 : LIVE.has(c.k) ? 1.5 : 1.12) });
+      : new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(FAST.has(c.k) ? 1.35 : c.k === 'screen' ? 0.92 : LIVE.has(c.k) ? 1.5 : 1.12) });
     if (CUTOUT.has(c.k)) mat.alphaTest = 0.5;
     e = { canvas, ctx, tex, mat, content: c, live: LIVE.has(c.k), fast: FAST.has(c.k) };
     cache.set(k, e);

@@ -2167,6 +2167,7 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'faremap': return drawFareMap(ctx, W, H, c);
     case 'shop': return drawShop(ctx, W, H, c);
     case 'poster': return drawPoster(ctx, W, H, c.v);
+    case 'screen': return drawPoster(ctx, W, H, c.v + Math.floor(clock.time / 9) * 3);
     case 'machine': return drawMachine(ctx, W, H, c.v, c.era ?? 'mid');
     case 'mural': return drawMural(ctx, W, H, c);
     case 'label':
@@ -2342,6 +2343,34 @@ function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { 
   switch (v) {
     case 'back-tri': return poly(tri(1), GREY);
     case 'back-round': return disc(0.98, GREY);
+    case 'back-rect':
+      ctx.fillStyle = GREY;
+      ctx.fillRect(0, 0, W, H);
+      return;
+    case 'noentry':
+      disc(0.98, '#c8102e');
+      ctx.fillStyle = '#f4f4f0';
+      ctx.fillRect(cx - R * 0.7, cy - R * 0.14, R * 1.4, R * 0.28);
+      return;
+    case 'oneway-l':
+    case 'oneway-r': {
+      // 一方通行: a white arrow on a blue board, as wide as the board.
+      ctx.fillStyle = '#1f4fa0';
+      ctx.fillRect(0, 0, W, H);
+      const s = v === 'oneway-r' ? 1 : -1;
+      ctx.fillStyle = '#f4f4f0';
+      ctx.beginPath();
+      ctx.moveTo(cx - s * W * 0.42, cy - H * 0.16);
+      ctx.lineTo(cx + s * W * 0.1, cy - H * 0.16);
+      ctx.lineTo(cx + s * W * 0.1, cy - H * 0.36);
+      ctx.lineTo(cx + s * W * 0.44, cy);
+      ctx.lineTo(cx + s * W * 0.1, cy + H * 0.36);
+      ctx.lineTo(cx + s * W * 0.1, cy + H * 0.16);
+      ctx.lineTo(cx - s * W * 0.42, cy + H * 0.16);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
     case 'back-penta': return poly(penta(1), GREY);
     case 'back-diamond': return poly([[0, -0.98], [0.98, 0], [0, 0.98], [-0.98, 0]], GREY);
     case 'speed30':

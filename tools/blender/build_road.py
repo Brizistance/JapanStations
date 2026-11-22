@@ -100,6 +100,12 @@ def signal(p, arm):
     hx = -(arm - HEAD_IN)
     for sx in (-0.4, 0.4):
         tube(p, POLE, (hx + sx, 6.05, 0), (hx + sx, HEAD_Y + 0.2, 0), 0.02, seg=5)
+    if arm - HEAD_IN < 3.2:
+        # The junction's plate over the arm on the road side, on two posts.
+        w, h, px, py = 1.7, 0.5, -1.2, 6.5
+        for sx in (-0.6, 0.6):
+            p.box(POLE, px + sx - 0.02, 5.95, -0.02, px + sx + 0.02, py - h / 2 + 0.05, 0.02)
+        p.box(POLE_DK, px - w / 2, py - h / 2, -0.03, px + w / 2, py + h / 2, 0.03)
     if arm - HEAD_IN >= 3.2:
         for sx in (1.0, 2.5):
             tube(p, POLE, (hx + sx, 6.04, -0.02), (hx + sx, HEAD_Y + 0.31, -0.02), 0.015, seg=5)
@@ -135,12 +141,12 @@ def head(p, flat, vertical=False, n=3):
 
 
 def pedpole(p):
-    """Pedestrian signal post: the head (a separate model) hangs at y 2.65, z -0.24."""
+    """Pedestrian signal post: the head (a separate model) hangs at y 3.1 (PED_Y), z -0.24."""
     base(p, 0.18)
-    taper(p, POLE, 0.03, 3.25, 0.075, 0.06, n=2, seg=8)
-    p.cyl(POLE_DK, (0, 3.26, 0), 1, 0.068, 0.03, seg=8)
-    p.box(POLE, -0.025, 2.45, -0.14, 0.025, 2.5, 0)
-    p.box(POLE, -0.025, 2.8, -0.14, 0.025, 2.85, 0)
+    taper(p, POLE, 0.03, 3.7, 0.075, 0.06, n=2, seg=8)
+    p.cyl(POLE_DK, (0, 3.71, 0), 1, 0.068, 0.03, seg=8)
+    p.box(POLE, -0.025, 2.9, -0.14, 0.025, 2.95, 0)
+    p.box(POLE, -0.025, 3.25, -0.14, 0.025, 3.3, 0)
 
 
 def pedhead(p, flat):
@@ -761,13 +767,12 @@ def scooter(p, col='#c8372d', jacket='#3d6b4f'):
 # ── More street lights, a short signal, street props (2026-11-20) ──
 
 # The short-arm signal (sigshort): where its head hangs, and the junction plate on top of the pole.
-SHORT = dict(hx=-1.9, hy=5.45, plate_x=0.92, plate_y=6.25, plate_w=1.7, plate_h=0.5)
+SHORT = dict(hx=-1.9, hy=5.45, plate_x=-1.2, plate_y=6.0, plate_w=1.7, plate_h=0.5)
 
 
 def sigshort(p):
     """Narrow-junction signal, as on Osaka's side streets: a straight pole, a straight arm out over
-    the road with a thin LED head at its tip, the junction's name plate on brackets beside the pole's
-    top (away from the road), bands for a pedestrian head and a clamp for a no-parking sign lower down.
+    the road with a thin LED head at its tip, the junction's name plate standing on the arm over the head, bands for a pedestrian head and a clamp for a no-parking sign lower down.
     The head and the plate's lettering are separate."""
     base(p, 0.22)
     taper(p, POLE, 0.03, 6.6, 0.115, 0.08, n=4)
@@ -778,22 +783,100 @@ def sigshort(p):
     p.box(POLE, SHORT['hx'] - 0.08, SHORT['hy'] - 0.1, 0.05, SHORT['hx'] + 0.08, SHORT['hy'] + 0.1, 0.14)
     # The plate beside the top of the pole: two brackets out from it, a blank board.
     w, h, px, py = SHORT['plate_w'], SHORT['plate_h'], SHORT['plate_x'], SHORT['plate_y']
-    for y in (py - 0.15, py + 0.15):
-        p.cyl(POLE_DK, (0, y, 0), 1, 0.1, 0.05, seg=10, caps=False)
-        tube(p, POLE, (0, y, 0.0), (px - w / 2 + 0.05, y, 0.0), 0.02, seg=5)
-    p.box(POLE_DK, px - w / 2, py - h / 2, -0.03, px + w / 2, py + h / 2, 0.03)
+    for sx in (-0.6, 0.6):
+        p.box(POLE, px + sx - 0.02, SHORT['hy'] + 0.04, 0.08, px + sx + 0.02, py - h / 2 + 0.05, 0.12)
+    p.box(POLE_DK, px - w / 2, py - h / 2, 0.07, px + w / 2, py + h / 2, 0.13)
     # Bands for the pedestrian head (at 2.65, hung on the road side) and the sign clamp.
-    for y in (2.45, 2.85, 2.05):
+    for y in (2.9, 3.3, 2.05):
         p.cyl(POLE_DK, (0, y, 0), 1, 0.125, 0.05, seg=10, caps=False)
-    p.box(POLE, -0.025, 2.45, -0.2, 0.025, 2.5, 0)
-    p.box(POLE, -0.025, 2.8, -0.2, 0.025, 2.85, 0)
+    p.box(POLE, -0.025, 2.9, -0.2, 0.025, 2.95, 0)
+    p.box(POLE, -0.025, 3.25, -0.2, 0.025, 3.3, 0)
     p.box(POLE, -0.14, 1.1, 0.09, 0.14, 1.5, 0.24)
+
+
+# ── Signal poles as mounted today (2026-11 research: docs/street-design.md, Traffic signals) ──
+# The standard is a straight steel pole with a short arm of two parallel beams, 2.0 m long or at most
+# 3.5 m, the head fixed between the beams at its tip; a second head for the traffic coming the other
+# way hangs back to back with it. The junction's name plate is fixed to the arm on the road side,
+# between the pole and the head, its foot on the upper beam (so a pole with a plate has the 3.5 m
+# arm). Shared with src/stations/roads.ts.
+PARM = {'sigp2': 2.0, 'sigp3': 3.5, 'siglight2': 2.0, 'siglight3': 3.5}
+PARM_IN = 0.55                      # the head's middle, in from the arm's tip
+PLATE = dict(x=-1.2, y=HEAD_Y + 0.33 + 0.33, w=1.7, h=0.5, z=0.12)   # y: on the upper beam; the old curved arm carries it at PLATE_OLD_Y
+PLATE_OLD_Y = 6.5
+PED_Y = 3.1                         # middle of a pedestrian head: its underside 2.7 m over the pavement
+GREY = 'flat:#5a5d60'               # matt dark grey (N4), the colour of the big streets' shared poles
+GREY_DK = 'flat:#45484b'
+
+
+def plate_brackets(p, col, dk, py=None, foot=None):
+    """The blank board for the junction's name on the arm, on two short posts from the beam under it."""
+    w, h, px, pz = PLATE['w'], PLATE['h'], PLATE['x'], PLATE['z']
+    py = PLATE['y'] if py is None else py
+    foot = py - h / 2 - 0.08 if foot is None else foot
+    for sx in (-0.6, 0.6):
+        p.box(col, px + sx - 0.02, foot, pz - 0.02, px + sx + 0.02, py - h / 2 + 0.05, pz + 0.02)
+    p.box(dk, px - w / 2, py - h / 2, pz - 0.03, px + w / 2, py + h / 2, pz + 0.03)
+
+
+def ped_bands(p, col, dk, r=0.14):
+    for y in (PED_Y - 0.2, PED_Y + 0.2):
+        p.cyl(dk, (0, y, 0), 1, r, 0.05, seg=10, caps=False)
+        p.box(col, -0.025, y - 0.02, -0.2, 0.025, y + 0.02, 0)
+
+
+def sigp(p, arm, light=False):
+    """A signal pole with a parallel-beam arm. `light`: the big streets' shared pole, dark grey and
+    taller, with the street light on an arm of its own above the signal."""
+    col, dk = (GREY, GREY_DK) if light else (POLE, POLE_DK)
+    top = 9.4 if light else 6.9
+    p.box(dk, -0.28, 0, -0.28, 0.28, 0.03, 0.28)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            p.cyl(col, (sx * 0.22, 0.05, sz * 0.22), 1, 0.022, 0.05, seg=6)
+    p.cyl(dk, (0, 0.13, 0), 1, 0.17, 0.2, seg=10)
+    taper(p, col, 0.03, top, 0.13, 0.085, n=5)
+    p.cyl(dk, (0, top + 0.02, 0), 1, 0.095, 0.04, seg=10)
+    # The two beams, clamped to the pole; the head's brackets join them at the tip.
+    hx = -(arm - PARM_IN)
+    for y in (HEAD_Y + 0.33, HEAD_Y - 0.33):
+        tube(p, col, (0, y, 0.12), (-arm, y, 0.12), 0.036)
+        p.cyl(dk, (0, y, 0), 1, 0.15, 0.09, seg=10, caps=False)
+        p.box(col, -0.06, y - 0.045, 0.0, 0.06, y + 0.045, 0.16)
+        p.cyl(dk, (-arm, y, 0.12), 0, 0.04, 0.02, seg=8)
+    for sx in (-0.4, 0.4):
+        p.box(col, hx + sx - 0.02, HEAD_Y - 0.33, 0.085, hx + sx + 0.02, HEAD_Y + 0.33, 0.155)
+    # Terminal box and conduit, the pole's number plate, the name plate's brackets, bands for a pedestrian head.
+    p.box(col, -0.18, 1.05, 0.13, 0.18, 1.6, 0.33)
+    p.box(dk, -0.19, 1.6, 0.12, 0.19, 1.63, 0.34)
+    tube(p, dk, (0.1, 0.03, 0.2), (0.1, 1.05, 0.2), 0.025, seg=5)
+    p.box('flat:#f1f0ea', -0.07, 1.9, -0.156, 0.07, 2.12, -0.15)
+    if arm >= 3.4:
+        plate_brackets(p, col, dk)
+    ped_bands(p, col, dk)
+    if light:
+        # The street light: an arm out over the road from the top, a thin blade head.
+        tube(p, col, (0, top - 0.15, 0), (-0.5, top + 0.2, 0), 0.05, seg=8)
+        tube(p, col, (-0.5, top + 0.2, 0), (-2.4, top + 0.32, 0), 0.045, seg=8)
+        p.box(GREY_DK, -3.2, top + 0.27, -0.15, -2.35, top + 0.37, 0.15)
+        p.box('light', -3.15, top + 0.25, -0.12, -2.41, top + 0.27, 0.12)
+
+
+def head_zebra(p):
+    """The hooded head with a striped back board, green and white, as old streets still have here and there."""
+    head(p, False)
+    L = 0.4533 * 3
+    n = 10
+    w = (L + 0.2) / n
+    for k in range(n):
+        x = -L / 2 - 0.1 + k * w
+        p.box('flat:#2f8f5a' if k % 2 == 0 else WHITE, x, -0.42, 0.139, x + w, 0.42, 0.165)
 
 
 def pedband(p):
     """Two bands and a bracket that hang a pedestrian head on a signal mast (radius ~0.14 at 2.65 m):
     the head (a separate model) hangs at y 2.65, z -0.3."""
-    for y in (2.45, 2.85):
+    for y in (2.9, 3.3):
         p.cyl(POLE_DK, (0, y, 0), 1, 0.155, 0.05, seg=10, caps=False)
         p.box(POLE, -0.025, y - 0.02, -0.2, 0.025, y + 0.02, -0.13)
 
@@ -1100,6 +1183,8 @@ PROPS = {
     'mirror': (mirror, 1.5), 'bollard': (bollard, 1), 'rail': (rail, 3), 'upole': (upole, 3), 'upole_l': (lambda p: upole(p, False), 3),
     'lamp_hw': (lamp_hw, 3), 'lamp_shop': (lamp_shop, 3), 'lamp_park': (lamp_park, 2), 'fingerpost': (fingerpost, 3), 'mapstand': (mapstand, 3), 'wand': (wand, 1),
     'xing_mast': (xing_mast, 3), 'xing_gate': (xing_gate, 2),
+    'sigp2': (lambda p: sigp(p, 2.0), 3), 'sigp3': (lambda p: sigp(p, 3.5), 4.5), 'siglight2': (lambda p: sigp(p, 2.0, True), 4), 'siglight3': (lambda p: sigp(p, 3.5, True), 4.5),
+    'head_zebra': (head_zebra, 2),
     'sigshort': (sigshort, 2.5), 'pedband': (pedband, 1), 'lamp_led': (lamp_led, 3), 'lamp_twin': (lamp_twin, 6), 'lamp_suzuran': (lamp_suzuran, 2),
     'lamp_small': (lamp_small, 2), 'postbox': (postbox, 1), 'phonebox': (phonebox, 1.5), 'gomist': (gomist, 2.5), 'bikerack': (bikerack, 4.5),
     'bench_s': (bench_s, 2.2), 'barberpole': (barberpole, 1), 'planter': (planter, 2.2),

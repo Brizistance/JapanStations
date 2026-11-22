@@ -33,13 +33,13 @@ interface Proto {
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique', 'machi'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'ring', 'kitaarcade', 'kitacity', 'miochika'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'ring', 'kitaarcade', 'kitacity'];
 /** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
 const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */
-const DAYLIGHT: Record<string, number> = { tsumugi_dome: 1, hyotan_izakaya_in: 0 };
+const DAYLIGHT: Record<string, number> = { tsumugi_dome: 1, hyotan_izakaya_in: 0, mioya_hall: 0.45 };
 /** How many different sets of shop names one model variant can carry. */
 const NAME_SETS = 3;
 const ATLAS_PX = 1024;

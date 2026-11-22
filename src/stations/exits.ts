@@ -84,8 +84,8 @@ export const ELEVATED = {
   apartments: [40, 58] as const,
   houses: [-64, -9.5] as const,
 };
-/** hub.ts: avenue half width, concourse half width, exit passages, plaza blocks. */
-const HUB = { av: 11, bar: 12, exits: [76, 120], hx: 44, bldg: 112, front: -64 };
+/** hub.ts: avenue half width, concourse half width, exit passages. */
+const HUB = { av: 11, bar: 12, exits: [76, 120] };
 
 // ── What a block of each kind is called on a sign ──
 export const KIND: Record<BlockStyle, Named> = {
@@ -425,26 +425,30 @@ function streetFeatures(s: SurfaceSpec): Feature[] {
   return out;
 }
 
-/** The hub's street: the station plaza north of Kita-Ōdōri, office blocks south (hub.ts). */
+/** The hub's street: the terminal building north of Kita-Ōdōri, the Gate Towers south (hub-street.ts, which this mirrors). */
 function hubFeatures(): Feature[] {
-  const { hx, bldg } = HUB, X = 190;
+  const X = 190;
   const n = (ja: string, en: string): Named => ({ ja, en });
   return [
-    { n: n('バスのりば', 'Bus terminal'), x0: 56, x1: 176, side: -1, named: true },
-    { n: n('タクシーのりば', 'Taxi rank'), x0: -176, x1: -56, side: -1, named: true },
-    { n: n('川湊ステーションビル', 'Kawaminato Station Building'), x0: hx + 0.4, x1: bldg, side: -1, named: true },
-    { n: n('川湊ステーションホテル', 'Kawaminato Station Hotel'), x0: -bldg, x1: -hx - 0.4, side: -1, named: true },
-    { n: n('川湊駅前広場', 'Kawaminato Station Plaza'), x0: -56, x1: 56, side: -1, named: true },
-    { n: n('川湊駅', 'Kawaminato Station'), x0: -hx, x1: hx, side: -1, named: true },
-    // The avenue's landmarks (hub.ts LANDMARKS).
-    { n: n('秋津島生命ビル', 'Akitsushima Life Building'), x0: -130.7, x1: -86.7, side: 1, named: true },
-    { n: n('北大通交番', 'Kita-Ōdōri Kōban'), x0: -82, x1: -75, side: 1, named: true },
-    { n: n('川湊信用金庫 本店', 'Kawaminato Shinkin Bank Head Office'), x0: -39.4, x1: -13.4, side: 1, named: true },
-    { n: n('澪屋百貨店', 'Mioya Department Store'), x0: 13.3, x1: 53.3, side: 1, named: true },
-    // The walk-in convenience store on the avenue (hub.ts SHOP_X0).
-    { n: n('マルホシマート', 'Maruhoshi Mart'), x0: -72, x1: -48, side: 1, named: true },
-    { n: KIND.office, x0: -X, x1: -13, side: 1, named: false },
-    { n: KIND.office, x0: 13, x1: X, side: 1, named: false },
+    { n: n('澪屋百貨店', 'Mioya Department Store'), x0: -59, x1: 59, side: -1, named: true },
+    { n: n('川湊駅（AR線・高架）', 'Kawaminato Station (AR, on the viaduct)'), x0: -60, x1: 60, side: -1, named: true },
+    { n: n('北栄通商店街', 'Hokuei-dōri Shopping Arcade'), x0: -94, x1: 96.5, side: -1, named: true },
+    { n: n('ホテル澪屋', 'Hotel Mioya'), x0: -94, x1: -70.75, side: -1, named: true },
+    { n: n('浜手ビルヂング', 'Hamate Building'), x0: -150.25, x1: -116, side: -1, named: true },
+    { n: n('キタモード', 'Kita Mode'), x0: 70.75, x1: 96.5, side: -1, named: true },
+    { n: n('川湊新報', 'Kawaminato Shinpō'), x0: 113.5, x1: 144, side: -1, named: true },
+    { n: n('東雲イン 川湊駅前', 'Shinonome Inn'), x0: 166, x1: X, side: -1, named: true },
+    { n: n('北大通ゲートタワー 西館', 'Kita-Ōdōri Gate Tower West'), x0: -58, x1: -16, side: 1, named: true },
+    { n: n('北大通ゲートタワー 東館', 'Kita-Ōdōri Gate Tower East'), x0: 16, x1: 58, side: 1, named: true },
+    { n: n('カミナリ電機', 'Kaminari Denki'), x0: -150.25, x1: -116, side: 1, named: true },
+    { n: n('北大通センタービル', 'Kita-Ōdōri Center Building'), x0: -X, x1: -159.75, side: 1, named: true },
+    { n: n('川湊座', 'Kawaminato-za'), x0: 70.75, x1: 96.5, side: 1, named: true },
+    { n: n('澪標銀行 本店', 'Miotsukushi Bank Head Office'), x0: 113.5, x1: 144, side: 1, named: true },
+    { n: n('千鳥スクエア', 'Chidori Square'), x0: 166, x1: X, side: 1, named: true },
+    { n: n('バス・タクシーのりば', 'Buses and taxis'), x0: -52, x1: 60, side: 1, named: true },
+    { n: KIND.office, x0: -X, x1: -16, side: 1, named: false },
+    { n: KIND.office, x0: 16, x1: X, side: 1, named: false },
+    { n: KIND.mixed, x0: -X, x1: X, side: -1, named: false },
   ];
 }
 
@@ -533,11 +537,16 @@ function derive(id: StationId): StationStreet {
       const es = ([1, -1] as const).flatMap((dir) =>
         // A pair climbing out from a doorway ending at x: as a gate end 13 m before it.
         HUB.exits.flatMap((x) => endExits(dir * (x - 13), dir > 0, HUB.bar, run, undefined, [String(n++), String(n++)])));
-      // Exit 9 climbs north from the Central Passage onto the plaza; exit 10 north from the South
-      // Gate onto Yanagi-suji's west sidewalk (hub.ts P9, SG).
+      // Exit 9 climbs north from the Central Passage into the Mioya building's east portal; exit 10
+      // north from the South Gate onto Yanagi-suji's west sidewalk (hub.ts P9, SG).
       const own: Omit<StationExit, 'near'>[] = [
         { num: '9', side: -1, rect: [26.2, -31, 29, -22.8] },
         { num: '10', side: 1, rect: [-13, 34, -10.2, 42.5] },
+        // Miochika's own (hub.ts town): 11 and 12 come up in the Gate Towers' bases, 13 and 14 on the local streets beside them.
+        { num: '11', side: 1, rect: [-48.8, 33 - run, -46, 33 - Math.max(0, run - EXIT_OPEN) + 1.2] },
+        { num: '12', side: 1, rect: [46, 33 - run, 48.8, 33 - Math.max(0, run - EXIT_OPEN) + 1.2] },
+        { num: '13', side: 1, rect: [-62, 55 - run, -59.2, 55 - Math.max(0, run - EXIT_OPEN) + 1.2] },
+        { num: '14', side: 1, rect: [59.2, 55 - run, 62, 55 - Math.max(0, run - EXIT_OPEN) + 1.2] },
       ];
       return { kind: 'hub', exits: withNear(hubFeatures(), [...es, ...own]) };
     }

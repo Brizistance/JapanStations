@@ -23,7 +23,7 @@ The owner hits usage limits fast. These are defaults, not suggestions:
 - **Do not read docs or source up front.** Use the code map below to pick the one file a task touches. Never read all of `docs/` or browse `src/` "for context".
 - **Search before reading.** Many files are 30–85 KB. Grep for the symbol, then Read only that range with `offset`/`limit`. Never read a whole file over ~15 KB unless the task truly needs all of it.
 - **No subagents or extra sessions** unless the owner asks, except the one below. They re-read everything.
-- **After building or changing stations, run the `station-checker` subagent once** (`.claude/agents/station-checker.md`, Opus, medium effort), with every station from that build in one request, never one agent per station. Continue the same agent with SendMessage for re-checks after fixes. It views them in the browser and reports errors; fix what it reports, then report to the owner. No other browser checks unless the owner asks.
+- **After building or changing a station, sign-off is the owner's** (decided 2026-11-21): run the tests, take a few sanity views in the browser, say what was not looked at, and report. The owner walks it and sends screenshots. Run the `station-checker` subagent (`.claude/agents/station-checker.md`) only when asked.
 - **Verify narrowly.** Run `npm run typecheck`, plus only the test file near the change (`npx vitest run <file>`). Run the full suite only for changes to `src/data/`, `src/sim/` or shared station code (`build.ts`, `kit.ts`, `parts.ts`, `specs.ts`).
 - **Reply very short.** What changed and where to look, in a few lines. No code walkthroughs or option surveys.
 - **Docs upkeep is one line.** After a real decision, add or fix one line in the one relevant doc. Update the Status paragraph above only when lines or station counts change.
@@ -48,7 +48,7 @@ npm run build
 | `src/stations/specs.ts`, `build.ts` (49 KB), `kit.ts` | Station sizing and the shared builder and parts kit |
 | `src/stations/themes/<line>.ts` | One platform architecture per line (y, n, a, s, k, m) |
 | `src/stations/looks/<station>.ts` | One file per hero station (27–70 KB each); `default.ts` for the rest; `parts.ts` (81 KB) shared pieces; `types.ts` |
-| `src/stations/hub.ts`, `atrium.ts` | Kita-Ōdōri hub and Kawaminato Station atrium |
+| `src/stations/hub.ts`, `hub-street.ts`, `atrium.ts` | Kita-Ōdōri hub (below ground; its streets and terminal district), and the atrium kind |
 | `src/stations/wayfinding.ts` (67 KB), `floor.ts` (56 KB), `exits.ts`, `rooms.ts`, `surface.ts` | Sign placement, floor guidance, exits, rooms, street level |
 | `src/signs/draw.ts` (84 KB), `departures.ts`, `content.ts` | Sign and departure-board drawing |
 | `src/render/` | Scene, materials, textures, lighting, post effects, track, world view |

@@ -17,6 +17,8 @@ export type SignContent =
   | { k: 'faremap'; station: StationId }
   | { k: 'shop'; ja: string; en?: string; bg: string; fg: string; vertical?: boolean }
   | { k: 'poster'; v: number }
+  /** A big outdoor LED screen: shows the posters one after another, changing every few seconds of sim time. */
+  | { k: 'screen'; v: number }
   | { k: 'machine'; v: 'ticket' | 'vending' | 'vending2' | 'locker' | 'charge' | 'elevator' | 'door' | 'window'; era?: 'old' | 'mid' | 'new' }
   | { k: 'mural'; v: string; color: string }
   | { k: 'label'; text: string; sub?: string; fg: string; bg: string }
@@ -70,7 +72,7 @@ export type SignContent =
    */
   | { k: 'signal'; v: 'car' | 'carv' | 'arrow' | 'ped'; axis: 0 | 1 | 2 | 3; bars?: boolean }
   /** A road sign's face (the `back-…` ones are the grey backs of the three shapes). Cut out to its shape. */
-  | { k: 'roadsign'; v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 'nostopping' | 'crossing' | 'school' | 'hydrant' | 'back-tri' | 'back-round' | 'back-penta' | 'back-diamond' }
+  | { k: 'roadsign'; v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 'nostopping' | 'crossing' | 'school' | 'hydrant' | 'noentry' | 'oneway-l' | 'oneway-r' | 'back-rect' | 'back-tri' | 'back-round' | 'back-penta' | 'back-diamond' }
   /**
    * Level crossing (踏切), live: the pair of warning lamps, or the gate arm on a square face with its
    * pivot at the bottom-left (bottom-right when `flip`, for the face seen from behind). Both follow

@@ -614,7 +614,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   // Modern LED poles by offices, lily-of-the-valley lamps in a nightlife quarter.
   const kitLamp: LampKind | undefined = spec.avenue ? 'lamp_hw' : spec.left === 'office' || spec.right === 'office' ? 'lamp_led'
     : spec.left === 'neon' || spec.right === 'neon' ? 'lamp_suzuran' : spec.left === 'mixed' || spec.right === 'mixed' ? 'lamp_shop' : spec.poles ? undefined : 'lamp_hw';
-  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at, lamp: kitLamp, tee: spec.tee, busy, roads: spec.roadNames, junctions: spec.junctions });
+  if (spec.roadKit) roadKit(b, { X, Z, rw, swOut, streets: streets.map(([a, c]) => [a, c] as [number, number]), canal, seed: spec.seed, name: stationName, at, lamp: kitLamp, tee: spec.tee, busy, roads: spec.roadNames, junctions: spec.junctions, old: !!spec.oldTown || spec.left === 'oldtown' || spec.right === 'oldtown' || spec.left === 'neon' || spec.right === 'neon' });
 
   // ── Buildings ──
   const edges = [-X + 1, ...[...streets].sort((p, q) => p[0] - q[0]).flatMap(([a, c]) => [a - 3, c + 3]), X - 1];
