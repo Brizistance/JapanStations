@@ -97,6 +97,8 @@ Each station's street spec names its own campus, quay and promenade (`campusName
 |---|---|
 | Daigaku-mae | 川湊大学 Kawaminato University (the default) |
 | Tsumugibashi | 紬橋絹取引所 Tsumugibashi Silk Exchange (1926; `landmark` in `specs.ts`), the station building on the avenue's south side, a brick and stone front with a copper dome. East of it the avenue crosses 紬堀 Tsumugi-bori (the old silk merchants' canal) on 紬橋 Tsumugi-bashi, the stone arch bridge the station is named after. Under its dome: 紬橋ロトンダ the Tsumugi Rotunda, with 紬の大機 the Great Loom as the meeting point; 取引所通り Exchange Passage, 大階段 the Grand Stair, 取引所ホール the Exchange Hall. Rotunda shops (`SHOPS` in `rotunda.ts`): たんもの屋, おび清, むすび, まわた屋, かたぞめ, いとぐるま. Invented 2026-11-19 |
+| Kita-Ōdōri (street) | 川湊スカイクラウン Kawaminato Sky Crown (322 m supertall at the head of Yanagi-suji); roads 西浜筋 Nishihama-suji, 東雲筋 Shinonome-suji (scramble at 北大通東 Kita-Ōdōri East), 川湊高速 1号環状線 Kawaminato Expressway Route 1 (Loop) over 北大通; 北大通デッキ Kita-Ōdōri deck; alleys 西浜横丁 Nishihama Yokochō, 柳小路 Yanagi-kōji, 北大通 裏通り Ura-dōri, 東雲横丁 Shinonome Yokochō, 駅裏横丁 Ekiura Yokochō with 柳森稲荷 Yanagimori Inari |
+| Midorizaka | 緑坂公園 Midorizaka Park, 緑坂駅前広場 Midorizaka Station Plaza (buses 北丘団地・緑坂循環, 川湊駅・北大通), 緑坂銀座 Midorizaka Ginza: パン工房 ぶどうの木 Budō-no-ki Bakery, 花 みどり Midori Flowers, 八百屋 丘の上, コインランドリー, 本とおもちゃ ぶんぶん, 和菓子 若葉, クリーニング 白樺, 喫茶 ひだまり; in the exit 1 pavilion 喫茶 緑の窓 Midori-no-Mado Coffee |
 | Kaiseichō | 川湊第一高等学校 Kawaminato Daiichi High School (founded 1902, 明治三十五年); street: 文具 学林堂 Gakurindō Stationery; station: 文具と古書 開成堂 Kaiseidō Stationery & Old Books (walk-in) |
 | Seiryōdai | 川湊工科大学 Kawaminato Institute of Technology |
 | Kawaminato-kō | 川湊港フェリーターミナル Kawaminato Ferry Terminal (the default) |

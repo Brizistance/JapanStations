@@ -37,6 +37,10 @@ MIDS = [
 TOWERS = [
     dict(id='twr_a', w=40.0, d=40.0, h=150.0), dict(id='twr_b', w=44.0, d=36.0, h=130.0), dict(id='twr_c', w=36.0, d=36.0, h=112.0),
     dict(id='twr_d', w=46.0, d=44.0, h=96.0), dict(id='twr_e', w=38.0, d=38.0, h=180.0),
+    dict(id='twr_f', w=34.0, d=34.0, h=165.0), dict(id='twr_g', w=44.0, d=30.0, h=140.0), dict(id='twr_h', w=36.0, d=36.0, h=176.0),
+    dict(id='twr_i', w=40.0, d=30.0, h=122.0), dict(id='twr_j', w=32.0, d=32.0, h=156.0), dict(id='twr_k', w=42.0, d=42.0, h=106.0),
+    # The supertall at the head of Yanagi-suji: a podium, five setback tiers, an observation band, a lit crown, a spire.
+    dict(id='super', w=60.0, d=60.0, h=322.0),
 ]
 
 
@@ -257,6 +261,132 @@ def twr_e(p):
     p.box(BEACON, x1 - 1.6, 180.4, D / 2 - 0.3, x1 - 1.0, 181, D / 2 + 0.3)
 
 
+def beacons(p, x0, x1, z0, z1, y):
+    for x in (x0 + 0.6, x1 - 0.6):
+        for z in (z0 + 0.6, z1 - 0.6):
+            p.box(BEACON, x - 0.25, y, z - 0.25, x + 0.25, y + 0.5, z + 0.25)
+
+
+def twr_f(p):
+    """Blue-glass shaft with white piers, a lit band two-thirds up, a stepped top. 34 x 34 m, 165 m."""
+    W = D = 34.0
+    x0, x1 = -W / 2, W / 2
+    c = 'flat:#24384a'
+    base(p, x0, x1, 0, D, 10, STONE_LT)
+    shaft(p, x0 + 0.8, x1 - 0.8, 0.8, D - 0.8, 10, 108, 2.4, 'flat:#f1f2f3', core=c, pw=0.12)
+    p.box('light', x0 + 0.5, 108, 0.5, x1 - 0.5, 111, D - 0.5)
+    shaft(p, x0 + 0.8, x1 - 0.8, 0.8, D - 0.8, 111, 150, 2.4, 'flat:#f1f2f3', core=c, pw=0.12)
+    shaft(p, x0 + 5, x1 - 5, 5, D - 5, 150, 165, 2.4, 'flat:#f1f2f3', core=c, pw=0.12)
+    beacons(p, x0 + 5, x1 - 5, 5, D - 5, 165)
+
+
+def twr_g(p):
+    """Warm stone slab with a deep grid and a rooftop helipad. 44 x 30 m, 140 m."""
+    W, D = 44.0, 30.0
+    x0, x1 = -W / 2, W / 2
+    base(p, x0, x1, 0, D, 12, GRANITE)
+    shaft(p, x0 + 0.6, x1 - 0.6, 0.6, D - 0.6, 12, 134, 3.0, 'flat:#d6c7aa', core='flat:#3a3328', pw=0.36)
+    p.box('flat:#5a5f64', x0 + 1, 134, 1, x1 - 1, 137, D - 1)
+    p.box('flat:#3b4046', -9, 137, D / 2 - 9, 9, 137.4, D / 2 + 9)
+    for (a, b, c, d) in ((-3.5, -2.5, -4.0, 4.0), (2.5, 3.5, -4.0, 4.0), (-2.5, 2.5, -0.5, 0.5)):
+        p.box('flat:#f2c14e', a, 137.4, D / 2 + c, b, 137.45, D / 2 + d)
+    beacons(p, x0 + 1, x1 - 1, 1, D - 1, 137.4)
+
+
+def twr_h(p):
+    """Green glass in three setbacks under a sloped crown lit from inside. 36 x 36 m, 176 m."""
+    W = D = 36.0
+    x0, x1 = -W / 2, W / 2
+    g = 'flat:#2f4a44'
+    base(p, x0, x1, 0, D, 11, STONE)
+    shaft(p, x0 + 0.6, x1 - 0.6, 0.6, D - 0.6, 11, 96, 2.2, 'flat:#c9d2cf', core=g, pw=0.14)
+    shaft(p, x0 + 3.6, x1 - 3.6, 3.6, D - 3.6, 96, 132, 2.2, 'flat:#c9d2cf', core=g, pw=0.14)
+    shaft(p, x0 + 6.6, x1 - 6.6, 6.6, D - 6.6, 132, 156, 2.2, 'flat:#c9d2cf', core=g, pw=0.14)
+    p.prism(g, [(x0 + 6.8, 156), (x1 - 6.8, 156), (x1 - 6.8, 176), (x0 + 6.8, 162)], 'z', 6.8, D - 6.8)
+    p.prism('light', [(x0 + 6.6, 156.5), (x1 - 6.6, 156.5), (x1 - 6.6, 175.5), (x0 + 6.6, 161.5)], 'z', 6.6, 6.75)
+    p.box(BEACON, x1 - 7.6, 176, D / 2 - 0.3, x1 - 7.0, 176.6, D / 2 + 0.3)
+
+
+def twr_i(p):
+    """A hotel: stone podium, warm-glass slab, a lit crown band. 40 x 30 m, 122 m."""
+    W, D = 40.0, 30.0
+    x0, x1 = -W / 2, W / 2
+    base(p, x0, x1, 0, D, 16, STONE)
+    shaft(p, x0 + 2, x1 - 2, 2, D - 2, 16, 112, 2.6, 'flat:#e8e2d2', core='flat:#3a2f28', pw=0.22)
+    p.box('flat:#e8e2d2', x0 + 1.6, 112, 1.6, x1 - 1.6, 122, D - 1.6)
+    p.box('light', x0 + 1.5, 114, 1.5, x1 - 1.5, 118, D - 1.5)
+    beacons(p, x0 + 2, x1 - 2, 2, D - 2, 122)
+
+
+def twr_j(p):
+    """A slender tower with rounded glass corners. 32 x 32 m, 156 m."""
+    W = D = 32.0
+    x0, x1 = -W / 2, W / 2
+    base(p, x0, x1, 0, D, 10, STONE_LT)
+    shaft(p, x0 + 3, x1 - 3, 0.6, D - 0.6, 10, 150, 2.2, 'flat:#dfe3e6', core=GLASS_DK, pw=0.12)
+    shaft(p, x0 + 0.6, x1 - 0.6, 3, D - 3, 10, 150, 2.2, 'flat:#dfe3e6', core=GLASS_DK, pw=0.12)
+    for cx in (x0 + 3, x1 - 3):
+        for cz in (3, D - 3):
+            p.cyl(GLASS_DK, (cx, 80, cz), 1, 2.6, 140, seg=12)
+    p.box('flat:#dfe3e6', x0 + 2, 150, 2, x1 - 2, 152, D - 2)
+    p.cyl('flat:#dfe3e6', (0, 154, D / 2), 1, 5, 4, seg=16)
+    p.box(BEACON, -0.3, 156, D / 2 - 0.3, 0.3, 156.6, D / 2 + 0.3)
+
+
+def twr_k(p):
+    """A chunky dark block split by a lit atrium slot. 42 x 42 m, 106 m."""
+    W = D = 42.0
+    x0, x1 = -W / 2, W / 2
+    base(p, x0, x1, 0, D, 12, GRANITE)
+    for (a, b) in ((x0 + 0.6, -2.2), (2.2, x1 - 0.6)):
+        shaft(p, a, b, 0.6, D - 0.6, 12, 106, 2.6, 'flat:#5a5f64', core='flat:#1c2328', pw=0.18)
+    p.box('light', -2.2, 12, 0.4, 2.2, 104, 0.6)
+    p.box(GLASS_DK, -2.2, 12, 0.6, 2.2, 104, D - 0.6)
+    beacons(p, x0 + 0.6, x1 - 0.6, 0.6, D - 0.6, 106)
+
+
+def supertall(p):
+    """Kawaminato Sky Crown: a stone and glass podium, five glass tiers stepping back, an
+    observation band, a crown of lit fins and a spire. 60 x 60 m lot, 322 m to the spire tip."""
+    W = D = 60.0
+    x0, x1 = -W / 2, W / 2
+    zc = D / 2
+    # Podium: stone with a glazed grand entrance facing up Yanagi-suji (-z), 24 m.
+    p.box(STONE, x0, 0, 0, x1, 24, D)
+    band(p, GRANITE, x0, x1, 0, D, 0, 1.2, 0.1)
+    band(p, BRASS, x0, x1, 0, D, 23.5, 24.5, 0.25)
+    for c in rows(x0 + 2, x1 - 2, 6.0):
+        if abs(c) < 12:
+            continue
+        display(p, c - 2.3, c + 2.3, 1.2, 8.0, 0)
+        wall_lamp(p, c - 2.9, 4.0, 0)
+    p.box(WFRAME, -10, 0, -0.6, 10, 18, 0)
+    p.box(WINDOW, -9.6, 0.4, -0.65, 9.6, 17.6, -0.6)
+    for c in rows(-9.6, 9.6, 2.4):
+        p.box(WFRAME, c - 0.08, 0.4, -0.7, c + 0.08, 17.6, -0.6)
+    for d in (-6.0, -2.0, 2.0, 6.0):
+        doors(p, d, 0, -0.7, 3.2, 3.4)
+    p.box(GRANITE, -12, 18, -3.5, 12, 19, 0)
+    p.box(BRASS, -12, 18.9, -3.6, 12, 19.1, 0)
+    # Tiers: each a glass shaft, a lit band at its top, beacons on its corners.
+    tiers = [(23.0, 24, 120), (20.0, 120, 186), (17.0, 186, 240), (14.0, 240, 270), (11.5, 270, 284)]
+    for (hw, y0, y1) in tiers:
+        shaft(p, -hw, hw, zc - hw, zc + hw, y0, y1, 2.4, 'flat:#e6ecef', core='flat:#223240', pw=0.1, seg=12.0)
+        p.box('light', -hw - 0.3, y1 - 1.2, zc - hw - 0.3, hw + 0.3, y1 - 0.4, zc + hw + 0.3)
+        beacons(p, -hw, hw, zc - hw, zc + hw, y1)
+    # Observation band, the crown of fins round a lit lantern, the spire.
+    p.box('flat:#223240', -11, 284, zc - 11, 11, 292, zc + 11)
+    p.box('light', -11.2, 285, zc - 11.2, 11.2, 291, zc + 11.2)
+    p.box('flat:#e6ecef', -11.4, 291.5, zc - 11.4, 11.4, 292.5, zc + 11.4)
+    p.box('light', -6, 292.5, zc - 6, 6, 304, zc + 6)
+    for k in range(16):
+        a = 2 * math.pi * k / 16
+        cx, cz = 9.5 * math.cos(a), zc + 9.5 * math.sin(a)
+        p.box('flat:#e6ecef', cx - 0.4, 292.5, cz - 0.4, cx + 0.4, 306 - (k % 2) * 3, cz + 0.4)
+    p.cyl(STEEL_LT, (0, 312, zc), 1, 0.5, 16, seg=8)
+    p.box(BEACON, -0.35, 320, zc - 0.35, 0.35, 322, zc + 0.35)
+
+
 # ───────────────────────── street furniture ─────────────────────────
 
 def streetlamp(p):
@@ -332,7 +462,8 @@ FURN = {
     'lamp': (streetlamp, 2), 'tree_a': (lambda p: street_tree(p, 6.5, 2), 4), 'tree_b': (lambda p: street_tree(p, 7.6, 9), 4),
     'tree_c': (lambda p: street_tree(p, 5.6, 14), 4), 'bench': (bench, 2.4), 'vend': (vend, 2.6), 'bikes': (bikes, 4),
 }
-TWR = {'twr_a': twr_a, 'twr_b': twr_b, 'twr_c': twr_c, 'twr_d': twr_d, 'twr_e': twr_e}
+TWR = {'twr_a': twr_a, 'twr_b': twr_b, 'twr_c': twr_c, 'twr_d': twr_d, 'twr_e': twr_e, 'twr_f': twr_f, 'twr_g': twr_g,
+       'twr_h': twr_h, 'twr_i': twr_i, 'twr_j': twr_j, 'twr_k': twr_k, 'super': supertall}
 
 
 def build_hi(v):

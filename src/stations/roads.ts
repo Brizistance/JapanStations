@@ -234,6 +234,18 @@ export interface RoadGeo {
   roads?: { main: { ja: string; en: string }; cross: { ja: string; en: string }[] };
   /** How busy the street is (1: an ordinary shopping street) and the share of taxis among its cars. */
   busy?: number;
+  /** Per crossing road (west to east): how far it runs from the main road's middle, if short of the plot's edge. */
+  ends?: (number | undefined)[];
+  /** Where the bus stops stand (x of the shelter, for traffic going +x and −x), where the default would block something. */
+  busX?: [number | undefined, number | undefined];
+  /** Narrow crossing roads (by index) that get a signal of their own; default every other one. */
+  lit?: number[];
+  /** Where the taxi stand begins on the −x-bound kerb, where the default would block something. */
+  taxiX?: number;
+  /** Per crossing road: a share of the usual traffic coming in from it (default 1). */
+  flows?: number[];
+  /** Crossing roads (by index) whose junction is a scramble: diagonal crosswalks, an all-walk phase. */
+  scramble?: number[];
   taxi?: number;
 }
 
@@ -243,6 +255,9 @@ const HEAD_Y = 5.55, HEAD_IN = 0.75;
 const BOARD = { cx: -4.6, cy: 6.4, w: 3.5, h: 2.94 }; // the sign's face: 1.19 : 1, as sign 108の2-A
 /** A main road this wide (half width) has a bus lane clear of the taxi stand: buses, taxis and scooters drive in it. */
 const BUS_LANE_RW = 11;
+/** True while the road kit builds a scramble junction: its signals and stop lines run the scramble cycle. */
+let SCR = false;
+const sa = (a: 0 | 1): 0 | 1 | 2 | 3 => (SCR ? ((a + 2) as 2 | 3) : a);
 
 /**
  * A traffic lane for the moving vehicles (traffic/system.ts), from (x0, z0) to (x1, z1) on the road
@@ -271,7 +286,7 @@ const TAXI_X = 40;
 
 /** x of the bus shelter for traffic going sx: past the first wide junction going +x, before it going −x. */
 function busStopX(streets: [number, number][], sx: 1 | -1): number | null {
-  const j = streets.find(([a, c]) => (c - a) / 2 >= 5) ?? streets[0];
+  const j = streets.filter(([a, c]) => (c - a) / 2 >= 5).sort((p, q) => Math.abs(p[0] + p[1]) - Math.abs(q[0] + q[1]))[0] ?? streets[0];
   return j ? (sx > 0 ? j[1] + 17 : j[0] - 27) : null;
 }
 
@@ -279,13 +294,13 @@ function busStopX(streets: [number, number][], sx: 1 | -1): number | null {
  * Stretches of the main road's kerb left without guard rail, so people can reach a bus or a taxi:
  * `s` is the side (the sign of z), x0 … x1 the gap. surface.ts builds the rail round them.
  */
-export function kerbGaps(streets: [number, number][]): { s: 1 | -1; x0: number; x1: number }[] {
+export function kerbGaps(streets: [number, number][], busX?: RoadGeo['busX'], taxiX = TAXI_X): { s: 1 | -1; x0: number; x1: number }[] {
   const out: { s: 1 | -1; x0: number; x1: number }[] = [];
   for (const sx of [1, -1] as const) {
-    const x = busStopX([...streets].sort((p, q) => p[0] - q[0]), sx);
+    const x = busX?.[sx > 0 ? 0 : 1] ?? busStopX([...streets].sort((p, q) => p[0] - q[0]), sx);
     if (x !== null) out.push({ s: left([sx, 0])[1] as 1 | -1, x0: Math.min(x - sx * 5.5, x + sx * 8), x1: Math.max(x - sx * 5.5, x + sx * 8) });
   }
-  out.push({ s: left([-1, 0])[1] as 1 | -1, x0: TAXI_X - 3, x1: TAXI_X + 14.5 });
+  out.push({ s: left([-1, 0])[1] as 1 | -1, x0: taxiX - 3, x1: taxiX + 14.5 });
   return out;
 }
 
@@ -302,7 +317,7 @@ function carHead(b: Builder, x: number, y: number, z: number, f: V2, axis: 0 | 1
   put(b, `head_${flat ? 'flat' : vertical ? 'v' : 'h'}${flat && vertical ? '_v' : ''}`, x, y, z, f);
   const [w, hh, dz] = flat ? [1.03, 0.33, 0.052] : [1.3, 0.44, 0.15];
   const [ox, oz] = off(f, 0, -dz);
-  b.sign({ k: 'signal', v: vertical ? 'carv' : 'car', axis }, x + ox, y, z + oz, f, vertical ? hh : w, vertical ? w : hh);
+  b.sign({ k: 'signal', v: vertical ? 'carv' : 'car', axis: sa(axis) }, x + ox, y, z + oz, f, vertical ? hh : w, vertical ? w : hh);
 }
 
 interface SignalOpts {
@@ -328,7 +343,7 @@ function vehicleSignal(b: Builder, mx: number, mz: number, h: V2, reach: number,
     const [ax, az] = off(f, -(arm - HEAD_IN) - (o.flat ? 0.35 : 0.42), 0), ay = GY + HEAD_Y - (o.flat ? 0.36 : 0.5);
     put(b, o.flat ? 'head_flat_arrow' : 'head_arrow', mx + ax, ay, mz + az, f);
     const [dx, dz] = off(f, 0, -(o.flat ? 0.052 : 0.15)), sz = o.flat ? 0.33 : 0.44;
-    b.sign({ k: 'signal', v: 'arrow', axis: 0 }, mx + ax + dx, ay, mz + az + dz, f, sz, sz);
+    b.sign({ k: 'signal', v: 'arrow', axis: sa(0) }, mx + ax + dx, ay, mz + az + dz, f, sz, sz);
   }
   // The junction's name plate on the arm, between the mast and the head (where the arm is long enough).
   if (name && arm - HEAD_IN >= 3.2) {
@@ -366,7 +381,7 @@ export function pedSignal(b: Builder, x: number, z: number, f: V2, axis: 0 | 1, 
   const [hx, hz] = off(f, 0, -0.24);
   put(b, o.flat ? 'pedhead_flat' : 'pedhead', x + hx, GY + 2.65, z + hz, f);
   const [ox, oz] = off(f, 0, -(0.24 + (o.flat ? 0.047 : 0.105)));
-  b.sign({ k: 'signal', v: 'ped', axis, bars: !!o.flat }, x + ox, GY + 2.65, z + oz, f, 0.42, 0.74);
+  b.sign({ k: 'signal', v: 'ped', axis: sa(axis), bars: !!o.flat }, x + ox, GY + 2.65, z + oz, f, 0.42, 0.74);
   if (o.button) {
     const [bx, bz] = off(f, 0, -0.07);
     put(b, 'pushbtn', x + bx, GY + 1.2, z + bz, f);
@@ -414,7 +429,7 @@ function mastPed(b: Builder, x: number, z: number, f: V2, axis: 0 | 1, o: { flat
   const [hx, hz] = off(f, 0, -0.3);
   put(b, o.flat ? 'pedhead_flat' : 'pedhead', x + hx, GY + 2.65, z + hz, f);
   const [ox, oz] = off(f, 0, -(0.3 + (o.flat ? 0.047 : 0.105)));
-  b.sign({ k: 'signal', v: 'ped', axis, bars: !!o.flat }, x + ox, GY + 2.65, z + oz, f, 0.42, 0.74);
+  b.sign({ k: 'signal', v: 'ped', axis: sa(axis), bars: !!o.flat }, x + ox, GY + 2.65, z + oz, f, 0.42, 0.74);
   if (o.button) {
     const [bx, bz] = off(f, 0, -0.15);
     put(b, 'pushbtn', x + bx, GY + 1.2, z + bz, f);
@@ -512,9 +527,12 @@ export function roadKit(b: Builder, g: RoadGeo) {
   for (const [a, c] of streets) {
     const mid = (a + c) / 2, half = (c - a) / 2, wide = half >= 5;
     const ji = streets.findIndex((q) => q[0] === a), jname = nameOf(ji);
+    /** How far this road runs from the main road's middle (a tee road may stop short of the plot's edge). */
+    const ZE = g.ends?.[ji] ?? Z;
+    SCR = !!g.scramble?.includes(ji);
     // An avenue has the thin LED heads, arrow lamps and audible signals; every other narrow junction
     // gives its side street a signal of its own on a utility pole instead of a stop sign.
-    const avenue = rw >= 8, sideLit = !wide && ji % 2 === 0;
+    const avenue = rw >= 8, sideLit = !wide && (g.lit ? g.lit.includes(ji) : ji % 2 === 0);
     // The junction's control cabinet, on the pavement at a corner.
     put(b, 'sigbox', a - 1.5, GY, -(rw + 2.7), [0, 1]);
     b.block(a - 1.86, GY, -(rw + 2.96), a - 1.14, GY + 1.56, -(rw + 2.44));
@@ -543,7 +561,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
       for (let k = 0; k < 2; k++) anyCar();
       if (r() < 0.6) anyCar();
       const at = sx > 0 ? stop + X : X - stop, exit = sx > 0 ? c + 7.4 + X : X - (a - 7.4);
-      mainStops[sx > 0 ? 0 : 1].push({ at: at - 0.5, axis: 0, exit });
+      mainStops[sx > 0 ? 0 : 1].push({ at: at - 0.5, axis: sa(0), exit });
       // Arrows before the stop line: ahead or right from the general lane, ahead or left from the bus lane.
       mark(b, wide ? 'ahead-right' : 'ahead', stop - sx * 16, laneZ(sx, GEN), h, 1.3, 5);
       mark(b, 'ahead-left', stop - sx * 16, laneZ(sx, BUS), h, 1.3, 5);
@@ -578,10 +596,11 @@ export function roadKit(b: Builder, g: RoadGeo) {
        * leaves by turning, and a lane out on its other half, which only turning traffic feeds.
        */
       const crossLane = (dir: 1 | -1, d: number, o: { speed: number; flow: number; use: 'general' | 'all' }) => {
-        const stops = [{ at: Z - (rw + 6.4) - 0.5, axis: 1 as const, exit: Z + rw + 6.4 }];
-        if (!g.tee) return trafficLane(b, lx(d), -dir * Z, lx(d), dir * Z, { ...o, taxi, stops, halts: [] });
-        trafficLane(b, lx(d), -dir * Z, lx(d), dir * (GEN + 0.1), { ...o, taxi, stops, halts: [], dead: true });
-        trafficLane(b, 2 * mid - lx(d), dir * (GEN + 0.1), 2 * mid - lx(d), -dir * Z, { ...o, flow: 0, taxi, stops: [], halts: [] });
+        const stops = [{ at: ZE - (rw + 6.4) - 0.5, axis: sa(1), exit: ZE + rw + 6.4 }];
+        o = { ...o, flow: o.flow * (g.flows?.[ji] ?? 1) };
+        if (!g.tee) return trafficLane(b, lx(d), -dir * ZE, lx(d), dir * ZE, { ...o, taxi, stops, halts: [] });
+        trafficLane(b, lx(d), -dir * ZE, lx(d), dir * (GEN + 0.1), { ...o, taxi, stops, halts: [], dead: true });
+        trafficLane(b, 2 * mid - lx(d), dir * (GEN + 0.1), 2 * mid - lx(d), -dir * ZE, { ...o, flow: 0, taxi, stops: [], halts: [] });
       };
       // Stop line before the crosswalk (which lies 1.2 … 5.2 m outside the main road's kerb).
       const stopZ = -sz * (rw + 6.4);
@@ -619,7 +638,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
         for (const dz of [0.5, 1.5, 2.5]) put(b, 'wand', lx(half + 0.35), GY, -sz * (rw + 0.4 + dz), [0, -1]);
         // 30 km/h and the school route warning as you turn in; utility poles and their wires down its left kerb.
         roadSign(b, 'speed30', lx(-(half + 0.55)), stopZ - sz * 9, [0, sz], 0.6, 'school');
-        poleLine(b, { axis: 'z', from: -sz * (rw + 12), to: -sz * (Z - 4), at: lx(half + 0.9), road: -l[0] as 1 | -1, drops: 2.2, cross: 2 * half + 2.4, name: g.name });
+        poleLine(b, { axis: 'z', from: -sz * (rw + 12), to: -sz * (ZE - 4), at: lx(half + 0.9), road: -l[0] as 1 | -1, drops: 2.2, cross: 2 * half + 2.4, name: g.name });
       }
     }
     // For people on foot at every junction: a finger post and a map on the −z side, and a hydrant sign.
@@ -653,13 +672,28 @@ export function roadKit(b: Builder, g: RoadGeo) {
         if (toRight) rows.push({ ...toRight, arrow: 'right' });
         if (!rows.length) continue;
         const mx = (sx > 0 ? a : c) - sx * 46, mz = l[1] * (rw + 0.9);
+        if (Math.abs(mx) > X - 4) continue;
         put(b, 'gantry', mx, GY, mz, f);
         b.block(mx - 0.3, GY, mz - 0.3, mx + 0.3, GY + 3, mz + 0.3);
         const [ox, oz] = off(f, BOARD.cx, -0.16);
         b.sign({ k: 'roadboard', rows: rows.map(({ ja, en, arrow }) => ({ ja, en, arrow })) }, mx + ox, GY + BOARD.cy, mz + oz, f, BOARD.w, BOARD.h);
       }
     }
+    // A scramble: two diagonal crosswalks over the junction box, as rows of short bars.
+    if (SCR) {
+      const x0 = a - 2, x1 = c + 2, z0 = -(rw - 0.6), z1 = rw - 0.6;
+      for (const flip of [1, -1]) {
+        const len = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / len, uz = (flip * (z1 - z0)) / len, nx = -uz, nz = ux;
+        for (let t = 1.2; t < len - 1.2; t += 0.9) {
+          for (let w = -1.6; w <= 1.6; w += 0.8) {
+            const x = (x0 + x1) / 2 + (t - len / 2) * ux + w * nx, z = (t - len / 2) * uz + w * nz;
+            b.deco('flat:#e9e9e4', x - 0.22, 0.004, z - 0.22, x + 0.22, 0.01, z + 0.22);
+          }
+        }
+      }
+    }
   }
+  SCR = false;
 
   // ── Between the junctions: bus and bicycle lanes, speed limit, parking, traffic ──
   const clear = (x: number, m: number) => !zones.some(([p, q]) => x > p - m && x < q + m);
@@ -667,7 +701,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
   // ── Bus stops: one each way, on the longest stretch, clear of the junctions ──
   for (const sx of [1, -1] as const) {
     const h: V2 = [sx, 0], s = left(h)[1];
-    const x = busStopX(streets, sx);
+    const x = g.busX?.[sx > 0 ? 0 : 1] ?? busStopX(streets, sx);
     if (x === null || !clear(x, 6) || Math.abs(x) > X - 20) continue;
     const f: V2 = [0, -s]; // facing the road
     put(b, 'busstop', x + sx * 6.5, GY, s * (rw + 0.75), f);
@@ -685,8 +719,9 @@ export function roadKit(b: Builder, g: RoadGeo) {
   // Taxis waiting at the kerb on the −x-bound side, behind one another.
   // They come and go (traffic/system.ts): the stand is as long as the kerb is clear behind its first place.
   let places = 0;
-  while (places < 3 && clear(TAXI_X + places * 5.6, 3)) places++;
-  if (places) halts[1].push({ at: X - TAXI_X, side: rw - 1.05 - KERB_LANE, rank: places });
+  const TX = g.taxiX ?? TAXI_X;
+  while (places < 3 && clear(TX + places * 5.6, 3)) places++;
+  if (places) halts[1].push({ at: X - TX, side: rw - 1.05 - KERB_LANE, rank: places });
 
   // Along a canal: shopping-street lamps on both banks, clear of the bridge.
   if (g.canal !== undefined) {
@@ -720,7 +755,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
       }
       // Street lights on this kerb, staggered between the two sides.
       if (g.lamp) {
-        const gaps = kerbGaps(streets).filter((k) => k.s === s);
+        const gaps = kerbGaps(streets, g.busX, g.taxiX).filter((k) => k.s === s);
         for (let x = x0 + (s > 0 ? 8 : 19); x < x1 - 6; x += 22) if (!gaps.some((k) => x > k.x0 - 1 && x < k.x1 + 1)) streetLamp(b, g.lamp, x, s * (rw + 0.95), [0, -s]);
       }
       // (Mid-block traffic moves now; the draws stay so the street keeps its look.)
@@ -741,7 +776,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
     trafficLane(b, -sx * X, laneZ(sx, GEN), sx * X, laneZ(sx, GEN), { speed: main, flow: (rw >= BUS_LANE_RW ? 7 : rw >= 8 ? 6.5 : 5) * busy, use: busLane ? 'general' : 'all', taxi, stops, halts: busLane ? [] : halts[i] });
     if (busLane) trafficLane(b, -sx * X, laneZ(sx, BUS), sx * X, laneZ(sx, BUS), { speed: main, flow: 2.6 * busy, use: 'bus', taxi, stops, halts: halts[i] });
     // Cyclists keep to the bicycle lane at the kerb, and go round the taxi stand that stands in it.
-    const round = sx < 0 && places ? { from: X - TAXI_X - (places - 1) * 6.2 - 11, to: X - TAXI_X + 4, side: 2.3 } : undefined;
+    const round = sx < 0 && places ? { from: X - TX - (places - 1) * 6.2 - 11, to: X - TX + 4, side: 2.3 } : undefined;
     trafficLane(b, -sx * X, laneZ(sx, BIKE), sx * X, laneZ(sx, BIKE), { speed: 15 / 3.6, flow: 1.5 * busy, use: 'cycle', taxi: 0, stops, halts: [], avoid: round });
   }
 

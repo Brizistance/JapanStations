@@ -1,3 +1,4 @@
+import type { SigAxis } from '../traffic/signals';
 // Builder: collects the parts that make up a station or a train car.
 // Pure data, no three.js. The same part list feeds both the renderer and the collision
 // world, so what you see is what you bump into.
@@ -122,7 +123,7 @@ export interface LanePart {
    * Signal stop lines, as metres from `from`: the stop line, the signal's road (signs/draw.ts
    * `axis`) and the far side of the junction, which must be free before a vehicle drives in.
    */
-  stops: { at: number; axis: 0 | 1; exit: number }[];
+  stops: { at: number; axis: SigAxis; exit: number }[];
   /**
    * Places to pull in at the kerb, `at` metres from `from` and `side` metres to the left of the lane
    * (0: stop in the lane). A bus stop, where buses wait a while; or with `rank` a taxi stand of that
@@ -157,7 +158,7 @@ export interface Build {
    * The backdrop city within `radius` of the station is Blender-built (simplified copies) instead of
    * plain blocks: low and old within `oldRadius` of the frame point `old`, business blocks beyond.
    */
-  district?: { radius: number; old: [number, number]; oldRadius: number };
+  district?: { radius: number; old: [number, number]; oldRadius: number; towers?: number };
   /**
    * The only ways to see between the street and the levels below it are the openings in `holes`
    * (exit stairs and the like). The renderer then leaves out whichever of the two cannot be seen

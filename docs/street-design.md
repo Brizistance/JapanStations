@@ -103,6 +103,10 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 **Hyōtanbori (2026-11-20):** nightlife model lots (`night`), the grand canal and station pieces in `src/stations/hyotanbori-street.ts` (spec `canalGrand`, `pieces`; models `build_hyotan.py`).
 
+**Kita-Ōdōri, urban pass (2026-11-21):** two boulevards south (Nishihama-suji, Shinonome-suji; road kit `ends`, `flows`), a scramble at Shinonome-suji (kit `scramble`: same 60 s cycle, all-walk 47–56 s), the Kawaminato Expressway over the avenue with its own traffic at deck height (vehicles on another level never block or turn), the south deck, yokochō alleys behind the front row and Ekiura Yokochō north-west, the 322 m Kawaminato Sky Crown ending Yanagi-suji, towers twr_f…k (`build_city.py`), a tower-dense backdrop (`district.towers`). Later the same day: gādoshita (高架下) under the rail decks (Higashi-ura; `underRow` in hub.ts), the signalled side street Akitsushima-dōri and pedestrian Mioya-dōri, Ura-suji parallel street, every gap packed (`fillRect`, `lowBlock`), and the hub's own ring of merged blocks beyond the plot (the shared backdrop keeps off run-on roads). Road kit gained `busX`, `taxiX`, `lit`; traffic ignores vehicles on another level.
+
+**Midorizaka (2026-11-21):** a different street plan: the park (pond, bridge, trellis, playground) opens onto the pavement where the station's pavilions stand; across the road a bus and taxi rotary (standing buses and taxis; moving traffic stays on the main road) and Midorizaka Ginza, all `pieces` (`midorizaka-street.ts`, models `build_midori.py`).
+
 **Kaiseichō (2026-11-20):** model old town with small streets and ginkgo street trees; the high school (walk-in forecourt, porch, clock tower) and Gakurindō Stationery as `pieces` (`kaiseicho-street.ts`, models `build_kaisei.py`).
 
 **Small-street signals (2026-11-20):** each signalled small-street junction has a head on each side with its own crosswalk; spec `smallSignals` sets the share per station (default 0.4).
@@ -166,7 +170,7 @@ References (2026-11-20): the 2017 National Police Agency change to flat heads wi
 
 ## Small street places
 
-Four kinds, each on its own lot on a street front (`src/stations/places.ts`, models in `tools/blender/build_places.py`): a pocket park (14 x 12 m), a neighbourhood shrine (9 x 14 m), a vending corner (6 m) and a police box (kōban). Stations built by `surface.ts` list them in the spec field `places` like the konbini lots; Kita-Ōdōri reserves three lots west of the tower in `hub.ts`. Placed so far: Kita-Ōdōri has the kōban, Yanagisuji Pocket Park and a vending corner; Tsumugibashi has Tsumugi Inari Shrine, its kōban and a vending corner.
+Four kinds, each on its own lot on a street front (`src/stations/places.ts`, models in `tools/blender/build_places.py`): a pocket park (14 x 12 m), a neighbourhood shrine (9 x 14 m), a vending corner (6 m) and a police box (kōban). Stations built by `surface.ts` list them in the spec field `places` like the konbini lots; Kita-Ōdōri reserves three lots west of the tower in `hub.ts`. Placed so far: Kita-Ōdōri has Yanagisuji Pocket Park west of the tower and the kōban on the corner of Akitsushima-dōri (a shophouse row fronts that street; the city round the hub plot is perimeter blocks: rows on every street, dressed corner walls, coin parks inside, signalled ring junctions); Tsumugibashi has Tsumugi Inari Shrine, its kōban and a vending corner.
 
 ## Trees
 

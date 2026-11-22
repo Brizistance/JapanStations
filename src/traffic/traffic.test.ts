@@ -30,7 +30,7 @@ function noOverlap(tr: Traffic, where = '') {
   const l = tr.list;
   for (let i = 0; i < l.length; i++) {
     for (let j = i + 1; j < l.length; j++) {
-      if (Math.abs(l[i].x - l[j].x) > 14 || Math.abs(l[i].z - l[j].z) > 14) continue;
+      if (Math.abs(l[i].x - l[j].x) > 14 || Math.abs(l[i].z - l[j].z) > 14 || Math.abs(l[i].y - l[j].y) > 3) continue;
       if (!apart(l[i], l[j])) expect.fail(`${where}: ${l[i].model} at ${l[i].x.toFixed(1)}, ${l[i].z.toFixed(1)} overlaps ${l[j].model} at ${l[j].x.toFixed(1)}, ${l[j].z.toFixed(1)}`);
     }
   }

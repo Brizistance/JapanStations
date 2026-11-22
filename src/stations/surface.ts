@@ -10,6 +10,7 @@ import { grandCanal, piece } from './hyotanbori-street';
 import { HORIE_PIECES, horiePiece, quietCanal } from './minamihorie-street';
 import { TSURU_PIECES, tsuruArcade, tsuruPiece } from './tsurumatsu-street';
 import { KAISEI_PIECES, kaiseiPiece } from './kaiseicho-street';
+import { MIDORI_PIECES, midoriPiece } from './midorizaka-street';
 import { modelTree, type TreeKind } from './trees';
 import { kerbGaps, kerbRail, mark, pedSignal, poleLine, roadKit, roadModel, roadSign, shortSignal, streetLamp, trafficLane, type LampKind } from './roads';
 import { BUILDING_MODELS, type BuildingModel } from './buildings';
@@ -51,6 +52,8 @@ export interface SurfaceSpec {
   oldTown?: boolean;
   /** Central-Osaka small streets through the model blocks: 6.5 m streets back from the main road and one parallel to it, poles and wires, traffic both ways. */
   smallStreets?: boolean;
+  /** The exits rise in pavilions that run on past the stair head (looks/midorizaka.ts): no bicycles or vending machines there. */
+  pavilions?: boolean;
   /** Share of small streets with a signal where they cross the parallel one (default 0.4). */
   smallSignals?: number;
   /** Road names for the blue boards (docs/worldbuilding.md): the main road, the crossing roads west to east. */
@@ -398,6 +401,8 @@ export function fillModelLots(b: Builder, r: () => number, xa: number, xb: numbe
 type Lot = [number, number, number, number];
 /** Lots that are alleys, not buildings: no front to put doorstep life against. */
 const ALLEY_LOTS = new WeakSet<Lot>();
+/** Whether a lot fillModelLots returned is the alley it left at a row's end (no building on it). */
+export const isAlleyLot = (l: Lot) => ALLEY_LOTS.has(l);
 const lotsOverlap = (a: Lot, c: Lot, m = 0.2) => a[0] < c[2] - m && a[2] > c[0] + m && a[1] < c[3] - m && a[3] > c[1] + m;
 
 /**
@@ -850,7 +855,7 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
           // A piece may run on past the segment's end, onto a corner the canal rows leave open (Hyōtan Kaikan).
           if (k.side !== side || k.x0 < xa || k.x0 >= xb) continue;
           kept.push([k.x0, k.x0 + kw, PIECES[k.id].d]);
-          b.with({ t: [k.x0 + kw / 2, 0, swOut] }, () => (HORIE_PIECES.includes(k.id) ? horiePiece : TSURU_PIECES.includes(k.id) ? tsuruPiece : KAISEI_PIECES.includes(k.id) ? kaiseiPiece : piece)(b, k));
+          b.with({ t: [k.x0 + kw / 2, 0, swOut] }, () => MIDORI_PIECES.includes(k.id) ? midoriPiece(b, k, swOut - rw) : (HORIE_PIECES.includes(k.id) ? horiePiece : TSURU_PIECES.includes(k.id) ? tsuruPiece : KAISEI_PIECES.includes(k.id) ? kaiseiPiece : piece)(b, k));
         }
         if (spec.smallStreets && spec.models && (style === 'mixed' || style === 'office' || style === 'neon')) {
           smallSegment(xa, xb, kept);
@@ -939,9 +944,11 @@ export function surface(b: Builder, spec: SurfaceSpec, cw: number, stationName: 
   for (const h of holes) {
     const zc = (h[1] + h[3]) / 2, s = Math.sign(zc);
     if (Math.abs(zc) > swOut) continue; // an opening inside a lot (a composer's own building), not an exit stair
-    vending(b, h[0] - 2.2, GY, s * (swOut - 0.6), [0, -s], r() < 0.5 ? 'vending' : 'vending2');
+    // (Keep the draw so the street's other choices stay as they were.)
+    const vk = r() < 0.5 ? 'vending' : 'vending2';
+    if (!spec.pavilions) vending(b, h[0] - 2.2, GY, s * (swOut - 0.6), [0, -s], vk);
     // Parked bicycles.
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < (spec.pavilions ? 0 : 4); i++) {
       const bx = h[2] + 3 + i * 0.7;
       if (spec.models) {
         const f = b.dir([0, -s]);
@@ -1504,7 +1511,7 @@ function stackRows(b: Builder, r: () => number, x0: number, x1: number, z0: numb
 }
 
 /** Asphalt between u0 and u1 along `axis`, across at0 … at1, with white edge lines and a manhole cover now and then. */
-function smallRoad(b: Builder, r: () => number, axis: 'x' | 'z', u0: number, u1: number, at0: number, at1: number, lines = true) {
+export function smallRoad(b: Builder, r: () => number, axis: 'x' | 'z', u0: number, u1: number, at0: number, at1: number, lines = true) {
   if (u1 - u0 < 0.2) return;
   const box = (mat: string, a: number, c: number, p: number, q: number, y0: number, y1: number) =>
     axis === 'z' ? b.deco(mat, p, y0, a, q, y1, c) : b.deco(mat, a, y0, p, c, y1, q);
@@ -1634,8 +1641,8 @@ function doorstep(b: Builder, r: () => number, x: number, z: number, ax: number,
  * a kerb mirror at its mouth, a 30 sign for the way in, utility poles down one side. With `traffic`:
  * a lane out (stop line, then left onto the main road) and a lane in (left turns off the main road).
  */
-function smallStreet(b: Builder, r: () => number, x0: number, x1: number, rw: number, swOut: number, p0: number, p1: number, traffic: boolean, name: { ja: string; en: string }, heavy = true, signals = 0.4) {
-  const z1 = PLOT_Z - 1, xc = (x0 + x1) / 2, m = mirrored(b) ? -1 : 1;
+export function smallStreet(b: Builder, r: () => number, x0: number, x1: number, rw: number, swOut: number, p0: number, p1: number, traffic: boolean, name: { ja: string; en: string }, heavy = true, signals = 0.4, plotZ = PLOT_Z, mouthAxis: 0 | 1 = 0) {
+  const z1 = plotZ - 1, xc = (x0 + x1) / 2, m = mirrored(b) ? -1 : 1;
   // The lane out keeps left: towards x0 in a plain frame, x1 in a mirrored one.
   const outX = xc - m * 1.1, kerbX = m > 0 ? x0 + 0.4 : x1 - 0.4, farX = m > 0 ? x1 - 0.4 : x0 + 0.4;
   smallRoad(b, r, 'z', rw, swOut, x0, x1, false);
@@ -1659,8 +1666,9 @@ function smallStreet(b: Builder, r: () => number, x0: number, x1: number, rw: nu
     b.block(px - w / 2, GY, pz - (id === 'phonebox' ? 0.5 : 0.35), px + w / 2, GY + (id === 'phonebox' ? 2.4 : 1.1), Math.min(swOut, pz + 0.5));
   }
   if (!traffic) return;
-  const zFrom = PLOT_Z + 1.5;
-  const stops: LanePart['stops'] = [{ at: zFrom - swOut, axis: 0, exit: zFrom + rw }];
+  const zFrom = plotZ + 1.5;
+  // (mouthAxis 1: out on the main road's red, as the side roads do, where the main road is too busy for gaps.)
+  const stops: LanePart['stops'] = [{ at: zFrom - swOut, axis: mouthAxis, exit: zFrom + rw }];
   // Now and then a signal where it crosses the parallel street (like the narrow junctions' short-arm
   // pole): a crosswalk over the small street, a stop line, pedestrian heads at both ends.
   if (r() < signals) {

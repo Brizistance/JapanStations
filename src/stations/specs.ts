@@ -122,12 +122,24 @@ export const SPECS: Record<StationId, StationSpec> = {
   midorizaka: {
     kind: 'interchange',
     primary: 'Y',
-    exits: [{ at: 4.6 }, { sides: [1], at: 11.8 }],
+    // Both exits come up in pavilions on the park side (no stairs on the pavement opposite).
+    exits: [{ at: 6.2, sides: [-1] }, { sides: [-1], at: 10.4 }],
     style: {
       wall: 'brick:#b98a66', concWall: 'tile:#efe7d6', floor: 'floor:#cfc8b8', pillar: 'tile:#e9dfc9',
       accent: '#7a9a4a', mural: { v: 'leaves', color: '#3f8f4f' },
     },
-    surface: { seed: 11, roadHalf: 6.5, cross: [-70, 62], left: 'park', right: 'house', trees: true, poles: true },
+    // Outside: Midorizaka Park on the −z side with the station's two pavilions at its edge; across the
+    // road the station plaza (bus and taxi rotary) and Midorizaka Ginza; quiet houses on small streets.
+    surface: {
+      seed: 11, roadHalf: 6.5, cross: [-70, 62], left: 'mixed', right: 'mixed', poles: true, models: true, roadKit: true, oldTown: true,
+      smallStreets: true, smallSignals: 0.5, treeKinds: ['zelkova', 'cherry'], pavilions: true,
+      parkName: { ja: '緑坂公園', en: 'Midorizaka Park' },
+      pieces: [
+        { id: 'park', side: -1, x0: -63.5, ja: '緑坂公園', en: 'Midorizaka Park' },
+        { id: 'plaza', side: 1, x0: -22, ja: '緑坂駅前広場', en: 'Midorizaka Station Plaza' },
+        { id: 'ginza', side: 1, x0: 15, ja: '緑坂銀座', en: 'Midorizaka Ginza' },
+      ],
+    },
   },
   // The central station. Stone and brass above the platforms (white enamel on them); the Yanagisuji platforms keep
   // their vaulted hall, and everything else is built by the hub composer (hub.ts).

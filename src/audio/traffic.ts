@@ -36,7 +36,7 @@ const idle = new Source(), wetRoad = new Source(), calls = [new Source(), new So
 const lastSpeed = new WeakMap<object, number>();
 
 /** The pedestrian-signal speakers of a station, in world space, with the road whose green they call. */
-const speakers = new WeakMap<StationWorld, { at: V3; axis: 0 | 1 }[]>();
+const speakers = new WeakMap<StationWorld, { at: V3; axis: 0 | 1 | 2 | 3 }[]>();
 function speakersOf(w: StationWorld) {
   let list = speakers.get(w);
   if (!list) {
@@ -118,7 +118,7 @@ export function tickTrafficAudio(cam: { x: number; y: number; z: number }, under
   } else idle.play(null);
 
   // The pedestrian signals' calls: the two nearest speakers.
-  const heard: { at: V3; axis: 0 | 1; d: number }[] = [];
+  const heard: { at: V3; axis: 0 | 1 | 2 | 3; d: number }[] = [];
   if (!under) {
     for (const s of streets) {
       for (const sp of speakersOf(s.world)) {
@@ -132,6 +132,6 @@ export function tickTrafficAudio(cam: { x: number; y: number; z: number }, under
     const sp = heard[i];
     if (!sp || signalState(sp.axis, time).walk !== 'go') return c.play(null);
     c.at[0] = sp.at[0]; c.at[1] = sp.at[1]; c.at[2] = sp.at[2];
-    c.play(sp.axis === 0 ? 'signal-piyo' : 'signal-kakko', 1, 0.5);
+    c.play(sp.axis % 2 === 0 ? 'signal-piyo' : 'signal-kakko', 1, 0.5);
   });
 }

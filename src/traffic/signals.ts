@@ -11,7 +11,24 @@ export const SIGNAL_CYCLE = 60;
  * the phase, flashing for 5, then red. `left` is the share of the current walk or wait still to run
  * (the countdown bars).
  */
-export function signalState(axis: 0 | 1, t: number): { car: 'green' | 'yellow' | 'red'; walk: 'go' | 'flash' | 'stop'; arrow: boolean; left: number } {
+/**
+ * A signal's road: 0 the main road, 1 the road crossing it; 2 and 3 the same at a scramble junction.
+ * A scramble keeps the same 60 s cycle (so it stays in step with its neighbours) but shares it out
+ * differently: main road green 0–20 (yellow to 23), crossing road green 26–42 (yellow to 45), then
+ * every car red while people cross every way at once: walk 47–56, flashing to 59. Nobody walks with
+ * the traffic there.
+ */
+export type SigAxis = 0 | 1 | 2 | 3;
+
+export function signalState(axis: SigAxis, t: number): { car: 'green' | 'yellow' | 'red'; walk: 'go' | 'flash' | 'stop'; arrow: boolean; left: number } {
+  if (axis > 1) {
+    const u = ((t % SIGNAL_CYCLE) + SIGNAL_CYCLE) % SIGNAL_CYCLE;
+    const [g0, g1, y1] = axis === 2 ? [0, 20, 23] : [26, 42, 45];
+    const car = u >= g0 && u < g1 ? 'green' : u >= g1 && u < y1 ? 'yellow' : 'red';
+    const walk = u >= 47 && u < 56 ? 'go' : u >= 56 && u < 59 ? 'flash' : 'stop';
+    const left = walk === 'go' ? (56 - u) / 9 : walk === 'flash' ? 0 : (u < 47 ? 47 - u : SIGNAL_CYCLE - u + 47) / (SIGNAL_CYCLE - 12);
+    return { car, walk, arrow: false, left };
+  }
   const u = (((t + (axis ? SIGNAL_CYCLE / 2 : 0)) % SIGNAL_CYCLE) + SIGNAL_CYCLE) % SIGNAL_CYCLE;
   const g0 = axis ? 3 : 0;
   const car = u < g0 ? 'red' : u < 25 ? 'green' : u < 28 ? 'yellow' : 'red';

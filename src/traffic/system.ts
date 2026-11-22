@@ -196,7 +196,7 @@ function poseAt(route: Route, s: number) {
 function beside(a: Lane, lanes: Lane[]): { lane: Lane; off: number }[] {
   const out: { lane: Lane; off: number }[] = [];
   for (const o of lanes) {
-    if (o.ux * a.ux + o.uz * a.uz < 0.9) continue;
+    if (o.ux * a.ux + o.uz * a.uz < 0.9 || Math.abs(o.part.from[1] - a.part.from[1]) > 2) continue;
     const dx = o.part.from[0] - a.part.from[0], dz = o.part.from[2] - a.part.from[2];
     const off = dx * -a.uz + dz * a.ux;
     if (Math.abs(off) < 14) out.push({ lane: o, off });
@@ -214,7 +214,8 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
   const mine = beside(a, lanes).filter((s) => !kerbside(s.lane));
   const leftmost = !mine.some((s) => s.off < -0.5), rightmost = !mine.some((s) => s.off > 0.5);
   for (const b of lanes) {
-    if (kerbside(b) || Math.abs(a.ux * b.ux + a.uz * b.uz) > 0.1) continue;
+    // (Nor between levels: an expressway over a junction is not a turning.)
+    if (kerbside(b) || Math.abs(a.ux * b.ux + a.uz * b.uz) > 0.1 || Math.abs(a.part.from[1] - b.part.from[1]) > 2) continue;
     const dx = b.part.from[0] - a.part.from[0], dz = b.part.from[2] - a.part.from[2];
     // Where the two cross: t along a, u along b.
     const t = dx * a.ux + dz * a.uz, u = -(dx * b.ux + dz * b.uz);
@@ -482,7 +483,8 @@ let sampled = false;
 function roomTo(v: Vehicle, o: Vehicle, margin: number, far = 0): number {
   sampled = false;
   const dx = o.x - v.x, dz = o.z - v.z, d2 = dx * dx + dz * dz;
-  if (d2 > 4900) return Infinity;
+  // (A vehicle on another level, an expressway overhead, is never in the way.)
+  if (d2 > 4900 || Math.abs(o.y - v.y) > 3) return Infinity;
   const fwd = dx * v.hx + dz * v.hz, lat = dx * v.hz - dz * v.hx, par = v.hx * o.hx + v.hz * o.hz;
   // How much of the way to it is straight road.
   const ps = v.route.pieces;
@@ -609,6 +611,7 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
     // At the stop line: somebody still inside the junction whose way on crosses its own counts too, wherever they are now.
     if (far > 0) {
       for (const o of list) {
+        if (o !== v && Math.abs(o.y - v.y) > 3) continue;
         if (o === v || Math.abs(o.hx * v.hx + o.hz * v.hz) > 0.95 || !inJunction(o)) continue;
         const ox = o.x, oz = o.z, ohx = o.hx, ohz = o.hz;
         for (let k = 5; k <= 20; k += 5) {
@@ -644,6 +647,7 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
       if (v.s <= turn.hold + 0.05 && (turn.oncoming.length || turn.facing.length)) {
         let coming = false;
         for (const o of list) {
+          if (o !== v && Math.abs(o.y - v.y) > 3) continue;
           const ot = o.route.turn;
           if (ot && o.s > ot.arc0 + 0.01 && o.s < ot.arc1 + o.len / 2 && turn.facing.includes(ot)) coming = true;
           if (!o.lane || o === v || stopping(o, time)) continue;
@@ -663,6 +667,7 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
     const enter = route.enter;
     if (enter && enter.lanes.length && v.served === 0 && v.s <= enter.hold + 0.05) {
       for (const o of list) {
+        if (o !== v && Math.abs(o.y - v.y) > 3) continue;
         if (o.lane && enter.lanes.includes(o.lane) && o.ls > enter.from && o.ls < enter.to && enter.hold - v.s < room) {
           room = enter.hold - v.s;
           jammed = false;
@@ -680,6 +685,7 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
           const m = route.merge;
           let coming = false;
           for (const o of list) {
+            if (o !== v && Math.abs(o.y - v.y) > 3) continue;
             // (One standing behind it is waiting for it to go.)
             if (!m || o === v || o.lane !== m.lane || o.v < 0.3) continue;
             // From just ahead of its nose back to what will reach it while it swings out.

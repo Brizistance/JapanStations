@@ -68,7 +68,7 @@ export type SignContent =
    * Traffic signal lamps, live: a vehicle head lying down ('car') or standing ('carv'), the right-turn
    * arrow lamp under a main-road head ('arrow'), or a pedestrian head ('ped', with countdown bars if `bars`).
    */
-  | { k: 'signal'; v: 'car' | 'carv' | 'arrow' | 'ped'; axis: 0 | 1; bars?: boolean }
+  | { k: 'signal'; v: 'car' | 'carv' | 'arrow' | 'ped'; axis: 0 | 1 | 2 | 3; bars?: boolean }
   /** A road sign's face (the `back-…` ones are the grey backs of the three shapes). Cut out to its shape. */
   | { k: 'roadsign'; v: 'stop' | 'speed40' | 'speed30' | 'noparking' | 'nostopping' | 'crossing' | 'school' | 'hydrant' | 'back-tri' | 'back-round' | 'back-penta' | 'back-diamond' }
   /**

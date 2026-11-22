@@ -191,7 +191,7 @@ function backdropModels(): THREE.Group {
       // Blocks next to where you can walk go in detail cells; the rest is one simplified mesh (memory).
       (lot.near ? parts : farParts).push({ kind: m.kind, id: `${m.id}_lo`, pos: [lot.x + fx * off - bx * front, -0.03, lot.z + fz * off - bz * front], yaw, seed: 0 });
     };
-    if (!old && r() < 0.06 && far > 190 && towers < 4) {
+    if (!old && r() < (d.towers ? 0.2 : 0.06) && far > 190 && towers < (d.towers ?? 4)) {
       const m = pick(of('tower'));
       put(m, yaw0, 0, m.d / 2);
       towers++;

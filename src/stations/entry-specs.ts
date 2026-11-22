@@ -156,15 +156,6 @@ export const ENTRY: Partial<Record<StationId, EntrySpec>> = {
       { k: 'benches', in: 'unpaid' },
     ],
   },
-  // The green slope: a moss-green louvred frame, sage panels, a light line up the stair.
-  midorizaka: {
-    street: 'louvre', frame: '#3f5a3a', trim: '#e8d9b0',
-    well: { clad: 'panel:#cfd8c4', height: 2.1, stripe: '#3f8f4f', lamps: 'strip', rail: '#5b6b63' },
-    hall: { wall: 'tile:#eef0e6', floor: 'floor:#cbcdbd', pillar: 'tile:#7a9a4a' },
-    fill: [
-      { k: 'display', theme: 'slope', ja: '緑坂のけやき並木', en: 'The zelkova trees of Midorizaka' },
-    ],
-  },
   // Dogwood street: a white glass barrel vault trimmed pink, blush tile down.
   hanamizuki: {
     street: 'vault', frame: '#e8e2da', trim: '#d98aa0',
