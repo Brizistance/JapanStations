@@ -11,6 +11,8 @@
 #                    facing -z. It has no roof or inside: the game builds the roof slab, the
 #                    Exchange Hall and the rotunda (src/stations/rotunda.ts), and the dome is
 #                    tsumugi_dome. W, D, EAVES and DOOR below are mirrored there.
+#   exchange_inside  the trading hall and its gallery seen from inside (stage 2, src/stations/exchange.ts):
+#                    linings, the drum's core, gallery, ceiling, booths, the museum's cases. Same origin.
 #   exchange_bridge  both parapets of the bridge, their name posts and lamps, and the arch faces
 #                    towards the canal. Origin: the middle of the road over the canal, on the
 #                    pavement. HALF and ZA are mirrored in src/stations/surface.ts canalFeature().
@@ -87,12 +89,43 @@ def arched_window(p, xc, y0, y1, w, z, out):
         p.box(BRONZE, xc - r, y - 0.03, z + e, xc + r, y + 0.03, z + e + out * 0.03)
 
 
-def brick_wall(p, x0, x1, z, out, y0=1.2, y1=7.7):
-    """Brick between y0 and y1 in the plane z facing out, in courses of two shades with stone bands."""
+def door2(p, xc):
+    """The bay where the footbridge's glazed link meets the front: a short window below the
+    gallery floor, the doorway (open: the link's glass closes it) in a stone frame above."""
+    a, b = DOOR2
+    p.box(STONE, xc - 1.52, 1.75, -0.22, xc + 1.52, 2.0, 0)
+    for s in (-1, 1):
+        p.box(STONE, min(xc + s * 1.3, xc + s * 1.5), 2.0, -0.12, max(xc + s * 1.3, xc + s * 1.5), 4.4, 0)
+    p.face(WINDOW_DARK, [(xc - 1.3, 2.0, -0.06), (xc + 1.3, 2.0, -0.06), (xc + 1.3, 4.2, -0.06), (xc - 1.3, 4.2, -0.06)], (0, 0, -1), col=WINDOW)
+    p.box(STONE, xc - 1.5, 4.2, -0.18, xc + 1.5, F2, 0)
+    for x in (a - 0.22, b):
+        p.box(STONE, x, F2, -0.16, x + 0.22, F2 + 2.4, 0)
+    p.box(STONE_2, a - 0.3, F2 + 2.2, -0.2, b + 0.3, F2 + 2.5, 0)
+    # The reveal's floor and sides (the wall is 0.4 m deep here).
+    p.box(STONE_2, a, F2 - 0.02, 0, b, F2, 0.5)
+    for x in (a, b - 0.02):
+        p.box(STONE_2, x, F2, 0, x + 0.02, F2 + 2.2, 0.5)
+    p.box(STONE_2, a, F2 + 2.18, 0, b, F2 + 2.2, 0.5)
+
+
+def brick_wall(p, x0, x1, z, out, y0=1.2, y1=7.7, hole=None):
+    """Brick between y0 and y1 in the plane z facing out, in courses of two shades with stone bands.
+    `hole` (hx0, hx1, hy0, hy1) is left open."""
     n = 13
     for k in range(n):
         a, b = y0 + (y1 - y0) * k / n, y0 + (y1 - y0) * (k + 1) / n
-        p.face(BRICK if k % 2 else BRICK_2, [(x0, a, z), (x1, a, z), (x1, b, z), (x0, b, z)], (0, 0, out))
+        col = BRICK if k % 2 else BRICK_2
+        parts = [(x0, x1, a, b)]
+        if hole and hole[0] < x1 and hole[1] > x0 and hole[2] < b and hole[3] > a:
+            hx0, hx1, hy0, hy1 = hole
+            parts = [(x0, hx0, a, b), (hx1, x1, a, b)]
+            if a < hy0:
+                parts.append((hx0, hx1, a, min(b, hy0)))
+            if b > hy1:
+                parts.append((hx0, hx1, max(a, hy1), b))
+        for (pa, pb, ya, yb) in parts:
+            if pb - pa > 1e-3 and yb - ya > 1e-3:
+                p.face(col, [(pa, ya, z), (pb, ya, z), (pb, yb, z), (pa, yb, z)], (0, 0, out))
 
 
 def side_wall(p, x, out, z0, z1):
@@ -133,7 +166,7 @@ def hall(p):
             p.box(GRANITE if k % 2 else GRANITE_2, a, ya, -0.18 + 0.02 * k, b, yb - 0.02, 0)
         p.face(GRANITE, [(a, 0, 0), (b, 0, 0), (b, 1.2, 0), (a, 1.2, 0)], (0, 0, -1))
     # Brick above, leaving the doorway (clear to 3.2) and the fanlight over it.
-    brick_wall(p, x0, d0 - 0.6, 0, -1)
+    brick_wall(p, x0, d0 - 0.6, 0, -1, hole=(DOOR2[0], DOOR2[1], F2, F2 + 2.2))
     brick_wall(p, d1 + 0.6, x1, 0, -1)
     # Bays between stone pilasters: eight windows, and the entrance bay.
     pil = [x0 + 0.5]
@@ -156,9 +189,14 @@ def hall(p):
             continue
         if b - a < 3.0:
             continue
+        if abs((a + b) / 2 - (DOOR2[0] + DOOR2[1]) / 2) < 0.5:
+            door2(p, (a + b) / 2)
+            continue
         arched_window(p, (a + b) / 2, 2.0, 6.7, min(2.6, b - a - 1.6), -0.02, -1)
     # String course, cornice with dentils, attic and parapet with a copper coping.
-    p.box(STONE_2, x0, 1.2, -0.1, x1, 1.36, 0)
+    # (Not across the doorway.)
+    for a, b in ((x0, d0 - 0.7), (d1 + 0.7, x1)):
+        p.box(STONE_2, a, 1.2, -0.1, b, 1.36, 0)
     p.box(STONE, x0 - 0.2, 7.7, -0.5, x1 + 0.2, 8.0, 0)
     p.box(STONE_2, x0 - 0.3, 8.0, -0.7, x1 + 0.3, 8.3, 0)
     k = 0
@@ -311,7 +349,216 @@ def bridge(p):
             p.box(GRANITE, x - 0.5, water - 0.6, min(zo, zo + s * 0.5), x + 0.5, spring + 0.2, max(zo, zo + s * 0.5))
 
 
-PROPS = {'hall': (hall, W + 4), 'bridge': (bridge, 18)}
+
+# ── Inside (stage 2 of the 2026-11 rebuild) ─────────────────────────────────────────────────────
+# The building's own frame (origin mid-frontage on the pavement, +z into the lot). Shared with
+# src/stations/exchange.ts: F2, CEIL, CORE, the void, the stair well, DOOR2, the lift.
+F2, CEIL = 4.6, 8.9                       # the gallery floor; the ceiling under the roof slab
+CORE = (-20.55, 2.65, 2.2, 25.4)          # the rotunda's drum, squared (rotunda.ts colliders): x0, x1, z0, z1
+VOID = (2.65, 19.1, 3.4, 24.6)            # the hall's open middle under the ceiling's laylight
+WELL = (2.45, 12.17, 10.3, 17.3)          # the Grand Stair's well in the floor (rotunda.ts XS, XT, CZ ± SH)
+DOOR2 = (-16.05, -13.65)                  # the second-floor door in the front, for the footbridge's link
+STAIR2 = (10.5, 19.1, 21.8, 24.2)         # the stair up to the gallery: x0, x1 (climbing +x), z0, z1
+LIFT = (20.25, 22.55, 0.4, 2.7)           # the lift's shaft
+COLS = [(6.0, 3.4), (10.0, 3.4), (6.0, 24.6), (10.0, 24.6), (19.1, 8.5), (19.1, 13.0), (19.1, 17.5), (19.1, 3.4)]
+PLASTER = 'flat:#efe8d8'
+WOOD = 'flat:#5a3d2b'
+WOOD_LT = 'flat:#7a5a3a'
+MARBLE = 'flat:#e3dccb'
+SKY = 'flat:#d6e2e8'
+CLOTHS = ['#7a1f2b', '#1f3f7a', '#b4472f', '#2b3a67', '#c9962e', '#3f6f4a', '#efe6cf', '#d94f8a']
+
+
+def pilasters(p, face, a0, a1, at, y0, y1, step, skip=()):
+    """Flat stone pilasters on an inside wall, none in the `skip` spans (doorways)."""
+    x = a0 + step / 2
+    while x < a1 - 0.3:
+        if any(s0 - 0.5 < x < s1 + 0.5 for s0, s1 in skip):
+            x += step
+            continue
+        if face in 'fb':
+            z0, z1 = (at, at + 0.12) if face == 'f' else (at - 0.12, at)
+            p.box(STONE, x - 0.3, y0, z0, x + 0.3, y1, z1)
+        else:
+            x0_, x1_ = (at, at + 0.12) if face == 'l' else (at - 0.12, at)
+            p.box(STONE, x0_, y0, x - 0.3, x1_, y1, x + 0.3)
+        x += step
+
+
+def inside(p):
+    """The trading hall and the gallery, as seen from inside: wall linings with windows, the drum's
+    squared core with the arch over the Grand Stair, the gallery on columns with a bronze
+    balustrade, the coffered ceiling with its laylight, the brokers' booths, the price board's
+    frame, an info desk, a café corner, the museum's cases. No colliders: the game's."""
+    x0, x1, z0, z1 = -22.5, 22.5, 0.5, 27.5
+    cx0, cx1, cz0, cz1 = CORE
+    # ── Wall linings (thin boxes just inside the outer walls), with the two doors left open ──
+    d0, d1 = DOOR
+    segs = [(x0, DOOR2[0], 0, CEIL), (DOOR2[0], DOOR2[1], 0, F2), (DOOR2[0], DOOR2[1], F2 + 2.2, CEIL),
+            (DOOR2[1], d0, 0, CEIL), (d0, d1, 3.2, CEIL), (d1, x1, 0, CEIL)]
+    for a, b, ya, yb in segs:
+        p.box(PLASTER, a, ya, z0 - 0.1, b, yb, z0)
+    p.box(PLASTER, x0, 0, z1, x1, CEIL, z1 + 0.1)
+    p.box(PLASTER, x1, 0, z0, x1 + 0.1, CEIL, z1)
+    p.box(PLASTER, x0 - 0.1, 0, z0, x0, CEIL, z1)
+    # Timber dado on both floors, a picture rail, pilasters.
+    for y, (g0, g1) in ((0.0, (d0, d1)), (F2, DOOR2)):
+        p.box(WOOD, x0, y, z0, g0, y + 1.1, z0 + 0.03)
+        p.box(WOOD, g1, y, z0, x1, y + 1.1, z0 + 0.03)
+        p.box(WOOD, x0, y, z1 - 0.03, x1, y + 1.1, z1)
+        p.box(WOOD, x1 - 0.03, y, z0, x1, y + 1.1, z1)
+        p.box(WOOD, x0, y, z0, x0 + 0.03, y + 1.1, z1)
+    pilasters(p, 'f', x0, x1, z0, 0, CEIL, 5.1, skip=((d0, d1), DOOR2))
+    pilasters(p, 'b', x0, x1, z1, 0, CEIL, 5.1)
+    pilasters(p, 'r', z0, z1, x1, 0, CEIL, 5.6)
+    # Windows from inside: the front's tall bays (as the outside, hall()), the side's.
+    pil = [-W / 2 + 0.5]
+    while pil[-1] + 5.1 < d0 - 1.0:
+        pil.append(pil[-1] + 5.1)
+    pil += [d0 - 1.1, d1 + 1.1]
+    while pil[-1] + 5.1 < W / 2 - 0.4:
+        pil.append(pil[-1] + 5.1)
+    for a, b in zip(pil, pil[1:]):
+        if (a >= d0 - 1.2 and b <= d1 + 1.2) or b - a < 3.0:
+            continue
+        xc, r = (a + b) / 2, min(2.6, b - a - 1.6) / 2
+        if abs(xc - (DOOR2[0] + DOOR2[1]) / 2) < 0.5:
+            p.face(SKY, [(xc - r, 2.0, z0 + 0.04), (xc + r, 2.0, z0 + 0.04), (xc + r, 4.2, z0 + 0.04), (xc - r, 4.2, z0 + 0.04)], (0, 0, 1))
+            continue
+        p.face(SKY, [(xc - r, 2.0, z0 + 0.04), (xc + r, 2.0, z0 + 0.04), (xc + r, 6.4, z0 + 0.04), (xc - r, 6.4, z0 + 0.04)], (0, 0, 1))
+        p.box(BRONZE, xc - r, 4.0, z0, xc + r, 4.06, z0 + 0.06)
+        for xx in (xc - r - 0.08, xc + r, xc - r / 3 - 0.03, xc + r / 3 - 0.03):
+            p.box(BRONZE, xx, 2.0, z0, xx + (0.08 if abs(xx - xc) > r - 0.01 else 0.06), 6.4, z0 + 0.07)
+        for yy in (1.92, 6.4):
+            p.box(STONE_2, xc - r - 0.2, yy, z0, xc + r + 0.2, yy + 0.1, z0 + 0.1)
+    for k in range(5):
+        zc = 28.0 * (k + 0.5) / 5
+        p.face(SKY, [(x1 - 0.04, 1.95, zc - 0.9), (x1 - 0.04, 1.95, zc + 0.9), (x1 - 0.04, 6.1, zc + 0.9), (x1 - 0.04, 6.1, zc - 0.9)], (-1, 0, 0))
+        for zz in (zc - 0.98, zc + 0.9, zc - 0.03):
+            p.box(BRONZE, x1 - 0.07, 1.95, zz, x1, 6.1, zz + (0.06 if abs(zz - zc) < 0.1 else 0.08))
+        for yy in (1.87, 4.0, 6.1):
+            p.box(STONE_2 if yy != 4.0 else BRONZE, x1 - 0.1, yy, zc - 1.0, x1, yy + (0.08 if yy != 4.0 else 0.05), zc + 1.0)
+    # ── The drum's squared core: stone faces, the arch over the Grand Stair on its east face ──
+    _, _, wz0, wz1 = WELL
+    p.box(STONE, cx0, 0, cz0 - 0.1, cx1, CEIL, cz0)
+    p.box(STONE, cx0, 0, cz1, cx1, CEIL, cz1 + 0.1)
+    p.box(STONE, cx0 - 0.1, 0, cz0, cx0, CEIL, cz1)
+    for a, b, ya in ((cz0, wz0, 0.0), (wz1, cz1, 0.0), (wz0, wz1, 3.95)):
+        p.box(STONE, cx1, ya, a, cx1 + 0.1, CEIL, b)
+    p.box(STONE_2, cx1, 3.95, wz0 - 0.35, cx1 + 0.3, 4.3, wz1 + 0.35)   # lintel over the stair's opening
+    for zz in (wz0 - 0.35, wz1):
+        p.box(STONE_2, cx1, 0, zz, cx1 + 0.35, 3.95, zz + 0.35)
+    p.box(STONE_2, cx1, 4.3, wz0 - 0.4, cx1 + 0.2, 4.6, wz1 + 0.4)
+    for face, a0, a1, at in (('f', cx0, cx1, cz0 - 0.1), ('b', cx0, cx1, cz1 + 0.1), ('l', cz0, cz1, cx0 - 0.1)):
+        pilasters(p, face, a0, a1, at, 0, CEIL, 4.6)
+    # A woven hanging on the drum's face opposite the door from the footbridge.
+    dc2 = (DOOR2[0] + DOOR2[1]) / 2
+    for k in range(9):
+        xa = dc2 - 2.7 + k * 0.6
+        p.box('flat:' + CLOTHS[k % len(CLOTHS)], xa, F2 + 0.5, cz0 - 0.16, xa + 0.6, F2 + 3.6, cz0 - 0.12)
+    p.box(WOOD, dc2 - 2.85, F2 + 3.6, cz0 - 0.2, dc2 + 2.85, F2 + 3.7, cz0 - 0.1)
+    # ── The closed ends of the ring at street level (staff doors) ──
+    for za, zb in ((z0, cz0), (cz1, z1)):
+        p.box(PLASTER, cx1, 0, za, cx1 + 0.1, F2, zb)
+        p.box(WOOD, cx1 + 0.1, 0, (za + zb) / 2 - 0.5, cx1 + 0.14, 2.1, (za + zb) / 2 + 0.5)
+    # ── The gallery: slabs, the soffit, a stone fascia and a bronze balustrade round the void ──
+    vx0, vx1, vz0, vz1 = VOID
+    slabs = [(x0, cx1, z0, cz0), (cx1, x1, z0, vz0), (x0, cx0, cz0, cz1), (x0, cx1, cz1, z1), (cx1, x1, vz1, z1), (vx1, x1, vz0, vz1)]
+    for a, b, c, d in slabs:
+        p.box(MARBLE, a, F2 - 0.3, c, b, F2, d)
+    edges = [('x', vx0, vx1, vz0), ('x', vx0, vx1, vz1), ('z', vz0, vz1, vx1)]
+    for axis, a, b, at in edges:
+        if axis == 'x':
+            p.box(STONE_2, a, F2 - 0.6, at - 0.15, b, F2 + 0.02, at + 0.15)
+            p.box(BRONZE, a, F2 + 1.0, at - 0.06, b, F2 + 1.08, at + 0.06)
+            x = a + 0.15
+            while x < b:
+                p.box(BRONZE, x - 0.02, F2, at - 0.02, x + 0.02, F2 + 1.0, at + 0.02)
+                x += 0.15
+        else:
+            for sa, sb in ((a, STAIR2[2]), (STAIR2[3], b)):
+                p.box(STONE_2, at - 0.15, F2 - 0.6, sa, at + 0.15, F2 + 0.02, sb)
+                p.box(BRONZE, at - 0.06, F2 + 1.0, sa, at + 0.06, F2 + 1.08, sb)
+            z = a + 0.15
+            while z < b:
+                if not (STAIR2[2] < z < STAIR2[3]):
+                    p.box(BRONZE, at - 0.02, F2, z - 0.02, at + 0.02, F2 + 1.0, z + 0.02)
+                z += 0.15
+    for (cx, cz) in COLS:
+        p.cyl(MARBLE, (cx, (F2 - 0.6) / 2, cz), 1, 0.32, F2 - 0.6, seg=14)
+        p.box(STONE_2, cx - 0.42, 0, cz - 0.42, cx + 0.42, 0.35, cz + 0.42)
+        p.box(BRASS, cx - 0.45, F2 - 0.85, cz - 0.45, cx + 0.45, F2 - 0.6, cz + 0.45)
+    # ── The ceiling: coffers in timber, the laylight over the void ──
+    p.box(PLASTER, x0, CEIL, z0, x1, CEIL + 0.1, z1)
+    x = vx0 + 0.6
+    while x + 1.8 < vx1:
+        z = vz0 + 0.6
+        while z + 1.8 < vz1:
+            lit = (int((x - vx0) / 2.0) + int((z - vz0) / 2.0)) % 2 == 0
+            p.box('light' if lit else 'flat:#c9d3d6', x + 0.15, CEIL - 0.02, z + 0.15, x + 1.65, CEIL, z + 1.65)
+            z += 2.0
+        x += 2.0
+    for xx in [vx0 + 0.6 + 2.0 * k for k in range(int((vx1 - vx0) / 2.0) + 1)]:
+        p.box(WOOD_LT, xx - 0.08, CEIL - 0.3, vz0, xx + 0.08, CEIL, vz1)
+    for zz in [vz0 + 0.6 + 2.0 * k for k in range(int((vz1 - vz0) / 2.0) + 1)]:
+        p.box(WOOD_LT, vx0, CEIL - 0.3, zz - 0.08, vx1, CEIL, zz + 0.08)
+    # ── The trading floor: brokers' booths in two rows, an info desk, a café corner ──
+    for zr, xs in ((4.2, (3.2, 5.6, 8.0, 10.4)),):
+        for xb in xs:
+            p.box(WOOD, xb, 0, zr, xb + 2.0, 1.05, zr + 1.2)
+            p.box(WOOD_LT, xb - 0.05, 1.05, zr - 0.05, xb + 2.05, 1.1, zr + 1.25)
+            p.box('flat:#22262b', xb + 0.2, 1.1, zr + 0.95, xb + 1.8, 1.9, zr + 1.0)
+            p.cyl(WOOD, (xb + 1.0, 0.3, zr - 0.45), 1, 0.2, 0.6, seg=8)
+    p.box(WOOD, 21.0, 0, 8.0, 22.0, 1.05, 12.0)
+    p.box(MARBLE, 20.95, 1.05, 7.95, 22.05, 1.12, 12.05)
+    for xt in (4.4, 7.4):
+        for zt in (20.0, 22.8):
+            p.cyl(WOOD, (xt, 0.37, zt), 1, 0.05, 0.74, seg=6)
+            p.cyl(MARBLE, (xt, 0.76, zt), 1, 0.42, 0.04, seg=12)
+            for dx in (-0.6, 0.6):
+                p.cyl('flat:#7a1f2b', (xt + dx, 0.23, zt), 1, 0.17, 0.46, seg=8)
+    p.box(WOOD, 20.2, 0, 13.0, 22.4, 1.05, 18.5)
+    p.box(MARBLE, 20.15, 1.05, 12.95, 22.45, 1.12, 18.55)
+    # ── The price board: a dark frame of rows of slates on the back wall, above the gallery ──
+    p.box(WOOD, 4.0, 5.8, z1 - 0.12, 17.0, 8.5, z1)
+    for row in range(6):
+        y = 6.0 + row * 0.36
+        for col in range(12):
+            xx = 4.3 + col * 1.04
+            p.box('flat:#f4f1e8' if (row + col) % 5 else 'flat:#e8d9b0', xx, y, z1 - 0.15, xx + 0.94, y + 0.28, z1 - 0.12)
+    # A clock face's dark surround over the front door, inside.
+    p.box(WOOD, (d0 + d1) / 2 - 0.8, 5.9, z0, (d0 + d1) / 2 + 0.8, 7.5, z0 + 0.08)
+    # ── The silk museum's cases on the gallery: along the west and back walls and the east wall ──
+    def case(a, b, along, at, out):
+        """A wall case from a to b along `along` ('x' or 'z'), its back on the wall at `at`, 0.6 deep."""
+        lo, hi = (at, at + out * 0.6) if out > 0 else (at + out * 0.6, at)
+        if along == 'x':
+            p.box(WOOD, a, F2, lo, b, F2 + 0.8, hi)
+            p.box('glassTint', a, F2 + 0.8, lo, b, F2 + 2.1, hi)
+            p.box(WOOD, a, F2 + 2.1, lo, b, F2 + 2.2, hi)
+            x = a + 0.6
+            while x < b - 0.5:
+                col = 'flat:' + CLOTHS[int(x * 3) % len(CLOTHS)]
+                p.box(col, x - 0.35, F2 + 1.0, (lo + hi) / 2 - 0.02, x + 0.35, F2 + 1.9, (lo + hi) / 2 + 0.02)
+                p.box(col, x - 0.55, F2 + 1.65, (lo + hi) / 2 - 0.02, x + 0.55, F2 + 1.85, (lo + hi) / 2 + 0.02)
+                x += 1.3
+        else:
+            p.box(WOOD, lo, F2, a, hi, F2 + 0.8, b)
+            p.box('glassTint', lo, F2 + 0.8, a, hi, F2 + 2.1, b)
+            p.box(WOOD, lo, F2 + 2.1, a, hi, F2 + 2.2, b)
+            z = a + 0.5
+            while z < b - 0.4:
+                col = 'flat:' + CLOTHS[int(z * 5) % len(CLOTHS)]
+                p.cyl(col, ((lo + hi) / 2, F2 + 0.95, z), 0, 0.14, 0.5, seg=8)
+                p.cyl(col, ((lo + hi) / 2, F2 + 1.25, z), 0, 0.14, 0.5, seg=8)
+                z += 0.7
+    case(cz0 + 0.5, cz1 - 0.5, 'z', x0, 1)
+    case(x0 + 1.0, cx1 - 0.5, 'x', z1, -1)
+    case(4.0, 17.0, 'x', z1, -1)
+    case(vz0 + 0.8, STAIR2[2] - 0.6, 'z', x1, -1)
+
+
+PROPS = {'hall': (hall, W + 4), 'inside': (inside, W + 4), 'bridge': (bridge, 18)}
 
 
 def build_hi(v):

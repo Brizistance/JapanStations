@@ -426,6 +426,22 @@ function streetFeatures(s: SurfaceSpec): Feature[] {
 }
 
 /** The hub's street: the terminal building north of Kita-Ōdōri, the Gate Towers south (hub-street.ts, which this mirrors). */
+/** What stands round Tsumugibashi's exits (tsumugibashi-street.ts, rotunda.ts). */
+function tsumugiFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: n('紬橋絹取引所', 'Tsumugibashi Silk Exchange'), x0: 26.5, x1: 72.5, side: 1, named: true },
+    { n: n('紬橋歩道橋', 'Tsumugibashi Footbridge'), x0: -20, x1: 33, side: 0, named: true },
+    { n: n('絹問屋横丁', 'Silk Wholesalers’ Lane'), x0: 56, x1: 61, side: -1, named: true },
+    { n: n('紬橋', 'Tsumugi-bashi'), x0: 72.5, x1: 104, side: 0, named: true },
+    { n: n('紬堀 川辺の道', 'Tsumugibori Riverside Walk'), x0: 80, x1: 104, side: 0, named: true, reach: 30 },
+    { n: n('紬橋交番', 'Police box'), x0: -22.6, x1: -16, side: -1, named: true },
+    { n: n('紬稲荷神社', 'Tsumugi Inari Shrine'), x0: -46, x1: -37, side: 1, named: true, reach: 60 },
+    { n: KIND.office, x0: -200, x1: 200, side: -1, named: false },
+    { n: KIND.office, x0: -200, x1: 200, side: 1, named: false },
+  ];
+}
+
 function hubFeatures(): Feature[] {
   const X = 190;
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -518,6 +534,8 @@ function derive(id: StationId): StationStreet {
       const cw = interchangeHalf(st, spec.primary);
       // Exits 1–2 at the +x end, 3–4 at the −x end (gate lines at x = ±29).
       const es = twoEnds(29, cw, run, spec.exits);
+      // Tsumugibashi's street is not laid out by surface() (tsumugibashi-street.ts): list its exits.
+      if (id === 'tsumugibashi') return { kind: 'hub', exits: withNear(tsumugiFeatures(), es) };
       return { kind: 'street', surface: spec.surface, box: [-45, -cw, 45, cw], swOut: cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'atrium': {

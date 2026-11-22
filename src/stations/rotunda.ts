@@ -19,6 +19,7 @@ import { linesAt } from '../data/network';
 import { ceilingLight, escalator, GROUND_Y, stairs, type Ctx } from './kit';
 import { lookFor } from './looks';
 import type { Brand } from './looks/parts';
+import { exchangeHall } from './exchange';
 import { THROUGH_EXITS } from './through';
 
 /** Inner radius of the rotunda. */
@@ -31,7 +32,7 @@ const ENT = 8.6, HALL = 9.6;
 /** Half widths: the passage, and the opening to the Grand Stair between the two east columns. */
 const PW = 1.75, SH = 3.5;
 /** The lot (surface.ts keeps it clear: specs.ts `landmark`) and the building's eaves. */
-const LOT = { x0: 26.5, x1: 72.5, depth: 28, h: 9.2 }; // 46 × 28 m, eaves at 9.2: build_exchange.py W, D, EAVES
+export const LOT = { x0: 26.5, x1: 72.5, depth: 28, h: 9.2 }; // 46 × 28 m, eaves at 9.2: build_exchange.py W, D, EAVES
 const STONE = 'flat:#c4b89f', STONE_DK = 'flat:#7d7361';
 /** The rotunda's own shops (invented; docs/worldbuilding.md). None repeats a shop of the concourse. */
 const SHOPS = {
@@ -155,7 +156,7 @@ export function buildRotunda(c: Ctx, cf: number, sw: number, outer: number, door
   escalator(b, { x0: XS, x1: XT, z0: CZ + 2.2, z1: CZ + 3.4, yLow: cf, yHigh: GY, dir: -1 });
   for (const s of [-1, 1]) {
     const z0 = Math.min(CZ + s * SH, CZ + s * (SH + 0.4)), z1 = Math.max(CZ + s * SH, CZ + s * (SH + 0.4));
-    b.box(STONE, CX + R - 0.8, cf - 0.7, z0, XT, top, z1);
+    b.box(STONE, CX + R - 0.8, cf - 0.7, z0, XT, GY, z1);
     // A dark stone dado and a brass handrail line climbing with the flight.
     const zi = CZ + s * SH;
     for (let k = 0; k < 12; k++) {
@@ -164,58 +165,19 @@ export function buildRotunda(c: Ctx, cf: number, sw: number, outer: number, door
       b.deco('metal:#b08d3a', xa, y + 1.3, zi - 0.02, xb, y + 1.36, zi + 0.02);
     }
   }
-  b.box(ceil, CX + R - 0.8, top, CZ - SH - 0.4, XT, top + 0.4, CZ + SH + 0.4);
-  for (let x = XS + 0.6; x + 1.6 < XT; x += 2.4) ceilingLight(b, x, x + 1.6, CZ - 1.2, CZ + 1.2, top);
   b.hole(CX + R, CZ - SH, XT, CZ + SH);
   b.zone('passage', CX + R, cf - 0.2, CZ - SH, XT, top, CZ + SH, '大階段', 'Grand Stair');
 
-  // ── Exchange Hall, at street level: from the stair head north to the door on the avenue ──
-  const hz0 = ZF + 0.4, hz1 = CZ + 7;
-  b.deco('floor:#d9d0bd', XT, GY, hz0, XH, GY + 0.012, hz1);
-  b.deco('floor:#8d8371', XT + 0.6, GY + 0.012, hz0 + 0.6, XH - 0.6, GY + 0.016, hz0 + 0.75);
-  b.box(STONE, XT - 0.4, GY, hz0, XT, top, CZ - SH - 0.4);
-  b.box(STONE, XT - 0.4, GY, CZ + SH + 0.4, XT, top, hz1);
-  b.box(STONE, XT - 0.4, GY, hz1, XH + 0.4, top, hz1 + 0.4);
-  b.box(STONE, XH, GY, hz0, XH + 0.4, top, hz1);
-  b.box(ceil, XT - 0.4, top, hz0, XH + 0.4, top + 0.4, hz1 + 0.4);
-  for (let z = hz0 + 1.5; z + 2 < hz1; z += 3.4) ceilingLight(b, XT + 2.6, XH - 2.6, z, z + 0.5, top);
-  // (Not across the stair head.)
-  const sides: [number, number, number][] = [[XH - 0.012, hz0, hz1], [XT + 0.012, hz0, CZ - SH - 0.4], [XT + 0.012, CZ + SH + 0.4, hz1]];
-  for (const [x, za, zc] of sides) b.deco(STONE_DK, x - 0.012, GY, za, x + 0.012, GY + 1.1, zc);
-  // A balcony rail where the stair comes up, and the way down signed for people coming in.
-  b.hang(
-    { k: 'guide', ja: 'のりば', en: 'To trains', bg: 'navy', badges: lines, arrow: 'up' },
-    XT + 0.5, GY + 3.1, CZ, 5.2, 0.5,
-    { ceil: top, back: { k: 'guide', ja: '出口・取引所ホール', en: 'Exit / Exchange Hall', bg: 'yellow', arrow: 'up' } },
-  );
-  b.sign({ k: 'faremap', station: station.id }, XH - 0.02, GY + 1.7, CZ, [-1, 0], 3.2, 1.8);
-  // Timber panelling over the dado, bronze lamps down both sides, benches, the building's name and year.
-  for (const [x, za, zc] of sides) b.deco('wood:#4a3324', x - 0.02, GY + 1.1, za, x + 0.02, GY + 1.22, zc);
-  for (let z = hz0 + 2.2; z < hz1 - 1; z += 4.4) {
-    if (Math.abs(z - CZ) < SH + 1.2) continue;
-    for (const x of [XT + 0.9, XH - 0.9]) {
-      b.block(x - 0.22, GY, z - 0.22, x + 0.22, GY + 3.6, z + 0.22);
-      b.model('tsumugi', 'lamp', x, GY, z);
-    }
-  }
-  for (const z of [CZ - 5.6, CZ + 5.6]) {
-    b.block(XH - 2.35, GY, z - 0.75, XH - 0.85, GY + 0.9, z + 0.75);
-    b.model('tsumugi', 'seat', XH - 1.6, GY, z);
-  }
-  b.sign({ k: 'label', text: '紬橋絹取引所', sub: 'Tsumugibashi Silk Exchange · 1926', fg: '#e8dcc0', bg: '#4a3324' }, (XT + XH) / 2, GY + 2.6, hz1 - 0.02, [0, -1], 4.6, 0.9);
-  b.zone('concourse', XT, GY - 0.2, hz0, XH, top, hz1, '取引所ホール', 'Exchange Hall');
+  // ── The Exchange Hall at street level and the gallery over it: exchange.ts (stage 2) ──
 
   // ── The building: the Silk Exchange's outside is a model (tools/blender/build_exchange.py, its
   // W, D, EAVES and DOOR are LOT and dx0 … dx1 here). These walls, just inside it, are what you
   // bump into and what you see from inside the hall; the roof slab is ours, the drum stands through it.
   const dx0 = XT + 2.4, dx1 = XH - 2.4; // the door
   const zb = ZF + LOT.depth, roof = GY + LOT.h, e = 0.05;
+  // Its walls (colliders), the hall, the gallery: exchange.ts.
+  exchangeHall(c, { x0: LOT.x0, x1: LOT.x1, zf: ZF, door: [dx0, dx1], well: [XS, CZ - SH, XT, CZ + SH] });
   b.open(() => {
-    b.wallX(STONE, LOT.x0 + e, LOT.x1 - e, ZF + e, ZF + 0.4, GY, roof, [[dx0, dx1]]);
-    b.box(STONE, dx0, GY + 3.2, ZF + e, dx1, roof, ZF + 0.4);
-    b.box(STONE, LOT.x0 + e, GY, zb - 0.4, LOT.x1 - e, roof, zb - e);
-    b.box(STONE, LOT.x0 + e, GY, ZF + 0.4, LOT.x0 + 0.4, roof, zb - 0.4);
-    b.box(STONE, LOT.x1 - 0.4, GY, ZF + 0.4, LOT.x1 - e, roof, zb - 0.4);
     b.slab(STONE_DK, LOT.x0 + e, ZF + e, LOT.x1 - e, zb - e, roof, roof + 0.3, [[CX - R - 0.3, CZ - R - 0.3, CX + R + 0.3, CZ + R + 0.3]]);
     b.model('exchange', 'hall', (LOT.x0 + LOT.x1) / 2, GY, ZF);
     // The portal's column plinths and lamp bases stand on the pavement.

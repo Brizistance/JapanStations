@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { LINES, STATIONS, lineById, stationById } from '../data/network';
 import { lineSim } from '../sim';
 import { nextDepartures } from '../sim/timetable';
-import { stationExits } from '../stations/exits';
+import { stationExits, stationStreet } from '../stations/exits';
 import { SPECS } from '../stations/specs';
 import type { Picto, SignContent } from './content';
 import { drawSign, platformTrains, signSize } from './draw';
@@ -217,7 +217,8 @@ describe('wayfinding sign layout', () => {
         for (const e of stationExits(id)) if (e.num) expect(am.texts.some((t) => t.s === e.num)).toBe(true);
         // A map of a decent size names the park, arcade and canal bridge the street really has.
         const spec = SPECS[id];
-        if (w * h >= 1.9 && (spec.kind === 'underground' || spec.kind === 'interchange')) {
+        // (Only maps drawn from surface()'s plan: the hub and Tsumugibashi list their exits instead.)
+        if (w * h >= 1.9 && (spec.kind === 'underground' || spec.kind === 'interchange') && stationStreet(id).kind === 'street') {
           const s = spec.surface;
           const named = [s.left === 'park' || s.right === 'park' ? s.parkName : undefined, s.arcadeAt !== undefined ? s.arcadeName : undefined, s.canalAt !== undefined ? s.canalName : undefined];
           for (const n of named) if (n) expect(am.texts.some((t) => t.s === n.ja), `areamap ${id} ${w}×${h}: ${n.en}`).toBe(true);

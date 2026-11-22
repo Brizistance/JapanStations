@@ -2,6 +2,7 @@
 // Five layouts — generic underground, the two-line interchange, elevated, the hub (hub.ts) and the
 // atrium interchange (atrium.ts).
 
+import { tsumugiStreet } from './tsumugibashi-street';
 import { linesAt, lineById, platformTypeAt } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
 import { HALL_HALF } from '../sim/geometry';
@@ -828,7 +829,9 @@ function buildInterchange(
   }
   // Before the street: the rotunda cuts its own openings in it.
   if (spec.rotunda) buildRotunda(c, cf, sw, outer, 29 + exitAt(spec.exits?.[0], 1) + 4);
-  surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji }, { id: station.id, dir: other.primaryDir });
+  // Tsumugibashi's streets are its own (the 2026-11 rebuild); the others' are laid out by surface().
+  if (station.id === 'tsumugibashi') tsumugiStreet(c, spec.surface, outer, other.primaryDir);
+  else surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji }, { id: station.id, dir: other.primaryDir });
   // Everything below the street here is closed in: the exits (and a rotunda) are the only openings.
   b.out.sealed = true;
 }

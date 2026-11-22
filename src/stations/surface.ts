@@ -1084,9 +1084,9 @@ function continuation(b: Builder, spec: SurfaceSpec, rw: number, swOut: number, 
  * trees, tall lamps, side streets every ~70 m, and a continuous frontage of offices and banks that
  * grows taller block by block towards the far end, simplified copies behind; three landmark corners.
  */
-function boulevard(b: Builder, spec: SurfaceSpec, swOut: number, o: { to: number }, landmarks: boolean) {
+export function boulevard(b: Builder, spec: SurfaceSpec, swOut: number, o: { to: number; /** Where it starts (default the plot's edge). */ from?: number; /** Its building line (default 18). */ P?: number }, landmarks: boolean) {
   const r = rng(spec.seed * 13 + 5);
-  const A = 10, P = 18, z0 = -PLOT_Z, z1 = o.to, L = z0 - z1, ch = 3.5;
+  const A = 10, P = o.P ?? 18, z0 = o.from ?? -PLOT_Z, z1 = o.to, L = z0 - z1, ch = 3.5;
   const crossAt = [40, 110, 180, 250, 320, 390].filter((u) => u < L - 20).map((u) => z0 - u);
   const streets = crossAt.map((c) => [c - ch, c + ch] as [number, number]);
   const near = (z: number, m: number) => streets.some(([a, c]) => z > a - m && z < c + m);
