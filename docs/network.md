@@ -76,7 +76,7 @@ It crosses nothing between stations. See [stage2.md](../Plans/features/network-e
 | Station | Lines | How |
 |---|---|---|
 | Tsumugibashi | Y ↔ N | The lines cross at right angles, N above Y. A transfer passage beside each N platform leads down a stair/escalator to the Y island platform, and up to the shared concourse. |
-| Aizomechō | N ↔ A | Same pattern as Tsumugibashi: N above, A's island platform below. |
+| Aizomechō | N ↔ A | N above, A's island platform below, as at Tsumugibashi. Gates at the concourse's east end (exits 1, 2) and at street level in the headhouse on the dyers' street (exit 3), reached by a paid corridor, stair and lift. |
 | Kawaminato-daigaku-mae | N ↔ S | Same pattern again: N above, S's island platform below. |
 | Kawaminato-kō | N ↔ K | N above, K's island platform deep below under an **atrium** (`atrium.ts`): from N platform 2 by a balcony and stair, from platform 1 by an underpass under the N tracks, both to a mezzanine over the void, then down to K. A gallery round the void opens off the concourse, with a third gate line and exit 5 to the quay. |
 | Watayamachi | K ↔ A | Same pattern with an **island** line on top (K). An island hall has track along its walls, so the transfer passages are reached from the concourse, not through doorways off the platform. |

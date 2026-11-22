@@ -3,6 +3,8 @@
 // atrium interchange (atrium.ts).
 
 import { tsumugiStreet } from './tsumugibashi-street';
+import { aizomeStreet } from './aizomecho-street';
+import { buildHeadhouse, HH } from './headhouse';
 import { linesAt, lineById, platformTypeAt } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
 import { HALL_HALF } from '../sim/geometry';
@@ -816,10 +818,14 @@ function buildInterchange(
   const kiosk = !dN.island;
   concourse(c, {
     cf, cw: sw, x0: cx0, x1: cx1, holes, pillarZ: dN.island ? islandPillarZ(sw) : 3.4, solids: kiosk ? [[-2.4, -1.4, 2.4, 1.4]] : [], stairs: stairsTo,
-    ends: twoEnds(29, spec.exits),
+    // With a headhouse the −x end has no gates: a doorway in the −z wall leads to the building's stair.
+    ends: spec.headhouse ? twoEnds(29, spec.exits).slice(0, 1) : twoEnds(29, spec.exits),
+    wallGaps: spec.headhouse ? [{ s: -1, x0: HH.gap[0], x1: HH.gap[1] }] : undefined,
+    claims: spec.headhouse ? [[HH.gap[0] - 0.6, -sw, HH.gap[1] + 0.6, -sw + 3.2]] : undefined,
     // The street does not move: the exits keep their old places by corridors through the structure.
     ext: outer - sw, footprint: outer, rooms: [...rooms, ...bays],
   });
+  if (spec.headhouse) buildHeadhouse(c, cf, sw);
   if (kiosk) {
     b.box('flat:#f4f1e6', -2.4, cf, -1.4, 2.4, cf + 2.5, 1.4);
     for (const s of [-1, 1] as const) {
@@ -829,8 +835,9 @@ function buildInterchange(
   }
   // Before the street: the rotunda cuts its own openings in it.
   if (spec.rotunda) buildRotunda(c, cf, sw, outer, 29 + exitAt(spec.exits?.[0], 1) + 4);
-  // Tsumugibashi's streets are its own (the 2026-11 rebuild); the others' are laid out by surface().
+  // Tsumugibashi's and Aizomechō's streets are their own (the 2026-11 rebuilds); the others' are laid out by surface().
   if (station.id === 'tsumugibashi') tsumugiStreet(c, spec.surface, outer, other.primaryDir);
+  else if (station.id === 'aizomecho') aizomeStreet(c, spec.surface, outer, other.primaryDir);
   else surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji }, { id: station.id, dir: other.primaryDir });
   // Everything below the street here is closed in: the exits (and a rotunda) are the only openings.
   b.out.sealed = true;

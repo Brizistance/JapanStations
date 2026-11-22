@@ -60,6 +60,11 @@ export interface InterchangeSpec {
   rotunda?: true;
   /** A shared ticket hall halfway between the two lines, stairs up to one and down to the other (Harunodai, midlevel.ts). */
   mid?: true;
+  /**
+   * The −x gate end is in a station building at street level instead (Aizomechō, headhouse.ts): the
+   * concourse has gates at its +x end only, and a paid corridor and stair lead up to the building.
+   */
+  headhouse?: true;
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -241,10 +246,12 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 61, roadHalf: 8, cross: [-74], left: 'warehouse', right: 'sea' },
   },
-  // Merchant quarter: deep indigo tile. Nagisa Line above, Akanesuji Line crossing below.
+  // Merchant quarter: deep indigo tile. Nagisa Line above, Akanesuji Line crossing below. The west gates are
+  // in the headhouse on the dyers' street (headhouse.ts); the streets are aizomecho-street.ts.
   aizomecho: {
     kind: 'interchange',
     primary: 'N',
+    headhouse: true,
     style: {
       wall: 'tile:#24407a', concWall: 'tile:#e9ecf3', floor: 'floor:#cdccc8', pillar: 'tile:#24407a',
       accent: '#f1ead8', mural: { v: 'waves', color: '#24407a' },

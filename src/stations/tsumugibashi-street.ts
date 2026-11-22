@@ -1120,7 +1120,7 @@ export function tsumugiStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numbe
  * Every free patch inside the blocks, found after the buildings are placed, put to the use a
  * Japanese city would make of it (as at Kita-Ōdōri, hub-street.ts).
  */
-function leftovers(
+export function leftovers(
   b: Builder, r: () => number, interiors: Rect[], reserved: Rect[], holes: Rect[], names: { park: Named[] },
   piece: (kind: string, A: Anchors, id: string, face: Face, x: number, z: number, fn?: (a: Anchor) => void, solid?: boolean) => void,
 ) {

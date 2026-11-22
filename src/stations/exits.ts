@@ -442,6 +442,23 @@ function tsumugiFeatures(): Feature[] {
   ];
 }
 
+/** What stands round Aizomechō's exits (aizomecho-street.ts). */
+function aizomeFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: n('藍染町駅舎', 'Station headhouse'), x0: -59.5, x1: -39.5, side: -1, named: true },
+    { n: n('藍甕筋', 'Aigame-suji (dyers’ street)'), x0: -66.3, x1: -59.5, side: 0, named: true },
+    { n: n('藍染処 つゆ草 干し場', 'Tsuyukusa dye works & drying yard'), x0: -98, x1: -66.3, side: -1, named: true, reach: 70 },
+    { n: n('甕守稲荷神社', 'Kamemori Inari Shrine'), x0: -95, x1: -80, side: -1, named: true, reach: 70 },
+    { n: n('のれん小路', 'Noren-kōji'), x0: -39.5, x1: -16, side: -1, named: true, reach: 70 },
+    { n: n('AR本線 紺屋浜駅', 'AR Main Line Kon’yahama Sta.'), x0: -45, x1: -20, side: -1, named: true, reach: 60 },
+    { n: n('茜筋', 'Akane-suji'), x0: -16, x1: 16, side: 0, named: true },
+    { n: n('型紙筋', 'Katagami-suji'), x0: 57, x1: 67, side: 0, named: true, reach: 40 },
+    { n: KIND.office, x0: -170, x1: 170, side: -1, named: false },
+    { n: KIND.office, x0: -170, x1: 170, side: 1, named: false },
+  ];
+}
+
 function hubFeatures(): Feature[] {
   const X = 190;
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -536,6 +553,12 @@ function derive(id: StationId): StationStreet {
       const es = twoEnds(29, cw, run, spec.exits);
       // Tsumugibashi's street is not laid out by surface() (tsumugibashi-street.ts): list its exits.
       if (id === 'tsumugibashi') return { kind: 'hub', exits: withNear(tsumugiFeatures(), es) };
+      if (id === 'aizomecho') {
+        // Exits 1 and 2 off the east gates; exit 3 is the headhouse on the dyers' street, where its stair's
+        // well opens in the hall floor (headhouse.ts HH: gap, foot).
+        const own: Omit<StationExit, 'near'> = { num: '3', side: -1, rect: [-44.6, -21 - run, -40, -21] };
+        return { kind: 'hub', exits: withNear(aizomeFeatures(), [...es.filter((e) => e.rect[0] > 0), own]) };
+      }
       return { kind: 'street', surface: spec.surface, box: [-45, -cw, 45, cw], swOut: cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'atrium': {

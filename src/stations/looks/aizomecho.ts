@@ -4,7 +4,7 @@
 // tile dado under warm plaster, kōshi lattice and a seigaiha frieze on the walls, a cream
 // ceiling with timber beams and old pipes. The centrepiece is cloth: a dye yard of long indigo
 // lengths drying against a spine wall between the stairwells' closed ends, ranks of shorter
-// lengths hung across the spine (stopping at the stairwells), cloth and kōshi on the stairwell
+// lengths hung across the spine (stopping at the stairwells) and across the platforms, cloth and kōshi on the stairwell
 // walls, and in each transfer bay a noren gate with the quarter's crest inside the mouth and a
 // rank of drying lengths. The spine's free wall is a shop street: a dye works with its vat yard,
 // a tenugui shop, a sashiko thread counter, a furoshiki stall, a kimono fabric merchant, a tea
@@ -65,7 +65,7 @@ const off = (f: Wall, d0: number, d1: number): [number, number] => (f > 0 ? [d0,
  * Darker lengths may carry a resist pattern (dots, stripes or kanoko squares); the marks are
  * thicker than the cloth so one box shows on both faces.
  */
-function cloth(b: Builder, axis: Axis, at: number, mid: number, w: number, y1: number, y0: number, k: number, face: 0 | Wall = 0) {
+export function cloth(b: Builder, axis: Axis, at: number, mid: number, w: number, y1: number, y0: number, k: number, face: 0 | Wall = 0) {
   const sh = Math.floor(hash(k, 3.7) * SHADES.length);
   const [c0, c1] = face === 0 ? [-0.01, 0.01] : off(face, 0.022, 0.034);
   run(b, `flat:${SHADES[sh]}`, axis, at, mid - w / 2, mid + w / 2, y0, y1, c0, c1);
@@ -86,7 +86,7 @@ function cloth(b: Builder, axis: Axis, at: number, mid: number, w: number, y1: n
 }
 
 /** Lengths of cloth side by side from a to c along a run (same `face` rules as `cloth`). */
-function clothRow(b: Builder, axis: Axis, at: number, a: number, c: number, y1: number, yLow: number, k0: number, face: 0 | Wall, gap = 0.1, drop = 0.3) {
+export function clothRow(b: Builder, axis: Axis, at: number, a: number, c: number, y1: number, yLow: number, k0: number, face: 0 | Wall, gap = 0.1, drop = 0.3) {
   let u = a, k = k0;
   while (true) {
     const w = 0.6 + 0.3 * hash(k, 5.3);
@@ -101,7 +101,7 @@ function clothRow(b: Builder, axis: Axis, at: number, a: number, c: number, y1: 
  * The quarter's crest, 三つ波丸 (Mitsunami-maru): a ring with three wave humps, in white, in the
  * plane of a run (u along it, centred on `u`), `c0 … c1` across.
  */
-function crest(b: Builder, axis: Axis, at: number, u: number, yc: number, r: number, c0: number, c1: number, simple = false) {
+export function crest(b: Builder, axis: Axis, at: number, u: number, yc: number, r: number, c0: number, c1: number, simple = false) {
   const m = (u0: number, u1: number, v0: number, v1: number) => run(b, RESIST, axis, at, u + u0 * r, u + u1 * r, yc + v0 * r, yc + v1 * r, c0, c1);
   m(-0.52, 0.52, 0.84, 1);
   m(-0.52, 0.52, -1, -0.84);
@@ -116,7 +116,7 @@ function crest(b: Builder, axis: Axis, at: number, u: number, yc: number, r: num
 }
 
 /** Kōshi: a panel of vertical timber slats in a frame, a … c along a wall at `at` facing f. */
-function lattice(b: Builder, axis: Axis, at: number, f: Wall, a: number, c: number, y0: number, y1: number, pitch = 0.2) {
+export function lattice(b: Builder, axis: Axis, at: number, f: Wall, a: number, c: number, y0: number, y1: number, pitch = 0.2) {
   const o = off(f, 0, 0.06);
   run(b, TIMBER, axis, at, a, c, y0, y0 + 0.06, ...o);
   run(b, TIMBER, axis, at, a, c, y1 - 0.06, y1, ...o);
@@ -773,6 +773,22 @@ export const look: StationLook = {
     b.deco(`flat:${INDIGO}`, r - 3.4, gy + 1.3, z1, r - 2.6, gy + 2.45, z1 + 0.015);
     crest(b, 'x', z1, r - 3.0, gy + 1.9, 0.3, 0.015, 0.021, true);
     for (const lz of [Z + 0.72, Z + 4.48]) lantern(e, r + 0.6, gy + 2.1, lz, { color: '#f3e6c4', d: 0.32, h: 0.46, top: gy + 2.7 });
+  },
+
+  platform(h) {
+    // Short lengths drying on poles across each platform, up under the ceiling over the signs.
+    const { b, pf } = h;
+    for (let x = -h.P + 7, k = 0; x < h.P - 5; x += 9, k++) {
+      if (h.blocked(x - 1.2, x + 1.2, 0.5)) continue;
+      const top = h.ceilAt(x);
+      if (top - pf < 3.9) continue;
+      for (const s of h.island ? [0] : [-1, 1]) {
+        const [za, zb] = h.island ? [-h.pe + 0.9, h.pe - 0.9] : s > 0 ? [h.pe + 0.9, h.wallZ - 0.3] : [-h.wallZ + 0.3, -h.pe - 0.9];
+        b.deco(TIMBER, x - 0.03, top - 0.16, za, x + 0.03, top - 0.12, zb);
+        for (const z of [za + 0.15, zb - 0.15]) b.deco('flat:#2b2d30', x - 0.01, top - 0.12, z - 0.01, x + 0.01, top, z + 0.01);
+        clothRow(b, 'z', x, za + 0.1, zb - 0.1, top - 0.16, pf + 3.15, 800 + k * 12 + (s > 0 ? 6 : 0), 0, 0.3, 0.25);
+      }
+    }
   },
 
   passage(p) {
