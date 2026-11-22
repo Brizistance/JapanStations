@@ -1,5 +1,9 @@
 # Worldbuilding
 
+## The region
+
+**Seikai (西海, せいかい)**, decided 2026-11-19, on screen since 2026-11-22 (`src/data/region.ts`). Four cities: Kawaminato (playable), **Kirigahara 霧ヶ原** (misty plateau city far up the Mio-gawa), **Asanagi 朝凪** (ferry and shipyard town down the coast, behind islands) and **Tōnomiya 遠宮 とおのみや** (old shrine capital across the bay). Three private railways, named only: **Seikai Electric Railway 西海電鉄 (Seiden)** to Kirigahara by its own valley, **Sōnagi Electric Railway 湊凪電鉄** along the coast to Asanagi, **Tōnomiya Express 遠宮急行 (Enkyū)** round the head of the bay. Kansai in feel only: the map must never mirror Kansai's layout. Web-checked 2026-11-22 with one search each: 西海 is real as *Saikai* (Nagasaki) and *Nishiumi* (Ehime), the reading *Seikai* was not found as a place; nothing found for Tōnomiya or the three railways.
+
 ## The city
 
 - **Name:** **Kawaminato (川湊, かわみなと)** — "river harbour". Chosen from the candidate list; the others (Asahiura, Shiokaze, Yodomachi) are free for future use as wards or lines.

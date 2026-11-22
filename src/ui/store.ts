@@ -1,68 +1,21 @@
 // UI state. Small on purpose: the sim and player live in plain modules; this only
-// tracks which screen is showing.
+// tracks which screen is showing and the saved settings.
 
 import { season, SEASON_KEY, SEASONS, type Season } from '../render/season';
 import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, teleport } from '../player/player';
-import { setSfxVolume, setVoiceVolume } from '../audio/engine';
+import { setMasterVolume, setMuted, setSfxVolume, setVoiceVolume } from '../audio/engine';
 import { WEATHERS, type Weather } from '../render/atmosphere';
-import { fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
+import { DEFAULT_GRAPHICS, fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
 
-export const dom = { canvas: null as HTMLCanvasElement | null };
+export const dom = { canvas: null as HTMLCanvasElement | null, camera: null as import('three').Camera | null };
 
 function storage(): Storage | null {
   try {
     return localStorage;
   } catch {
     return null;
-  }
-}
-
-const VOICE_KEY = 'js.voiceVolume', SFX_KEY = 'js.sfxVolume';
-function loadVolume(key: string): number {
-  try {
-    const raw = storage()?.getItem(key);
-    const v = raw == null ? NaN : Number(raw);
-    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8;
-  } catch {
-    return 0.8;
-  }
-}
-const initialSeason: Season = (() => {
-  const v = storage()?.getItem(SEASON_KEY) as Season | null;
-  return v && SEASONS.includes(v) ? v : 'summer';
-})();
-season.now = initialSeason;
-
-function saveVolume(key: string, v: number) {
-  try {
-    storage()?.setItem(key, String(v));
-  } catch {
-    /* ignore */
-  }
-}
-const initialVoice = loadVolume(VOICE_KEY), initialSfx = loadVolume(SFX_KEY);
-setVoiceVolume(initialVoice);
-setSfxVolume(initialSfx);
-
-// The hour and weather chosen on the main menu, kept between visits.
-const TIME_KEY = 'kawaminato.startTime', WEATHER_KEY = 'kawaminato.weather';
-function loadStartTime(): number {
-  try {
-    const raw = storage()?.getItem(TIME_KEY);
-    const v = raw == null ? NaN : Number(raw);
-    return Number.isFinite(v) && v >= 0 && v < 86400 ? v : 10 * 3600;
-  } catch {
-    return 10 * 3600;
-  }
-}
-function loadWeather(): Weather {
-  try {
-    const raw = storage()?.getItem(WEATHER_KEY) as Weather | null;
-    return raw && WEATHERS.includes(raw) ? raw : 'clear';
-  } catch {
-    return 'clear';
   }
 }
 function save(key: string, v: string) {
@@ -72,39 +25,170 @@ function save(key: string, v: string) {
     /* ignore */
   }
 }
-clock.time = loadStartTime();
+/** A saved number, kept inside [min, max]; `fallback` when missing or unreadable. */
+function loadNumber(key: string, min: number, max: number, fallback: number): number {
+  try {
+    const raw = storage()?.getItem(key);
+    const v = raw == null ? NaN : Number(raw);
+    return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function loadFlag(key: string): boolean {
+  try {
+    return storage()?.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Which language is the large one on menus and the HUD. Signs in the world do not change. */
+export type Lang = 'ja' | 'en';
+export type SettingsTab = 'graphics' | 'sound' | 'controls' | 'language';
+
+const VOICE_KEY = 'js.voiceVolume', SFX_KEY = 'js.sfxVolume', MASTER_KEY = 'js.masterVolume', MUTE_KEY = 'js.muted';
+const PLAN_KEY = 'js.floorPlan', FPS_KEY = 'js.fps', GUIDE_VIEW_KEY = 'js.guideView';
+const SENS_KEY = 'js.sensitivity', INVERT_KEY = 'js.invertY', FOV_KEY = 'js.fov', LANG_KEY = 'js.lang';
+export const SENS_RANGE = [0.3, 2.5] as const, FOV_RANGE = [55, 100] as const;
+/** What "Reset to defaults" restores. */
+export const DEFAULTS = { voiceVolume: 0.8, sfxVolume: 0.8, masterVolume: 1, muted: false, sensitivity: 1, invertY: false, fov: 72, lang: 'ja' as Lang, season: 'summer' as Season };
+
+const initialSeason: Season = (() => {
+  const v = storage()?.getItem(SEASON_KEY) as Season | null;
+  return v && SEASONS.includes(v) ? v : DEFAULTS.season;
+})();
+season.now = initialSeason;
+
+const initialVoice = loadNumber(VOICE_KEY, 0, 1, DEFAULTS.voiceVolume), initialSfx = loadNumber(SFX_KEY, 0, 1, DEFAULTS.sfxVolume);
+const initialMaster = loadNumber(MASTER_KEY, 0, 1, DEFAULTS.masterVolume), initialMuted = loadFlag(MUTE_KEY);
+setVoiceVolume(initialVoice);
+setSfxVolume(initialSfx);
+setMasterVolume(initialMaster);
+setMuted(initialMuted);
+const initialLang: Lang = (() => {
+  try {
+    return storage()?.getItem(LANG_KEY) === 'en' ? 'en' : 'ja';
+  } catch {
+    return 'ja';
+  }
+})();
+
+// The hour and weather chosen on the city menu, kept between visits.
+const TIME_KEY = 'kawaminato.startTime', WEATHER_KEY = 'kawaminato.weather';
+function loadWeather(): Weather {
+  try {
+    const raw = storage()?.getItem(WEATHER_KEY) as Weather | null;
+    return raw && WEATHERS.includes(raw) ? raw : 'clear';
+  } catch {
+    return 'clear';
+  }
+}
+clock.time = (() => {
+  const v = loadNumber(TIME_KEY, -1, 86400, 10 * 3600);
+  return v >= 0 && v < 86400 ? v : 10 * 3600;
+})();
+
+/** `title` → `region` → `menu` (the city's own menu) → `play`. */
+export type Mode = 'title' | 'region' | 'menu' | 'play';
+export type Speed = 0 | 1 | 6;
 
 interface UI {
-  mode: 'menu' | 'play';
+  mode: Mode;
+  /** The screen just shown was reached by the map zoom (region ⇄ city), so it plays the arriving half. */
+  zoomed: boolean;
   mapOpen: boolean;
   /** Mouse is captured for looking around. */
   locked: boolean;
-  fast: boolean;
+  /** How fast the sim clock runs while playing: stopped, real time, or fast-forward. */
+  speed: Speed;
+  setSpeed: (v: Speed) => void;
+  /** The pause screen is up: the clock stands still and the mouse is free. */
+  paused: boolean;
+  /** `capture` false leaves the mouse free on resuming (the caller captures it a moment later). */
+  setPaused: (v: boolean, capture?: boolean) => void;
+  /** The cursor is free while the game keeps running (Tab), to click things on the screen. */
+  freeMouse: boolean;
+  setFreeMouse: (v: boolean) => void;
+  /** The destination picker is up (N): the cursor is free and keys go to its search box. */
+  pickerOpen: boolean;
+  setPicker: (open: boolean) => void;
+  /** A thing in a station picked on the floor plan or compass to head for: `station:key`. */
+  mark: string | null;
+  setMark: (m: string | null) => void;
+  /** The whole in-game overlay is hidden (for a clean view). */
+  hudHidden: boolean;
+  toggleHud: () => void;
+  /** The floor plan in the corner of the in-game screen is shown (saved). */
+  planOn: boolean;
+  setPlan: (v: boolean) => void;
+  /** The station the in-game guide is leading to, if any. */
+  guideTo: string | null;
+  setGuide: (id: string | null) => void;
   graphics: Graphics;
   /** The season the trees are shown in (a look only). */
   season: Season;
   setSeason: (s: Season) => void;
   weather: Weather;
   setWeather: (w: Weather) => void;
-  /** Set the sim clock to `sec` seconds after midnight (the main menu's time of day). */
+  /** Set the sim clock to `sec` seconds after midnight (the city menu's time of day). */
   setTime: (sec: number) => void;
+  /** Everything, 0…1. */
+  masterVolume: number;
+  setMasterVolume: (v: number) => void;
+  muted: boolean;
+  setMuted: (m: boolean) => void;
   /** Announcement volume, 0…1. */
   voiceVolume: number;
   setVoiceVolume: (v: number) => void;
   /** Trains, doors, footsteps, 0…1. */
   sfxVolume: number;
   setSfxVolume: (v: number) => void;
-  /** The in-game graphics panel (G). */
-  gfxOpen: boolean;
+  /** Mouse look speed, as a multiple of the built-in speed. */
+  sensitivity: number;
+  setSensitivity: (v: number) => void;
+  invertY: boolean;
+  setInvertY: (v: boolean) => void;
+  /** Vertical field of view of the walking camera, degrees. */
+  fov: number;
+  setFov: (v: number) => void;
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  /** The settings screen: over any menu, and in game on G. */
+  settingsOpen: boolean;
+  settingsTab: SettingsTab;
+  setSettings: (open: boolean, tab?: SettingsTab) => void;
+  setSettingsTab: (tab: SettingsTab) => void;
+  resetSettings: () => void;
   setPreset: (p: Preset) => void;
   setFx: (patch: Partial<Fx>) => void;
-  setGfxOpen: (open: boolean) => void;
+  toTitle: () => void;
+  /** Open the region map. `zoomed` when leaving the city by the map zoom. */
+  toRegion: (zoomed?: boolean) => void;
+  /** Open the city menu. `zoomed` when arriving by the map zoom. */
+  toCity: (zoomed?: boolean) => void;
   start: (stationId: string) => void;
   goTo: (stationId: string) => void;
-  setMap: (open: boolean) => void;
+  /** `pick`: the map is opened to choose where to be guided to; a click on a station starts guidance. */
+  setMap: (open: boolean, pick?: boolean) => void;
+  mapPick: boolean;
+  /** A destination chosen but not yet confirmed: its route shows on the map. */
+  preview: string | null;
+  setPreview: (id: string | null) => void;
+  /** What the guide card shows under the current step: the stops as a list, or the trip on the route diagram (saved). */
+  guideView: 'list' | 'map';
+  setGuideView: (v: 'list' | 'map') => void;
+  /** The frames-per-second counter (saved). */
+  fpsOn: boolean;
+  setFps: (v: boolean) => void;
+  /** The quick menu ring is up (Z held). */
+  wheelOpen: boolean;
+  setWheel: (v: boolean) => void;
   toMenu: () => void;
   setLocked: (v: boolean) => void;
   toggleFast: () => void;
+  /** Stop or restart the clock without opening the pause screen. */
+  toggleFreeze: () => void;
 }
 
 export function capturePointer() {
@@ -118,19 +202,57 @@ export function capturePointer() {
 }
 
 export const useUI = create<UI>((set, get) => ({
-  mode: 'menu',
+  mode: 'title',
+  zoomed: false,
   mapOpen: false,
   locked: false,
-  fast: false,
+  speed: 1,
+  setSpeed: (speed) => {
+    if (!get().paused) clock.scale = speed;
+    set({ speed });
+  },
+  paused: false,
+  setPaused: (paused, capture = true) => {
+    if (get().mode !== 'play') return;
+    clearInput();
+    clock.scale = paused ? 0 : get().speed;
+    set({ paused, mapOpen: false, settingsOpen: false, freeMouse: false, pickerOpen: false, wheelOpen: false });
+    if (paused) document.exitPointerLock?.();
+    else if (capture) capturePointer();
+  },
+  freeMouse: false,
+  setFreeMouse: (freeMouse) => {
+    if (get().mode !== 'play') return;
+    // Set first: the mouse being released must not be taken for a pause.
+    set({ freeMouse });
+    if (freeMouse) document.exitPointerLock?.();
+    else capturePointer();
+  },
+  pickerOpen: false,
+  setPicker: (pickerOpen) => {
+    if (get().mode !== 'play' || get().paused) return;
+    clearInput();
+    // Set first: the mouse being released must not be taken for a pause.
+    set({ pickerOpen, mapOpen: false, settingsOpen: false, freeMouse: false, wheelOpen: false });
+    if (pickerOpen) document.exitPointerLock?.();
+    else capturePointer();
+  },
+  mark: null,
+  setMark: (mark) => set({ mark }),
+  hudHidden: false,
+  toggleHud: () => set({ hudHidden: !get().hudHidden }),
+  planOn: storage()?.getItem(PLAN_KEY) !== '0',
+  setPlan: (planOn) => {
+    save(PLAN_KEY, planOn ? '1' : '0');
+    set({ planOn });
+  },
+  guideTo: null,
+  setGuide: (guideTo) => set({ guideTo }),
   graphics: loadGraphics(storage()),
   season: initialSeason,
   setSeason: (v) => {
     season.now = v;
-    try {
-      storage()?.setItem(SEASON_KEY, v);
-    } catch {
-      /* ignore */
-    }
+    save(SEASON_KEY, v);
     set({ season: v });
   },
   weather: loadWeather(),
@@ -142,19 +264,76 @@ export const useUI = create<UI>((set, get) => ({
     clock.time = ((sec % 86400) + 86400) % 86400;
     save(TIME_KEY, String(clock.time));
   },
+  masterVolume: initialMaster,
+  setMasterVolume: (v) => {
+    setMasterVolume(v);
+    save(MASTER_KEY, String(v));
+    set({ masterVolume: v });
+  },
+  muted: initialMuted,
+  setMuted: (m) => {
+    setMuted(m);
+    save(MUTE_KEY, m ? '1' : '0');
+    set({ muted: m });
+  },
   voiceVolume: initialVoice,
   setVoiceVolume: (v) => {
     setVoiceVolume(v);
-    saveVolume(VOICE_KEY, v);
+    save(VOICE_KEY, String(v));
     set({ voiceVolume: v });
   },
   sfxVolume: initialSfx,
   setSfxVolume: (v) => {
     setSfxVolume(v);
-    saveVolume(SFX_KEY, v);
+    save(SFX_KEY, String(v));
     set({ sfxVolume: v });
   },
-  gfxOpen: false,
+  sensitivity: loadNumber(SENS_KEY, SENS_RANGE[0], SENS_RANGE[1], DEFAULTS.sensitivity),
+  setSensitivity: (v) => {
+    save(SENS_KEY, String(v));
+    set({ sensitivity: v });
+  },
+  invertY: loadFlag(INVERT_KEY),
+  setInvertY: (v) => {
+    save(INVERT_KEY, v ? '1' : '0');
+    set({ invertY: v });
+  },
+  fov: loadNumber(FOV_KEY, FOV_RANGE[0], FOV_RANGE[1], DEFAULTS.fov),
+  setFov: (v) => {
+    save(FOV_KEY, String(v));
+    set({ fov: v });
+  },
+  lang: initialLang,
+  setLang: (lang) => {
+    save(LANG_KEY, lang);
+    set({ lang });
+  },
+  settingsOpen: false,
+  settingsTab: 'graphics',
+  setSettings: (open, tab) => {
+    if (get().mode === 'play') {
+      clearInput();
+      if (open) document.exitPointerLock?.();
+    }
+    if (get().mode === 'play') clock.scale = get().speed;
+    set({ settingsOpen: open, settingsTab: tab ?? get().settingsTab, mapOpen: open ? false : get().mapOpen, paused: false });
+  },
+  setSettingsTab: (settingsTab) => set({ settingsTab }),
+  resetSettings: () => {
+    const s = get();
+    s.setMasterVolume(DEFAULTS.masterVolume);
+    s.setMuted(DEFAULTS.muted);
+    s.setVoiceVolume(DEFAULTS.voiceVolume);
+    s.setSfxVolume(DEFAULTS.sfxVolume);
+    s.setSensitivity(DEFAULTS.sensitivity);
+    s.setInvertY(DEFAULTS.invertY);
+    s.setFov(DEFAULTS.fov);
+    s.setLang(DEFAULTS.lang);
+    s.setSeason(DEFAULTS.season);
+    const graphics: Graphics = { preset: DEFAULT_GRAPHICS.preset, fx: { ...DEFAULT_GRAPHICS.fx } };
+    saveGraphics(storage(), graphics);
+    set({ graphics });
+  },
   setPreset: (p) => {
     const graphics = fromPreset(p);
     saveGraphics(storage(), graphics);
@@ -165,40 +344,55 @@ export const useUI = create<UI>((set, get) => ({
     saveGraphics(storage(), graphics);
     set({ graphics });
   },
-  setGfxOpen: (open) => {
-    if (get().mode !== 'play') return;
-    clearInput();
-    if (open) document.exitPointerLock?.();
-    set({ gfxOpen: open, mapOpen: open ? false : get().mapOpen });
-  },
+  toTitle: () => set({ mode: 'title', zoomed: false, settingsOpen: false }),
+  toRegion: (zoomed = false) => set({ mode: 'region', zoomed, settingsOpen: false }),
+  toCity: (zoomed = false) => set({ mode: 'menu', zoomed, settingsOpen: false }),
   start: (id) => {
     teleport(id);
     clearInput();
-    set({ mode: 'play', mapOpen: false, gfxOpen: false });
+    clock.scale = get().speed;
+    set({ mode: 'play', mapOpen: false, settingsOpen: false, paused: false });
     capturePointer();
   },
   goTo: (id) => {
     teleport(id);
     clearInput();
-    set({ mode: 'play', mapOpen: false, gfxOpen: false });
+    clock.scale = get().speed;
+    set({ mode: 'play', mapOpen: false, settingsOpen: false, paused: false });
     capturePointer();
   },
-  setMap: (open) => {
+  setMap: (open, pick = false) => {
     if (get().mode !== 'play') return;
     clearInput();
+    clock.scale = get().speed;
+    set({ mapOpen: open, mapPick: open && pick, preview: open ? get().preview : null, settingsOpen: open ? false : get().settingsOpen, paused: false, pickerOpen: false, freeMouse: false, wheelOpen: false });
     if (open) document.exitPointerLock?.();
-    set({ mapOpen: open, gfxOpen: open ? false : get().gfxOpen });
   },
+  mapPick: false,
+  preview: null,
+  setPreview: (id) => {
+    if (id) get().setMap(true, true);
+    set({ preview: id });
+  },
+  guideView: storage()?.getItem(GUIDE_VIEW_KEY) === 'map' ? 'map' : 'list',
+  setGuideView: (guideView) => {
+    save(GUIDE_VIEW_KEY, guideView);
+    set({ guideView });
+  },
+  fpsOn: loadFlag(FPS_KEY),
+  setFps: (fpsOn) => {
+    save(FPS_KEY, fpsOn ? '1' : '0');
+    set({ fpsOn });
+  },
+  wheelOpen: false,
+  setWheel: (wheelOpen) => set({ wheelOpen }),
   toMenu: () => {
     clearInput();
     document.exitPointerLock?.();
     clock.scale = 1;
-    set({ mode: 'menu', mapOpen: false, gfxOpen: false, fast: false });
+    set({ mode: 'menu', zoomed: false, mapOpen: false, settingsOpen: false, speed: 1, paused: false, guideTo: null, preview: null, freeMouse: false, mark: null, pickerOpen: false, wheelOpen: false });
   },
   setLocked: (v) => set({ locked: v }),
-  toggleFast: () => {
-    const fast = !get().fast;
-    clock.scale = fast ? 6 : 1;
-    set({ fast });
-  },
+  toggleFast: () => get().setSpeed(get().speed === 6 ? 1 : 6),
+  toggleFreeze: () => get().setSpeed(get().speed === 0 ? 1 : 0),
 }));

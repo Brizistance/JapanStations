@@ -1,5 +1,7 @@
 # Vision
 
+Framing since 2026-11-22: the game opens as **Seikai Simulator**, a region with Kawaminato as its one playable city (title → region map → city menu → play). Other cities and railways are on the region map only.
+
 ## What this is
 
 A fictional transit simulator for an invented Japanese city. The city has an Osaka-like personality: a dense downtown, a strong north–south trunk line, and a slightly scrappy charm. It's built as a web app with React Three Fiber.

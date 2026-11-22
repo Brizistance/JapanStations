@@ -1,10 +1,13 @@
+// The city menu (Kawaminato): the route map to pick a station from, and the hour and weather
+// for the visit. Reached from the region map by the map zoom; settings live in their own screen.
+
 import { useState } from 'react';
-import { HOME_STATION, LINES, OPERATOR, RAIL_LINES, STATIONS } from '../data/network';
+import { HOME_STATION, LINES, OPERATOR, RAIL_LINES } from '../data/network';
 import { WEATHERS, type Weather } from '../render/atmosphere';
-import { SEASONS, type Season } from '../render/season';
 import { clock, formatClock } from '../sim';
-import { EffectSwitches, PresetButtons, PresetHint } from './GraphicsSettings';
+import { Bi } from './Bi';
 import { LineBullet, MetroMap, StationPanel, useTick } from './MetroMap';
+import { zoomMs } from './RegionMap';
 import { useUI } from './store';
 
 export function Logo({ size = 56 }: { size?: number }) {
@@ -18,35 +21,7 @@ export function Logo({ size = 56 }: { size?: number }) {
   );
 }
 
-export function Controls() {
-  const rows: [string, string, string][] = [
-    ['W A S D', '移動', 'Move'],
-    ['マウス', '視点', 'Look (click the view to capture the mouse)'],
-    ['Space', 'ジャンプ', 'Jump'],
-    ['Shift', '走る', 'Run'],
-    ['M', '路線図・駅へ移動', 'Route map / teleport'],
-    ['F', '早送り', 'Fast-forward time ×6'],
-    ['G', '画質設定', 'Graphics settings'],
-    ['R', '最寄り駅に戻る', 'Respawn at nearest station'],
-    ['Esc', 'マウス解放', 'Release the mouse'],
-    ['← → / Q E', '視点 (キーボード)', 'Turn with the keyboard'],
-  ];
-  return (
-    <table className="keys">
-      <tbody>
-        {rows.map(([k, ja, en]) => (
-          <tr key={k}>
-            <td><kbd>{k}</kbd></td>
-            <td>{ja}</td>
-            <td className="muted">{en}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-const TIME_PRESETS: [string, string, number][] = [
+export const TIME_PRESETS: [string, string, number][] = [
   ['朝', 'Dawn', 6.25],
   ['昼', 'Day', 12],
   ['夕', 'Dusk', 17.75],
@@ -60,46 +35,52 @@ const WEATHER_LABEL: Record<Weather, [string, string]> = {
   fog: ['霧', 'Fog'],
 };
 
-const SEASON_LABEL: Record<Season, [string, string]> = { spring: ['春', 'Spring'], summer: ['夏', 'Summer'], autumn: ['秋', 'Autumn'], winter: ['冬', 'Winter'] };
-
-/** Time of day, weather and season for this visit. All apply live to the view behind the menu. The season changes the trees only. */
+/** Time of day and weather for this visit. Both apply live to the view behind the menu. */
 function SkyPicker() {
-  const season = useUI((s) => s.season);
-  const setSeason = useUI((s) => s.setSeason);
   const weather = useUI((s) => s.weather);
   const setWeather = useUI((s) => s.setWeather);
   const setTime = useUI((s) => s.setTime);
   const now = ((clock.time % 86400) + 86400) % 86400;
   return (
-    <div className="menu-sky">
-      <div className="menu-sky-row" role="group" aria-label="Time of day">
-        <span>時刻 <em>Time</em></span>
+    <div className="sg-panel">
+      <h3><Bi ja="時刻" en="Time of day" /></h3>
+      <div className="sky-time">
         <b>{formatClock(clock.time)}</b>
         <input type="range" min={0} max={86400 - 900} step={900} value={Math.floor(now / 900) * 900} aria-label="Time of day" onChange={(e) => setTime(Number(e.target.value))} />
       </div>
-      <div className="menu-sky-buttons" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         {TIME_PRESETS.map(([ja, en, h]) => (
-          <button key={en} onClick={() => setTime(h * 3600)}>{ja} <em>{en}</em></button>
+          <button key={en} onClick={() => setTime(h * 3600)}><Bi ja={ja} en={en} /></button>
         ))}
       </div>
-      <div className="menu-sky-row" role="group" aria-label="Weather">
-        <span>天気 <em>Weather</em></span>
-      </div>
-      <div className="menu-sky-buttons" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+      <p className="set-hint">The clock keeps running from the hour you pick, and the trains follow it.</p>
+      <h3><Bi ja="天気" en="Weather" /></h3>
+      <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
         {WEATHERS.map((w) => (
           <button key={w} className={weather === w ? 'on' : ''} aria-pressed={weather === w} onClick={() => setWeather(w)}>
-            {WEATHER_LABEL[w][0]} <em>{WEATHER_LABEL[w][1]}</em>
+            <Bi ja={WEATHER_LABEL[w][0]} en={WEATHER_LABEL[w][1]} />
           </button>
         ))}
       </div>
-      <div className="menu-sky-row" role="group" aria-label="Season">
-        <span>季節 <em>Season</em></span>
-      </div>
-      <div className="menu-sky-buttons" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        {SEASONS.map((v) => (
-          <button key={v} className={season === v ? 'on' : ''} aria-pressed={season === v} onClick={() => setSeason(v)}>
-            {SEASON_LABEL[v][0]} <em>{SEASON_LABEL[v][1]}</em>
-          </button>
+      <p className="set-hint">Fixed for the visit. The season is in Settings, under Graphics.</p>
+    </div>
+  );
+}
+
+/** Every line with its real headway, from the timetable data. */
+function LineList() {
+  return (
+    <div className="sg-panel">
+      <h3><Bi ja="運行中の路線" en="Lines running" /></h3>
+      <div className="line-list">
+        {[...LINES, ...RAIL_LINES].map((l) => (
+          <div key={l.id} className="city-line">
+            <LineBullet line={l} size={26} />
+            <div>
+              <b>{l.nameJa}</b> <span>{l.nameEn}</span>
+              <small>{l.stops.length} stations · every {Math.round(l.service.headwayS / (l.services?.length ?? 1) / 60)} min{l.type === 'jr' ? ' · map and timetable only' : ''}</small>
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -108,92 +89,61 @@ function SkyPicker() {
 
 export function MainMenu() {
   const start = useUI((s) => s.start);
+  const toRegion = useUI((s) => s.toRegion);
+  const setSettings = useUI((s) => s.setSettings);
+  const arrived = useUI((s) => s.zoomed);
   const [selected, setSelected] = useState<string>(HOME_STATION);
-  const [tab, setTab] = useState<'map' | 'controls' | 'about'>('map');
+  const [tab, setTab] = useState<'map' | 'sky'>('map');
+  const [leaving, setLeaving] = useState(false);
   useTick(1000);
+  const back = () => {
+    if (leaving) return;
+    // The zoom out starts from the route map, so show it first.
+    if (tab !== 'map') return toRegion(false);
+    setLeaving(true);
+    setTimeout(() => toRegion(true), zoomMs());
+  };
   return (
-    <div className="menu">
-      <header className="menu-top">
-        <div className="brand">
-          <Logo />
+    <div className="sg-screen">
+      <header className="sg-band">
+        <div className="sg-brand">
+          <Logo size={52} />
           <div>
-            <div className="brand-ja">{OPERATOR.nameJa}</div>
-            <div className="brand-en">{OPERATOR.nameEn}</div>
+            <div className="sg-brand-big"><Bi ja={OPERATOR.nameJa} en={OPERATOR.nameEn} /></div>
+            <div className="sg-brand-small">
+              <b>{formatClock(clock.time)}</b> ただいま平常どおり運転しています · Good service on all lines
+            </div>
           </div>
         </div>
-        <div className="menu-clock">
-          <span>{formatClock(clock.time)}</span>
-          <em>ただいま平常どおり運転しています · Good service on all lines</em>
+        <div className="sg-band-actions">
+          <button className="sg-btn" onClick={back}><Bi ja="← 西海地方" en="Region map" /></button>
+          <button className="sg-btn" onClick={() => setSettings(true)}><Bi ja="設定" en="Settings" /></button>
         </div>
       </header>
-      <div className="menu-body">
-        <aside className="menu-side">
-          <h1>
-            {OPERATOR.cityJa}の地下鉄を歩く
-            <em>Walk, ride and explore the {OPERATOR.city} subway</em>
-          </h1>
-          <button className="btn primary big" onClick={() => start(HOME_STATION)}>
-            はじめる <em>Start exploring</em>
-          </button>
-          <SkyPicker />
-          <nav className="menu-nav">
-            <button className={tab === 'map' ? 'on' : ''} onClick={() => setTab('map')}>路線図 <em>Route map</em></button>
-            <button className={tab === 'controls' ? 'on' : ''} onClick={() => setTab('controls')}>操作方法 <em>Controls</em></button>
-            <button className={tab === 'about' ? 'on' : ''} onClick={() => setTab('about')}>ご案内 <em>About</em></button>
-          </nav>
-          <div className="menu-quality" role="group" aria-label="Graphics quality">
-            <span>画質 <em>Graphics</em></span>
-            <PresetButtons />
-            <PresetHint />
-            <details className="gfx-advanced">
-              <summary>詳細設定 <em>Advanced · also in game with G</em></summary>
-              <EffectSwitches />
-            </details>
-          </div>
-          <div className="menu-lines">
-            {[...LINES, ...RAIL_LINES].map((l) => (
-              <div key={l.id} className="menu-line">
-                <LineBullet line={l} size={26} />
-                <div>
-                  <b>{l.nameJa}</b> <span>{l.nameEn}</span>
-                  <small>{l.stops.length} stations · every {Math.round(l.service.headwayS / (l.services?.length ?? 1) / 60)} min{l.type === 'jr' ? ' · map and timetable only' : ''}</small>
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
-        <main className="menu-main">
-          {tab === 'map' && (
-            <div className="map-wrap">
-              <div className="map-card">
-                <div className="card-title">路線図 <em>Route map — select a station</em></div>
+      <div className="sg-row">
+        <nav className="sg-tabs" role="tablist">
+          <button role="tab" aria-selected={tab === 'map'} className={tab === 'map' ? 'on' : ''} onClick={() => setTab('map')}><Bi ja="路線図" en="Route map" /></button>
+          <button role="tab" aria-selected={tab === 'sky'} className={tab === 'sky' ? 'on' : ''} onClick={() => setTab('sky')}><Bi ja="時刻と天気" en="Time and weather" /></button>
+        </nav>
+        <button className="sg-btn exit" onClick={() => start(HOME_STATION)}><Bi ja="はじめる" en="Start exploring" /></button>
+      </div>
+      <div className="sg-body">
+        {tab === 'map' && (
+          <div className="map-wrap">
+            <div className="map-card zoom-clip">
+              <div className={`zoom-box${leaving ? ' zoom-out' : arrived ? ' zoom-in' : ''}`}>
                 <MetroMap selected={selected} onSelect={setSelected} />
               </div>
-              <StationPanel id={selected} onGo={start} goLabel="この駅からはじめる" />
             </div>
-          )}
-          {tab === 'controls' && (
-            <div className="card">
-              <div className="card-title">操作方法 <em>Controls</em></div>
-              <Controls />
-              <p className="muted">
-                Trains run to a timetable. Wait on the platform, board through the open doors, and ride — the map (M) lets you jump to any station.
-              </p>
-            </div>
-          )}
-          {tab === 'about' && (
-            <div className="card">
-              <div className="card-title">ご案内 <em>About</em></div>
-              <p>
-                {OPERATOR.nameEn} is a fictional subway in the invented city of {OPERATOR.city}. Every station, line and brand here is made up;
-                the design language is inspired by real Japanese metro systems.
-              </p>
-              <p className="muted">
-                {STATIONS.length} stations · {LINES.length} lines · trains, departure boards and this map all run from one simulated timetable.
-              </p>
-            </div>
-          )}
-        </main>
+            <StationPanel id={selected} onGo={start} goLabel={['この駅からはじめる', 'Start from this station']} />
+          </div>
+        )}
+        {tab === 'sky' && (
+          <div className="sky-wrap">
+            <SkyPicker />
+            <LineList />
+          </div>
+        )}
       </div>
     </div>
   );

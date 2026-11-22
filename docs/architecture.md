@@ -27,7 +27,12 @@ src/
               (presets + switches), ssr, grade, film, geometry, part-view, sign-set,
               track, world-view, Scene.tsx
   player/     player.ts (state + movement)
-  ui/         store, MainMenu, MetroMap, Hud, GraphicsSettings
+  ui/         store, TitleScreen, RegionMap, MainMenu (city menu), Settings, MetroMap (search, line highlight, hover card; names every station only when zoomed in; a diagram view from `diagram` coords and a geographic view from world positions and line alignments, whose coast and river are drawn by hand in `MetroMap.tsx`; route finder = earliest arrival over the timetable in `src/sim/route.ts`, with a 2 min change and 5 min walk allowance), Hud, Bi (two-language text)
+              Hud (sign-look station name sign, clock with speed 0/1/6, departures), Notices (arrival card, train and place notices from the timetable, exits and lifts), PauseMenu (Esc or mouse release; clock stops)
+              Guide (step card and alerts from sim/guide.ts: next step from where the player really is, on foot or on a given train; also feeds the on-board stop strip)
+              Compass.tsx (round mini-map turned to the player's facing, from the station's zones, ramps, lifts and exits; rim markers are straight-line directions, not paths), Wheel (quick menu ring on Z), PauseMenu tabs (game, route map, guide, settings, controls)
+              In game the mouse is captured; Tab frees it without pausing (store `freeMouse`) so the name board, departures rows, plan and compass markers can be clicked; releasing it any other way pauses
+              A picked destination (map click, search, board row) is a preview first (`preview` in the store): its route shows on the map and guidance starts on Confirm; Guide.tsx also draws the journey strip, the step banner with its chime, the marker projected into the view (`dom.camera`) and the arrival summary
 ```
 
 ## Data flow

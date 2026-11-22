@@ -31,6 +31,9 @@ const LOOKS: Record<string, StationLook> = {
   ikarimachi, 'todai-dori': todaiDori, minamihorie, kaiseicho, midorizaka, 'kita-odori': kitaOdori,
 };
 
+/** True for a station with a look file of its own (not the default look). */
+export const hasOwnLook = (stationId: string): boolean => stationId in LOOKS;
+
 const cache = new Map<string, StationLook>();
 
 /** The station's look, with its entry area (entry.ts) layered on. */

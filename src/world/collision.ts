@@ -237,9 +237,14 @@ export function stepBody(body: Body, frames: Frame[], mx: number, mz: number, dt
   p[0] += mx;
   p[2] += mz;
   const stepH = body.grounded ? STEP : 0.12;
+  // Inside a moving car only the train is solid: a station's walls, fences and the edge of its plot
+  // must not sweep a passenger out of the car as it runs through them.
+  const car = body.ride, pv = car?.prev;
+  const moving = !!car && !!pv && (car.x !== pv.x || car.z !== pv.z || car.y !== pv.y);
   for (let it = 0; it < 3; it++) {
     let any = false;
     for (const f of active) {
+      if (moving && f.kind !== 'car') continue;
       toLocal(f, p, l);
       if (pushOut(f, l, stepH)) {
         toWorld(f, l, p);

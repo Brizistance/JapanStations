@@ -1,6 +1,6 @@
 # JapanStations
 
-A **fictional** Japanese transit simulator set in an Osaka-like second city, **Kawaminato (川湊)**. Stations are styled after real Tokyo/Osaka Metro stations but are invented: no real data, no real station names.
+A **fictional** Japanese transit simulator set in an Osaka-like second city, **Kawaminato (川湊)**, the one playable city of the invented **Seikai (西海)** region. Stations are styled after real Tokyo/Osaka Metro stations but are invented: no real data, no real station names.
 
 ## What this project is for
 
@@ -54,7 +54,7 @@ npm run build
 | `src/signs/draw.ts` (84 KB), `departures.ts`, `content.ts` | Sign and departure-board drawing |
 | `src/render/` | Scene, materials, textures, lighting, post effects, track, world view |
 | `src/trains/`, `src/player/`, `src/world/` | Train cars and system, player movement, world builder and collision |
-| `src/ui/` | Main menu, metro map, HUD, graphics settings, zustand store |
+| `src/ui/` | Title screen, region map, city menu, settings, metro map, HUD, zustand store |
 
 To work on one station, open only its look file and, if needed, its line's theme. Do not read other stations' look files for reference unless asked.
 

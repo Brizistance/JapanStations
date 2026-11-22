@@ -11,6 +11,7 @@ import { tickTrafficAudio } from '../audio/traffic';
 import { TrafficView } from './traffic-view';
 import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
+import { moveWheel, WHEEL, wheelIndex, wheelMove } from '../ui/Wheel';
 import { toWorld } from '../world/collision';
 import { atmosphereAt, newAtmosphere } from './atmosphere';
 import { LampDots, updateLamps } from './lamps';
@@ -97,6 +98,12 @@ function World() {
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
     const t0 = performance.now();
+    // Field of view is a setting; it applies live, on the menu backdrop too.
+    const cam = camera as THREE.PerspectiveCamera, fov = useUI.getState().fov;
+    if (cam.fov !== fov) {
+      cam.fov = fov;
+      cam.updateProjectionMatrix();
+    }
     gl.info.reset();
     clock.advance(dt);
     updateTrains(clock.time);
@@ -182,46 +189,108 @@ const KEYS: Record<string, keyof typeof input> = {
 };
 
 function Controls() {
-  const { gl } = useThree();
+  const { gl, camera } = useThree();
+  dom.camera = camera;
   useEffect(() => {
     const el = gl.domElement;
     dom.canvas = el;
     let dragging = false;
     const playing = () => {
       const s = useUI.getState();
-      return s.mode === 'play' && !s.mapOpen && !s.gfxOpen;
+      return s.mode === 'play' && !s.mapOpen && !s.settingsOpen && !s.paused && !s.pickerOpen;
+    };
+    // When the pause screen last came up by itself (the mouse was released), so the same Esc press does not close it again.
+    let pausedAt = 0;
+    // Esc closed the pause screen: the mouse is captured again once the key is let go (a held Esc would release it straight away).
+    let recapture = false, resumedAt = 0;
+    // The quick menu ring (Z held): letting go runs what the mouse points at.
+    const closeWheel = (run: boolean) => {
+      const ui = useUI.getState();
+      if (!ui.wheelOpen) return;
+      const i = wheelIndex();
+      ui.setWheel(false);
+      if (run && i >= 0) WHEEL[i].run(useUI.getState());
     };
     const key = (down: boolean) => (e: KeyboardEvent) => {
       const ui = useUI.getState();
       if (ui.mode !== 'play') return;
+      if (!down && e.code === 'Escape' && recapture) {
+        recapture = false;
+        if (playing() && !ui.freeMouse) capturePointer();
+        return;
+      }
+      // The destination picker takes the keyboard; Esc closes it.
+      if (ui.pickerOpen) {
+        if (down && e.code === 'Escape') ui.setPicker(false);
+        return;
+      }
+      // Typing in a text box (the map's station search) is not a game key, except Esc; a slider is not a text box.
+      if (e.target instanceof HTMLInputElement && e.target.type !== 'range' && e.code !== 'Escape') return;
+      if (e.code === 'KeyZ' && !down) return closeWheel(true);
+      if (down && e.code === 'F3') e.preventDefault();
+      if (down && e.code === 'Tab') e.preventDefault();
       if (down && !e.repeat) {
         if (e.code === 'KeyM') return ui.setMap(!ui.mapOpen);
-        if (e.code === 'KeyG') return ui.setGfxOpen(!ui.gfxOpen);
+        if (e.code === 'KeyG') return ui.setSettings(!ui.settingsOpen);
         if (e.code === 'Escape' && ui.mapOpen) return ui.setMap(false);
-        if (e.code === 'Escape' && ui.gfxOpen) return ui.setGfxOpen(false);
-        if (ui.mapOpen || ui.gfxOpen) return;
+        if (e.code === 'Escape' && ui.settingsOpen) return ui.setSettings(false);
+        if (e.code === 'Escape') {
+          if (performance.now() - pausedAt < 300) return;
+          if (ui.paused) {
+            ui.setPaused(false, false);
+            recapture = true;
+            resumedAt = performance.now();
+          } else ui.setPaused(true);
+          return;
+        }
+        if (ui.mapOpen || ui.settingsOpen || ui.paused) return;
+        if (e.code === 'F3') return ui.setFps(!ui.fpsOn);
+        if (e.code === 'KeyN') return ui.setMap(true, true);
+        if (e.code === 'KeyV') return ui.setGuideView(ui.guideView === 'map' ? 'list' : 'map');
+        if (e.code === 'KeyZ') {
+          wheelMove.x = wheelMove.y = 0;
+          return ui.setWheel(true);
+        }
         if (e.code === 'KeyF') return ui.toggleFast();
+        if (e.code === 'KeyT') return ui.toggleFreeze();
+        if (e.code === 'KeyH') return ui.toggleHud();
+        if (e.code === 'Tab') return ui.setFreeMouse(document.pointerLockElement === el);
+        if (e.code === 'KeyX') return (ui.setGuide(null), ui.setMark(null));
+        if (e.code === 'KeyP') return ui.setPlan(!ui.planOn);
         if (e.code === 'KeyR') return teleport(nearestStation(player.body.pos[0], player.body.pos[2]).world.def.id);
       }
       const k = KEYS[e.code];
-      if (!k || ui.mapOpen || ui.gfxOpen) return;
+      if (!k || ui.mapOpen || ui.settingsOpen || ui.paused) return;
       input[k] = down;
       if (e.code === 'Space' || e.code.startsWith('Arrow') || e.code.startsWith('Page')) e.preventDefault();
     };
     const kd = key(true), ku = key(false);
     const look = (e: MouseEvent) => {
       if (!playing()) return;
+      if (useUI.getState().wheelOpen) return moveWheel(e.movementX, e.movementY);
       if (document.pointerLockElement !== el && !dragging) return;
-      player.yaw -= e.movementX * 0.0022;
-      player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - e.movementY * 0.0022));
+      const { sensitivity, invertY } = useUI.getState();
+      const k = 0.0022 * sensitivity;
+      player.yaw -= e.movementX * k;
+      player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - e.movementY * k * (invertY ? -1 : 1)));
     };
     const down = () => {
       if (!playing()) return;
       dragging = true;
+      if (useUI.getState().freeMouse) useUI.setState({ freeMouse: false });
       if (document.pointerLockElement !== el) capturePointer();
     };
     const up = () => (dragging = false);
-    const lock = () => useUI.getState().setLocked(document.pointerLockElement === el);
+    const lock = () => {
+      const locked = document.pointerLockElement === el;
+      useUI.getState().setLocked(locked);
+      // Releasing the mouse (Esc, or leaving the window) pauses, unless a screen that needs the mouse has opened.
+      if (locked) useUI.setState({ freeMouse: false });
+      if (!locked && playing() && !useUI.getState().freeMouse && performance.now() - resumedAt > 600) {
+        pausedAt = performance.now();
+        useUI.getState().setPaused(true);
+      }
+    };
     window.addEventListener('keydown', kd);
     window.addEventListener('keyup', ku);
     window.addEventListener('mousemove', look);

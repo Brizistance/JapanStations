@@ -25,7 +25,9 @@ type V3 = [number, number, number];
 let ctx: AudioContext | null = null;
 let trainBus: GainNode, carBus: GainNode, roadBus: GainNode, stepBus: GainNode, ambBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode, out: AudioNode;
 let echoIn: GainNode, stepEcho: GainNode, ambEcho: GainNode;
-const vol = { voice: 0.8, sfx: 0.8 };
+const vol = { voice: 0.8, sfx: 0.8, master: 1, muted: false };
+/** Master volume, or silence when muted. */
+const master = () => (vol.muted ? 0 : vol.master);
 
 // ── Echo: two convolvers, crossfaded when the room changes ──
 
@@ -123,13 +125,21 @@ export const audioLive = () => live();
 
 function applyVolume() {
   if (!ctx) return;
-  const t = ctx.currentTime;
-  for (const ch of channels.values()) ch.input?.gain.setTargetAtTime(vol.voice, t, 0.05);
-  trainBus.gain.setTargetAtTime(vol.sfx, t, 0.05);
-  carBus.gain.setTargetAtTime(vol.sfx * 0.7, t, 0.05);
-  roadBus.gain.setTargetAtTime(vol.sfx * 0.55, t, 0.05);
-  stepBus.gain.setTargetAtTime(vol.sfx * 0.45, t, 0.05);
-  ambBus.gain.setTargetAtTime(vol.sfx * 0.5, t, 0.05);
+  const t = ctx.currentTime, voice = vol.voice * master(), sfx = vol.sfx * master();
+  for (const ch of channels.values()) ch.input?.gain.setTargetAtTime(voice, t, 0.05);
+  trainBus.gain.setTargetAtTime(sfx, t, 0.05);
+  carBus.gain.setTargetAtTime(sfx * 0.7, t, 0.05);
+  roadBus.gain.setTargetAtTime(sfx * 0.55, t, 0.05);
+  stepBus.gain.setTargetAtTime(sfx * 0.45, t, 0.05);
+  ambBus.gain.setTargetAtTime(sfx * 0.5, t, 0.05);
+}
+export function setMasterVolume(v: number) {
+  vol.master = v;
+  applyVolume();
+}
+export function setMuted(m: boolean) {
+  vol.muted = m;
+  applyVolume();
 }
 export function setVoiceVolume(v: number) {
   vol.voice = v;
@@ -557,7 +567,7 @@ function speakerTone(c: AudioContext, input: AudioNode): AudioNode {
 function wireChannel(ch: Channel) {
   const c = ctx!;
   ch.input = c.createGain();
-  ch.input.gain.value = vol.voice;
+  ch.input.gain.value = vol.voice * master();
   ch.tone = speakerTone(c, ch.input);
   // The in-car PA: the speakers are right overhead, so no position and no station echo.
   if (ch.direct) ch.tone.connect(out);
