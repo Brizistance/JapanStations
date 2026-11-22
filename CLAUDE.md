@@ -23,6 +23,7 @@ The owner hits usage limits fast. These are defaults, not suggestions:
 - **Do not read docs or source up front.** Use the code map below to pick the one file a task touches. Never read all of `docs/` or browse `src/` "for context".
 - **Search before reading.** Many files are 30–85 KB. Grep for the symbol, then Read only that range with `offset`/`limit`. Never read a whole file over ~15 KB unless the task truly needs all of it.
 - **No subagents or extra sessions** unless the owner asks, except the one below. They re-read everything.
+- **The `new-station` skill runs the `station-auditor` subagent** (`.claude/agents/station-auditor.md`, decided 2026-11-22): on the plan before building and after each stage, one effort level above the builder, for build errors only. Read-only; not for small fixes outside the skill.
 - **After building or changing a station, sign-off is the owner's** (decided 2026-11-21): run the tests, take a few sanity views in the browser, say what was not looked at, and report. The owner walks it and sends screenshots. Run the `station-checker` subagent (`.claude/agents/station-checker.md`) only when asked.
 - **Verify narrowly.** Run `npm run typecheck`, plus only the test file near the change (`npx vitest run <file>`). Run the full suite only for changes to `src/data/`, `src/sim/` or shared station code (`build.ts`, `kit.ts`, `parts.ts`, `specs.ts`).
 - **Reply very short.** What changed and where to look, in a few lines. No code walkthroughs or option surveys.
