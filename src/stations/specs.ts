@@ -42,6 +42,8 @@ export interface UndergroundSpec {
    * moving walkways from the paid concourse (Shin-Hibarino, transfer.ts).
    */
   transfer?: true;
+  /** A lift you can ride between an island platform and the concourse, its doors facing −x at this x (Aobadai). */
+  platLift?: { x: number };
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -422,10 +424,12 @@ export const SPECS: Record<StationId, StationSpec> = {
     concourse: [-34, 22],
     gates: ['lo'],
     stairs: [{ x: 2, up: -1 }],
+    platLift: { x: 6.45 },
     style: {
       wall: 'tile:#cfdcc8', concWall: 'tile:#eef2ea', floor: 'floor:#cdcbc1', pillar: 'tile:#4e7a5a',
       accent: '#2f6b45', mural: { v: 'hills', color: '#4e8f5a' },
     },
+    // The street is aobadai-street.ts (the 2026-11 rebuild), which reads only `seed` from this.
     surface: { seed: 179, roadHalf: 7, cross: [-62, 66], left: 'house', right: 'mixed', trees: true, poles: true },
   },
   // ── Yanagisuji Line, south ──

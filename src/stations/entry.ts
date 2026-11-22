@@ -98,6 +98,11 @@ function street(e: ExitInfo, s: EntrySpec) {
     }
   };
 
+  if (s.indoors?.includes(e.num)) {
+    // Inside a building: a timber rail capping the parapets either side of the stair's open part.
+    for (const [z0, z1] of [[ext + 0.9, ext + 1.2], [ext + 4.0, ext + 4.3]]) b.deco(F, e.open, gy + 1.0, z0 - 0.03, run, gy + 1.06, z1 + 0.03);
+    return;
+  }
   switch (s.street) {
     case 'vault': {
       // A barrel vault of tinted glass on arched ribs.

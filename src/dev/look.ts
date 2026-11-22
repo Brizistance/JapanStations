@@ -7,6 +7,8 @@ import { stationWorld } from '../stations';
 import { useUI } from '../ui/store';
 import { FILL_SPOTS } from '../stations/fill';
 import { crossingTest } from '../signs/departures';
+import { ENTRY } from '../stations/entry-specs';
+import type { StationId } from '../data/types';
 
 type V3 = [number, number, number];
 export type View = { label: string; pos: V3; yaw: number; pitch: number };
@@ -60,6 +62,12 @@ export function views(id: string): View[] {
     // Straight out in front of the mouth, where people walk (off to the side can be a building or a river).
     street[ax] = far + sgn * 8; street[side] = cs + (cs >= 0 ? 1.5 : -1.5);
     foot[ax] = near + sgn * 1.5; foot[side] = cs;
+    // A stair that comes up inside a building (entry-specs.ts `indoors`, Aobadai's exit 1): step in past the wall towards the mouth.
+    const solid = stationWorld(id).build.boxes.filter((q) => q.solid && q.min[1] < 1.8 && q.max[1] > 0.4);
+    const hit = (x: number, z: number) => solid.some((q) => x > q.min[0] - 0.3 && x < q.max[0] + 0.3 && z > q.min[2] - 0.3 && z < q.max[2] + 0.3);
+    const blocked = (p: V3) => Array.from({ length: 20 }, (_, i) => i / 19).some((t) => hit(p[0] + (top[0] - p[0]) * t * 0.6, p[2] + (top[2] - p[2]) * t * 0.6));
+    const num = /Exit (\w+)$/.exec(z.en)?.[1];
+    if (num && ENTRY[id as StationId]?.indoors?.includes(num)) for (let k = 0; k < 10 && blocked(street); k++) street[ax] -= sgn;
     v.push({ label: `street: ${z.en}`, pos: street, yaw: face(street, top), pitch: -0.12 });
     v.push({ label: `stairs: ${z.en}`, pos: foot, yaw: face(foot, top), pitch: 0.1 });
   }

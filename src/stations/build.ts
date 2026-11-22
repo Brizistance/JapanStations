@@ -4,6 +4,8 @@
 
 import { tsumugiStreet } from './tsumugibashi-street';
 import { aizomeStreet } from './aizomecho-street';
+import { aobaStreet } from './aobadai-street';
+import { lift, LIFT_OUT } from './lift';
 import { buildHeadhouse, HH } from './headhouse';
 import { linesAt, lineById, platformTypeAt } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
@@ -457,7 +459,7 @@ function concourseHalf(line: LineDef): number {
 }
 
 type Further = { ctx: Ctx; dir: [number, number]; primaryDir: [number, number]; x: number };
-function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
+function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further, dir: [number, number] = [1, 0]) {
   if (spec.stacked) return buildStacked(c, spec);
   const { b, line, station, railY, style } = c;
   const d = hallDims(line, railY);
@@ -481,7 +483,19 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
 
   const st = platformStairs(c, spec.stairs, d.pf, cf, d.wallZ);
   const solids: Rect[] = [];
-  if (d.island) {
+  const voids: Rect[] = spec.voids ?? [];
+  const liftHoles: Rect[] = [];
+  if (spec.platLift) {
+    // A lift you ride, doors facing −x on both floors; its shaft cuts the platform roof and the concourse floor.
+    if (!d.island) throw new Error(`${station.id}: platLift needs an island platform`);
+    const lx = spec.platLift.x, r: Rect = [lx, -LIFT_OUT.hw, lx + LIFT_OUT.d, LIFT_OUT.hw];
+    b.with({ rot: 3, t: [lx, 0, 0] }, () => lift(b, {
+      mat: style.concWall, levels: [{ y: d.pf, ja: 'ホーム', en: 'Platform' }, { y: cf, ja: '改札階', en: 'Ticket hall' }],
+    }));
+    st.blocks.push([r[0], r[2]]);
+    solids.push(r);
+    liftHoles.push(r);
+  } else if (d.island) {
     // Lift shaft (not operable) beside the stairs.
     const ex = Math.max(...st.blocks.map((q) => q[1])) + 3;
     if (ex + 2.2 < cx1 - 18 && halls.some(([a, e]) => ex > a + 1 && ex + 2.2 < e - 1)) {
@@ -494,10 +508,9 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
       solids.push([ex, -1.1, ex + 2.2, 1.1]);
     }
   }
-  const voids: Rect[] = spec.voids ?? [];
   // An old terminus's siding: seen through the +z wall between the stairs, inside the concourse's span.
   const stub = spec.stub ? stubGaps(cx0 + 2, cx1 - 2, st.blocks) : [];
-  hall(c, { ceil, blocks: st.blocks, ceilHoles: voids, gaps: stub.map(([x0, x1]) => ({ s: 1 as const, x0, x1 })) });
+  hall(c, { ceil, blocks: st.blocks, ceilHoles: [...voids, ...liftHoles], gaps: stub.map(([x0, x1]) => ({ s: 1 as const, x0, x1 })) });
   if (spec.stub) stubSiding(c, d.wallZ, stub);
   for (const v of voids) voidRail(b, v, cf);
 
@@ -516,7 +529,7 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
   if (spec.transfer && !further) throw new Error(`${station.id}: a transfer tunnel needs a second line`);
   if (spec.transfer && further) buildTransfer(c, cf, cw, further);
   const shell = { cf, cw, pillarZ: d.island ? islandPillarZ(cw) : 3.4, ext: STREET_CW - cw, solids, ...adit };
-  if (!spec.split) concourse(c, { ...shell, x0: cx0, x1: cx1, holes: [...st.holes, ...voids], ends, stairs: st.info });
+  if (!spec.split) concourse(c, { ...shell, x0: cx0, x1: cx1, holes: [...st.holes, ...voids, ...liftHoles], ends, stairs: st.info });
   else {
     // Each hall takes the gate end at its outer end and the stairs that come up inside it.
     const inside = (r: Rect, [a, e]: [number, number]) => r[0] >= a && r[2] <= e;
@@ -529,7 +542,9 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further) {
     });
   }
   if (spec.adit) buildAdit(c, cf, cw);
-  surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
+  // Aobadai's street is laid out by hand (aobadai-street.ts).
+  if (station.id === 'aobadai') aobaStreet(c, spec.surface, STREET_CW, dir, cf);
+  else surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
 
 /** Glass balustrade round a void in the concourse floor. */
@@ -1134,7 +1149,7 @@ export function buildStation(input: StationBuildInput): { build: Build; primary:
       const at = station.at![f.line.id]!, dx = at.x - station.position.x, dz = at.y - station.position.y;
       return { ctx: mk(f), dir: f.dir, primaryDir: l.dir, x: dx * l.dir[0] + dz * l.dir[1] };
     })() : undefined;
-    buildUnderground(mk(l), spec as UndergroundSpec, further);
+    buildUnderground(mk(l), spec as UndergroundSpec, further, l.dir);
   }
   return { build: b.finish(), primary: l.line.id };
 }

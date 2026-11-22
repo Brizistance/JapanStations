@@ -1,6 +1,7 @@
 // One look per hero station, keyed by station id. Every other station gets the default look.
 
 import { look as aizomecho } from './aizomecho';
+import { look as aobadai } from './aobadai';
 import { look as daigakuMae } from './daigaku-mae';
 import { defaultLook } from './default';
 import { look as hoshimine } from './hoshimine';
@@ -25,7 +26,7 @@ import type { StationLook } from './types';
 import { withEntry } from '../entry';
 
 const LOOKS: Record<string, StationLook> = {
-  aizomecho, 'daigaku-mae': daigakuMae, hoshimine, hyotanbori, kamomehama, kurayashiki, tomyobori, tsumugibashi, tsurumatsu,
+  aizomecho, aobadai, 'daigaku-mae': daigakuMae, hoshimine, hyotanbori, kamomehama, kurayashiki, tomyobori, tsumugibashi, tsurumatsu,
   seiryodai, 'shiosai-koen': shiosaiKoen, tsukimizaka, yamabukidai, 'minato-center': minatoCenter,
   ikarimachi, 'todai-dori': todaiDori, minamihorie, kaiseicho, midorizaka, 'kita-odori': kitaOdori,
 };

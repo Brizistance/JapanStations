@@ -459,6 +459,23 @@ function aizomeFeatures(): Feature[] {
   ];
 }
 
+/** What stands round Aobadai's exits (aobadai-street.ts). */
+function aobaFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: n('青葉台駅 駅舎', 'Station house'), x0: -45, x1: -27, side: -1, named: true },
+    { n: n('北口広場', 'North Plaza'), x0: -57.25, x1: -17, side: -1, named: true },
+    { n: n('南口広場・タクシー乗り場', 'South Plaza, taxis'), x0: -57.25, x1: -17, side: 1, named: true },
+    { n: n('葉月商店街', 'Hazuki Arcade'), x0: -23, x1: -17, side: -1, named: true, reach: 40 },
+    { n: n('丘守神社', 'Okamori Shrine'), x0: -40, x1: 0, side: -1, named: true, reach: 90 },
+    { n: n('あおば公園', 'Aoba Park'), x0: -17, x1: 23.25, side: 1, named: true, reach: 50 },
+    { n: n('楓筋', 'Kaede-suji'), x0: -66.75, x1: -57.25, side: 0, named: true, reach: 40 },
+    { n: n('樫筋', 'Kashi-suji'), x0: 35.25, x1: 44.75, side: 0, named: true, reach: 80 },
+    { n: KIND.house, x0: -130, x1: 130, side: -1, named: false },
+    { n: KIND.house, x0: -130, x1: 130, side: 1, named: false },
+  ];
+}
+
 function hubFeatures(): Feature[] {
   const X = 190;
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -540,6 +557,8 @@ function derive(id: StationId): StationStreet {
         endExits(g === 'hi' ? cx1 - 16 : cx0 + 16, g === 'hi', STREET_CW, run, spec.exits?.[i], nums[i]));
       // The concourse's width follows the line's age (build.ts concourseHalf); 10 m is its usual.
       const cw = spec.width ?? 10;
+      // Aobadai's street is not laid out by surface() (aobadai-street.ts): list what stands round its exits.
+      if (id === 'aobadai') return { kind: 'hub', exits: withNear(aobaFeatures(), es) };
       return { kind: 'street', surface: spec.surface, box: [cx0, -cw, cx1, cw], swOut: STREET_CW + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'interchange': {

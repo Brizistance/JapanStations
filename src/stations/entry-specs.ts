@@ -39,6 +39,8 @@ export interface EntrySpec {
     /** Handrail colour. */
     rail: string;
   };
+  /** Exits whose stair comes up inside a building (Aobadai's exit house): a rail on the parapets, no street structure. */
+  indoors?: string[];
   /** Ticket-hall finishes (the look's own finishes win where both set one). */
   hall: Finishes;
   /** What stands in the ticket hall: shops, services and the station's own local feature. */
@@ -176,6 +178,19 @@ export const ENTRY: Partial<Record<StationId, EntrySpec>> = {
       { k: 'display', theme: 'canal', ja: '南桜橋と堀', en: 'The canal at Minami-Sakura-bashi' },
       { k: 'shop', brand: 'namima', front: 'stall', w: 3.6 },
       { k: 'waiting', in: 'unpaid' },
+    ],
+  },
+  // ── Yanagisuji Line ──
+  // Hillside garden suburb: Exit 1 comes up inside the exit house; Exit 2 under a timber pavilion
+  // trimmed in the arcade's sage, sage tile down, a cedar-slatted ticket hall over the old sage tiles.
+  aobadai: {
+    street: 'pavilion', frame: '#6b4f37', trim: '#4e7a5a', indoors: ['1'],
+    well: { clad: 'tile:#4e7a5a', height: 1.4, stripe: '#e3d3a8', lamps: 'globe', rail: '#6b4f37' },
+    hall: { ceil: 'wood:#cbb48e' },
+    fill: [
+      { k: 'shop', brand: 'yanagiFlowers', front: 'stall', w: 3.6 },
+      { k: 'benches' },
+      { k: 'vending', in: 'unpaid' },
     ],
   },
 };
