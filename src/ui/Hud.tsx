@@ -3,10 +3,10 @@
 // Everything shown is read from the network data, the timetable and the built stations.
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { isUnbuilt, lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { RAIL_STATIONS, destinationOf, isUnbuilt, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef } from '../data/types';
 import { player, where } from '../player/player';
-import { clock, formatClock, lineSim } from '../sim';
+import { clock, formatClock, lineDepartures, lineSim } from '../sim';
 import { temperatureNow } from '../sim/climate';
 import { WEATHER_NAME, typhoonNotice, weatherIcon } from '../signs/weather-icon';
 import { trainCalls } from '../sim/guide';
@@ -100,7 +100,7 @@ function TrainSign() {
   const stopIdx = p.kind === 'run' ? p.toStop : p.stop;
   const stop = stopIdx >= 0 ? stationById(line.stops[stopIdx]) : null;
   // The stops this train still calls at, with its own arrival times, as on the display over the car doors.
-  const calls = trainCalls(train.sim.tt, p, train.state.tau, clock.time);
+  const calls = trainCalls(train.tt, p, train.state.tau, clock.time);
   const step = guideStep(), alight = step?.kind === 'ride' ? step.alightStop : -1;
   const shown = calls.slice(0, 6);
   return (
@@ -146,7 +146,17 @@ function Board() {
   const own = platformLine();
   // Away from the platforms the guide card already says which train, where and when.
   if (mine && !own) return null;
-  const rows: { key: string; line: LineDef; dir: Dir; platform: number; deps: { arr: number; dep: number }[] }[] = [];
+  const rows: { key: string; line: LineDef; dir: Dir; platform: number; deps: { arr: number; dep: number }[]; type?: string }[] = [];
+  // On a main-line station's platform inside this station's plot (Kawaminato in Kita-Ōdōri's): that line's trains, every service type.
+  const railLine = where.zone?.line ? lineById(where.zone.line) : null;
+  const rail = railLine?.type === 'jr' ? RAIL_STATIONS.find((r) => r.transfer === st.def.id && r.numbers[railLine.id]) : undefined;
+  if (rail && railLine) {
+    const stop = railLine.stops.indexOf(rail.id);
+    for (const dir of ['down', 'up'] as Dir[]) {
+      const deps = lineDepartures(lineSim(railLine.id), stop, dir, clock.time, 2);
+      if (deps.length > 1) rows.push({ key: railLine.id + dir, line: railLine, dir, platform: rail.platforms[railLine.id][dir === 'down' ? 0 : 1], deps, type: deps[0].service && `${deps[0].service.nameJa} ${deps[0].service.nameEn}` });
+    }
+  } else
   for (const line of own ? [own] : mine ? [mine.line] : linesAt(st.def.id)) {
     const { tt } = lineSim(line.id);
     const stop = line.stops.indexOf(st.def.id);
@@ -163,14 +173,14 @@ function Board() {
         <span><Bi ja="のりば" en="Plat." /></span>
       </div>
       {rows.map((r) => {
-        const t = terminusOf(r.line, r.dir);
+        const t = destinationOf(r.line, r.dir), goal = r.line.beyond ? null : terminusOf(r.line, r.dir).id;
         const first = r.deps[0];
         const at = clock.time >= first.arr;
         const mins = Math.max(0, Math.ceil((first.dep - clock.time) / 60));
         return (
-          <div className={`hud-row${mine && mine.line === r.line && mine.dir === r.dir ? ' mine' : ''}`} key={r.key} role="button" title={`${t.nameJa} まで案内 Guide me to ${t.nameRomaji}`} onClick={() => useUI.getState().setPreview(t.id)}>
+          <div className={`hud-row${mine && mine.line === r.line && mine.dir === r.dir ? ' mine' : ''}`} key={r.key} role="button" title={goal ? `${t.nameJa} まで案内 Guide me to ${t.nameRomaji}` : undefined} onClick={() => goal && useUI.getState().setPreview(goal)}>
             <LineBullet line={r.line} size={22} />
-            <div className="dest"><Two ja={`${t.nameJa} ゆき`} en={`for ${t.nameRomaji}`} /></div>
+            <div className="dest"><Two ja={`${t.nameJa} ゆき`} en={r.type ? `${r.type} · for ${t.nameRomaji}` : `for ${t.nameRomaji}`} /></div>
             <div className="time">
               <b className={at ? 'now' : ''}>{formatClock(first.dep)}</b>
               <span>{at ? '停車中 boarding' : `${mins}分 min`}</span>

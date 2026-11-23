@@ -20,8 +20,8 @@ interface Entry {
 }
 export type SignCache = Map<string, Entry>;
 
-const LIVE = new Set(['dep', 'depAll', 'lcd', 'clock', 'signal', 'crossing', 'womenonly', 'screen']);
-const FAST = new Set(['dep', 'depAll']);
+const LIVE = new Set(['dep', 'depAll', 'ardep', 'lcd', 'clock', 'signal', 'crossing', 'womenonly', 'screen']);
+const FAST = new Set(['dep', 'depAll', 'ardep']);
 /** Printed or physical things (posters, murals, machine fronts, doors): lit by the room, not self-lit. */
 const PRINTED = new Set(['poster', 'mural', 'machine', 'faremap', 'floormark', 'queue', 'timetable', 'strip', 'carguide', 'roadsign', 'roadboard', 'roadmark', 'junction', 'address']);
 /** Printed signs that are lit at night outdoors (billboards and posters from inside, road signs by reflection), and how brightly. */

@@ -4,36 +4,42 @@
 // that model fails to load. Car-local coords: +x towards increasing chainage,
 // y = 0 at rail level, +z to the right of +x.
 
-import type { LineDef } from '../data/types';
-import { DOOR_OFFSETS, PF_H } from '../stations/kit';
+import type { CarSpec, LineDef } from '../data/types';
+import { METRO_CAR, carOf } from '../sim/geometry';
+import { PF_H } from '../stations/kit';
 import { Builder, type Build } from '../world/builder';
 
 export type CarKind = 'mid' | 'cabLow' | 'cabHigh';
 
-export const CAR_HALF = 9;
+/** The metro car's half length; a line's own is carOf(line).half. */
+export const CAR_HALF = METRO_CAR.half;
 export const CAR_HALF_W = 1.4;
 export const DOOR_W = 1.3;
 export const DOOR_H = 1.85;
-export const CAR_INSIDE = { min: [-9.3, PF_H - 0.3, -1.42] as [number, number, number], max: [9.3, 3.45, 1.42] as [number, number, number] };
+/** The space inside a car, for the player's "aboard" test. */
+export const carInside = (spec: CarSpec) => ({ min: [-spec.half - 0.3, PF_H - 0.3, -1.42] as [number, number, number], max: [spec.half + 0.3, 3.45, 1.42] as [number, number, number] });
 
-// Where the live destination displays sit on the model (render/car-model.ts). The cab car
-// model is one mesh turned round for the low end, so the side display swaps ends with it.
-const SIDE_SIGN_X = 2.9;
-const FRONT_SIGN_X = 9.232;
+// Where the live destination displays sit on the model (render/car-model.ts): the side one half
+// way between the last two doors, the front one on the cab's bulge. The cab car model is one mesh
+// turned round for the low end, so the side display swaps ends with it.
+export const sideSignX = (spec: CarSpec) => (spec.doors[spec.doors.length - 2] + spec.doors[spec.doors.length - 1]) / 2;
+const FRONT_SIGN_OUT = 0.232;
 
 const BODY = 'flat:#d4d8db';
 const INNER = 'flat:#ece9e0';
 
 export function buildCar(line: LineDef, kind: CarKind): Build {
   const b = new Builder();
-  const F = PF_H, W = CAR_HALF_W;
+  const spec = carOf(line), CAR_HALF = spec.half, DOOR_OFFSETS = spec.doors;
+  const SIDE_SIGN_X = sideSignX(spec), FRONT_SIGN_X = CAR_HALF + FRONT_SIGN_OUT;
+  const F = PF_H, W = CAR_HALF_W, IN = CAR_HALF - 0.4;
   const cabLow = kind === 'cabLow', cabHigh = kind === 'cabHigh';
   const xLo = cabLow ? -CAR_HALF : -CAR_HALF - 0.25, xHi = cabHigh ? CAR_HALF : CAR_HALF + 0.25;
 
   // Underframe + floor.
   b.box('flat:#7f8a93', xLo, 0.55, -W, xHi, F, W);
-  b.deco('flat:#2a2d31', -8.6, 0.12, -1.25, 8.6, 0.55, 1.25);
-  for (const bx of [-6, 6]) {
+  b.deco('flat:#2a2d31', -IN, 0.12, -1.25, IN, 0.55, 1.25);
+  for (const bx of [-spec.bogie, spec.bogie]) {
     b.deco('flat:#1c1e21', bx - 1.5, 0.02, -1.3, bx + 1.5, 0.6, 1.3);
     for (const wx of [-0.95, 0.95]) for (const s of [-1, 1]) b.mesh('flat:#111', 'cyl', bx + wx, 0.43, s * 0.72, 0.86, 0.12, 0.86);
   }
@@ -69,20 +75,21 @@ export function buildCar(line: LineDef, kind: CarKind): Build {
       b.sign({ k: 'lcd', line: line.id, train: 0 }, d, F + DOOR_H + 0.2, s * (W - 0.11), [0, -s], 1.25, 0.36, { dynamic: true });
     }
     // Longitudinal bench seats.
-    const seats: [number, number][] = [[-5.0, -0.8], [0.8, 5.0]];
-    if (!cabLow) seats.push([-8.8, -6.6]);
-    else seats.push([-7.1, -6.6]);
-    if (!cabHigh) seats.push([6.6, 8.8]);
-    else seats.push([6.6, 7.1]);
+    // Between each pair of doors, and from the end doors to the car's ends (or the cab partition).
+    const seats: [number, number][] = [];
+    const D = DOOR_OFFSETS, last = D.length - 1;
+    for (let i = 0; i < last; i++) seats.push([D[i] + 0.8, D[i + 1] - 0.8]);
+    seats.push([-(CAR_HALF - (cabLow ? 1.9 : 0.2)), D[0] - 0.8], [D[last] + 0.8, CAR_HALF - (cabHigh ? 1.9 : 0.2)]);
     for (const [xa, xb] of seats) {
+      if (xb - xa < 0.4) continue;
       b.box(`flat:${line.color}`, xa, F, Math.min(s * 0.86, s * (W - 0.1)), xb, F + 0.43, Math.max(s * 0.86, s * (W - 0.1)));
       b.deco(`flat:${line.color}`, xa, F + 0.43, Math.min(s * 1.18, s * (W - 0.1)), xb, F + 0.92, Math.max(s * 1.18, s * (W - 0.1)));
       b.deco('flat:#c9ccd0', xa - 0.04, F, Math.min(s * 0.86, s * 1.3), xa, F + 1.1, Math.max(s * 0.86, s * 1.3));
       b.deco('flat:#c9ccd0', xb, F, Math.min(s * 0.86, s * 1.3), xb + 0.04, F + 1.1, Math.max(s * 0.86, s * 1.3));
     }
     // Grab rail with straps.
-    b.deco('flat:#c9ccd0', -8.6, 3.0, s * 0.74 - 0.015, 8.6, 3.03, s * 0.74 + 0.015);
-    for (let x = -8.2; x < 8.3; x += 0.55) {
+    b.deco('flat:#c9ccd0', -IN, 3.0, s * 0.74 - 0.015, IN, 3.03, s * 0.74 + 0.015);
+    for (let x = -IN + 0.4; x < IN - 0.3; x += 0.55) {
       if (DOOR_OFFSETS.some((d) => Math.abs(x - d) < 0.7)) continue;
       b.deco('flat:#f4f4f0', x - 0.012, 2.78, s * 0.74 - 0.012, x + 0.012, 3.0, s * 0.74 + 0.012);
       b.deco('flat:#f4f4f0', x - 0.06, 2.7, s * 0.74 - 0.015, x + 0.06, 2.78, s * 0.74 + 0.015);
@@ -96,8 +103,8 @@ export function buildCar(line: LineDef, kind: CarKind): Build {
   // Roof, ceiling lights, air-con pods.
   b.box(BODY, -CAR_HALF, 3.35, -W, CAR_HALF, 3.55, W);
   b.deco(INNER, -CAR_HALF + 0.1, 3.32, -W + 0.1, CAR_HALF - 0.1, 3.35, W - 0.1);
-  for (const z of [-0.45, 0.45]) b.deco('light', -8.4, 3.3, z - 0.07, 8.4, 3.32, z + 0.07);
-  for (const x of [-4.5, 4.5]) b.deco('flat:#b7bcc0', x - 1.8, 3.55, -0.9, x + 1.8, 3.82, 0.9);
+  for (const z of [-0.45, 0.45]) b.deco('light', -IN + 0.2, 3.3, z - 0.07, IN - 0.2, 3.32, z + 0.07);
+  for (const x of [-CAR_HALF / 2, CAR_HALF / 2]) b.deco('flat:#b7bcc0', x - 1.8, 3.55, -0.9, x + 1.8, 3.82, 0.9);
 
   // Ends.
   const end = (s: 1 | -1, cab: boolean) => {

@@ -7,7 +7,7 @@ import { stationById } from '../data/network';
 import { trainStateAt } from '../sim/timetable';
 import { BED } from '../stations/kit';
 import { XOVER_FAR, XOVER_NEAR, type LineGeom, type Track } from '../sim/geometry';
-import { halfWidth, isSiding, onHostTrack, sampleChainages, structureAt, trackRange, type Structure } from '../world/structure';
+import { atOwnPlatform, deckAt, halfWidth, isSiding, modelled, onHostTrack, sampleChainages, structureAt, trackRange, type Deck, type Structure } from '../world/structure';
 import { meshesToGeometry } from './geometry';
 import { getMaterial } from './materials';
 import { stretchesOf, stretchRange } from './stretches';
@@ -66,11 +66,13 @@ class Sweep {
     const m = new THREE.Mesh(g, getMaterial(mat));
     m.matrixAutoUpdate = false;
     m.receiveShadow = true;
-    m.castShadow = mat === 'viaduct';
+    m.castShadow = mat === 'viaduct' || mat === BRICK;
     return m;
   }
 }
 
+/** A main line's trackbed: brick arches, and an earth embankment with slopes of BANK_K to 1. */
+const BRICK = 'brick:#8a4b3a', BANK = 'grass', BALLAST = 'trackside:#5a554e', BANK_K = 1.25, BANK_SHOULDER = 0.9;
 const TUNNEL_H = 4.65;
 /** Clear height of an old cut-and-cover box tunnel above the rails. */
 const OLD_H = 4.1;
@@ -113,8 +115,16 @@ function plate(lines: string[], bg: string, fg: string, w: number, h: number, gl
 /** Length of track drawn as one mesh per material. */
 const CHUNK = 400;
 
-function profiles(geom: LineGeom, type: Structure, siding: boolean, m: Sample, old = false): { p: Profile; closed: boolean }[] {
+function profiles(geom: LineGeom, type: Structure, siding: boolean, m: Sample, old = false, deck: Deck = 'concrete'): { p: Profile; closed: boolean }[] {
   const L = geom.def.trackOffset, W = halfWidth(geom);
+  if (type === 'viaduct' && deck === 'brick') {
+    // Parapets and a solid brick body down to the street (the arches are dressed on afterwards).
+    return [{ p: [[-W - 0.5, 1.1], [-W - 0.3, 1.1], [-W - 0.3, -BED], [W + 0.3, -BED], [W + 0.3, 1.1], [W + 0.5, 1.1], [W + 0.5, -m.y], [-W - 0.5, -m.y]], closed: true }];
+  }
+  if (type === 'viaduct' && deck === 'bank') {
+    const foot = W + BANK_SHOULDER + BANK_K * Math.max(0, m.y - BED);
+    return [{ p: [[-foot, -m.y + 0.02], [-W - BANK_SHOULDER, -BED], [W + BANK_SHOULDER, -BED], [foot, -m.y + 0.02]], closed: false }];
+  }
   if (type === 'tunnel' && old && !siding) {
     // One box round both tracks (the columns between them are added with the kit).
     const d = geom.lateral('down', m.s), u = geom.lateral('up', m.s), lo = Math.min(d, u) - 2.3, hi = Math.max(d, u) + 2.3;
@@ -193,11 +203,12 @@ export function buildTrack(sim: LineSim): THREE.Group {
     const a = samples[i], b = samples[i + 1];
     const mid = (a.s + b.s) / 2;
     const type = structureAt(geom, mid);
-    if (type === 'station' || hosted[i]) continue;
+    if (type === 'station' || hosted[i] || modelled(geom, mid)) continue;
     const siding = isSiding(geom, mid);
     const isOld = type === 'tunnel' && inOld(mid) && !siding;
-    const pa = profiles(geom, type, siding, a, isOld), pb = profiles(geom, type, siding, b, isOld);
-    const target = sweep(type === 'tunnel' ? 'tunnel' : 'viaduct', a);
+    const deck = type === 'viaduct' ? deckAt(geom, mid) : 'concrete';
+    const pa = profiles(geom, type, siding, a, isOld, deck), pb = profiles(geom, type, siding, b, isOld, deck);
+    const target = sweep(type === 'tunnel' ? 'tunnel' : deck === 'brick' ? BRICK : deck === 'bank' ? BANK : 'viaduct', a);
     pa.forEach((p, k) => target.span(a, b, p.p, pb[k].p, p.closed));
 
     if (isOld && lit.has(a)) {
@@ -217,7 +228,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
         lights.push(new THREE.Matrix4().compose(v, q, sc));
       }
     }
-    if (type === 'viaduct' && a.y - 1.2 >= 1.5 && a.s >= nextPier && !bridges.some((r) => Math.abs(a.s - r.s) < r.span / 2 + 4)) {
+    if (type === 'viaduct' && deck === 'concrete' && a.y - 1.2 >= 1.5 && a.s >= nextPier && !bridges.some((r) => Math.abs(a.s - r.s) < r.span / 2 + 4)) {
       nextPier = a.s + 24;
       const h = a.y - 1.2;
       piers.push({ mat: 'concrete', shape: 'cyl', pos: [a.x, h / 2, a.z], size: [2.4, h, 2.4] });
@@ -225,7 +236,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
   }
   // End caps so the sidings do not open onto the void.
   const [r0, r1] = trackRange(geom);
-  for (const end of [samples[0], samples[samples.length - 1]]) {
+  for (const end of geom.def.built ? [] : [samples[0], samples[samples.length - 1]]) {
     const type = structureAt(geom, end.s === r0 ? r0 + 1 : r1 - 1);
     if (type === 'tunnel') sweep('tunnel', end).cap(end, -W - 0.5, W + 0.5, -1, TUNNEL_H + 0.5);
     else sweep('viaduct', end).cap(end, -W - 0.5, W + 0.5, -BED, 1.1);
@@ -235,13 +246,16 @@ export function buildTrack(sim: LineSim): THREE.Group {
   const tracks: { track: Track; s0: number; s1: number }[] = [
     { track: 'down', s0: r0, s1: r1 },
     { track: 'up', s0: r0, s1: r1 },
-    { track: 'xoverEnd', s0: geom.lastS + XOVER_NEAR - 4, s1: geom.lastS + XOVER_FAR + 4 },
-    { track: 'xoverStart', s0: geom.firstS - XOVER_FAR - 4, s1: geom.firstS - XOVER_NEAR + 4 },
+    // (A main line runs on past its end stops: no turnback crossovers.)
+    ...(geom.def.beyond ? [] : [
+      { track: 'xoverEnd' as Track, s0: geom.lastS + XOVER_NEAR - 4, s1: geom.lastS + XOVER_FAR + 4 },
+      { track: 'xoverStart' as Track, s0: geom.firstS - XOVER_FAR - 4, s1: geom.firstS - XOVER_NEAR + 4 },
+    ]),
   ];
   for (const t of tracks) {
     for (let i = 0; i < samples.length - 1; i++) {
       const a = samples[i], b = samples[i + 1];
-      if (a.s < t.s0 || b.s > t.s1 || hosted[i]) continue;
+      if (a.s < t.s0 || b.s > t.s1 || hosted[i] || modelled(geom, (a.s + b.s) / 2)) continue;
       const ca = geom.lateral(t.track, a.s), cb = geom.lateral(t.track, b.s);
       const da = geom.dy(t.track, a.s), db = geom.dy(t.track, b.s);
       sweep('sleeper', a).quad(a, b, [ca - 1.25, yS + da], [ca + 1.25, yS + da], [cb - 1.25, yS + db], [cb + 1.25, yS + db], 0, 2.6);
@@ -433,6 +447,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
     for (let i = 0; i < samples.length - 1; i++) {
       if (hosted[i]) continue;
       const a = samples[i], mid = (a.s + samples[i + 1].s) / 2, type = structureAt(geom, mid);
+      if (modelled(geom, mid)) continue;
       const open = type === 'cut' || type === 'viaduct';
       const roof = type === 'tunnel' ? (inOld(mid) && !isSiding(geom, mid) ? OLD_H : TUNNEL_H) : WIRE_H + 0.7;
       for (const t of ['down', 'up'] as const) {
@@ -450,7 +465,8 @@ export function buildTrack(sim: LineSim): THREE.Group {
           else boxAt(STEEL, a, 0.06, c - 0.03, c + 0.03, dy + WIRE_H + 0.13, roof);
         }
       }
-      if (open && a.s >= gantryAt) {
+      // (Along a station's own platforms its canopy frames carry the wire.)
+      if (open && a.s >= gantryAt && !atOwnPlatform(geom, a.s)) {
         gantryAt = a.s + 50;
         // On the viaduct the masts stand in the parapet; in a cutting, just inside its walls.
         const lat = type === 'viaduct' ? W + 0.38 : W - 0.3, top = WIRE_H + 1.65;
@@ -461,6 +477,52 @@ export function buildTrack(sim: LineSim): THREE.Group {
           boxAt(STEEL, a, 0.08, c - 0.04, c + 0.04, WIRE_H + 1.13, top - 0.35);
         }
       }
+    }
+  }
+
+  // ── A main line's trackbed (deckAt): ballast; on the brick viaduct stone copings, a pier and a blind arch
+  // to each 8 m bay and an end wall where the embankment takes over; along the embankment a cable trough
+  // and a fence at the foot of each slope ──
+  if (geom.def.type === 'jr') {
+    const STONE = 'trackside:#b9b3a6', ARCH = 'trackside:#2a2422', FENCE = 'trackside:#465a4c', TROUGH = 'trackside:#a9a69d';
+    let bayAt = -Infinity, postAt = -Infinity, was: Deck | null = null;
+    for (let i = 0; i < samples.length - 1; i++) {
+      const a = samples[i], mid = (a.s + samples[i + 1].s) / 2;
+      if (structureAt(geom, mid) !== 'viaduct' || modelled(geom, mid)) { was = null; continue; }
+      const deck = deckAt(geom, mid);
+      if (deck === 'brick') {
+        strip(BALLAST, a, () => rect(-W - 0.3, W + 0.3, -BED, -BED + 0.006));
+        for (const sg of [-1, 1]) {
+          strip(STONE, a, () => rect(...out(sg, W + 0.22, W + 0.58), 1.1, 1.24));
+          strip(STONE, a, () => rect(...out(sg, W + 0.5, W + 0.6), -0.85, -0.4));
+        }
+        if (a.s >= bayAt && a.y > 4) {
+          bayAt = a.s + 8;
+          for (const sg of [-1, 1]) {
+            boxAt(BRICK, a, 1.0, ...out(sg, W + 0.5, W + 0.7), -a.y, -0.85);
+            boxAt(ARCH, at(a.s + 1.6), 5.8, ...out(sg, W + 0.5, W + 0.53), -a.y, -2.6);
+            boxAt(STONE, at(a.s + 1.4), 6.2, ...out(sg, W + 0.5, W + 0.56), -2.6, -2.35);
+            // The arch's haunches, stepped in brick at the recess's top corners.
+            for (const [u, len, drop] of [[1.6, 0.5, 1.5], [2.1, 0.6, 0.8], [2.7, 0.7, 0.35], [6.9, 0.5, 1.5], [6.2, 0.6, 0.8], [5.4, 0.7, 0.35]]) {
+              boxAt(BRICK, at(a.s + u), len, ...out(sg, W + 0.5, W + 0.55), -2.6 - drop, -2.6);
+            }
+          }
+        }
+      } else {
+        const foot = (m: Sample) => W + BANK_SHOULDER + BANK_K * Math.max(0, m.y - BED);
+        strip(BALLAST, a, () => rect(-W - BANK_SHOULDER + 0.1, W + BANK_SHOULDER - 0.1, -BED, -BED + 0.006));
+        for (const sg of [-1, 1]) {
+          strip(TROUGH, a, () => rect(...out(sg, W + 0.2, W + 0.6), -BED, -BED + 0.25));
+          for (const h of [0.8, 1.5]) strip(FENCE, a, (m) => rect(...out(sg, foot(m) + 0.6, foot(m) + 0.66), -m.y + h - 0.05, -m.y + h));
+        }
+        if (a.s >= postAt) {
+          postAt = a.s + 2.5;
+          for (const sg of [-1, 1]) boxAt(FENCE, a, 0.06, ...out(sg, foot(a) + 0.59, foot(a) + 0.67), -a.y, -a.y + 1.55);
+        }
+        // The viaduct's end wall, where the embankment begins.
+        if (was === 'brick') sweep(BRICK, a).cap(a, -W - 0.5, W + 0.5, -a.y, 1.1);
+      }
+      was = deck;
     }
   }
 

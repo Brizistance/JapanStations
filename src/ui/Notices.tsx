@@ -4,7 +4,7 @@
 // except how long the arrival card stays up.
 
 import { useEffect, useRef, useState } from 'react';
-import { lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { hasPlatform, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef } from '../data/types';
 import { player, where } from '../player/player';
 import { clock, lineSim } from '../sim';
@@ -47,7 +47,7 @@ function notes(): Note[] {
     const p = train.state.phase, line = train.sim.geom.def;
     if (p.kind === 'dwell' && p.role === 'arrival') {
       out.push({ key: 'end', tone: 'warn', tag: ['終点', 'Last stop'], line, ja: 'この電車は回送になります。お降りください', en: 'This train goes out of service. Please get off' });
-    } else if (p.kind === 'dwell' && p.doors && p.t1 - train.state.tau <= DOORS_S) {
+    } else if (p.kind === 'dwell' && p.doors && hasPlatform(line, p.stop) && p.t1 - train.state.tau <= DOORS_S) {
       out.push({ key: 'doors', tone: 'warn', tag: ['ドア', 'Doors'], line, ja: 'ドアが閉まります', en: 'Doors closing' });
     }
     return out;

@@ -998,15 +998,35 @@ export const RAIL_OPERATOR: Operator = {
 
 // Main Line, north-east to south-west ("down"): down the Mio-gawa valley, west along the north
 // side of Kita through Kawaminato Station, then south-west over the river and along the old shore.
-const AR_KITA_Z = A_ODORI_Z - 150; // the viaduct, 150 m north of Kita-Ōdōri avenue
+// Through Kita it runs on the built viaduct (hub-street.ts, z −106 … −80 from the hub): the Main
+// Line uses the south island, whose tracks lie 82.6 and 91.2 m north of Kita-Ōdōri avenue.
+export const AR_BESIDE_ODORI = 86.9;
+const AR_KITA_Z = A_ODORI_Z - AR_BESIDE_ODORI;
+const AR_DRAFT_Z = A_ODORI_Z - 150; // the 2026-11-19 draft course: it still fixes the bends beyond Kita
 const AR_EDGE_M = 1500; // how far beyond the end stops trains run before they leave the map
+const unit = (a: [number, number], b: [number, number]): [number, number] => {
+  const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  return [(b[0] - a[0]) / d, (b[1] - a[1]) / d];
+};
 const AR_E1: [number, number] = [2660, AR_KITA_Z]; // east of Higashi-Kawaminato: turns into the valley
-const AR_VALLEY_DIR: [number, number] = [0.89101, 0.45399]; // 27° south of east
-const AR_E2: [number, number] = along(AR_E1, AR_VALLEY_DIR, 529.5); // shortened 2026-11-22 so Uguisuzaka sits 60 m further north, clear of Hibarino
+// The valley bend stays where the draft put it (Uguisuzaka sits clear of Hibarino, 2026-11-22), so the
+// valley run is 504 m at about 21° south of east.
+const AR_E2: [number, number] = along([2660, AR_DRAFT_Z], [0.89101, 0.45399], 529.5);
+const AR_VALLEY_DIR = unit(AR_E1, AR_E2);
 const AR_HILLS_DIR: [number, number] = [0.97237, -0.23345]; // 13.5° north of east
-const AR_W1: [number, number] = [1500, AR_KITA_Z]; // west of Kawaminato: turns south-west to the river
-const AR_SHORE_DIR: [number, number] = [-0.52498, 0.85112];
-const AR_W2: [number, number] = along(AR_W1, AR_SHORE_DIR, 1250);
+// West of Kawaminato it turns south-west to the river. The bend was moved 200 m west (2026-11-23) so the
+// curve begins beyond the hub's plot: trains leave the station along the straight viaduct built there.
+const AR_W1: [number, number] = [1300, AR_KITA_Z];
+const AR_W2: [number, number] = along([1500, AR_DRAFT_Z], [-0.52498, 0.85112], 1250); // the shore bend, as drafted
+const AR_SHORE_DIR = unit(AR_W1, AR_W2);
+const AR_RADIUS = 400;
+/**
+ * How far the hub's street carries the straight viaduct as its own models (hub-street.ts), measured from
+ * Kawaminato Station: 490 m east (the plot's 190 and a 300 m run), and west to the last whole 8 m bay
+ * before the curve (the plot's 190 and a shorter run).
+ */
+const AR_WEST_STRAIGHT = 1870 - AR_W1[0] - AR_RADIUS * Math.tan(Math.acos(-AR_SHORE_DIR[0]) / 2);
+export const AR_HUB_MODELS = { east: 490, west: 190 + 8 * Math.floor((AR_WEST_STRAIGHT - 190) / 8) };
 const AR_COAST_DIR: [number, number] = [0.26892, 0.96316];
 const AR_FUNAMIDAI: [number, number] = along(AR_W2, AR_COAST_DIR, 3370);
 const AR_UGUISUZAKA: [number, number] = along(AR_E2, AR_HILLS_DIR, 661.9);
@@ -1020,12 +1040,17 @@ export const RAIL_LINES: LineDef[] = [
     color: '#0b6e6e',
     type: 'jr',
     stops: ['uguisuzaka', 'miokami', 'higashi-kawaminato', 'kawaminato', 'konyahama', 'funamidai'],
-    railY: [9, 9, 9, 9, 9, 9],
+    // The brick viaduct through Kita (its models stand on the pavement, 0.15 up); a lower embankment in the valley at Miokami.
+    railY: [9.15, 6.5, 9.15, 9.15, 9.15, 9.15],
     platformType: 'island',
-    trackOffset: 5.5,
+    sideAt: ['miokami'], // on the embankment the platforms stand outside the tracks
+    trackOffset: 4.3, // the viaduct's track pair either side of an island 5.4 m wide
+    power: 'overhead',
+    // 20 m four-door commuter cars (the metro's are 18 m with three).
+    car: { half: 9.75, pitch: 20, bogie: 6.9, doors: [-7.23, -2.41, 2.41, 7.23], model: 'ar-car' },
     alignment: {
       vertices: [along(AR_UGUISUZAKA, AR_HILLS_DIR, AR_EDGE_M + 200), AR_E2, AR_E1, AR_W1, AR_W2, along(AR_FUNAMIDAI, AR_COAST_DIR, AR_EDGE_M + 200)],
-      radius: 400,
+      radius: AR_RADIUS,
     },
     // 8-car trains at up to 100 km/h. A Local and a Rapid every 10 minutes each.
     service: { ...baseService, headwayS: 600, dwellS: 30, maxSpeed: 27.5, cars: 8 },
@@ -1034,6 +1059,14 @@ export const RAIL_LINES: LineDef[] = [
       { id: 'rapid', nameEn: 'Rapid', nameJa: '快速', color: '#d9541e', skips: ['higashi-kawaminato', 'konyahama'] },
     ],
     servicesMeetAt: 'kawaminato',
+    // In 3D from Miokami to Kawaminato. Through Kita the hub's street builds the viaduct (hub-street.ts):
+    // its plot is 190 m either side of the station, and the plain run goes on 300 m beyond.
+    // Miokami's platforms take 12 cars (Rapids call); Higashi-Kawaminato's 8 (Locals only).
+    built: {
+      from: 'miokami', to: 'kawaminato', stubM: 400, stations: ['miokami', 'higashi-kawaminato', 'kawaminato'],
+      modelled: [{ station: 'kawaminato', before: AR_HUB_MODELS.east, after: AR_HUB_MODELS.west }],
+      platformHalf: { miokami: 124 }, // (Higashi-Kawaminato's island stands between the tracks, clear of the gantries.)
+    },
     beyond: {
       up: { nameJa: '霧ヶ原', nameKana: 'きりがはら', nameRomaji: 'Kirigahara' },
       down: { nameJa: '朝凪', nameKana: 'あさなぎ', nameRomaji: 'Asanagi' },
@@ -1066,7 +1099,7 @@ export const RAIL_STATIONS: StationDef[] = [
     nameKana: 'みおかみ',
     nameRomaji: 'Miokami',
     numbers: { AR: 'AR-A02' },
-    position: pos(along(AR_E1, AR_VALLEY_DIR, 280)), // was 340; moved with the shorter valley run (2026-11-22)
+    position: pos(along(AR_E1, AR_VALLEY_DIR, 250)), // as far down the valley as a 12-car straight allows (2026-11-23)
     diagram: { x: 1040, y: 315, label: 'right' },
     district: 'University',
     districtJa: '大学地区',
@@ -1098,7 +1131,7 @@ export const RAIL_STATIONS: StationDef[] = [
     diagram: { x: 790, y: 215, label: 'above' },
     district: 'Kita',
     districtJa: 'キタ',
-    platforms: AR_PLATFORMS,
+    platforms: { AR: [3, 4] }, // the south island; 1·2 on the north island are kept for later lines
     blurb: "The city's main station: through platforms on the viaduct above Kita, where the railway arrived in 1889.",
     transfer: 'kita-odori',
   },
@@ -1108,7 +1141,7 @@ export const RAIL_STATIONS: StationDef[] = [
     nameKana: 'こんやはま',
     nameRomaji: "Kon'yahama",
     numbers: { AR: 'AR-A05' },
-    position: pos(along(AR_W1, AR_SHORE_DIR, 880)),
+    position: pos(along(AR_W2, AR_SHORE_DIR, -370)),
     diagram: { x: 610, y: 400, label: 'left' },
     district: 'Merchant quarter',
     districtJa: '商人町',
@@ -1135,6 +1168,9 @@ export const RAIL_STATIONS: StationDef[] = [
 /** Every line and station, built or not. LINES / STATIONS are the walkable metro only. */
 export const ALL_LINES: LineDef[] = [...LINES, ...RAIL_LINES];
 export const ALL_STATIONS: StationDef[] = [...STATIONS, ...RAIL_STATIONS];
+/** Does a line's stop have platforms? Always, but on a line built in 3D only in part (LineDef.built): doors open only where it does. */
+export const hasPlatform = (line: LineDef, stop: number): boolean => !line.built || (line.built.stations ?? []).includes(line.stops[stop]);
+
 /** True for a station that is on the map and in the timetable but not built in 3D yet. */
 export const isUnbuilt = (id: StationId): boolean => RAIL_STATIONS.some((s) => s.id === id);
 

@@ -4,7 +4,7 @@
 
 import type { SignContent } from '../signs/content';
 import type { LineDef, StationDef } from '../data/types';
-import { CAR_PITCH, HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
+import { HALL_HALF, PLATFORM_HALF, carOf } from '../sim/geometry';
 import type { Builder } from '../world/builder';
 import { lookFor } from './looks';
 import type { ExitInfo } from './looks/types';
@@ -27,7 +27,6 @@ export const STAIR_RUN = 8.4; // horizontal run of a platform ↔ concourse stai
  */
 export const EXIT_OPEN = 9.5;
 export const GROUND_Y = 0.15; // sidewalk level
-export const DOOR_OFFSETS = [-5.8, 0, 5.8];
 export const BED = 0.2; // track bed top is this far below rail level
 
 export interface StationStyle {
@@ -56,9 +55,10 @@ export interface Ctx {
   style: StationStyle;
 }
 
-export const doorXs = (cars: number): number[] => {
-  const out: number[] = [];
-  for (let c = 0; c < cars; c++) for (const d of DOOR_OFFSETS) out.push((c - (cars - 1) / 2) * CAR_PITCH + d);
+/** Every door of a stopped train, along the platform from its centre. */
+export const doorXs = (line: LineDef): number[] => {
+  const out: number[] = [], cars = line.service.cars, spec = carOf(line);
+  for (let c = 0; c < cars; c++) for (const d of spec.doors) out.push((c - (cars - 1) / 2) * spec.pitch + d);
   return out;
 };
 
@@ -112,13 +112,13 @@ const inBlocks = (x: number, blocks: [number, number][], m = 1.2) => blocks.some
 export const PSD_FULL_H = 2.5;
 
 /** Platform screen doors along one platform edge: waist-high gates, or full-height glass screens. */
-export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: number) {
+export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: number, ends: [number, number] = [-PLATFORM_HALF, PLATFORM_HALF], o: { queue?: (x: number) => boolean; paint?: boolean } = {}) {
   const { b, line } = c;
   const z = zEdge + inward * 0.14;
-  const xs = doorXs(line.service.cars);
+  const xs = doorXs(line), perCar = carOf(line).doors.length;
   const half = 0.95;
   const full = line.platformDoors === 'full';
-  let from = -PLATFORM_HALF;
+  let from = ends[0];
   const panel = (xa: number, xb: number) => {
     if (full) {
       // Floor-to-header glass screen with a line-colour fascia.
@@ -160,8 +160,8 @@ export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up',
     }
     // Queue marks on the floor behind the tactile strip: car and door number, in the line's era.
     const di = xs.indexOf(xd);
-    const car = Math.floor(di / DOOR_OFFSETS.length) + 1;
-    b.sign({ k: 'queue', car, door: (di % DOOR_OFFSETS.length) + 1, era: eraOf(themeFor(line.id).opened ?? 2000), color: line.color, women: line.service.womenOnly?.car === car },
+    const car = Math.floor(di / perCar) + 1;
+    if (o.queue?.(xd) ?? true) b.sign({ k: 'queue', car, door: (di % perCar) + 1, era: eraOf(themeFor(line.id).opened ?? 2000), color: line.color, women: line.service.womenOnly?.car === car },
       xd, pf + 0.012, zEdge + inward * 1.62, null, 2.7, 1.35, { top: [0, -inward] });
     b.gate({
       x: xd, y: pf, z, along: [1, 0], width: half * 2, height: full ? 2.1 : 1.22, thick: 0.07,
@@ -169,15 +169,17 @@ export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up',
     });
     from = xd + half;
   }
-  panel(from, PLATFORM_HALF);
+  panel(from, ends[1]);
+  // (A platform whose model already paints its edge: o.paint false.)
+  if (o.paint === false) return;
   // Tactile warning strip behind the gates.
   const t0 = zEdge + inward * 0.5, t1 = zEdge + inward * 0.8;
-  b.deco('tactile', -PLATFORM_HALF, pf, Math.min(t0, t1), PLATFORM_HALF, pf + 0.008, Math.max(t0, t1));
+  b.deco('tactile', ends[0], pf, Math.min(t0, t1), ends[1], pf + 0.008, Math.max(t0, t1));
   // Platform edge: dark non-slip coping under the doors, and a white line behind the tactile strip.
   const e0 = zEdge, e1 = zEdge + inward * 0.3;
-  b.deco('flat:#4a4c4f', -PLATFORM_HALF, pf, Math.min(e0, e1), PLATFORM_HALF, pf + 0.004, Math.max(e0, e1));
+  b.deco('flat:#4a4c4f', ends[0], pf, Math.min(e0, e1), ends[1], pf + 0.004, Math.max(e0, e1));
   const w0 = zEdge + inward * 0.86, w1 = zEdge + inward * 0.94;
-  b.deco('paint:#f1f0ea', -PLATFORM_HALF, pf, Math.min(w0, w1), PLATFORM_HALF, pf + 0.004, Math.max(w0, w1));
+  b.deco('paint:#f1f0ea', ends[0], pf, Math.min(w0, w1), ends[1], pf + 0.004, Math.max(w0, w1));
 }
 
 /** Round clad column with a steel base ring and a colour band. The collider stays a square post. */
@@ -510,7 +512,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   }
   // Car numbers hung over each platform edge, between a car's second and third doors.
   for (let k = 0; k < line.service.cars; k++) {
-    const x = (k - (line.service.cars - 1) / 2) * CAR_PITCH + 2.9;
+    const x = (k - (line.service.cars - 1) / 2) * carOf(line).pitch + 2.9;
     if (inBlocks(x, o.blocks, 1.2)) continue;
     const women = line.service.womenOnly?.car === k + 1;
     for (const s of [-1, 1]) {
@@ -524,7 +526,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   // back to back down the middle between the benches; on side platforms they hang on the wall.
   {
     const cars = line.service.cars;
-    const stairCars = [...new Set(o.blocks.map(([a, e]) => Math.min(cars, Math.max(1, Math.round((a + e) / 2 / CAR_PITCH + (cars - 1) / 2) + 1))))].sort((p, q) => p - q);
+    const stairCars = [...new Set(o.blocks.map(([a, e]) => Math.min(cars, Math.max(1, Math.round((a + e) / 2 / carOf(line).pitch + (cars - 1) / 2) + 1))))].sort((p, q) => p - q);
     const spots = [-38.25, -21.25, 21.25, 38.25, -29.75, 29.75].filter((x) => !inBlocks(x, o.blocks, 1.8)).slice(0, 3);
     const boards: ((dir: 'down' | 'up') => SignContent)[] = [
       (dir) => ({ k: 'timetable', line: line.id, station: station.id, dir }),
@@ -841,7 +843,7 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
 }
 
 /** Wall-mounted row of ticket machines with the fare board above, along a wall facing +z. */
-export function ticketMachines(c: Ctx, cf: number, x0: number, z: number, count: number) {
+export function ticketMachines(c: Ctx, cf: number, x0: number, z: number, count: number, fareMap = true) {
   const { b, station } = c;
   // Models (fittings.ts): one per machine, the last an IC charge machine with a reader pad, an end panel each side.
   const e = eraOf(themeFor(c.line.id).opened ?? 2000);
@@ -852,5 +854,6 @@ export function ticketMachines(c: Ctx, cf: number, x0: number, z: number, count:
     fitting(b, `${ic ? 'tixic' : 'tix'}_${e}`, x0 + 0.525 + i * 1.05, cf, z + 0.3, [0, 1]);
     b.sign({ k: 'machine', v: ic ? 'charge' : 'ticket', era: e }, x0 + 0.525 + i * 1.05, cf + 1.0, z + 0.61, [0, 1], 0.98, 1.8);
   }
-  b.sign({ k: 'faremap', station: station.id }, x0 + (count * 1.05) / 2, cf + 2.46, z + 0.02, [0, 1], count * 1.05 + 0.4, 0.95);
+  // (The fare chart is the metro's network: another railway's machines go without it.)
+  if (fareMap) b.sign({ k: 'faremap', station: station.id }, x0 + (count * 1.05) / 2, cf + 2.46, z + 0.02, [0, 1], count * 1.05 + 0.4, 0.95);
 }

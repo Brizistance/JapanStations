@@ -25,7 +25,7 @@
 // build_viaduct.py, build_ring.py, build_kitaarcade.py, build_kitacity.py). Where the game letters
 // one, the place comes from src/stations/anchors/*.ts, written by those scripts.
 
-import { linesAt } from '../data/network';
+import { AR_HUB_MODELS, linesAt, stationById } from '../data/network';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder, type LanePart, type SignOpts, type V2 } from '../world/builder';
 import type { Anchor, AnchorPt, Anchors } from './anchors/types';
@@ -37,6 +37,7 @@ import { MIOYA } from './anchors/mioya';
 import { RING } from './anchors/ring';
 import { VIADUCT } from './anchors/viaduct';
 import { GROUND_Y as GY, rail, stairs, vending, type Ctx } from './kit';
+import { MIOYA_GATE, kawaminatoStation, mioyaGate, platformPiece } from './kawaminato';
 import { KONBINI, konbini } from './konbini';
 import { LIFT_DOOR, LIFT_DOOR_H, LIFT_OUT, lift } from './lift';
 import { CARS, VEH } from '../traffic/vehicles';
@@ -79,6 +80,9 @@ const NIB = { z: 128, half: 3.25, pave: 1.5, name: { ja: '南二番通', en: 'Mi
 const KOK = { z: -113, half: 4.5, name: { ja: '高架通', en: 'Kōka-dōri' } };
 /** The viaduct (north face, south face), the service lane south of it, the back quarter's building line. */
 const VIA: [number, number] = [-106, -80], LANE_S = -74, BACK = KOK.z - KOK.half - 3;
+/** Kawaminato Station (AR) on the viaduct: its platforms' ends (12 cars; bay joints), and its five middle bays by their centres. */
+const AR_PF: [number, number] = [-125, 127];
+const AR_BAYS: Record<number, string> = { [-8]: 'hw8', 0: 'hm8', 8: 'he8', 16: 'hl8', 24: 'ho8', [-32]: 'stp8', 32: 'stp8' };
 /** The arcade: its north and south edges; the shop rows either side. */
 const ARC: [number, number] = [-144.5, -138.5];
 /** Stop lines stand this far outside a street's kerb where another crosses it (a crosswalk lies between). */
@@ -429,30 +433,40 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       { c: HAM.c, id: 'g24' }, { c: CHI.c, id: 'g24' }, { c: SHI.c, id: 'g16' }, ...LOCALS.map((l) => ({ c: l.c, id: 'g12' })),
     ].sort((p, q) => p.c - q.c);
     const girderRange = spans.map((g) => [g.c - VIADUCT[g.id].w / 2, g.c + VIADUCT[g.id].w / 2]);
-    const putPiece = (id: string, x: number) => {
+    /** A piece under the platforms is its `pf_` twin (build_viaduct.py); its colliders are the plain piece's. */
+    const underPf = (x: number) => x > AR_PF[0] && x < AR_PF[1];
+    let pfCount = 0;
+    const putPiece = (base: string, x: number) => {
+      const id = underPf(x) && VIADUCT[`pf_${base}`] ? `pf_${base}` : base;
       b.model('viaduct', id, x, GY, VIA[0], Math.floor(r() * 90));
       const w = VIADUCT[id].w;
-      if (id.startsWith('g')) {
+      // Under the platforms: the canopy column at the piece's middle on the south island, and the bench beside it (build_viaduct.py platforms()).
+      if (underPf(x)) {
+        const pf = GY + 10.1, zc = VIA[0] + 19.1;
+        platformPiece(b, x, base, pfCount++);
+        if (base !== 'hw8' && base !== 'he8') b.block(x - 0.14, pf, zc - 0.14, x + 0.14, pf + 3.3, zc + 0.14);
+        if (base !== 'hw8' && base !== 'he8' && base !== 'hm8') b.block(x + 1.5, pf, zc - 0.25, x + 3.1, pf + 0.45, zc + 0.25);
+      }
+      if (base.startsWith('g')) {
         for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * (w / 2 - ABUT)), GY, VIA[0], Math.max(x + e * w / 2, x + e * (w / 2 - ABUT)), 8, VIA[0] + VD);
         const g = VIADUCT[id].pts;
         for (const k of ['clear_f', 'clear_b']) {
           const p = g[k];
           b.sign({ k: 'label', text: '桁下 4.7m', sub: 'Clearance 4.7 m', fg: '#1f2023', bg: '#e6a700' }, x + p[0], p[1] + GY, VIA[0] + p[2], [p[5], p[6]], p[3], p[4]);
         }
-      } else if (id.includes('p')) {
-        for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * PASS / 2), GY, VIA[0], Math.max(x + e * w / 2, x + e * PASS / 2), 8, VIA[0] + VD);
+      } else if (base === 'he8' || base === 'hl8' || base === 'ho8') {
+        // The station's hall: kawaminato.ts builds what is inside and its colliders.
+      } else if (base === 'hw8') {
+        // Arch shops below the mezzanine's level; the platform stair's well above (kawaminato.ts).
+        b.block(x - w / 2, GY, VIA[0], x + w / 2, 5.85, VIA[0] + VD);
+      } else if (base.includes('p') || base === 'hm8') {
+        // (Under the station's mezzanine the walkway's sides stop at its floor, and its roof is solid up to it.)
+        const top = base === 'hm8' ? 5.85 : 8;
+        if (base === 'hm8') b.block(x - PASS / 2, GY + 3.3, VIA[0], x + PASS / 2, top, VIA[0] + VD);
+        for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * PASS / 2), GY, VIA[0], Math.max(x + e * w / 2, x + e * PASS / 2), top, VIA[0] + VD);
         b.zone('passage', x - PASS / 2, GY - 0.2, VIA[0], x + PASS / 2, GY + 3.2, VIA[0] + VD, '高架下 連絡通路', 'Walkway under the tracks');
         for (const [z, n] of [[VIA[0] - 0.05, -1], [VIA[1] + 0.05, 1]] as const) {
           b.sign({ k: 'guide', ja: n < 0 ? '北大通・澪屋・地下鉄' : '北栄通商店街・高架通', en: n < 0 ? 'Kita-Ōdōri / Mioya / Metro' : 'Hokuei-dōri arcade / Kōka-dōri', bg: 'white', arrow: 'up' }, x, GY + 5.9, z, [0, n], 4.6, 0.5);
-        }
-      } else if (id === 'stc8') {
-        // The station's concourse to be: open arches to a hoarding, signed as reserved.
-        const deep = VIADUCT.stc8.pts.conc[3];
-        for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * (w / 2 - 1)), GY, VIA[0], Math.max(x + e * w / 2, x + e * (w / 2 - 1)), 8, VIA[0] + VD);
-        b.block(x - w / 2, GY, VIA[0] + deep - 0.15, x + w / 2, 8, VIA[0] + VD - deep + 0.15);
-        for (const k of ['res_f', 'res_b']) {
-          const p = VIADUCT.stc8.pts[k];
-          b.sign(RESERVED('AR線 改札口', 'AR Main Line ticket gates'), x + p[0], p[1] + GY, VIA[0] + p[2], [p[5], p[6]], p[3], p[4]);
         }
       } else b.block(x - w / 2, GY, VIA[0], x + w / 2, 8, VIA[0] + VD);
     };
@@ -467,21 +481,27 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       for (let k = 0; k < n; k++) {
         const w = 8 + (k < Math.abs(odd) ? Math.sign(odd) : 0);
         const mid = x + w / 2;
-        const pass = station ? [-32, 0, 32].some((p) => Math.abs(mid - p) < 1) : w === 8 && k === Math.floor(n / 2) && L > 24;
-        const conc = station && Math.abs(Math.abs(mid) - 8) < 1;
-        putPiece(station ? (pass ? 'stp8' : conc ? 'stc8' : 'st8') : pass ? 'p8' : `${r() < 0.3 ? 's' : 'a'}${w}`, mid);
+        const pass = !station && w === 8 && k === Math.floor(n / 2) && L > 24;
+        putPiece(station ? AR_BAYS[Math.round(mid)] ?? 'st8' : pass ? 'p8' : `${r() < 0.3 ? 's' : 'a'}${w}`, mid);
         x += w;
       }
     }
+    kawaminatoStation(b, { ends: AR_PF, style: c.style });
     // Beyond the plot it runs on, drawn simply.
+    // (East 300 m; west only as far as the line runs straight, where its curve to the river begins.)
     for (const sx of [-1, 1]) {
-      b.clearScenery(Math.min(sx * X, sx * (X + 300)), VIA[0] - 5, Math.max(sx * X, sx * (X + 300)), VIA[1] + 5);
-      for (let x = X + 4; x < X + 300; x += 8) {
+      const run = (sx > 0 ? AR_HUB_MODELS.east : AR_HUB_MODELS.west) - X;
+      b.clearScenery(Math.min(sx * X, sx * (X + run)), VIA[0] - 5, Math.max(sx * X, sx * (X + run)), VIA[1] + 5);
+      for (let x = X + 4; x < X + run; x += 8) {
         b.model('viaduct', 'a8_lo', sx * x, GY, VIA[0], 0);
         b.out.models[b.out.models.length - 1].merge = true;
       }
     }
-    b.sign({ k: 'label', text: '川湊駅', sub: 'Kawaminato Station — AR Main Line (not yet open)', fg: '#ffffff', bg: '#3a3d41' }, 0, GY + 7.2, VIA[1] + 0.3, [0, 1], 16, 1.3);
+    // The station's name on the viaduct's south face, west of the bridge from Mioya.
+    {
+      const ar = stationById('kawaminato');
+      b.sign({ k: 'label', text: `${ar.nameJa}駅`, sub: `${ar.nameRomaji} Station — AR Main Line`, fg: '#ffffff', bg: '#3a3d41' }, -12, GY + 7.2, VIA[1] + 0.3, [0, 1], 14, 1.3);
+    }
     // Ekiura-dōri: the lane between the viaduct's arches and the backs of the avenue's blocks.
     b.deco('flat:#77736b', -X, GY + 0.002, VIA[1], X, GY + 0.012, LANE_S);
     b.deco('flat:#5d5852', -X, GY + 0.012, (VIA[1] + LANE_S) / 2 - 0.1, X, GY + 0.016, (VIA[1] + LANE_S) / 2 + 0.1);
@@ -510,7 +530,13 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     }
     b.block(-HW, HV, zL, HW, A.h, zArc);
     b.block(-LX, MZ, zBack, LX, A.h, zL);
-    b.block(-LX, DECK, zBack, LX, MZ, zBack + 0.5);
+    // (The level-2 north wall, less the doorway of the AR station's bridge.)
+    {
+      const [d0, d1] = MIOYA_GATE.door;
+      b.block(-LX, DECK, zBack, d0, MZ, zBack + 0.5);
+      b.block(d1, DECK, zBack, LX, MZ, zBack + 0.5);
+      b.block(d0, DECK + MIOYA_GATE.doorH, zBack, d1, MZ, zBack + 0.5);
+    }
     b.block(-DOOR, 10.7, zArc - 1.1, DOOR, HV, zArc);
     for (const [k, p] of Object.entries(A.pts)) if (k.startsWith('col')) b.block(-p[0] - 0.5, GY, zf - 1.2, -p[0] + 0.5, DECK - 0.5, zf - 0.2);
     b.with({ rot: 2, t: [0, 0, zf] }, () => {
@@ -529,7 +555,8 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       const hp = MIOYA.hall.pts;
       signAt(hp.clock, { k: 'clock' }, { dynamic: true });
       label(hp.term, '私鉄線のりば（予定地）', 'Private railway terminal — not yet built', '#12382c', '#f3e3a0');
-      signAt(hp.reserved, RESERVED('私鉄線のりば', 'private railway terminal'));
+      // (Narrowed to the west two thirds: the AR station's Mioya Gate has the east third. The store is placed turned, so x is mirrored.)
+      signAt([4.25, hp.reserved[1], hp.reserved[2], 15, hp.reserved[4], hp.reserved[5], hp.reserved[6]], RESERVED('私鉄線のりば', 'private railway terminal'));
     });
 
     // ── The grand concourse ──
@@ -576,9 +603,12 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
         { y: cf, ja: '地下1階 食品館・地下鉄', en: 'B1 Food Floor / Metro' }, { y: GY, ja: '1階 大コンコース', en: '1F Grand Concourse' }, { y: DECK, ja: '2階 回廊・テラス', en: '2F Gallery / Terrace' },
       ] }));
       // The private railway's gate line: a hoarding across the concourse, the gates' place marked on the floor.
-      b.box('flat:#f4f4f0', -12, DECK, zBack + 3.2, 12, DECK + 1.25, zBack + 3.32);
-      b.deco('flat:#e8a400', -12, DECK + 0.93, zBack + 3.32, 12, DECK + 1.13, zBack + 3.34);
-      b.sign({ k: 'label', text: '改札予定位置', sub: 'Future ticket gates', fg: '#1b1f24', bg: '#ffd100' }, 0, DECK + 0.012, zBack + 5.4, null, 9, 1.4, { top: [0, -1] });
+      // (It keeps the west two thirds; the AR station's Mioya Gate has the east third: kawaminato.ts.)
+      const HX = MIOYA_GATE.x[0] - 0.5;
+      b.box('flat:#f4f4f0', -12, DECK, zBack + 3.2, HX, DECK + 1.25, zBack + 3.32);
+      b.deco('flat:#e8a400', -12, DECK + 0.93, zBack + 3.32, HX, DECK + 1.13, zBack + 3.34);
+      b.sign({ k: 'label', text: '改札予定位置', sub: 'Future ticket gates', fg: '#1b1f24', bg: '#ffd100' }, (HX - 12) / 2, DECK + 0.012, zBack + 5.4, null, 9, 1.4, { top: [0, -1] });
+      mioyaGate(b, DECK, zBack, zBack + 3.2);
       // Ways on: over the lobby's doors, and on the edge of the concourse above, facing the nave.
       b.sign({ k: 'guide', ja: '駅裏通・川湊駅（AR線）・北栄通商店街', en: 'Ekiura-dōri / Kawaminato Sta. (AR) / Hokuei-dōri arcade', bg: 'white', arrow: 'up' }, 0, GY + 4.1, zBack + 0.52, [0, 1], 9, 0.6);
       b.sign({ k: 'guide', ja: `地下鉄 ${st.nameJa}駅・北口`, en: `Metro: ${st.nameRomaji} Station / North Entrance`, bg: 'navy', badges: lines, arrow: 'up' }, 0, DECK - 0.25, zL + 0.1, [0, 1], 8, 0.44);

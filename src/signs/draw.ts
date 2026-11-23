@@ -3,9 +3,9 @@
 import { temperatureNow, today } from '../sim/climate';
 import { drawWeatherIcon, typhoonNotice } from './weather-icon';
 import { drawCarGuide, drawStrip, drawTimetable, drawWomenOnly } from './boards';
-import { LINES, OPERATOR, STATIONS, diagramRuns, lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, OPERATOR, STATIONS, destinationOf, diagramRuns, hasPlatform, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
-import { clock, formatClock, lineSim } from '../sim';
+import { clock, formatClock, lineDepartures, lineSim, serviceSim } from '../sim';
 import { trainStateAt } from '../sim/timetable';
 import {
   ELEVATED, HIBARINO_MAP, KIND, OPEN_AIR, PLACE, PLOT, STREET, concourseY, mezzanineY, stationExits, stationStreet,
@@ -2022,6 +2022,65 @@ function drawClock(ctx: Ctx, W: number, H: number) {
   ctx.fill();
 }
 
+/** AR's sign colours: white on dark grey, the company's teal. */
+const AR_GREY = '#2b2e33';
+
+function drawArName(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'arname' }>) {
+  const line = lineById(c.line), st = stationById(c.station), i = line.stops.indexOf(c.station);
+  const up = i > 0 ? stationById(line.stops[i - 1]) : line.beyond?.up, down = i < line.stops.length - 1 ? stationById(line.stops[i + 1]) : line.beyond?.down;
+  const [left, right] = c.flip ? [down, up] : [up, down];
+  ctx.fillStyle = '#f6f5f0';
+  ctx.fillRect(0, 0, W, H);
+  text(ctx, st.nameKana, W / 2, H * 0.13, H * 0.13, { align: 'center', color: '#1f2226', weight: 600, maxW: W * 0.6 });
+  text(ctx, st.nameJa, W / 2, H * 0.4, H * 0.36, { align: 'center', color: '#1f2226', weight: 800, maxW: W * 0.6 });
+  text(ctx, st.nameRomaji, W / 2, H * 0.67, H * 0.13, { align: 'center', color: '#1f2226', weight: 700, maxW: W * 0.6 });
+  ctx.fillStyle = AR_GREY;
+  ctx.fillRect(W * 0.03, H * 0.1, H * 0.62, H * 0.3);
+  text(ctx, st.numbers[line.id] ?? '', W * 0.03 + H * 0.31, H * 0.255, H * 0.15, { align: 'center', color: '#fff', maxW: H * 0.56 });
+  ctx.fillStyle = line.color;
+  ctx.fillRect(0, H * 0.78, W, H * 0.22);
+  ctx.fillStyle = '#fff';
+  for (const [s, x0] of [[-1, W * 0.02], [1, W * 0.98]] as const) {
+    ctx.beginPath();
+    ctx.moveTo(x0, H * 0.89);
+    ctx.lineTo(x0 - s * H * 0.09, H * 0.82);
+    ctx.lineTo(x0 - s * H * 0.09, H * 0.96);
+    ctx.fill();
+  }
+  if (left) text(ctx, `${left.nameJa}  ${left.nameRomaji}`, W * 0.02 + H * 0.14, H * 0.89, H * 0.115, { color: '#fff', weight: 700, maxW: W * 0.42 });
+  if (right) text(ctx, `${right.nameJa}  ${right.nameRomaji}`, W * 0.98 - H * 0.14, H * 0.89, H * 0.115, { align: 'right', color: '#fff', weight: 700, maxW: W * 0.42 });
+}
+
+function drawArDep(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'ardep' }>) {
+  const sim = lineSim(c.line), line = sim.geom.def, st = stationById(c.station), stop = line.stops.indexOf(c.station);
+  const N = 4, en = Math.floor(clock.time / 5) % 2 === 1;
+  const rows = (c.dir ? [c.dir] : (['down', 'up'] as const))
+    .flatMap((dir) => lineDepartures(sim, stop, dir, clock.time, N).map((d) => ({ d, dir })))
+    .sort((p, q) => p.d.dep - q.d.dep).slice(0, N);
+  ctx.fillStyle = '#0c0d0f';
+  ctx.fillRect(0, 0, W, H);
+  const hh = H * 0.17;
+  ctx.fillStyle = line.color;
+  ctx.fillRect(0, 0, W, hh);
+  text(ctx, en ? `${line.nameEn} Departures` : `${line.nameJa} 発車案内`, hh * 0.3, hh / 2, hh * 0.6, { color: '#fff', maxW: W * 0.7 });
+  text(ctx, en ? 'Plat.' : 'のりば', W - hh * 0.3, hh / 2, hh * 0.5, { align: 'right', color: '#fff', weight: 600 });
+  const rh = (H - hh) / N;
+  rows.forEach(({ d, dir }, k) => {
+    const y = hh + rh * (k + 0.5), dest = destinationOf(line, dir), type = d.service;
+    ctx.fillStyle = type?.color ?? AR_GREY;
+    ctx.fillRect(W * 0.015, y - rh * 0.36, W * 0.15, rh * 0.72);
+    text(ctx, type ? (en ? type.nameEn : type.nameJa) : '', W * 0.09, y, rh * 0.46, { align: 'center', color: '#fff', maxW: W * 0.14 });
+    const here = clock.time >= d.arr;
+    text(ctx, formatClock(d.dep), W * 0.19, y, rh * 0.58, { color: here ? '#3ddc84' : '#ffb300' });
+    text(ctx, en ? dest.nameRomaji : dest.nameJa, W * 0.39, y, rh * 0.56, { color: '#f2f2ee', maxW: W * 0.44 });
+    ctx.fillStyle = AR_GREY;
+    ctx.fillRect(W * 0.87, y - rh * 0.38, W * 0.11, rh * 0.76);
+    text(ctx, String(st.platforms[line.id][dir === 'down' ? 0 : 1]), W * 0.925, y, rh * 0.6, { align: 'center', color: '#fff' });
+    ctx.fillStyle = '#26292e';
+    ctx.fillRect(0, hh + rh * (k + 1) - 1, W, 1);
+  });
+}
+
 function drawDest(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'dest' }>) {
   ctx.fillStyle = '#060606';
   ctx.fillRect(0, 0, W, H);
@@ -2030,18 +2089,18 @@ function drawDest(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: '
     text(ctx, 'Not in service', W * 0.7, H / 2, H * 0.3, { align: 'center', color: '#ff8f00', weight: 600, maxW: W * 0.5 });
     return;
   }
-  const line = lineById(c.line), t = terminusOf(line, c.dir);
-  ctx.fillStyle = line.color;
+  const line = lineById(c.line), t = destinationOf(line, c.dir), type = serviceSim(c.line, c.service).type;
+  ctx.fillStyle = type?.color ?? line.color;
   ctx.fillRect(0, 0, W * 0.22, H);
-  text(ctx, '普通', W * 0.11, H * 0.36, H * 0.42, { align: 'center', color: '#fff', maxW: W * 0.2 });
-  text(ctx, 'Local', W * 0.11, H * 0.78, H * 0.24, { align: 'center', color: '#fff', weight: 600, maxW: W * 0.2 });
+  text(ctx, type?.nameJa ?? '普通', W * 0.11, H * 0.36, H * 0.42, { align: 'center', color: '#fff', maxW: W * 0.2 });
+  text(ctx, type?.nameEn ?? 'Local', W * 0.11, H * 0.78, H * 0.24, { align: 'center', color: '#fff', weight: 600, maxW: W * 0.2 });
   text(ctx, t.nameJa, W * 0.61, H * 0.38, H * 0.5, { align: 'center', color: '#ffb300', maxW: W * 0.74 });
   text(ctx, t.nameRomaji, W * 0.61, H * 0.8, H * 0.22, { align: 'center', color: '#ffb300', weight: 600, maxW: W * 0.74 });
 }
 
 function drawLcd(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'lcd' }>) {
   const line = lineById(c.line);
-  const { tt } = lineSim(c.line);
+  const { tt, type } = serviceSim(c.line, c.service);
   const st = trainStateAt(tt, c.train, clock.time);
   const p = st.phase;
   ctx.fillStyle = '#0b1220';
@@ -2049,9 +2108,9 @@ function drawLcd(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'l
   ctx.fillStyle = line.color;
   ctx.fillRect(0, 0, W, H * 0.2);
   const inService = p.kind === 'run' ? p.inService : p.role !== 'reverse' && p.role !== 'arrival';
-  const dest = terminusOf(line, p.dir);
-  text(ctx, inService ? `${line.nameJa}  ${dest.nameJa} ゆき` : line.nameJa, H * 0.12, H * 0.105, H * 0.13, { color: '#fff', maxW: W * 0.55 });
-  text(ctx, inService ? `${line.nameEn} for ${dest.nameRomaji}` : line.nameEn, W - H * 0.12, H * 0.105, H * 0.1, { color: '#fff', align: 'right', weight: 600, maxW: W * 0.4 });
+  const dest = destinationOf(line, p.dir);
+  text(ctx, inService ? `${line.nameJa}  ${type ? `${type.nameJa} ` : ''}${dest.nameJa} ゆき` : line.nameJa, H * 0.12, H * 0.105, H * 0.13, { color: '#fff', maxW: W * 0.55 });
+  text(ctx, inService ? `${line.nameEn} ${type ? `${type.nameEn} ` : ''}for ${dest.nameRomaji}` : line.nameEn, W - H * 0.12, H * 0.105, H * 0.1, { color: '#fff', align: 'right', weight: 600, maxW: W * 0.4 });
   let label = '', ja = '', en = '', num = '';
   const stopIdx = p.kind === 'run' ? p.toStop : p.stop;
   if (stopIdx >= 0 && (p.kind === 'dwell' || p.inService)) {
@@ -2059,7 +2118,7 @@ function drawLcd(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'l
     ja = s.nameJa;
     en = s.nameRomaji;
     num = s.numbers[line.id];
-    const terminating = p.kind === 'dwell' ? p.role === 'arrival' : dest.id === s.id;
+    const terminating = p.kind === 'dwell' ? p.role === 'arrival' : !line.beyond && terminusOf(line, p.dir).id === s.id;
     label = p.kind === 'dwell' ? (terminating ? '終点  Last stop' : 'ただいま  Now at') : terminating ? 'つぎは 終点  Next (last stop)' : 'つぎは  Next';
   } else {
     label = '';
@@ -2075,7 +2134,7 @@ function drawLcd(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'l
   text(ctx, ja, x, H * 0.62, H * 0.34, { color: '#fff', weight: 800, maxW: W * 0.45 });
   text(ctx, en, W - H * 0.15, H * 0.66, H * 0.17, { color: '#dfe8f3', weight: 600, align: 'right', maxW: W * 0.4 });
   const notice = typhoonNotice(clock.time);
-  if (p.kind === 'dwell' && p.doors) text(ctx, 'ドアが開きます  Doors open', W / 2, H * 0.9, H * 0.1, { color: '#ffb300', align: 'center', weight: 600 });
+  if (p.kind === 'dwell' && p.doors && hasPlatform(line, p.stop)) text(ctx, 'ドアが開きます  Doors open', W / 2, H * 0.9, H * 0.1, { color: '#ffb300', align: 'center', weight: 600 });
   // Between stops in a typhoon: the caution, in each language in turn.
   else if (notice.length) text(ctx, notice[Math.floor(clock.time / 6) % 2], W * 0.56, H * 0.9, H * 0.085, { color: '#ffb300', align: 'center', weight: 600, maxW: W * 0.7 });
   // The weather and the temperature outside, in the corner.
@@ -2240,6 +2299,8 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'picto': return drawPicto(ctx, W, H, c);
     case 'stationmap': return drawStationMap(ctx, W, H, c);
     case 'areamap': return drawAreaMap(ctx, W, H, c);
+    case 'arname': return drawArName(ctx, W, H, c);
+    case 'ardep': return drawArDep(ctx, W, H, c);
     case 'clock': return drawClock(ctx, W, H);
     case 'dep': return drawDep(ctx, W, H, c);
     case 'depAll': return drawDepAll(ctx, W, H, c);

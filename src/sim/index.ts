@@ -2,7 +2,7 @@
 
 import { LINES, RAIL_LINES } from '../data/network';
 import type { Dir, LineId, ServiceType } from '../data/types';
-import { BOGIE_OFFSET, CAR_PITCH, LineGeom } from './geometry';
+import { LineGeom, carOf } from './geometry';
 import { buildTimetable, nextDepartures, trainStateAt, type Departure, type Timetable, type TrainState } from './timetable';
 
 export interface LineSim {
@@ -57,11 +57,20 @@ export const RAIL_NET: LineSim[] = RAIL_LINES.map((def) => {
   return sim;
 });
 
+/** Every line that has track and trains in the 3D world: the metro, and a main line once part of it is built. */
+export const WORLD_NET: LineSim[] = [...NET, ...RAIL_NET.filter((l) => l.geom.def.built)];
+
 export const lineSim = (id: LineId): LineSim => {
   const l = NET.find((x) => x.geom.def.id === id) ?? RAIL_NET.find((x) => x.geom.def.id === id);
   if (!l) throw new Error(`unknown line ${id}`);
   return l;
 };
+
+/** A line's timetable for one service type; the line's own when it has none (or `id` is not given). */
+export function serviceSim(id: LineId, service?: string): { tt: Timetable; type?: ServiceType } {
+  const l = lineSim(id);
+  return l.services?.find((s) => s.type.id === service) ?? { tt: l.tt };
+}
 
 export interface LineDeparture extends Departure {
   /** The service type, on a line that has them. */
@@ -105,10 +114,10 @@ const a = { x: 0, y: 0, z: 0 }, b = { x: 0, y: 0, z: 0 };
 
 /** World pose of one car of a train. Car-local +x always points towards increasing chainage. */
 export function carPose(geom: LineGeom, st: TrainState, car: number, out: CarPose): CarPose {
-  const n = geom.def.service.cars;
-  const sc = st.s + (car - (n - 1) / 2) * CAR_PITCH;
-  geom.trackPoint(st.track, sc - BOGIE_OFFSET, a);
-  geom.trackPoint(st.track, sc + BOGIE_OFFSET, b);
+  const n = geom.def.service.cars, spec = carOf(geom.def);
+  const sc = st.s + (car - (n - 1) / 2) * spec.pitch;
+  geom.trackPoint(st.track, sc - spec.bogie, a);
+  geom.trackPoint(st.track, sc + spec.bogie, b);
   const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
   out.x = (a.x + b.x) / 2;
   out.y = (a.y + b.y) / 2;

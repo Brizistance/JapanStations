@@ -37,12 +37,16 @@ export type SignContent =
   | { k: 'dep'; station: StationId; line: LineId; dir: Dir }
   /** Live concourse departure summary for all lines at the station. */
   | { k: 'depAll'; station: StationId }
+  /** A main line's station name board (駅名標): kana, kanji, romaji, number, and the stations either side (`flip` swaps their sides). */
+  | { k: 'arname'; station: StationId; line: LineId; flip?: boolean }
+  /** A main line's live departure board: service type, time, destination and platform, from the timetable (one direction, or both). */
+  | { k: 'ardep'; station: StationId; line: LineId; dir?: Dir }
   /** Live station clock (analogue face), showing the sim time. */
   | { k: 'clock' }
   /** Train destination LED. */
-  | { k: 'dest'; line: LineId; dir: Dir | 'none' }
+  | { k: 'dest'; line: LineId; dir: Dir | 'none'; service?: string }
   /** Live in-car information display. */
-  | { k: 'lcd'; line: LineId; train: number }
+  | { k: 'lcd'; line: LineId; train: number; service?: string }
   /**
    * Floor decal (stations/floor.ts): an arrow and a line badge, and on a big mark the platform
    * numbers that way (`nums`, のりば / Platforms) or, with `transfer`, のりかえ / Transfer. With

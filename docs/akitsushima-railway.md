@@ -116,4 +116,35 @@ Kirigahara (霧ヶ原) and Asanagi (朝凪) were searched the same day: no real 
 - **Kon'yahama** is about 90 m from Aizomechō (transfer set there). Its place and the line's course there now cross Aizomechō's rebuilt dyers' quarter (the dye yard and the headhouse): settle which moves before building AR in 3D.
 - **Not done:** the AR train model (20 m, 4 doors) and anything in 3D. Trains exist as timetable entries and live dots on the map.
 
+## Pass 2 decisions (interview, 2026-11-23)
+
+- **First physical stretch:** Kawaminato → Higashi-Kawaminato → Miokami. Kawaminato in full, with gates both under the arches on Ekiura-dōri and at deck level into the Mioya terminal; the other two get platforms only, entries later. Miokami gets its own design (this replaces decision 6 of 2026-11-19 for it).
+- **Alignment as built in the data:** through Kita the Main Line uses the viaduct's **south island (platforms 3·4)**, 86.9 m north of the avenue, track offset 4.3 m; the north island (1·2) is kept for later lines. The valley and shore bends stay where the draft put them, so the valley run is 504 m at about 21° south of east. Miokami is at 250 m along it, rail level +6.5 m.
+- **Miokami ↔ Kawaminato-daigaku-mae** stays a long walking transfer (about 545 m); the riverside walk and footbridge come in a later pass. Closer was not possible without AR crossing the Nagisa Line twice.
+- **Trackbed:** brick-arch viaduct to Higashi-Kawaminato, then an earth embankment up the valley. **Line ends:** track stubs past Miokami and Kawaminato, fade and return.
+- **Rapid** skipping Higashi-Kawaminato is confirmed.
+
+- **AR car (built 2026-11-23):** `LineDef.car` gives a line its own car size and doors (AR: 20 m pitch, four doors; the metro's 18 m car is the default). Model `public/models/ar-car.glb`, from `build_metro_car.py -- --stock ar`. Local and Rapid run as separate train sets. Not visible in the game until the line joins the 3D world (trackbed stage).
+
+- **Trackbed (built 2026-11-23):** AR is in the 3D world from Miokami to Kawaminato plus 320 m stubs (`LineDef.built`, `WORLD_NET`); trains beyond the stubs are not drawn. Through Kita the hub's viaduct models carry it (`built.modelled`); east of them `track.ts` sweeps a two-track brick viaduct (`deckAt` 'brick', rail level 8.8 m and up) and then a grassed embankment ('bank'). The viaduct models' rail head and contact wire now sit at the game's levels. The viaduct runs along the north edge of Suzukakedōri's plot, whose back row is cut back for it (`clearRailCorridors` in `stations/index.ts`). The four-track viaduct narrows to two tracks where the hub's models end (x 2360); the north pair simply stops there. No AR station is built yet: trains stop in mid-air at Higashi-Kawaminato and Miokami, nobody can board, and the fade-and-return waits for the stations.
+
+## Kawaminato Station (interview and plan, 2026-11-23)
+
+- **Model place:** a brick-arch under-viaduct station (Shimbashi / Yūrakuchō, Kobe's Motomachi). **Platforms:** the south island, 12 cars (hub x −125 … 127), over four street bridges, with half-height platform gates. The north island stays closed.
+- **Layout (hub frame):** a mezzanine at +6.0 over the central walkway (x −4 … 4); two stairs up to the platform (x ±2.5 → ±10); one stair down east to the Central Gate hall under the arches (bays x 4 … 28: paid side x 4 … 20 with the lift to the platform, gate line at x 20, a free through hall x 20 … 28 between Ekiura-dōri and Kōka-dōri). The Mioya Gate is on Mioya's level 2, east third of the north wall (x 4 … 12), with a paid bridge over Ekiura-dōri (x 4.5 … 7.5) and a gallery inside the viaduct's south wall to the mezzanine. The lift serves gate hall and platform only.
+- **West bend moved 200 m west** (`AR_W1` x 1300) so trains leave along the hub's straight viaduct; the curve begins about 313 m west of the station and the hub's plain run west ends at 310 m (`AR_HUB_MODELS`). Kon'yahama (not built) moved about 56 m with it. Rail level on the viaduct is +9.15, as the models stand on the pavement.
+- **Stage 1 built (models and data):** `build_viaduct.py` has `pf_<id>` pieces (platforms carried over every piece) and the station's five middle bays `hw8 hm8 he8 hl8 ho8`; `build_mioya.py` has the level-2 bridge door. Nothing of the station is walkable until stage 2 (`src/stations/kawaminato.ts`, not written yet); stage 3 is signs, boards, door and fade-return rules.
+
+- **Stage 2 built (the walkable station, 2026-11-23):** `src/stations/kawaminato.ts`, called from `hub-street.ts`: platform floor and half-height gates (`psd()` with `ends`; `gateOpen()` now counts every service type), mezzanine, three stairs, the lift, the Central Gate hall and gate line, the gallery and bridge, and `mioyaGate()` on Mioya's level 2. You can walk from Ekiura-dōri or Mioya's level 2 to the platform and board; doors still open in mid-air at the stations not built, and there are no AR signs, boards or ticket machines yet (stage 3).
+
+- **Stage 3 built (signs, boards, rules, 2026-11-23):** AR's own signs (white on dark grey; `arname` name boards and live `ardep` departure boards in `signs/draw.ts`), ticket machines without the metro's fare chart, a lamp under the canopy at every platform bay. `built.stations` lists the stops with platforms: doors open only there (`hasPlatform`, tested in `trains/system.test.ts`). A rider carried past the end of the track is brought back to Kawaminato's platform (`player.ts`; `HOSTED` in `stations/index.ts` gives a station inside another's plot its place). The HUD's departures panel lists AR trains on the AR platform. Still owed: the map and the guide treat every AR station as not built (`isUnbuilt`), and there is no AR fare chart.
+
 **Build plan:** pass 2 adds the sim-clock sky, the viaduct and AR train in 3D, the Kawaminato Station platforms, Higashi-Kawaminato, and the shared platform for the unbuilt stops.
+
+## Higashi-Kawaminato and Miokami platforms (built 2026-11-23)
+
+- **Platforms only**, in `src/stations/rail.ts`, each a small world of its own on the swept trackbed (`RAIL_WORLDS` in `stations/index.ts`, kept out of `STATION_WORLDS`). Exits are boarded up until each station's own entry pass (`new-station`).
+- **Higashi-Kawaminato:** one island 5.6 m wide and 8 cars long on the brick viaduct; riveted iron columns down the middle under a butterfly roof, a brick stair house (boarded), a glazed waiting shelter.
+- **Miokami:** two side platforms 12 cars long on the embankment (`sideAt`), old-rail posts and a timber-boarded roof over the middle, a roofed timber footbridge between them. The station carries the wire on its own portals (`built.platformHalf`).
+- Both use AR's half-height platform gates. The HUD names the metro station each is the change for, with the AR station in the zone line, as at Kawaminato.
+- **Still owed:** the ways in; the map and guide still treat every AR station as unbuilt; no auditor run on these two.

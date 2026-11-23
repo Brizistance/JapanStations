@@ -1,16 +1,22 @@
 // Live train state: one runtime per timetabled train, with a collision frame per car.
 // `updateTrains` is called once per tick; everything else (renderer, player, HUD) reads it.
 
-import { CAR_PITCH } from '../sim/geometry';
-import { NET, carPose, type CarPose, type LineSim } from '../sim';
-import { trainStateAt, type TrainState } from '../sim/timetable';
+import { hasPlatform } from '../data/network';
+import type { ServiceType } from '../data/types';
+import { carOf } from '../sim/geometry';
+import { WORLD_NET, carPose, lineSim, type CarPose, type LineSim } from '../sim';
+import { trainStateAt, type Timetable, type TrainState } from '../sim/timetable';
 import { makeColliders, type ColliderSet, type Frame } from '../world/collision';
 import type { Build } from '../world/builder';
-import { buildCar, CAR_INSIDE, type CarKind } from './car';
+import { buildCar, carInside, type CarKind } from './car';
 
 export interface TrainRuntime {
   id: string;
   sim: LineSim;
+  /** The timetable this train runs to: the line's, or its service type's. */
+  tt: Timetable;
+  /** Its service type (Local, Rapid…), on a line that has them. */
+  service?: ServiceType;
   index: number;
   state: TrainState;
   cars: Frame[];
@@ -23,8 +29,7 @@ export function carBuild(line: string, kind: CarKind) {
   const k = `${line}:${kind}`;
   let v = carBuilds.get(k);
   if (!v) {
-    const sim = NET.find((l) => l.geom.def.id === line)!;
-    const build = buildCar(sim.geom.def, kind);
+    const build = buildCar(lineSim(line).geom.def, kind);
     v = { build, colliders: makeColliders(build) };
     carBuilds.set(k, v);
   }
@@ -34,16 +39,16 @@ export const carKind = (car: number, cars: number): CarKind => (car === 0 ? 'cab
 
 const pose: CarPose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
 
-function makeTrain(sim: LineSim, index: number, time: number): TrainRuntime {
-  const n = sim.geom.def.service.cars;
+function makeTrain(sim: LineSim, tt: Timetable, service: ServiceType | undefined, index: number, time: number): TrainRuntime {
+  const n = sim.geom.def.service.cars, spec = carOf(sim.geom.def);
   const t: TrainRuntime = {
-    id: `${sim.geom.def.id}${index + 1}`, sim, index, state: trainStateAt(sim.tt, index, time), cars: [], doorSide: 1,
+    id: `${sim.geom.def.id}${service ? `-${service.id}-` : ''}${index + 1}`, sim, tt, service, index, state: trainStateAt(tt, index, time), cars: [], doorSide: 1,
   };
   for (let c = 0; c < n; c++) {
     const { build, colliders } = carBuild(sim.geom.def.id, carKind(c, n));
     const f: Frame = {
       id: `${t.id}-${c}`, kind: 'car', x: 0, y: 0, z: 0, yaw: 0, pitch: 0,
-      colliders, radius: CAR_PITCH, zones: [], inside: CAR_INSIDE, prev: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 },
+      colliders, radius: spec.pitch, zones: [], inside: carInside(spec), prev: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 },
       blockers: build.gates.map((g) => ({
         min: [g.pos[0] - g.width / 2, g.pos[1], g.pos[2] - 0.08],
         max: [g.pos[0] + g.width / 2, g.pos[1] + g.height, g.pos[2] + 0.08],
@@ -56,7 +61,15 @@ function makeTrain(sim: LineSim, index: number, time: number): TrainRuntime {
   return t;
 }
 
+/** On a line built in part (LineDef.built), doors open only at the stops that have platforms. */
+function doorRule(t: TrainRuntime) {
+  const def = t.sim.geom.def, p = t.state.phase;
+  if (!def.built || t.state.doorOpen === 0) return;
+  if (p.kind !== 'dwell' || !hasPlatform(def, p.stop)) t.state.doorOpen = 0;
+}
+
 function place(t: TrainRuntime, snap: boolean) {
+  doorRule(t);
   const { geom } = t.sim;
   t.doorSide = geom.doorSide(geom.lateral(t.state.track, t.state.s), t.state.s);
   t.cars.forEach((f, c) => {
@@ -74,11 +87,15 @@ export const trains: TrainRuntime[] = [];
 
 export function updateTrains(time: number) {
   if (trains.length === 0) {
-    for (const sim of NET) for (let k = 0; k < sim.tt.trainCount; k++) trains.push(makeTrain(sim, k, time));
+    for (const sim of WORLD_NET) {
+      for (const { tt, type } of sim.services?.length ? sim.services : [{ tt: sim.tt, type: undefined }]) {
+        for (let k = 0; k < tt.trainCount; k++) trains.push(makeTrain(sim, tt, type, k, time));
+      }
+    }
     return;
   }
   for (const t of trains) {
-    t.state = trainStateAt(t.sim.tt, t.index, time);
+    t.state = trainStateAt(t.tt, t.index, time);
     place(t, false);
   }
 }

@@ -27,7 +27,7 @@ export function guideStep(): Step | null {
   const train = where.train, at = where.station?.def.id ?? player.lastStation;
   const key = `${to}|${Math.floor(clock.time)}|${train ? `${train.id}:${train.state.phaseIndex}` : at}`;
   if (memo?.key !== key) {
-    memo = { key, step: nextStep(to, clock.time, train ? { tt: train.sim.tt, phase: train.state.phase, tau: train.state.tau } : { station: at }) };
+    memo = { key, step: nextStep(to, clock.time, train ? { tt: train.tt, phase: train.state.phase, tau: train.state.tau } : { station: at }) };
   }
   return memo.step;
 }

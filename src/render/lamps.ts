@@ -4,7 +4,7 @@
 // (lit.ts, `uLampPos`), and the shader brightens surfaces around them. No shadows.
 
 import * as THREE from 'three';
-import { STATION_WORLDS } from '../stations';
+import { WORLDS } from '../stations';
 import { GROUND_Y } from '../stations/kit';
 import { toWorld } from '../world/collision';
 import { modelsLoaded, signTint } from './building-models';
@@ -59,7 +59,7 @@ let pending: Lamp[] | null = null, wait = 0;
 function collect(): Lamp[] {
   const out: Lamp[] = [];
   const p: [number, number, number] = [0, 0, 0];
-  for (const w of STATION_WORLDS) {
+  for (const w of WORLDS) {
     const add = (lx: number, ly: number, lz: number, r: number, c: RGB, street = false) => {
       // Street level and above only: shops in the halls below are lit by the station.
       if (ly < GROUND_Y + 0.3) return;

@@ -4,17 +4,18 @@
 
 import * as THREE from 'three';
 import { lineById } from '../data/network';
-import { NET, clock } from '../sim';
-import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
+import { WORLD_NET, clock } from '../sim';
+import { STATION_WORLDS, WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
-import { CAR_HALF, CAR_HALF_W } from '../trains/car';
+import { CAR_HALF_W } from '../trains/car';
+import { carOf } from '../sim/geometry';
 import { cellMergedModels, loadBuildingModels, lodModels, updateLod } from './building-models';
 import { headlights } from './lamps';
 import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
 import type { BoxPart, GatePart, ModelPart } from '../world/builder';
-import { halfWidth, sampleChainages, structureAt } from '../world/structure';
+import { builtRange, halfWidth, sampleChainages, structureAt } from '../world/structure';
 import { runOnRoads, runOnStrips } from '../world/runon';
 import { DEFAULT_PLOT, rng } from '../world/builder';
 import { boxesToGeometry, groupBy, type EnvMode } from './geometry';
@@ -54,7 +55,7 @@ interface StationView {
 const STATION_ENV: EnvMode = { kind: 'station' };
 const SKY_ENV: EnvMode = { kind: 'sky' };
 /** Faces looking into this box are the saloon: always lit by the car's own lights. */
-const CAR_ENV: EnvMode = { kind: 'car', min: [-CAR_HALF + 0.02, PF_H - 0.2, -CAR_HALF_W + 0.02], max: [CAR_HALF - 0.02, 3.4, CAR_HALF_W - 0.02] };
+const carEnv = (half: number): EnvMode => ({ kind: 'car', min: [-half + 0.02, PF_H - 0.2, -CAR_HALF_W + 0.02], max: [half - 0.02, 3.4, CAR_HALF_W - 0.02] });
 
 function mountStation(w: StationWorld): StationView {
   const group = new THREE.Group();
@@ -101,7 +102,7 @@ interface TrainView {
 
 // Head/tail lamps sit in the housings modelled on the cab front, turned to follow its curve.
 const lampGeo = new THREE.BoxGeometry(0.06, 0.1, 0.32);
-const LAMP = { x: 9.213, y: 1.72, z: 0.93, turn: 0.205 };
+const LAMP = { out: 0.213, y: 1.72, z: 0.93, turn: 0.205 };
 const white = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff7d6').multiplyScalar(3) });
 const red = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a').multiplyScalar(2) });
 
@@ -139,7 +140,7 @@ function mountTrain(t: TrainRuntime): TrainView {
   const n = line.service.cars;
   const view: TrainView = { group, cars: [], gates: [], signs: [], cache, lamps: { low: [], high: [] }, env: [] };
   const resolve = (c: SignContent): SignContent =>
-    c.k === 'lcd' ? { ...c, train: t.index } : c.k === 'dest' ? { ...c, dir: destDir(t) } : c;
+    c.k === 'lcd' ? { ...c, train: t.index, service: t.service?.id } : c.k === 'dest' ? { ...c, dir: destDir(t), service: t.service?.id } : c;
   for (let c = 0; c < n; c++) {
     const kind = carKind(c, n);
     const { build } = carBuild(line.id, kind);
@@ -154,7 +155,7 @@ function mountTrain(t: TrainRuntime): TrainView {
       return c;
     };
     // The Blender model if it has loaded; the collision boxes drawn as they are if not.
-    const body = carModel(line.color, kind) ?? staticGroup(build, CAR_ENV, `car:${line.id}:${kind}`).group;
+    const body = carModel(carOf(line).model, line.color, kind) ?? staticGroup(build, carEnv(carOf(line).half), `car:${line.id}:${kind}`).group;
     // A pantograph on every other car of a line on overhead wire, raised to the contact wire (track.ts WIRE_H).
     if (line.power === 'overhead' && c % 2 === 1) body.add(pantograph());
     body.traverse((o) => {
@@ -171,7 +172,7 @@ function mountTrain(t: TrainRuntime): TrainView {
       const s = kind === 'cabLow' ? -1 : 1;
       for (const z of [-LAMP.z, LAMP.z]) {
         const m = new THREE.Mesh(lampGeo, white);
-        m.position.set(s * LAMP.x, LAMP.y, z);
+        m.position.set(s * (carOf(line).half + LAMP.out), LAMP.y, z);
         m.rotation.y = -s * Math.sign(z) * LAMP.turn;
         g.add(m);
         (kind === 'cabLow' ? view.lamps.low : view.lamps.high).push(m);
@@ -297,7 +298,7 @@ function cityBand(inPlot: (x: number, z: number, m: number) => boolean) {
   const pts: { x: number; z: number }[] = [];
   const asphalt: number[] = [];
   bandParts.length = 0;
-  for (const sim of NET) {
+  for (const sim of WORLD_NET) {
     const geom = sim.geom, W = halfWidth(geom);
     for (const st of stretchesOf(geom)) {
       const { s0, s1, sFrom, dir } = stretchRange(geom, st);
@@ -397,7 +398,7 @@ function buildBackdrop(): THREE.Group {
   const openPts: { x: number; z: number }[] = [];
   const shape = new THREE.Shape([new THREE.Vector2(-3000, 5000), new THREE.Vector2(8000, 5000), new THREE.Vector2(8000, -5000), new THREE.Vector2(-3000, -5000)]);
   for (const p of plots) shape.holes.push(new THREE.Path(p.pts));
-  for (const { geom } of NET) {
+  for (const { geom } of WORLD_NET) {
     const W = halfWidth(geom) + 0.45;
     let left: THREE.Vector2[] = [], right: THREE.Vector2[] = [];
     const flush = () => {
@@ -530,7 +531,7 @@ export class WorldView {
     const backdrop = buildBackdrop();
     this.backdrop.push(backdrop);
     this.root.add(backdrop);
-    for (const sim of NET) {
+    for (const sim of WORLD_NET) {
       const track = buildTrack(sim);
       if (track.userData.tick) this.trackTicks.push(track.userData.tick as (time: number) => void);
       this.deepTrack.push(...track.children.filter((o) => o.userData.layer === 'deep'));
@@ -544,7 +545,9 @@ export class WorldView {
       this.root.add(track);
     }
     // Trains mounted before the model arrived are remounted with it.
-    loadCarModel().then(() => this.resetTrains(), (e) => console.warn('train model not loaded, using boxes:', e));
+    for (const model of new Set(WORLD_NET.map((l) => carOf(l.geom.def).model))) {
+      loadCarModel(model).then(() => this.resetTrains(), (e) => console.warn(`train model ${model} not loaded, using boxes:`, e));
+    }
     loadBuildingModels().then(() => {
       this.resetBuildings();
       if (districtLots.length) {
@@ -569,7 +572,7 @@ export class WorldView {
 
   /** Stations mounted before the building models arrived are dropped; update() mounts them again. */
   private resetBuildings() {
-    for (const w of STATION_WORLDS) {
+    for (const w of WORLDS) {
       const v = this.stations.get(w.def.id);
       if (!v || !w.build.models.length) continue;
       this.root.remove(v.group);
@@ -599,7 +602,7 @@ export class WorldView {
     this.fastTimer -= dt;
     const fast = this.fastTimer <= 0;
     if (fast) this.fastTimer = 1 / 15;
-    for (const w of STATION_WORLDS) {
+    for (const w of WORLDS) {
       const d = Math.hypot(w.frame.x - cam.x, w.frame.z - cam.z) - (w.frame.radius - BASE_RADIUS);
       const v = this.stations.get(w.def.id);
       if (v && fast && d < FAST_RANGE) redrawLive(v.cache, true);
@@ -628,7 +631,10 @@ export class WorldView {
       let v = this.trainViews.get(t.id);
       // Out of range, or on the other side of the street from the player where that cannot be seen (cull()).
       const below = mid.y < -3;
-      if (d > (this.hide.surface ? FOG_UNDER : TRAIN_RANGE) || (below ? this.hide.deep : this.hide.surface)) {
+      // A line built in part: its trains are not drawn beyond the end of its track.
+      const built = builtRange(t.sim.geom), reach = (t.cars.length * carOf(t.sim.geom.def).pitch) / 2;
+      const offTrack = !!built && (t.state.s - reach < built[0] || t.state.s + reach > built[1]);
+      if (offTrack || d > (this.hide.surface ? FOG_UNDER : TRAIN_RANGE) || (below ? this.hide.deep : this.hide.surface)) {
         if (v) v.group.visible = false;
         continue;
       }

@@ -1,7 +1,8 @@
 // Player state and per-tick movement. Plain module state (not React): the render
 // loop mutates it every frame and the HUD samples it a few times a second.
 
-import { STATION_WORLDS, stationWorld } from '../stations';
+import { RAIL_WORLDS, STATION_WORLDS, WORLDS, hostedPlace, stationWorld } from '../stations';
+import { builtRange } from '../world/structure';
 import { trainOfFrame, trains, type TrainRuntime } from '../trains/system';
 import { carry, stepBody, zoneAt, type Body, type Frame } from '../world/collision';
 import { rideLifts } from '../world/lifts';
@@ -37,6 +38,9 @@ export function clearInput() {
   for (const k of Object.keys(input) as (keyof typeof input)[]) input[k] = false;
 }
 
+/** A rider has been carried past the end of a part-built line's track and is being brought back. */
+let carriedOff = false;
+
 /** What the HUD shows. Updated by the tick. */
 export const where = {
   station: null as StationWorld | null,
@@ -47,11 +51,14 @@ export const where = {
 export function teleport(stationId: string) {
   const w = stationWorld(stationId);
   const b = player.body;
-  b.pos = [w.spawn.pos[0], w.spawn.pos[1] + 0.05, w.spawn.pos[2]];
+  // (A station inside another's plot: its own place there, turned with that world's frame.)
+  const h = hostedPlace(stationId), c = Math.cos(w.frame.yaw), sn = Math.sin(w.frame.yaw);
+  const at = h ? { pos: [w.frame.x + h.pos[0] * c + h.pos[2] * sn, h.pos[1], w.frame.z - h.pos[0] * sn + h.pos[2] * c], yaw: h.yaw + w.frame.yaw } : w.spawn;
+  b.pos = [at.pos[0], at.pos[1] + 0.05, at.pos[2]];
   b.vy = 0;
   b.grounded = false;
   b.ride = null;
-  player.yaw = w.spawn.yaw;
+  player.yaw = at.yaw;
   player.pitch = 0;
   player.eyeY = b.pos[1];
   player.lastStation = stationId;
@@ -62,8 +69,8 @@ export const onFall = { go: (stationId: string) => teleport(stationId) };
 
 let frames: Frame[] | null = null;
 function allFrames(): Frame[] {
-  if (!frames || frames.length !== STATION_WORLDS.length + trains.length * (trains[0]?.cars.length ?? 0)) {
-    frames = [...STATION_WORLDS.map((s) => s.frame), ...trains.flatMap((t) => t.cars)];
+  if (!frames || frames.length !== WORLDS.length + trains.length * (trains[0]?.cars.length ?? 0)) {
+    frames = [...WORLDS.map((s) => s.frame), ...trains.flatMap((t) => t.cars)];
   }
   return frames;
 }
@@ -127,10 +134,31 @@ export function tickPlayer(dt: number) {
 
   // Where are we?
   where.train = b.ride ? trainOfFrame(b.ride) : null;
+  // Riding a line built in part past the end of its track: back to its nearest station with platforms (behind the name card).
+  if (where.train) {
+    const g = where.train.sim.geom, r = builtRange(g), s = where.train.state.s;
+    if (r && (s < r[0] + 110 || s > r[1] - 110)) {
+      if (!carriedOff) {
+        carriedOff = true;
+        const back = [...(g.def.built!.stations ?? [])].sort((p, q) => Math.abs(g.stopS[g.def.stops.indexOf(p)] - s) - Math.abs(g.stopS[g.def.stops.indexOf(q)] - s))[0];
+        if (back) onFall.go(back);
+      }
+    } else carriedOff = false;
+  } else carriedOff = false;
   const near = nearestStation(b.pos[0], b.pos[2]);
   where.station = null;
   where.zone = null;
-  if (near.dist < near.world.frame.radius) {
+  // On a main-line station's own platforms (rail.ts): its zone, in the name of the metro station it is the change for
+  // (as Kawaminato's platforms are part of Kita-Ōdōri's world).
+  for (const r of RAIL_WORLDS) {
+    if (where.zone || Math.hypot(r.frame.x - b.pos[0], r.frame.z - b.pos[2]) > r.frame.radius) continue;
+    const z = zoneAt(r.frame, b.pos);
+    if (!z || !r.def.transfer) continue;
+    where.station = stationWorld(r.def.transfer);
+    where.zone = z;
+    if (!where.train) player.lastStation = r.def.id;
+  }
+  if (!where.zone && near.dist < near.world.frame.radius) {
     const z = zoneAt(near.world.frame, b.pos);
     if (z) {
       where.station = near.world;

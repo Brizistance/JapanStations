@@ -29,6 +29,7 @@ TOWER = (-59.0, -46.0)   # the clock tower's x range; it stands on z = ARC … A
 LX, LZ = 16.0, 43.0      # the grand concourse's north lobby: half width, and the z it begins at
 HV, MZ = 15.0, 12.5      # top of the nave's void; top of the terminal concourse over the lobby
 DOOR = 3.13              # half width of the doorway from the terrace onto the gallery
+BRIDGE, BRIDGE_H, BRIDGE_SILL = (-7.5, -4.5), 2.15, 0.15   # the AR station's bridge door in the level-2 north wall (the store is placed turned: hub x 4.5 … 7.5)
 SP, CR = 10.0, 14.6      # the nave vault's springing and crown
 COPPER = 'flat:#5f9a86'
 CREAM = 'flat:#e3d8bf'
@@ -96,8 +97,12 @@ def store(p, s, v, r):
         p.box(STONE, c - PW / 2, 0, RD + 0.5, c + PW / 2, TY, D)
     # The lobby's north wall, three doorways onto the lane behind, a canopy over each.
     edges = [-LX, -10.5, -7.5, -1.5, 1.5, 7.5, 10.5, LX]
+    # (Under the AR bridge's door the wall stops BRIDGE_SILL lower: the game's level-2 floor is that far below TY.)
     for a, b_ in zip(edges[0::2], edges[1::2]):
-        p.box(STONE, a, 0, D - 0.5, b_, TY, D)
+        p.box(STONE, a, 0, D - 0.5, b_, TY - BRIDGE_SILL, D)
+        for xa, xb in ((a, min(b_, BRIDGE[0])), (max(a, BRIDGE[1]), b_)):
+            if xb - xa > 0.01:
+                p.box(STONE, xa, TY - BRIDGE_SILL, D - 0.5, xb, TY, D)
     for c in (-9.0, 0.0, 9.0):
         p.box(STONE, c - 1.5, 3.2, D - 0.5, c + 1.5, TY, D)
         p.box(BRONZE, c - 1.7, 3.2, D, c + 1.7, 3.4, D + 1.3)
@@ -109,7 +114,14 @@ def store(p, s, v, r):
         p.box(CREAM, a, TY, Z + 0.6, b_, H - 5, zz)
     p.box(CREAM, -PW / 2, HV, Z + 0.6, PW / 2, H - 5, LZ)
     p.box(CREAM, -LX, MZ, LZ, LX, H - 5, D)
-    p.box(CREAM, -LX, TY, D - 0.5, LX, MZ, D)
+    # (The level-2 north wall, with the doorway of the AR station's bridge: BRIDGE in x, BRIDGE_H high.)
+    p.box(CREAM, -LX, TY, D - 0.5, BRIDGE[0], MZ, D)
+    p.box(CREAM, BRIDGE[1], TY, D - 0.5, LX, MZ, D)
+    p.box(CREAM, BRIDGE[0], TY - BRIDGE_SILL + BRIDGE_H, D - 0.5, BRIDGE[1], MZ, D)
+    for a, b_ in ((BRIDGE[0] - 0.12, BRIDGE[0]), (BRIDGE[1], BRIDGE[1] + 0.12)):
+        p.box(BRONZE, a, TY - BRIDGE_SILL, D - 0.56, b_, TY - BRIDGE_SILL + BRIDGE_H + 0.12, D + 0.06)
+    p.box(BRONZE, BRIDGE[0] - 0.12, TY - BRIDGE_SILL + BRIDGE_H, D - 0.56, BRIDGE[1] + 0.12, TY - BRIDGE_SILL + BRIDGE_H + 0.12, D + 0.06)
+    mark('bridge', (BRIDGE[0] + BRIDGE[1]) / 2, TY - BRIDGE_SILL, D, BRIDGE[1] - BRIDGE[0], BRIDGE_H, (0, 1))
     for a, b_ in ((-PW / 2, -DOOR), (DOOR, PW / 2)):
         p.box(CREAM, a, TY, Z + 0.6, b_, HV, Z + 1.1)
     p.box(CREAM, -DOOR, 10.7, Z + 0.6, DOOR, HV, Z + 1.1)

@@ -1,4 +1,5 @@
-// The modelled train car (public/models/metro-car.glb, built by tools/blender/build_metro_car.py).
+// The modelled train cars: public/models/metro-car.glb (tools/blender/build_metro_car.py) and
+// ar-car.glb (build_ar_car.py). A line names its model in its car spec (LineDef.car).
 //
 // The model is only what you see. Collision, doors, live signs and lamps still come from
 // the part list in trains/car.ts, so the model must keep to that car's dimensions.
@@ -20,8 +21,8 @@ interface Piece {
   mat: string;
 }
 
-let pieces: { mid: Piece[]; cab: Piece[] } | null = null;
-let loading: Promise<void> | null = null;
+const pieces = new Map<string, { mid: Piece[]; cab: Piece[] }>();
+const loading = new Map<string, Promise<void>>();
 
 /** Box-projected UVs in metres, like the part-list geometry, for the brushed and macro textures. */
 function addAttributes(g: THREE.BufferGeometry, interior: boolean) {
@@ -75,21 +76,26 @@ function collect(root: THREE.Object3D): Piece[] {
   return merged;
 }
 
-/** Start loading the model (once). Resolves when `carModel` can return it; rejects if the file is missing or broken. */
-export function loadCarModel(): Promise<void> {
-  loading ??= new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/metro-car.glb`).then((gltf) => {
-    const mid = gltf.scene.getObjectByName('car_mid'), cab = gltf.scene.getObjectByName('car_cab');
-    if (!mid || !cab) throw new Error('metro-car.glb: car_mid / car_cab not found');
-    pieces = { mid: collect(mid), cab: collect(cab) };
-  });
-  return loading;
+/** Start loading a model (once). Resolves when `carModel` can return it; rejects if the file is missing or broken. */
+export function loadCarModel(model: string): Promise<void> {
+  let p = loading.get(model);
+  if (!p) {
+    p = new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/${model}.glb`).then((gltf) => {
+      const mid = gltf.scene.getObjectByName('car_mid'), cab = gltf.scene.getObjectByName('car_cab');
+      if (!mid || !cab) throw new Error(`${model}.glb: car_mid / car_cab not found`);
+      pieces.set(model, { mid: collect(mid), cab: collect(cab) });
+    });
+    loading.set(model, p);
+  }
+  return p;
 }
 
 /** A new group for one car in the line's colours, or null while the model is not loaded. */
-export function carModel(lineColor: string, kind: CarKind): THREE.Group | null {
-  if (!pieces) return null;
+export function carModel(model: string, lineColor: string, kind: CarKind): THREE.Group | null {
+  const set = pieces.get(model);
+  if (!set) return null;
   const group = new THREE.Group();
-  for (const p of kind === 'mid' ? pieces.mid : pieces.cab) {
+  for (const p of kind === 'mid' ? set.mid : set.cab) {
     const key = p.mat === 'LINE' ? `paint:${lineColor}` : p.mat === 'SEAT' ? `flat:${lineColor}` : p.mat;
     const material = getMaterial(key);
     const m = new THREE.Mesh(p.geometry, material);

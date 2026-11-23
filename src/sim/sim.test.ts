@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { K_BESIDE_N, LINES, RAIL_STATIONS, STATIONS, S_BESIDE_A, lineById, linesAt } from '../data/network';
 import { hallDims } from '../stations/kit';
 import { NET, RAIL_NET, carPose, lineDepartures, lineSim, type CarPose } from './index';
-import { CAR_PITCH, FLAT_M, HALL_HALF, TAIL_END } from './geometry';
+import { CAR_PITCH, FLAT_M, HALL_HALF, TAIL_END, carOf } from './geometry';
 import { nextDepartures, platformDoorOpen, trainStateAt } from './timetable';
 
 /** Do these two lines run on the same track somewhere (through-running)? */
@@ -260,7 +260,7 @@ describe('AR Main Line (timetable and map only)', () => {
   const [local, rapid] = ar.services!;
   it('has its stations on straight track, with the run to the map edge on the alignment', () => {
     g.stopError.forEach((e) => expect(e).toBeLessThan(0.5));
-    const half = (g.def.service.cars * CAR_PITCH) / 2 + 10;
+    const half = (g.def.service.cars * carOf(g.def).pitch) / 2 + 10;
     for (const s of g.stopS) {
       const a = g.path.pointAt(s - half), b = g.path.pointAt(s + half);
       expect(Math.abs(a.tx - b.tx) + Math.abs(a.tz - b.tz)).toBeLessThan(1e-6);

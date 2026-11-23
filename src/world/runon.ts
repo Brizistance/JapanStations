@@ -5,7 +5,7 @@
 // traffic drives in and out along it (traffic/street.ts), far enough off that nobody sees a
 // vehicle appear.
 
-import { NET } from '../sim';
+import { WORLD_NET } from '../sim';
 import { STATION_WORLDS, type StationWorld } from '../stations';
 import type { LanePart } from './builder';
 import { toWorld } from './collision';
@@ -19,7 +19,7 @@ let open: { x: number; z: number }[] | null = null;
 function openTrack() {
   if (open) return open;
   open = [];
-  for (const { geom } of NET) {
+  for (const { geom } of WORLD_NET) {
     for (const s of sampleChainages(geom)) {
       const type = structureAt(geom, s);
       if (type !== 'cut' && type !== 'viaduct') continue;

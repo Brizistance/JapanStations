@@ -1,6 +1,10 @@
 # Builds the Kawaminato Metro car model (one fictional series, two cars: middle + cab).
 #
-#   blender --background --python tools/blender/build_metro_car.py -- [--renders <dir>]
+#   blender --background --python tools/blender/build_metro_car.py -- [--renders <dir>] [--stock ar]
+#
+# --stock ar builds the Akitsushima Railway's commuter car instead (20 m, four doors a side,
+# overhead wire): assets/trains/ar-car.blend and public/models/ar-car.glb. Its dimensions mirror
+# the AR line's car spec in src/data/network.ts.
 #
 # Writes assets/trains/metro-car.blend and public/models/metro-car.glb.
 #
@@ -27,19 +31,25 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 F = 1.10            # floor above rail (PF_H)
 W = 1.40            # body half-width (CAR_HALF_W)
 WI = 1.30           # inner lining half-width
-HALF = 9.0          # body half-length (CAR_HALF)
-DOORS = [-5.8, 0.0, 5.8]
+AR = '--stock' in sys.argv and sys.argv[sys.argv.index('--stock') + 1] == 'ar'
+NAME = 'ar-car' if AR else 'metro-car'
+HALF = 9.75 if AR else 9.0          # body half-length (the line's car spec; CAR_HALF for the metro)
+DOORS = [-7.23, -2.41, 2.41, 7.23] if AR else [-5.8, 0.0, 5.8]
+BOGIE_X = 6.9 if AR else 6.0
+C = HALF - 9.0      # cab fittings are placed from the car's end
 DH = 0.65           # half door opening
 DOOR_TOP = F + 1.85
 CEIL = 3.35
-PART_X = (7.25, 7.33)   # cab partition (cab at +x)
+PART_X = (HALF - 1.75, HALF - 1.67)   # cab partition (cab at +x)
 
 # ── Design ──
 WIN_Y = (1.95, 2.85)
 SIDE_TOP = 3.22
 SILL = [(1.32, 0.72), (1.40, 1.00)]
 SHOULDER = [(1.40, 3.22), (1.37, 3.33), (1.28, 3.42), (1.12, 3.48), (0.80, 3.52), (0.40, 3.55), (0.0, 3.56)]
-SIGN_X = (2.1, 3.7)     # side destination display surround (the sign itself is drawn by the game)
+SIGN_C = (DOORS[-2] + DOORS[-1]) / 2
+SIGN_X = (SIGN_C - 0.8, SIGN_C + 0.8)     # side destination display surround (the sign itself is drawn by the game)
+BAND_Y = 1.58 if AR else 1.74   # bottom of the colour band under the windows
 
 BODY = 'metal:#d4d8db'
 ROOF = 'flat:#9ea4a9'
@@ -260,11 +270,12 @@ class Part:
 def bays(kind):
     """Window panes per car as (x0, x1). The cab is at +x on the cab car."""
     panes = []
-    for lo, hi in ((-5.15, -0.65), (0.65, 5.15)):
+    for da, db in zip(DOORS, DOORS[1:]):
+        lo, hi = da + DH, db - DH
         a, b, mid = lo + 0.42, hi - 0.42, (lo + hi) / 2
         panes += [(a, mid - 0.035), (mid + 0.035, b)]
-    panes.append((-8.55, -6.90))
-    panes.append((7.75, 8.70) if kind == 'cab' else (6.90, 8.55))
+    panes.append((-(HALF - 0.45), DOORS[0] - 1.10))
+    panes.append((HALF - 1.25, HALF - 0.30) if kind == 'cab' else (DOORS[-1] + 1.10, HALF - 0.45))
     return sorted(panes)
 
 
@@ -292,7 +303,7 @@ def bot_y(z):
 
 
 def nose_x(z, y):
-    x = 9.30 - 0.22 * abs(z / W) ** 3
+    x = HALF + 0.30 - 0.22 * abs(z / W) ** 3
     if y > 1.9:
         x -= 0.07 * (y - 1.9)
     if y < 1.25:
@@ -312,6 +323,8 @@ def nose_cell(zc, yc):
         return BLACK
     if 1.64 < yc < 1.80 and 0.74 < abs(zc) < 1.12:
         return LAMP
+    if AR and 1.00 < yc < 1.92:
+        return LINE if abs(zc) > 0.40 or yc < 1.25 else BODY   # a coloured front with a bare steel centre panel
     if 1.34 < yc < 1.56:
         return LINE
     if yc < 1.00:
@@ -327,8 +340,8 @@ def shell(p, kind):
     for a, b in DOOR_SPANS + panes:
         xs |= {a, b}
     xs = sorted(xs)
-    ys = [1.00, F, 1.74, 1.90, WIN_Y[0], WIN_Y[1], DOOR_TOP, 3.10, 3.20, SIDE_TOP]
-    mullions = [(-2.935, -2.865), (2.865, 2.935)]
+    ys = [1.00, F, BAND_Y, 1.90, WIN_Y[0], WIN_Y[1], DOOR_TOP, 3.10, 3.20, SIDE_TOP]
+    mullions = [((da + db) / 2 - 0.035, (da + db) / 2 + 0.035) for da, db in zip(DOORS, DOORS[1:])]
 
     def cell(xc, yc):
         if in_any(xc, DOOR_SPANS) and F < yc < DOOR_TOP:
@@ -342,7 +355,7 @@ def shell(p, kind):
             return BLACK
         if 3.10 < yc < 3.20:
             return LINE
-        if 1.74 < yc < 1.90:
+        if BAND_Y < yc < 1.90:
             return LINE
         return BODY
 
@@ -353,6 +366,12 @@ def shell(p, kind):
         p.face(SILLM, [(-HALF, y0, s * z0), (HALF, y0, s * z0), (HALF, y1, s * z1), (-HALF, y1, s * z1)], (0, -0.3, s))
         for k, ((za, ya), (zb, yb)) in enumerate(zip(SHOULDER, SHOULDER[1:])):
             p.face(BODY if k < 2 else ROOF, [(-HALF, ya, s * za), (HALF, ya, s * za), (HALF, yb, s * zb), (-HALF, yb, s * zb)], (0, 1, s * 0.5))
+        # Stainless beading along the lower body, between the doors.
+        if AR:
+            edges = [-HALF + 0.05] + [e for a, b in DOOR_SPANS for e in (a - 0.06, b + 0.06)] + [HALF - 0.05]
+            for a, b in zip(edges[::2], edges[1::2]):
+                for y in (1.16, 1.26, 1.36, 1.46):
+                    p.box(BODY, a, y - 0.012, s * W, b, y + 0.012, s * (W + 0.008))
         # Rain gutter.
         p.box(BODY, -HALF + 0.05, SIDE_TOP - 0.012, s * W, HALF - 0.05, SIDE_TOP + 0.012, s * (W + 0.014))
         # Window reveals, glass; door frames.
@@ -431,7 +450,7 @@ def nose(p, q):
             m = nose_cell(s * 1.39, (NOSE_Y[j] + NOSE_Y[j + 1]) / 2)
             p.face(BODY if m == GLASS else m, [(HALF, y0, s * W), (HALF, y1, s * W), (nose_x(W, y1), y1, s * W), (nose_x(W, y0), y0, s * W)], (0, 0, s))
     # Inner collar: carry the lining, floor and ceiling out to the inner skin.
-    xe = 8.95
+    xe = HALF - 0.05
     for s in (1, -1):
         for j in range(ny - 1):
             y0, y1 = min(max(NOSE_Y[j], F), CEIL), min(max(NOSE_Y[j + 1], F), CEIL)
@@ -443,17 +462,17 @@ def nose(p, q):
         q.face(INNER, [(xe, CEIL, za * k), (xe, CEIL, zb * k), (nose_x(zb, top_y(zb)) - 0.07, CEIL, zb * k), (nose_x(za, top_y(za)) - 0.07, CEIL, za * k)], (0, -1, 0))
 
     # Destination display housing (the display itself is a live sign in the game).
-    p.box(BLACK, 9.12, 2.955, -0.80, 9.225, 3.205, 0.80)
+    p.box(BLACK, HALF + 0.12, 2.955, -0.80, HALF + 0.225, 3.205, 0.80)
     # Wiper on the driver's side.
     p.box(LAMP, nose_x(-0.45, 2.1) + 0.005, 2.06, -0.47, nose_x(-0.45, 2.1) + 0.02, 2.60, -0.44)
     # Coupler and skirt.
-    p.box(BOGIE, 8.6, 0.56, -0.11, 9.34, 0.74, 0.11)
-    p.cyl(BOGIE, (9.40, 0.65, 0), 0, 0.13, 0.14, 10)
+    p.box(BOGIE, HALF - 0.4, 0.56, -0.11, HALF + 0.34, 0.74, 0.11)
+    p.cyl(BOGIE, (HALF + 0.40, 0.65, 0), 0, 0.13, 0.14, 10)
     for s in (1, -1):
-        p.prism(DARK, [(8.55, 0.24), (9.02, 0.24), (9.16, 0.72), (8.55, 0.72)], 'z', s * 0.45, s * 1.30)
+        p.prism(DARK, [(HALF - 0.45, 0.24), (HALF + 0.02, 0.24), (HALF + 0.16, 0.72), (HALF - 0.45, 0.72)], 'z', s * 0.45, s * 1.30)
     # Radio antenna.
-    p.cyl(DARK, (8.2, 3.60, 0.35), 1, 0.05, 0.12, 8)
-    p.cyl(STEEL, (8.2, 3.76, 0.35), 1, 0.008, 0.22, 6)
+    p.cyl(DARK, (HALF - 0.8, 3.60, 0.35), 1, 0.05, 0.12, 8)
+    p.cyl(STEEL, (HALF - 0.8, 3.76, 0.35), 1, 0.008, 0.22, 6)
 
 
 def bogie(p, bx):
@@ -469,7 +488,9 @@ def bogie(p, bx):
             p.cyl(WHEEL, (x, 0.43, s * (0.72 - 0.075)), 2, 0.46, 0.03, 22)      # flange
             p.box(GEAR, x - 0.16, 0.30, s * 1.05, x + 0.16, 0.56, s * 1.16)    # axlebox
             p.cyl(TYRE, (x, 0.43, s * 1.17), 2, 0.10, 0.03, 10)
-        # Third-rail shoe on its beam.
+        # Third-rail shoe on its beam (not on overhead-wire stock).
+        if AR:
+            continue
         p.box(SHOE, bx - 0.62, 0.20, s * 1.16, bx + 0.62, 0.32, s * 1.22)
         p.box(GEAR, bx - 0.20, 0.13, s * 1.22, bx + 0.20, 0.19, s * 1.36)
     for wx in (-0.95, 0.95):
@@ -491,28 +512,29 @@ def underfloor(p):
 
 
 def roof_gear(p):
-    for x in (-4.5, 4.5):
+    for x in (-HALF / 2, HALF / 2):
         p.prism(ACU, [(-0.90, 3.50), (0.90, 3.50), (0.90, 3.72), (0.78, 3.82), (-0.78, 3.82), (-0.90, 3.72)], 'x', x - 1.8, x + 1.8)
         for fx in (-0.85, 0.85):
             p.cyl(DARK, (x + fx, 3.825, 0), 1, 0.52, 0.012, 20)
             p.cyl(ACU, (x + fx, 3.83, 0), 1, 0.14, 0.02, 10)
         for s in (1, -1):
             p.box(DARK, x - 1.5, 3.60, s * 0.90, x + 1.5, 3.70, s * 0.905)
-    for x in (-8.0, -1.5, 1.5):   # roof ribs
+    for x in (-(HALF - 1.0), -1.5, 1.5):   # roof ribs
         p.box(ROOF, x - 0.03, 3.50, -0.8, x + 0.03, 3.575, 0.8)
 
 
 # ── Interior ──
 
 def seat_spans(kind):
-    out = [(-5.0, -0.8), (0.8, 5.0), (-8.8, -6.6)]
-    out.append((6.6, 7.1) if kind == 'cab' else (6.6, 8.8))
-    return out
+    out = [(da + 0.8, db - 0.8) for da, db in zip(DOORS, DOORS[1:])]
+    out.append((-(HALF - 0.2), DOORS[0] - 0.8))
+    out.append((DOORS[-1] + 0.8, HALF - (1.9 if kind == 'cab' else 0.2)))
+    return [(a, b) for a, b in out if b - a >= 0.4]
 
 
 def interior(q, kind):
     cab = kind == 'cab'
-    x0, x1 = -(HALF - 0.1), (8.95 if cab else HALF - 0.1)
+    x0, x1 = -(HALF - 0.1), (HALF - 0.05 if cab else HALF - 0.1)
     sal1 = PART_X[0] if cab else x1    # end of the saloon
     panes = bays(kind)
 
@@ -540,17 +562,17 @@ def interior(q, kind):
     q.face(INNER, [(x0, CEIL, -WI), (x1, CEIL, -WI), (x1, CEIL, WI), (x0, CEIL, WI)], (0, -1, 0))
     # Ceiling: light strips and a central air duct.
     for z in (-0.45, 0.45):
-        q.box(LIGHT, -8.4, CEIL - 0.02, z - 0.07, min(8.4, sal1 - 0.2), CEIL, z + 0.07)
-    q.box(TRIM, -8.5, CEIL - 0.035, -0.20, min(8.5, sal1 - 0.1), CEIL, 0.20)
-    for x in [v * 0.9 - 8.1 for v in range(19)]:
+        q.box(LIGHT, -(HALF - 0.6), CEIL - 0.02, z - 0.07, min(HALF - 0.6, sal1 - 0.2), CEIL, z + 0.07)
+    q.box(TRIM, -(HALF - 0.5), CEIL - 0.035, -0.20, min(HALF - 0.5, sal1 - 0.1), CEIL, 0.20)
+    for x in [v * 0.9 - (HALF - 0.9) for v in range(int((2 * HALF - 1.8) / 0.9 + 1e-6) + 1)]:
         if x < sal1 - 0.6:
             q.box('flat:#b9b6ad', x, CEIL - 0.037, -0.12, x + 0.5, CEIL - 0.035, 0.12)
 
     for s in (1, -1):
         # Coves over the window bays.
-        cove = [(-5.15, -0.65), (0.65, 5.15), (x0, -6.45)]
+        cove = [(da + DH, db - DH) for da, db in zip(DOORS, DOORS[1:])] + [(x0, DOORS[0] - DH)]
         if not cab:
-            cove.append((6.45, x1))
+            cove.append((DOORS[-1] + DH, x1))
         for a, b in cove:
             q.prism(TRIM, [(s * WI, 2.97), (s * WI, CEIL), (s * 1.06, CEIL)], 'x', a, b)
         for a, b in seat_spans(kind):
@@ -571,13 +593,14 @@ def interior(q, kind):
                     xb = a + 0.06 + (b - a - 0.12) * k / (n - 1)
                     q.prism(STEEL, [(s * WI, 2.80), (s * WI, 2.92), (s * 0.98, 2.92), (s * 0.98, 2.895)], 'x', xb - 0.01, xb + 0.01)
         # Grab rail with hangers and straps.
-        r1 = min(8.6, sal1 - 0.15)
-        q.cyl(STEEL, ((-8.6 + r1) / 2, 3.02, s * 0.74), 0, 0.016, r1 + 8.6, 8)
-        x = -8.4
+        r0 = HALF - 0.4
+        r1 = min(r0, sal1 - 0.15)
+        q.cyl(STEEL, ((-r0 + r1) / 2, 3.02, s * 0.74), 0, 0.016, r1 + r0, 8)
+        x = -(HALF - 0.6)
         while x < r1:
             q.cyl(STEEL, (x, (3.02 + CEIL) / 2, s * 0.74), 1, 0.012, CEIL - 3.02, 6, caps=False)
             x += 2.1
-        x = -8.2
+        x = -(HALF - 0.8)
         while x < r1 - 0.2:
             if not any(abs(x - d) < 0.7 for d in DOORS):
                 q.box(STRAP, x - 0.013, 2.80, s * 0.74 - 0.003, x + 0.013, 3.01, s * 0.74 + 0.003)
@@ -594,13 +617,13 @@ def interior(q, kind):
         q.face(CLEAR, [((a + b) / 2, 2.05, -1.10), ((a + b) / 2, 2.05, 1.10), ((a + b) / 2, 3.00, 1.10), ((a + b) / 2, 3.00, -1.10)], (-1, 0, 0))
         q.box(STEEL, a - 0.03, 2.10, 0.56, a, 2.14, 0.90)   # cab door handle
         # Driver's desk, controller and seat (driver on the left).
-        q.prism(DESK, [(8.12, F), (8.12, 1.84), (8.36, 1.99), (8.93, 1.99), (8.93, F)], 'z', -1.26, 1.26)
-        q.prism(BOGIE, [(8.40, 1.99), (8.44, 2.06), (8.80, 2.03), (8.80, 1.99)], 'z', -1.0, -0.2)   # instrument hood
-        q.box(BOGIE, 8.20, 1.90, -0.74, 8.30, 2.02, -0.66)
-        q.cyl(STEEL, (8.25, 2.04, -0.70), 2, 0.022, 0.16, 8)
-        q.box(KICK, 7.66, 1.50, -0.86, 8.04, 1.60, -0.44)
-        q.box(KICK, 7.58, 1.60, -0.86, 7.66, 2.15, -0.44)
-        q.cyl(BOGIE, (7.85, 1.30, -0.65), 1, 0.04, 0.40, 8)
+        q.prism(DESK, [(8.12 + C, F), (8.12 + C, 1.84), (8.36 + C, 1.99), (8.93 + C, 1.99), (8.93 + C, F)], 'z', -1.26, 1.26)
+        q.prism(BOGIE, [(8.40 + C, 1.99), (8.44 + C, 2.06), (8.80 + C, 2.03), (8.80 + C, 1.99)], 'z', -1.0, -0.2)   # instrument hood
+        q.box(BOGIE, 8.20 + C, 1.90, -0.74, 8.30 + C, 2.02, -0.66)
+        q.cyl(STEEL, (8.25 + C, 2.04, -0.70), 2, 0.022, 0.16, 8)
+        q.box(KICK, 7.66 + C, 1.50, -0.86, 8.04 + C, 1.60, -0.44)
+        q.box(KICK, 7.58 + C, 1.60, -0.86, 7.66 + C, 2.15, -0.44)
+        q.cyl(BOGIE, (7.85 + C, 1.30, -0.65), 1, 0.04, 0.40, 8)
 
 
 # ── Assembly ──
@@ -615,8 +638,8 @@ def build_car(kind, offset_z):
         nose(p, q)
     else:
         gangway_end(p, q, 1)
-    bogie(p, -6.0)
-    bogie(p, 6.0)
+    bogie(p, -BOGIE_X)
+    bogie(p, BOGIE_X)
     underfloor(p)
     roof_gear(p)
     interior(q, kind)
@@ -700,8 +723,8 @@ def main():
     for k, v in stats.items():
         print('STAT', k, v)
 
-    blend = os.path.join(ROOT, 'assets', 'trains', 'metro-car.blend')
-    glb = os.path.join(ROOT, 'public', 'models', 'metro-car.glb')
+    blend = os.path.join(ROOT, 'assets', 'trains', NAME + '.blend')
+    glb = os.path.join(ROOT, 'public', 'models', NAME + '.glb')
     os.makedirs(os.path.dirname(blend), exist_ok=True)
     os.makedirs(os.path.dirname(glb), exist_ok=True)
 

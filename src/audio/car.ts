@@ -4,6 +4,7 @@
 // stop, "doors closing" at the end of the dwell, and now and then a manners notice on a
 // longer run. Everything is read from the train's timetabled phase.
 
+import { hasPlatform } from '../data/network';
 import { clock } from '../sim';
 import { where } from '../player/player';
 import { trains, type TrainRuntime } from '../trains/system';
@@ -59,7 +60,7 @@ export function tickCarAudio() {
       noticeIdx = (noticeIdx + 1) % CAR_NOTICES.length;
       announce(CAR, 'notice', paths(CAR_NOTICES[noticeIdx]));
     }
-  } else if (p.doors && p.stop >= 0 && p.role !== 'arrival') {
+  } else if (p.doors && p.stop >= 0 && p.role !== 'arrival' && hasPlatform(t.sim.geom.def, p.stop)) {
     if (!fired.closing && s.tau >= p.t1 - DOOR_CLOSE_BEFORE - 2.5) {
       fired.closing = true;
       if (s.tau < p.t1 - DOOR_CLOSE_BEFORE) announce(CAR, 'closing', paths(CAR_DOORS_CLOSING), { priority: true });

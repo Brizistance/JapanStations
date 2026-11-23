@@ -1,9 +1,14 @@
 // 3D geometry of a line: alignment + vertical profile + track positions.
 // Pure TS, shared by the sim, the track renderer and the station builder.
 
-import type { LineDef } from '../data/types';
+import type { CarSpec, LineDef } from '../data/types';
 import { LINES, stationById } from '../data/network';
 import { Alignment } from './alignment';
+
+/** The metro's car: 18 m, three doors a side. CAR_PITCH / BOGIE_OFFSET below are its numbers. */
+export const METRO_CAR: CarSpec = { half: 9, pitch: 18.5, bogie: 6, doors: [-5.8, 0, 5.8], model: 'metro-car' };
+/** A line's rolling stock. */
+export const carOf = (def: LineDef): CarSpec => def.car ?? METRO_CAR;
 
 /** Track is level for this far either side of a station centre. */
 export const FLAT_M = 150;
