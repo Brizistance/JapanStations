@@ -318,6 +318,29 @@ kbd {
 .nb-band b { font-size: 13px; }
 .nb-band span span { font-size: 10.5px; font-weight: 600; opacity: 0.92; }
 .nb-band > i { font-style: normal; font-size: 10.5px; font-weight: 700; opacity: 0.92; white-space: nowrap; }
+/* Short cover over the 3D view for a time or season change (Veil.tsx). Below the menus and HUD. */
+.veil { position: absolute; inset: 0; background: #0c0d10; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+.veil.dark { opacity: 0.94; transition-duration: 0.15s; animation: veil-in 0.15s ease-out; }
+@keyframes veil-in { from { opacity: 0; } }
+/* Teleport transition (Travel.tsx): a dark cover with the arriving station's name board. */
+.travel {
+  position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 45%, #1a1e24 0%, #0c0d10 70%); opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.travel.dark { opacity: 1; pointer-events: auto; transition-duration: 0.25s; }
+.travel-board { min-width: min(440px, calc(100% - 32px)); background: #fff; color: #14233b; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55); transform: translateY(6px); transition: transform 0.35s ease-out; }
+.travel.dark .travel-board { transform: none; }
+.travel-head { display: flex; align-items: center; gap: 22px; padding: 22px 30px 18px 22px; }
+.travel-badges { display: flex; gap: 5px; }
+.travel-badges .numbadge i { color: #14233b; }
+.travel-name { flex: 1; text-align: center; }
+.travel-name small { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.36em; margin-right: -0.36em; color: #5d6673; }
+.travel-name b { display: block; margin: 4px 0; font-size: 46px; line-height: 1.05; letter-spacing: 0.12em; margin-right: -0.12em; white-space: nowrap; }
+.travel-name span { display: block; font-size: 16px; font-weight: 700; letter-spacing: 0.1em; color: #333c49; white-space: nowrap; }
+.travel-strip { display: flex; height: 10px; }
+.travel-strip i { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .travel, .travel-board { transition: none; } }
 .nb-stripes { display: flex; height: 8px; }
 .nb-stripes span { flex: 1; }
 .hud-name-main { flex: 1; display: flex; align-items: center; gap: 9px; padding: 8px 16px 7px 12px; }

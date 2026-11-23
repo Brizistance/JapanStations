@@ -57,6 +57,9 @@ export function teleport(stationId: string) {
   player.lastStation = stationId;
 }
 
+/** What falling out of the world does. The UI store swaps in its name-card transition. */
+export const onFall = { go: (stationId: string) => teleport(stationId) };
+
 let frames: Frame[] | null = null;
 function allFrames(): Frame[] {
   if (!frames || frames.length !== STATION_WORLDS.length + trains.length * (trains[0]?.cars.length ?? 0)) {
@@ -136,5 +139,5 @@ export function tickPlayer(dt: number) {
     }
   }
   // Safety net: fell out of the world.
-  if (b.pos[1] < -60) teleport(player.lastStation);
+  if (b.pos[1] < -60) onFall.go(player.lastStation);
 }

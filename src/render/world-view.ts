@@ -9,7 +9,7 @@ import { STATION_WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF, CAR_HALF_W } from '../trains/car';
-import { loadBuildingModels, lodModels, mergedModels, updateLod } from './building-models';
+import { cellMergedModels, loadBuildingModels, lodModels, updateLod } from './building-models';
 import { headlights } from './lamps';
 import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
@@ -33,6 +33,8 @@ const STATION_IN = 520, STATION_OUT = 680, TRAIN_RANGE = 750;
 const CULL_RANGE = 30;
 /** Just past where the fog is complete (Scene.tsx: 520 m underground, 1700 m in the open). */
 const FOG_UNDER = 540, FOG_OPEN = 1720;
+/** Grid cell of the merged backdrop blocks (cellMergedModels), m. */
+const BACKDROP_CELL = 250;
 /** Within this distance of a station, its departure boards animate smoothly. */
 const FAST_RANGE = 120;
 /** A station with a bigger plot is mounted from correspondingly further away. */
@@ -213,8 +215,9 @@ function backdropModels(): THREE.Group {
   }
   // Detail cells: the blocks near the camera full, the rest simplified (updateLod).
   const { group, rest } = lodModels(parts);
-  if (farParts.length) group.add(mergedModels(farParts, { noAO: true }));
-  if (rest.length) group.add(mergedModels(rest, { noAO: true }));
+  // In grid cells, not one city-wide mesh: cells behind the camera or past the fog are skipped (cull()).
+  if (farParts.length) group.add(cellMergedModels(farParts, BACKDROP_CELL, { noAO: true }));
+  if (rest.length) group.add(cellMergedModels(rest, BACKDROP_CELL, { noAO: true }));
   return group;
 }
 
@@ -397,6 +400,8 @@ export class WorldView {
   /** Track chunks deep inside tunnels (track.ts), and every chunk with where it is. */
   private deepTrack: THREE.Object3D[] = [];
   private chunks: { mesh: THREE.Mesh; x: number; z: number; r: number; deep: boolean }[] = [];
+  /** The backdrop's grid cells (cellMergedModels): hidden beyond the fog. */
+  private cells: { group: THREE.Object3D; x: number; z: number; r: number }[] = [];
   /** What cull() decided this frame, for the trains. */
   private hide = { surface: false, deep: false };
 
@@ -425,6 +430,10 @@ export class WorldView {
         const district = backdropModels();
         this.backdrop.push(district);
         this.root.add(district);
+        district.traverse((o) => {
+          const c = o.userData.cell as { x: number; z: number; r: number } | undefined;
+          if (c) this.cells.push({ group: o, ...c });
+        });
       }
     }, (e) => console.warn('building models not loaded:', e));
   }
@@ -458,8 +467,9 @@ export class WorldView {
   }
 
   /** Mount/unmount stations by distance and move the trains. Call after the sim tick. */
-  update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any') {
-    this.cull(cam, vis);
+  /** `fogFar`: where the fog is total right now, m (cells past it are not drawn). */
+  update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any', fogFar = FOG_OPEN) {
+    this.cull(cam, vis, fogFar);
     updateLod(cam);
     // Stations: at most one mount per frame to spread the cost.
     for (const tick of this.trackTicks) tick(clock.time);
@@ -540,7 +550,7 @@ export class WorldView {
    * underground ('under') nothing at street level is drawn, at any station, nor the city beyond;
    * out on the street ('street') nothing below it is. Anywhere else everything is drawn.
    */
-  private cull(cam: THREE.Vector3, vis: 'any' | 'street' | 'under') {
+  private cull(cam: THREE.Vector3, vis: 'any' | 'street' | 'under', fogFar: number) {
     let far = false, sealed = false;
     // Out in the city beyond every station's plot (the continued streets, the boulevards), at street
     // level: nothing below the street can be seen from there, the stations' halls nor the tunnels.
@@ -578,6 +588,11 @@ export class WorldView {
     // (An exit stair leads to a concourse, never to the running tunnels: from a sealed station's street they and the trains in them are out of sight wherever you stand.)
     const tunnels = !(sealed && vis === 'street');
     for (const c of this.chunks) c.mesh.visible = (tunnels || !c.deep) && Math.hypot(c.x - cam.x, c.z - cam.z) - c.r < reach;
+    // Backdrop cells: only those reaching inside the fog as it is now. Past it they would be drawn
+    // in pure fog colour, so leaving them out changes nothing on screen; underground (fog at ~520 m)
+    // and on a foggy day that is most of the city.
+    const sky = Math.min(FOG_OPEN, fogFar);
+    for (const c of this.cells) c.group.visible = Math.hypot(c.x - cam.x, c.z - cam.z) - c.r < sky;
     this.hide.surface = !surface;
     this.hide.deep = !tunnels;
   }

@@ -5,7 +5,7 @@ import { season, type Season } from '../render/season';
 import { doyOf, monthOf, seasonOf, today, weatherOn, wrapDoy, YEAR_DAYS } from '../sim/climate';
 import { create } from 'zustand';
 import { clock } from '../sim';
-import { clearInput, teleport } from '../player/player';
+import { clearInput, onFall } from '../player/player';
 import { setMasterVolume, setMuted, setSfxVolume, setVoiceVolume } from '../audio/engine';
 import { WEATHERS, type Weather } from '../render/atmosphere';
 import { DEFAULT_GRAPHICS, fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
@@ -150,8 +150,10 @@ interface UI {
   weather: WeatherPick;
   weatherNow: Weather;
   setWeather: (w: WeatherPick) => void;
-  /** Set the sim clock to `sec` seconds after midnight (the city menu's time of day). */
+  /** Set the sim clock to `sec` seconds after midnight (the city menu's time of day). Applied under the veil. */
   setTime: (sec: number) => void;
+  /** Bumped when work is queued for the short cover (Veil.tsx). */
+  veil: number;
   /** Everything, 0…1. */
   masterVolume: number;
   setMasterVolume: (v: number) => void;
@@ -188,6 +190,11 @@ interface UI {
   toCity: (zoomed?: boolean) => void;
   start: (stationId: string) => void;
   goTo: (stationId: string) => void;
+  /** A teleport in progress: the screen fades to the station's name card, the player moves, it fades back (Travel.tsx). */
+  travel: { id: string; seq: number } | null;
+  /** Teleport behind the name-card transition. A new call mid-way replaces the destination. */
+  travelTo: (stationId: string) => void;
+  endTravel: (seq: number) => void;
   /** `pick`: the map is opened to choose where to be guided to; a click on a station starts guidance. */
   setMap: (open: boolean, pick?: boolean) => void;
   mapPick: boolean;
@@ -208,6 +215,26 @@ interface UI {
   toggleFast: () => void;
   /** Stop or restart the clock without opening the pause screen. */
   toggleFreeze: () => void;
+}
+
+// The short cover (Veil.tsx) for changes that would cut visibly: work queued here runs once the
+// screen is dark, or at once if it already is (dragging the time slider).
+const veilQueue: (() => void)[] = [];
+export const veilState = { dark: false };
+/** A time picked but not applied yet: the sliders show it so they do not jump back. */
+let veilTime: number | null = null;
+export const shownTime = () => veilTime ?? clock.time;
+export function underVeil(fn: () => void) {
+  if (veilState.dark) {
+    fn();
+    useUI.setState({ veil: useUI.getState().veil + 1 }); // keep the cover up a little longer
+    return;
+  }
+  veilQueue.push(fn);
+  useUI.setState({ veil: useUI.getState().veil + 1 });
+}
+export function runVeiled() {
+  for (const fn of veilQueue.splice(0)) fn();
 }
 
 export function capturePointer() {
@@ -275,12 +302,17 @@ export const useUI = create<UI>((set, get) => ({
   stepDay: (days) => {
     const n = get().doy - 1 + Math.round(days);
     const doy = wrapDoy(n + 1), year = Math.max(0, get().year + Math.floor(n / YEAR_DAYS));
-    const pick = get().weather, weatherNow = pick === 'auto' ? weatherOn(doy, year) : pick;
-    Object.assign(today, { doy, year, weather: weatherNow });
-    season.now = seasonOf(monthOf(doy));
-    save(DATE_KEY, String(doy));
-    save(YEAR_KEY, String(year));
-    set({ doy, year, weatherNow, season: season.now });
+    const apply = () => {
+      const pick = get().weather, weatherNow = pick === 'auto' ? weatherOn(doy, year) : pick;
+      Object.assign(today, { doy, year, weather: weatherNow });
+      season.now = seasonOf(monthOf(doy));
+      save(DATE_KEY, String(doy));
+      save(YEAR_KEY, String(year));
+      set({ doy, year, weatherNow, season: season.now });
+    };
+    // A new season rebuilds the stations' trees: done under the cover, which hides the stall and the pop.
+    if (seasonOf(monthOf(doy)) !== season.now) underVeil(apply);
+    else apply();
   },
   syncDate: () => {
     const d = Math.floor(clock.time / 86400);
@@ -295,10 +327,17 @@ export const useUI = create<UI>((set, get) => ({
     set({ weather, weatherNow: today.weather });
   },
   setTime: (sec) => {
-    clockDay = 0;
-    clock.time = ((sec % 86400) + 86400) % 86400;
-    save(TIME_KEY, String(clock.time));
+    const t = ((sec % 86400) + 86400) % 86400;
+    // The trains jump to the timetable at the new time: done under the cover. The sky eases on its own.
+    veilTime = t;
+    underVeil(() => {
+      clockDay = 0;
+      clock.time = t;
+      if (veilTime === t) veilTime = null;
+      save(TIME_KEY, String(clock.time));
+    });
   },
+  veil: 0,
   masterVolume: initialMaster,
   setMasterVolume: (v) => {
     setMasterVolume(v);
@@ -381,19 +420,24 @@ export const useUI = create<UI>((set, get) => ({
   toTitle: () => set({ mode: 'title', zoomed: false, settingsOpen: false }),
   toRegion: (zoomed = false) => set({ mode: 'region', zoomed, settingsOpen: false }),
   toCity: (zoomed = false) => set({ mode: 'menu', zoomed, settingsOpen: false }),
-  start: (id) => {
-    teleport(id);
-    clearInput();
-    clock.scale = get().speed;
-    set({ mode: 'play', mapOpen: false, settingsOpen: false, paused: false });
-    capturePointer();
-  },
+  start: (id) => get().goTo(id),
   goTo: (id) => {
-    teleport(id);
+    // Pointer lock needs the click, so it is taken now. From a menu, the menu stays up under the
+    // fade and play mode starts once the cover is dark (Travel.tsx), so nothing pops in.
     clearInput();
     clock.scale = get().speed;
-    set({ mode: 'play', mapOpen: false, settingsOpen: false, paused: false });
+    set({ mapOpen: false, settingsOpen: false, paused: false });
     capturePointer();
+    get().travelTo(id);
+  },
+  travel: null,
+  travelTo: (id) => {
+    const t = get().travel;
+    if (t?.id === id) return;
+    set({ travel: { id, seq: (t?.seq ?? 0) + 1 } });
+  },
+  endTravel: (seq) => {
+    if (get().travel?.seq === seq) set({ travel: null });
   },
   setMap: (open, pick = false) => {
     if (get().mode !== 'play') return;
@@ -430,3 +474,5 @@ export const useUI = create<UI>((set, get) => ({
   toggleFast: () => get().setSpeed(get().speed === 6 ? 1 : 6),
   toggleFreeze: () => get().setSpeed(get().speed === 0 ? 1 : 0),
 }));
+
+onFall.go = (id) => useUI.getState().travelTo(id);

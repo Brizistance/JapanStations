@@ -364,6 +364,31 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
   return group;
 }
 
+/**
+ * `mergedModels`, but one group per `size` m grid cell, so what is behind the camera or beyond the
+ * fog can be skipped (a city-wide merged mesh is always on screen somewhere, so it is always drawn
+ * whole). Each cell group carries `userData.cell = { x, z, r }`: its centre and a radius that
+ * covers its buildings.
+ */
+export function cellMergedModels(parts: ModelPart[], size: number, o: { cast?: boolean; noAO?: boolean } = {}): THREE.Group {
+  const group = new THREE.Group();
+  const cells = new Map<string, { cx: number; cz: number; list: ModelPart[] }>();
+  for (const p of parts) {
+    const cx = Math.floor(p.pos[0] / size), cz = Math.floor(p.pos[2] / size), key = `${cx},${cz}`;
+    let c = cells.get(key);
+    if (!c) cells.set(key, (c = { cx, cz, list: [] }));
+    c.list.push(p);
+  }
+  for (const c of cells.values()) {
+    const g = mergedModels(c.list, o);
+    if (!g.children.length) continue;
+    // Half the cell's diagonal plus room for a building standing on its edge.
+    g.userData.cell = { x: (c.cx + 0.5) * size, z: (c.cz + 0.5) * size, r: size * 0.71 + 40 };
+    group.add(g);
+  }
+  return group;
+}
+
 // ── Detail by distance ───────────────────────────────────────────────────────────────────────
 
 /** Size of a detail cell, and how near (camera to cell centre) a cell shows its full models. */

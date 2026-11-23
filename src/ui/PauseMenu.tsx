@@ -1,5 +1,5 @@
 // The pause screen (Esc): the clock stands still, the mouse is free. One place with a tab for
-// everything: the game (resume, time of day, weather, clock speed), the route map, guidance, settings and
+// everything: the game (resume, date and season, time of day, weather, clock speed), the route map, guidance, settings and
 // the keys.
 
 import { useState } from 'react';
@@ -8,10 +8,10 @@ import { player, where } from '../player/player';
 import { clock, formatClock } from '../sim';
 import { Bi } from './Bi';
 import { DestinationSearch } from './Guide';
-import { TIME_PRESETS, WeatherPicker } from './MainMenu';
+import { DatePicker, TIME_PRESETS, WeatherPicker } from './MainMenu';
 import { MetroMap, NumberBadge, StationPanel } from './MetroMap';
 import { SettingsBody } from './Settings';
-import { useUI, type Speed } from './store';
+import { shownTime, useUI, type Speed } from './store';
 
 const SPEED_LABEL: [Speed, string, string][] = [[0, '停止', 'Stopped'], [1, '通常', 'Real time'], [6, '早送り ×6', 'Fast ×6']];
 type Tab = 'game' | 'map' | 'guide' | 'settings' | 'controls';
@@ -19,7 +19,7 @@ const TABS: [Tab, string, string][] = [['game', 'ゲーム', 'Game'], ['map', '�
 
 function Game() {
   const { speed, setSpeed, setTime, setPaused, toMenu, lang } = useUI();
-  const now = ((clock.time % 86400) + 86400) % 86400;
+  const t = shownTime(), now = ((t % 86400) + 86400) % 86400;
   return (
     <div className="pause-body">
       <div className="pause-actions">
@@ -27,9 +27,11 @@ function Game() {
         <button className="sg-btn warn" onClick={toMenu}><Bi ja="メニューへ戻る" en="Back to the menu" /></button>
       </div>
       <div className="pause-side">
+        <h3><Bi ja="日付" en="Date" /></h3>
+        <DatePicker />
         <h3><Bi ja="時刻" en="Time of day" /></h3>
         <div className="sky-time">
-          <b>{formatClock(clock.time)}</b>
+          <b>{formatClock(t)}</b>
           <input type="range" min={0} max={86400 - 900} step={900} value={Math.floor(now / 900) * 900} aria-label="Time of day" onChange={(e) => setTime(Number(e.target.value))} />
         </div>
         <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>

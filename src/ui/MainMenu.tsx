@@ -9,7 +9,7 @@ import { clock, formatClock } from '../sim';
 import { Bi } from './Bi';
 import { LineBullet, MetroMap, StationPanel, useTick } from './MetroMap';
 import { zoomMs } from './RegionMap';
-import { useUI } from './store';
+import { shownTime, useUI } from './store';
 
 export function Logo({ size = 56 }: { size?: number }) {
   return (
@@ -70,16 +70,13 @@ export function WeatherPicker() {
   );
 }
 
-/** Date, time of day and weather for this visit. All apply live to the view behind the menu. */
-function SkyPicker() {
+/** The date (day steps and a month grid). The month sets the season: climate, day length, trees. */
+export function DatePicker() {
   const doy = useUI((s) => s.doy);
-  const setTime = useUI((s) => s.setTime);
   const setDate = useUI((s) => s.setDate), stepDay = useUI((s) => s.stepDay);
-  const now = ((clock.time % 86400) + 86400) % 86400;
   const month = monthOf(doy), day = dayOfMonth(doy);
   return (
-    <div className="sg-panel">
-      <h3><Bi ja="日付" en="Date" /></h3>
+    <>
       <div className="sky-date">
         <button title="前の日 Previous day" onClick={() => stepDay(-1)}>◀</button>
         <b><Bi ja={`${month}月${day}日`} en={`${day} ${MONTH_EN[month - 1]}`} /></b>
@@ -93,9 +90,21 @@ function SkyPicker() {
         ))}
       </div>
       <p className="set-hint">The month sets the climate, the length of the day and the trees.</p>
+    </>
+  );
+}
+
+/** Date, time of day and weather for this visit. All apply live to the view behind the menu. */
+function SkyPicker() {
+  const setTime = useUI((s) => s.setTime);
+  const t = shownTime(), now = ((t % 86400) + 86400) % 86400;
+  return (
+    <div className="sg-panel">
+      <h3><Bi ja="日付" en="Date" /></h3>
+      <DatePicker />
       <h3><Bi ja="時刻" en="Time of day" /></h3>
       <div className="sky-time">
-        <b>{formatClock(clock.time)}</b>
+        <b>{formatClock(t)}</b>
         <input type="range" min={0} max={86400 - 900} step={900} value={Math.floor(now / 900) * 900} aria-label="Time of day" onChange={(e) => setTime(Number(e.target.value))} />
       </div>
       <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>

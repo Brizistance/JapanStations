@@ -2,7 +2,7 @@ import { perfStats } from './perf';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { EYE, gale, input, player, teleport, tickPlayer, nearestStation, where } from '../player/player';
+import { EYE, gale, input, player, tickPlayer, nearestStation, where } from '../player/player';
 import { clock } from '../sim';
 import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
@@ -14,7 +14,7 @@ import { dom, useUI, capturePointer } from '../ui/store';
 import { moveWheel, WHEEL, wheelIndex, wheelMove } from '../ui/Wheel';
 import { toWorld } from '../world/collision';
 import { tickStormAudio } from '../audio/storm';
-import { WIND_DIR, atmosphereAt, lightning, newAtmosphere } from './atmosphere';
+import { WIND_DIR, atmosphereAt, easeAtmosphere, lightning, newAtmosphere } from './atmosphere';
 import { declOf } from '../sim/climate';
 import { LampDots, updateLamps } from './lamps';
 import { Lighting } from './lighting';
@@ -28,7 +28,9 @@ import { WorldView } from './world-view';
 
 const DARK = new THREE.Color('#050506');
 const SKY = new THREE.Color(), SUN = new THREE.Vector3();
-const atm = newAtmosphere();
+const atm = newAtmosphere(), atmTarget = newAtmosphere();
+/** Time constant of the sky easing: about 95% of the way after 1.5 s. */
+const ATM_EASE_TAU = 0.5;
 const tmp: [number, number, number] = [0, 0, 0];
 
 function World() {
@@ -114,7 +116,8 @@ function World() {
     updateTraffic(clock.time, walking ? { x: player.body.pos[0], z: player.body.pos[2] } : camera.position, walking && !where.train ? player.body.pos : null, fx.traffic, fx.density * (atm.storm > 0.6 ? 0.3 : atm.storm > 0.3 ? 0.6 : 1));
 
     if (useUI.getState().mode === 'play') {
-      tickPlayer(dt);
+      // Frozen while the teleport cover is up: the move happens under it.
+      if (!useUI.getState().travel) tickPlayer(dt);
       const p = player.body.pos;
       camera.position.set(p[0], player.eyeY + EYE, p[2]);
       camera.rotation.set(player.pitch, player.yaw, 0);
@@ -132,11 +135,13 @@ function World() {
     // What cannot be seen from here is not drawn (WorldView.update): indoors underground the street, on the street the halls below.
     const zone = useUI.getState().mode === 'play' ? where.zone : null;
     const vis = !zone ? 'any' : zone.kind === 'street' ? 'street' : !zone.sky && camera.position.y < -2.5 ? 'under' : 'any';
-    view.update(dt, camera.position, vis);
+    view.update(dt, camera.position, vis, (scene.fog as THREE.Fog).far);
 
     // The hour and the weather decide the light, the sky and the fog above ground.
     useUI.getState().syncDate();
-    atmosphereAt(clock.time, useUI.getState().weatherNow, atm, declOf(useUI.getState().doy));
+    // The scene draws an eased copy: a new time, weather or date plays out over ~1.5 s.
+    atmosphereAt(clock.time, useUI.getState().weatherNow, atmTarget, declOf(useUI.getState().doy));
+    easeAtmosphere(atm, atmTarget, 1 - Math.exp(-dt / ATM_EASE_TAU));
     const bolt = lightning(state.clock.elapsedTime, atm.storm);
     atm.flash = vis === 'under' ? 0 : bolt;
     SKY.fromArray(atm.fogColor).addScalar(atm.flash * 0.3);
@@ -267,7 +272,7 @@ function Controls() {
         if (e.code === 'Tab') return ui.setFreeMouse(document.pointerLockElement === el);
         if (e.code === 'KeyX') return (ui.setGuide(null), ui.setMark(null));
         if (e.code === 'KeyP') return ui.setPlan(!ui.planOn);
-        if (e.code === 'KeyR') return teleport(nearestStation(player.body.pos[0], player.body.pos[2]).world.def.id);
+        if (e.code === 'KeyR') return ui.travelTo(nearestStation(player.body.pos[0], player.body.pos[2]).world.def.id);
       }
       const k = KEYS[e.code];
       if (!k || ui.mapOpen || ui.settingsOpen || ui.paused) return;

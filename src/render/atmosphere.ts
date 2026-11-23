@@ -152,6 +152,29 @@ export function lightning(t: number, storm: number): number {
   return Math.max(Math.exp(-dt * 16), dt > 0.16 ? 0.75 * Math.exp(-(dt - 0.16) * 20) : 0);
 }
 
+const EASE_NUM = ['lightPower', 'day', 'dusk', 'night', 'cover', 'direct', 'fogNear', 'fogFar', 'wet', 'rain', 'snow', 'wind', 'storm', 'pulse'] as const;
+const EASE_COL = ['lightColor', 'fogColor', 'cloudLit', 'cloudDark'] as const;
+const EASE_DIR = ['sun', 'moon', 'light'] as const;
+
+/**
+ * Move `shown` a fraction `k` (0…1) of the way to `target`. The scene draws `shown`, so a jump in
+ * the time, weather or date plays out as the sky changing rather than a cut. Directions are
+ * renormalised; where they would pass through zero (sun swinging across the sky) they snap.
+ * `flash` is not eased: lightning is set per frame on the shown atmosphere.
+ */
+export function easeAtmosphere(shown: Atmosphere, target: Atmosphere, k: number): Atmosphere {
+  for (const key of EASE_NUM) shown[key] += (target[key] - shown[key]) * k;
+  for (const key of EASE_COL) mix3(shown[key], target[key], k, shown[key]);
+  for (const key of EASE_DIR) {
+    const v = mix3(shown[key], target[key], k, shown[key]);
+    const len = Math.hypot(v[0], v[1], v[2]);
+    if (len < 0.2) v.splice(0, 3, ...target[key]);
+    else for (let i = 0; i < 3; i++) v[i] /= len;
+  }
+  shown.sunLit = target.sunLit;
+  return shown;
+}
+
 /** Fill `out` for clock time `timeS` (seconds; any day), `weather` and the sun's declination `decl` (radians). */
 export function atmosphereAt(timeS: number, weather: Weather, out: Atmosphere = newAtmosphere(), decl = DECL): Atmosphere {
   const t = ((timeS % DAY_S) + DAY_S) % DAY_S;

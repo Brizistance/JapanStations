@@ -7,8 +7,64 @@
     <meta name="google" content="notranslate" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>川湊メトロ — Kawaminato Metro</title>
+    <!-- The splash shows before any script runs, while the stations are built.
+         Pure CSS: transform/opacity animations keep moving while the main thread is busy.
+         The line colours are copied from src/data/network.ts (no data is loaded yet). -->
+    <style>
+      #splash {
+        position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: radial-gradient(ellipse at 50% 40%, #1a1e24 0%, #0c0d10 70%); color: #fff;
+        font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", "Noto Sans JP", system-ui, sans-serif;
+        transition: opacity 0.6s ease;
+      }
+      #splash.gone { opacity: 0; pointer-events: none; }
+      .sp-board { width: min(560px, calc(100% - 32px)); background: #16191d; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55); animation: sp-in 0.5s ease-out both; }
+      .sp-head { padding: 30px 30px 22px; text-align: center; }
+      .sp-head small { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.3em; color: #aab4c0; }
+      .sp-head h1 { margin: 10px 0 0; font-size: clamp(56px, 14vw, 88px); line-height: 1; font-weight: 800; letter-spacing: 0.12em; }
+      .sp-head .kana { margin: 10px 0 0; font-size: 17px; font-weight: 700; letter-spacing: 0.4em; color: #aab4c0; }
+      .sp-head .rom { margin: 4px 0 0; font-size: 15px; font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase; }
+      .sp-strip { position: relative; display: flex; height: 12px; overflow: hidden; }
+      .sp-strip i { flex: 1; }
+      .sp-strip::after {
+        content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
+        animation: sp-sweep 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite; will-change: transform;
+      }
+      .sp-status { position: relative; height: 40px; margin-top: 26px; width: min(560px, calc(100% - 32px)); text-align: center; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; color: #aab4c0; }
+      .sp-status span { position: absolute; inset: 0; opacity: 0; animation: sp-cycle 7.5s infinite; will-change: opacity; }
+      .sp-status span:nth-child(2) { animation-delay: 2.5s; }
+      .sp-status span:nth-child(3) { animation-delay: 5s; }
+      .sp-status b { display: block; color: #fff; font-size: 15px; letter-spacing: 0.2em; }
+      @keyframes sp-in { from { opacity: 0; transform: translateY(8px); } }
+      @keyframes sp-sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+      @keyframes sp-cycle { 0% { opacity: 0; } 6%, 30% { opacity: 1; } 36%, 100% { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) {
+        .sp-strip::after { animation: none; display: none; }
+        .sp-status span { animation: none; }
+        .sp-status span:first-child { opacity: 1; }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-label="読み込み中 Loading">
+      <div class="sp-board">
+        <div class="sp-head">
+          <small>西海 · SEIKAI</small>
+          <h1>川湊</h1>
+          <p class="kana">かわみなと</p>
+          <p class="rom">Kawaminato</p>
+        </div>
+        <div class="sp-strip" aria-hidden="true">
+          <i style="background:#1f9d55"></i><i style="background:#1673c9"></i><i style="background:#b7282e"></i><i style="background:#ee7b1a"></i><i style="background:#7b4fa8"></i><i style="background:#c2368f"></i><i style="background:#c99a06"></i>
+        </div>
+      </div>
+      <div class="sp-status" aria-hidden="true">
+        <span><b>まもなく</b>Arriving shortly</span>
+        <span><b>準備中</b>Preparing the city</span>
+        <span><b>しばらくお待ちください</b>Please wait a moment</span>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
