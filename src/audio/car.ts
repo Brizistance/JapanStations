@@ -10,7 +10,7 @@ import { where } from '../player/player';
 import { trains, type TrainRuntime } from '../trains/system';
 import { announce, CAR, carLoop, hushCar, playCar, type LoopHandle } from './engine';
 import { MOTOR_OF } from './sfx';
-import { CAR_DOORS_CLOSING, CAR_NOTICES, carAnnouncement, doorSideOf } from './phrases';
+import { CAR_DOORS_CLOSING, CAR_NOTICES, RAIL_CAR_DOORS_CLOSING, RAIL_CAR_NOTICES, carAnnouncement, doorSideOf, railCarAnnouncement, type CarEvent } from './phrases';
 
 /** Door timing from the sim: doors start closing 3 s before the dwell ends. */
 const DOOR_CLOSE_BEFORE = 3;
@@ -42,28 +42,32 @@ export function tickCarAudio() {
     if (p.kind === 'run') runs++;
     if (firstSight && p.kind === 'run') fired.next = s.tau - p.t0 > NEXT_AFTER + 6; // boarded mid-run: skip the late "next"
   }
-  const line = t.sim.geom.def;
+  const line = t.sim.geom.def, rail = line.type === 'jr';
+  // The main line speaks in its own voice and wording.
+  const say = (ev: CarEvent, stop: number, dir: typeof s.phase.dir) =>
+    paths(rail ? railCarAnnouncement(ev, line, dir, stop, t.service) : carAnnouncement(ev, line, dir, stop, doorSideOf(line, dir)));
+  const notices = rail ? RAIL_CAR_NOTICES : CAR_NOTICES;
 
   if (p.kind === 'run') {
     if (!p.inService || p.toStop < 0) return;
     const len = p.t1 - p.t0, el = s.tau - p.t0, left = p.t1 - s.tau;
     if (!fired.next && el >= NEXT_AFTER && len >= NEXT_MIN_RUN && left > SOON_BEFORE + 8) {
       fired.next = true;
-      announce(CAR, 'next', paths(carAnnouncement('next', line, p.dir, p.toStop, doorSideOf(line, p.dir))));
+      announce(CAR, 'next', say('next', p.toStop, p.dir));
     }
     if (!fired.soon && left <= SOON_BEFORE && el >= 3) {
       fired.soon = true;
-      announce(CAR, 'soon', paths(carAnnouncement('soon', line, p.dir, p.toStop, doorSideOf(line, p.dir))));
+      announce(CAR, 'soon', say('soon', p.toStop, p.dir));
     }
     if (!fired.notice && runs % 2 === 0 && len >= NOTICE_MIN_RUN && el >= len * 0.45 && left > SOON_BEFORE + 12) {
       fired.notice = true;
-      noticeIdx = (noticeIdx + 1) % CAR_NOTICES.length;
-      announce(CAR, 'notice', paths(CAR_NOTICES[noticeIdx]));
+      noticeIdx = (noticeIdx + 1) % notices.length;
+      announce(CAR, 'notice', paths(notices[noticeIdx]));
     }
   } else if (p.doors && p.stop >= 0 && p.role !== 'arrival' && hasPlatform(t.sim.geom.def, p.stop)) {
     if (!fired.closing && s.tau >= p.t1 - DOOR_CLOSE_BEFORE - 2.5) {
       fired.closing = true;
-      if (s.tau < p.t1 - DOOR_CLOSE_BEFORE) announce(CAR, 'closing', paths(CAR_DOORS_CLOSING), { priority: true });
+      if (s.tau < p.t1 - DOOR_CLOSE_BEFORE) announce(CAR, 'closing', paths(rail ? RAIL_CAR_DOORS_CLOSING : CAR_DOORS_CLOSING), { priority: true });
     }
   }
 }

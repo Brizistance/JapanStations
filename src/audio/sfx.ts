@@ -2,7 +2,7 @@
 // public/audio/sfx/<name>.mp3. Pure list, shared by the generator and the game. Each line has
 // its own approach jingle, each station its own departure melody; all original.
 
-import { LINES, STATIONS } from '../data/network';
+import { LINES, RAIL_LINES, STATIONS } from '../data/network';
 
 export interface Sfx {
   name: string;
@@ -28,6 +28,9 @@ const tone = (id: string) => LINE_TONE[id] ?? 'clean electronic bells';
 
 export const approachSfx = (line: string) => `approach-${line}`;
 export const melodySfx = (station: string) => `melody-${station}`;
+/** A main line's departure bell: it plays a melody as a train comes in, and only rings one out. */
+export const departSfx = (line: string) => `depart-${line}`;
+export const DEPART_BELL_S = 3;
 
 function h32(s: string): number {
   let h = 0x811c9dc5;
@@ -104,6 +107,18 @@ export const SFX: Sfx[] = [
       name: approachSfx(l.id),
       prompt: `Short Japanese railway train-approach jingle (sekkin melody), a three to four note motif on ${tone(l.id)}. ${PA} ${NO_VOICE}`,
       seconds: 3,
+    },
+  ]),
+  ...RAIL_LINES.flatMap((l): Sfx[] => [
+    {
+      name: approachSfx(l.id),
+      prompt: `Japanese main-line railway train-approach melody (sekkin melody): an original gentle tune of two short phrases on bright electric piano and soft synth bells, unhurried and a little wistful, ending cleanly on the tonic. Played over an open-air station platform speaker. ${NO_VOICE}`,
+      seconds: 7,
+    },
+    {
+      name: departSfx(l.id),
+      prompt: `Japanese railway platform departure bell: a steady electronic two-tone bell ringing quickly for three seconds, then stopping cleanly. Played over an open-air station platform speaker. ${NO_VOICE}`,
+      seconds: DEPART_BELL_S,
     },
   ]),
   ...STATIONS.map((st): Sfx => {

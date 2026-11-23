@@ -1978,5 +1978,417 @@
  "C-2e3c7a42": {
   "voice": "C",
   "text": "The next station is Seiran, M-11, the last stop. The doors on the right side will open."
+ },
+ "RC-bb75a75c": {
+  "voice": "RC",
+  "text": "今日も、あきつしま鉄道をご利用くださいまして、ありがとうございます。この電車は、あきつほんせん、普通、あさなぎ行きです。"
+ },
+ "RC-6585883a": {
+  "voice": "RC",
+  "text": "次は、うぐいすざか、うぐいすざかです。"
+ },
+ "RC-8d9844db": {
+  "voice": "RC",
+  "text": "Thank you for using the Akitsushima Railway. This is the Local service bound for Asanagi."
+ },
+ "RC-bf173c29": {
+  "voice": "RC",
+  "text": "The next stop is Uguisuzaka."
+ },
+ "RC-a8daf32b": {
+  "voice": "RC",
+  "text": "まもなく、うぐいすざか、うぐいすざかです。お出口は、右側です。"
+ },
+ "RC-684259f7": {
+  "voice": "RC",
+  "text": "地下鉄、なぎさせん、ききょうせんは、お乗り換えです。"
+ },
+ "RC-3a29e3e3": {
+  "voice": "RC",
+  "text": "We will soon be making a brief stop at Uguisuzaka. The doors on the right side will open."
+ },
+ "RC-88c3b73c": {
+  "voice": "RC",
+  "text": "Please change here for the subway Nagisa Line and Kikyō Line."
+ },
+ "RC-07b08906": {
+  "voice": "RC",
+  "text": "今日も、あきつしま鉄道をご利用くださいまして、ありがとうございます。この電車は、あきつほんせん、快速、あさなぎ行きです。"
+ },
+ "RC-03805310": {
+  "voice": "RC",
+  "text": "Thank you for using the Akitsushima Railway. This is the Rapid service bound for Asanagi."
+ },
+ "RC-b569b010": {
+  "voice": "RC",
+  "text": "今日も、あきつしま鉄道をご利用くださいまして、ありがとうございます。この電車は、あきつほんせん、普通、きりがはら行きです。"
+ },
+ "RC-4a828566": {
+  "voice": "RC",
+  "text": "Thank you for using the Akitsushima Railway. This is the Local service bound for Kirigahara."
+ },
+ "RC-9ae8ab02": {
+  "voice": "RC",
+  "text": "今日も、あきつしま鉄道をご利用くださいまして、ありがとうございます。この電車は、あきつほんせん、快速、きりがはら行きです。"
+ },
+ "RC-29678f13": {
+  "voice": "RC",
+  "text": "Thank you for using the Akitsushima Railway. This is the Rapid service bound for Kirigahara."
+ },
+ "RC-508c16b0": {
+  "voice": "RC",
+  "text": "次は、みおかみ、みおかみです。"
+ },
+ "RC-be44aac7": {
+  "voice": "RC",
+  "text": "The next stop is Miokami."
+ },
+ "RC-75b16f9a": {
+  "voice": "RC",
+  "text": "まもなく、みおかみ、みおかみです。お出口は、左側です。"
+ },
+ "RC-3880b8da": {
+  "voice": "RC",
+  "text": "地下鉄、なぎさせん、しおかぜせんは、お乗り換えです。"
+ },
+ "RC-d41c8cd4": {
+  "voice": "RC",
+  "text": "We will soon be making a brief stop at Miokami. The doors on the left side will open."
+ },
+ "RC-9db7ead3": {
+  "voice": "RC",
+  "text": "Please change here for the subway Nagisa Line and Shiokaze Line."
+ },
+ "RM-1300d8e6": {
+  "voice": "RM",
+  "text": "まもなく、1番のりばに、普通、あさなぎ行きが、まいります。"
+ },
+ "RM-8362b6f9": {
+  "voice": "RM",
+  "text": "The Local service bound for Asanagi will soon arrive on track 1."
+ },
+ "RM-d56db9ff": {
+  "voice": "RM",
+  "text": "危ないですから、黄色い点字ブロックの内側まで、おさがりください。"
+ },
+ "RM-0f3556f3": {
+  "voice": "RM",
+  "text": "For your safety, please stand behind the yellow tactile blocks."
+ },
+ "RM-0d5a4fbd": {
+  "voice": "RM",
+  "text": "みおかみ、みおかみです。地下鉄、なぎさせん、しおかぜせんは、お乗り換えです。"
+ },
+ "RM-769eb382": {
+  "voice": "RM",
+  "text": "This is Miokami. Please change here for the subway Nagisa Line and Shiokaze Line."
+ },
+ "RM-a96d8b8e": {
+  "voice": "RM",
+  "text": "1番のりば、ドアが閉まります。ご注意ください。"
+ },
+ "RM-0fd63ef4": {
+  "voice": "RM",
+  "text": "まもなく、1番のりばに、快速、あさなぎ行きが、まいります。"
+ },
+ "RM-a23746ce": {
+  "voice": "RM",
+  "text": "The Rapid service bound for Asanagi will soon arrive on track 1."
+ },
+ "RF-47123d52": {
+  "voice": "RF",
+  "text": "まもなく、2番のりばに、普通、きりがはら行きが、まいります。"
+ },
+ "RF-b80be17a": {
+  "voice": "RF",
+  "text": "The Local service bound for Kirigahara will soon arrive on track 2."
+ },
+ "RF-fa46a6e2": {
+  "voice": "RF",
+  "text": "危ないですから、黄色い点字ブロックの内側まで、おさがりください。"
+ },
+ "RF-25b8e63c": {
+  "voice": "RF",
+  "text": "For your safety, please stand behind the yellow tactile blocks."
+ },
+ "RF-ed2e87ac": {
+  "voice": "RF",
+  "text": "みおかみ、みおかみです。地下鉄、なぎさせん、しおかぜせんは、お乗り換えです。"
+ },
+ "RF-9b3bff45": {
+  "voice": "RF",
+  "text": "This is Miokami. Please change here for the subway Nagisa Line and Shiokaze Line."
+ },
+ "RF-6994ae08": {
+  "voice": "RF",
+  "text": "2番のりば、ドアが閉まります。ご注意ください。"
+ },
+ "RF-6ca8dd78": {
+  "voice": "RF",
+  "text": "まもなく、2番のりばに、快速、きりがはら行きが、まいります。"
+ },
+ "RF-8eec5e77": {
+  "voice": "RF",
+  "text": "The Rapid service bound for Kirigahara will soon arrive on track 2."
+ },
+ "RC-fdab3ad2": {
+  "voice": "RC",
+  "text": "次は、ひがしかわみなと、ひがしかわみなとです。"
+ },
+ "RC-1d9c9348": {
+  "voice": "RC",
+  "text": "The next stop is Higashi-Kawaminato."
+ },
+ "RC-49ca049f": {
+  "voice": "RC",
+  "text": "まもなく、ひがしかわみなと、ひがしかわみなとです。お出口は、右側です。"
+ },
+ "RC-d0f0713b": {
+  "voice": "RC",
+  "text": "地下鉄、あかねすじせんは、お乗り換えです。"
+ },
+ "RC-c9df972c": {
+  "voice": "RC",
+  "text": "We will soon be making a brief stop at Higashi-Kawaminato. The doors on the right side will open."
+ },
+ "RC-4f478988": {
+  "voice": "RC",
+  "text": "Please change here for the subway Akanesuji Line."
+ },
+ "RM-f9868b28": {
+  "voice": "RM",
+  "text": "ひがしかわみなと、ひがしかわみなとです。地下鉄、あかねすじせんは、お乗り換えです。"
+ },
+ "RM-200e820c": {
+  "voice": "RM",
+  "text": "This is Higashi-Kawaminato. Please change here for the subway Akanesuji Line."
+ },
+ "RM-7a8940cf": {
+  "voice": "RM",
+  "text": "まもなく、1番のりばを、列車が通過します。"
+ },
+ "RM-2cc2d9ff": {
+  "voice": "RM",
+  "text": "A train will soon pass through on track 1."
+ },
+ "RF-ae09627b": {
+  "voice": "RF",
+  "text": "ひがしかわみなと、ひがしかわみなとです。地下鉄、あかねすじせんは、お乗り換えです。"
+ },
+ "RF-2a10008f": {
+  "voice": "RF",
+  "text": "This is Higashi-Kawaminato. Please change here for the subway Akanesuji Line."
+ },
+ "RF-370526af": {
+  "voice": "RF",
+  "text": "まもなく、2番のりばを、列車が通過します。"
+ },
+ "RF-18f15269": {
+  "voice": "RF",
+  "text": "A train will soon pass through on track 2."
+ },
+ "RC-3f2e7c28": {
+  "voice": "RC",
+  "text": "次は、かわみなと、かわみなとです。"
+ },
+ "RC-c255c8ea": {
+  "voice": "RC",
+  "text": "The next stop is Kawaminato."
+ },
+ "RC-1acacf3d": {
+  "voice": "RC",
+  "text": "まもなく、かわみなと、かわみなとです。お出口は、右側です。"
+ },
+ "RC-02a7a8b1": {
+  "voice": "RC",
+  "text": "地下鉄各線は、お乗り換えです。"
+ },
+ "RC-3dc13162": {
+  "voice": "RC",
+  "text": "We will soon be making a brief stop at Kawaminato. The doors on the right side will open."
+ },
+ "RC-8cacf56a": {
+  "voice": "RC",
+  "text": "Please change here for the subway lines."
+ },
+ "RM-17d2c620": {
+  "voice": "RM",
+  "text": "まもなく、3番のりばに、普通、あさなぎ行きが、まいります。"
+ },
+ "RM-835e39cb": {
+  "voice": "RM",
+  "text": "The Local service bound for Asanagi will soon arrive on track 3."
+ },
+ "RM-a816ad50": {
+  "voice": "RM",
+  "text": "かわみなと、かわみなとです。地下鉄各線は、お乗り換えです。"
+ },
+ "RM-8c641a9c": {
+  "voice": "RM",
+  "text": "This is Kawaminato. Please change here for the subway lines."
+ },
+ "RM-1f699f68": {
+  "voice": "RM",
+  "text": "3番のりば、ドアが閉まります。ご注意ください。"
+ },
+ "RM-68eea066": {
+  "voice": "RM",
+  "text": "まもなく、3番のりばに、快速、あさなぎ行きが、まいります。"
+ },
+ "RM-a23bc3fc": {
+  "voice": "RM",
+  "text": "The Rapid service bound for Asanagi will soon arrive on track 3."
+ },
+ "RF-d17b2ee0": {
+  "voice": "RF",
+  "text": "まもなく、4番のりばに、普通、きりがはら行きが、まいります。"
+ },
+ "RF-981ab9a4": {
+  "voice": "RF",
+  "text": "The Local service bound for Kirigahara will soon arrive on track 4."
+ },
+ "RF-8aae293f": {
+  "voice": "RF",
+  "text": "かわみなと、かわみなとです。地下鉄各線は、お乗り換えです。"
+ },
+ "RF-0d0c17e5": {
+  "voice": "RF",
+  "text": "This is Kawaminato. Please change here for the subway lines."
+ },
+ "RF-fb979fa2": {
+  "voice": "RF",
+  "text": "4番のりば、ドアが閉まります。ご注意ください。"
+ },
+ "RF-60031bae": {
+  "voice": "RF",
+  "text": "まもなく、4番のりばに、快速、きりがはら行きが、まいります。"
+ },
+ "RF-aefb9b61": {
+  "voice": "RF",
+  "text": "The Rapid service bound for Kirigahara will soon arrive on track 4."
+ },
+ "RC-959e10fc": {
+  "voice": "RC",
+  "text": "次は、こんやはま、こんやはまです。"
+ },
+ "RC-6eaa08e6": {
+  "voice": "RC",
+  "text": "The next stop is Kon'yahama."
+ },
+ "RC-726dfb51": {
+  "voice": "RC",
+  "text": "まもなく、こんやはま、こんやはまです。お出口は、右側です。"
+ },
+ "RC-c7ca3537": {
+  "voice": "RC",
+  "text": "地下鉄、なぎさせん、あかねすじせんは、お乗り換えです。"
+ },
+ "RC-3b6fe66a": {
+  "voice": "RC",
+  "text": "We will soon be making a brief stop at Kon'yahama. The doors on the right side will open."
+ },
+ "RC-bda60324": {
+  "voice": "RC",
+  "text": "Please change here for the subway Nagisa Line and Akanesuji Line."
+ },
+ "RC-1dac881c": {
+  "voice": "RC",
+  "text": "次は、ふなみだい、ふなみだいです。"
+ },
+ "RC-9d987ad0": {
+  "voice": "RC",
+  "text": "The next stop is Funamidai."
+ },
+ "RC-d5c6d581": {
+  "voice": "RC",
+  "text": "まもなく、ふなみだい、ふなみだいです。お出口は、右側です。"
+ },
+ "RC-7837e868": {
+  "voice": "RC",
+  "text": "地下鉄、やなぎすじせん、いちょうせんは、お乗り換えです。"
+ },
+ "RC-c2d7f3e2": {
+  "voice": "RC",
+  "text": "We will soon be making a brief stop at Funamidai. The doors on the right side will open."
+ },
+ "RC-ff74bd75": {
+  "voice": "RC",
+  "text": "Please change here for the subway Yanagisuji Line and Ichō Line."
+ },
+ "RF-94ffc668": {
+  "voice": "RF",
+  "text": "今日も、あきつしま鉄道をご利用くださいまして、ありがとうございます。"
+ },
+ "RF-964eafb6": {
+  "voice": "RF",
+  "text": "Thank you for using the Akitsushima Railway."
+ },
+ "RM-259b96c3": {
+  "voice": "RM",
+  "text": "駆け込み乗車は、危険ですので、おやめください。"
+ },
+ "RM-cea321e1": {
+  "voice": "RM",
+  "text": "For your safety, please do not rush onto the train."
+ },
+ "RF-da4a739e": {
+  "voice": "RF",
+  "text": "ホームでは、黄色い点字ブロックの内側を、お歩きください。"
+ },
+ "RF-7e32d7d2": {
+  "voice": "RF",
+  "text": "Please walk behind the yellow tactile blocks on the platform."
+ },
+ "RM-fd066b96": {
+  "voice": "RM",
+  "text": "歩きながらのスマートフォンのご使用は、危険ですので、おやめください。"
+ },
+ "RM-a2c4a3c7": {
+  "voice": "RM",
+  "text": "Please refrain from using your smartphone while walking."
+ },
+ "RF-024ee7d0": {
+  "voice": "RF",
+  "text": "駅構内、および車内は、終日禁煙です。ご協力をお願いいたします。"
+ },
+ "RF-f39a95d0": {
+  "voice": "RF",
+  "text": "Smoking is not allowed in the station or on the trains."
+ },
+ "RM-a1c972dc": {
+  "voice": "RM",
+  "text": "不審なものを見かけられた場合は、駅係員、または乗務員まで、お知らせください。"
+ },
+ "RM-9d433335": {
+  "voice": "RM",
+  "text": "If you notice any suspicious items, please inform the station staff or train crew."
+ },
+ "RC-4476705a": {
+  "voice": "RC",
+  "text": "お客様にお願いいたします。車内では、携帯電話をマナーモードに設定のうえ、通話はお控えください。"
+ },
+ "RC-3c7c6d2c": {
+  "voice": "RC",
+  "text": "Please set your mobile phone to silent mode and refrain from talking on the phone."
+ },
+ "RC-94630fea": {
+  "voice": "RC",
+  "text": "この電車には、優先座席があります。お年寄りや、お体の不自由なお客様、妊娠中や、乳幼児をお連れのお客様に、席をお譲りください。"
+ },
+ "RC-e61a3c3f": {
+  "voice": "RC",
+  "text": "Priority seats are available on this train. Please offer your seat to those who need it."
+ },
+ "RC-4c17b969": {
+  "voice": "RC",
+  "text": "やむを得ず、急停車することがあります。お立ちのお客様は、つり革や手すりを、お持ちください。"
+ },
+ "RC-6461b371": {
+  "voice": "RC",
+  "text": "The train may brake suddenly. Please hold on to a strap or handrail."
+ },
+ "RC-d2eed510": {
+  "voice": "RC",
+  "text": "ドアが閉まります。ご注意ください。"
  }
 }

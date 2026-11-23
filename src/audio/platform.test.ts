@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { STATIONS, lineById } from '../data/network';
-import { allClips, announcement, dirVoice } from './phrases';
+import { STATIONS, lineById, stationById } from '../data/network';
+import { allClips, announcement, dirVoice, RAIL_NOTICES, railAnnouncement, railCarAnnouncement } from './phrases';
 import { edge, speakerRows } from './platform';
 
 describe('platform announcement triggers', () => {
@@ -41,5 +41,23 @@ describe('PA speaker rows', () => {
     expect(r.up.every((p) => p[2] > 0)).toBe(true);
     const turned = speakerRows([-5, 0, -60], [5, 3.5, 60]);
     expect(turned.up.every((p) => p[0] > 0)).toBe(true);
+  });
+});
+
+describe('main-line phrases', () => {
+  const ar = lineById('AR'), rapid = ar.services!.find((s) => s.id === 'rapid')!;
+  it('speaks in its own voices and names the service type', () => {
+    const c = railAnnouncement('approach', stationById('kawaminato'), ar, 'up', 4, rapid);
+    expect(c.every((x) => x.voice === 'RF')).toBe(true);
+    expect(c[0].text).toBe('まもなく、4番のりばに、快速、きりがはら行きが、まいります。');
+    expect(railAnnouncement('pass', stationById('higashi-kawaminato'), ar, 'down', 1, rapid)[0].voice).toBe('RM');
+  });
+  it('opens the doors on the left at the side platforms only', () => {
+    expect(railCarAnnouncement('soon', ar, 'up', ar.stops.indexOf('miokami'), rapid)[0].text).toContain('左側');
+    expect(railCarAnnouncement('soon', ar, 'down', ar.stops.indexOf('kawaminato'), rapid)[0].text).toContain('右側');
+  });
+  it('bakes every clip a main-line platform or car can ask for', () => {
+    const keys = new Set(allClips().map((c) => c.key));
+    for (const c of [...railAnnouncement('closing', stationById('miokami'), ar, 'down', 1), ...RAIL_NOTICES.flat()]) expect(keys.has(c.key)).toBe(true);
   });
 });

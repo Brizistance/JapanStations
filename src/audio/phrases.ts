@@ -4,11 +4,11 @@
 // male; etiquette and general information always female. Japanese uses kana so the TTS
 // reads invented names right.
 
-import { LINES, STATIONS, linesAt, stationById, terminusOf } from '../data/network';
-import type { Dir, LineDef, StationDef } from '../data/types';
+import { LINES, RAIL_LINES, STATIONS, destinationOf, hasPlatform, linesAt, stationById, terminusOf } from '../data/network';
+import type { Dir, LineDef, ServiceType, StationDef } from '../data/types';
 
-/** F/M: platform voices (inbound/outbound, etiquette/safety). C: the in-car voice. */
-export type Voice = 'F' | 'M' | 'C';
+/** F/M: platform voices (inbound/outbound, etiquette/safety). C: the in-car voice. RF/RM/RC: the main line's own three. */
+export type Voice = 'F' | 'M' | 'C' | 'RF' | 'RM' | 'RC';
 export interface Clip {
   key: string;
   voice: Voice;
@@ -147,6 +147,117 @@ export function doorSideOf(line: LineDef, _dir: Dir): DoorSide {
   return line.platformType === 'island' ? 'right' : 'left';
 }
 
+// ── The main line (Akitsushima Railway), JR West style: its own three voices and its own wording ──
+// 「のりば」 for a platform, 「まいります」 for an arrival, the service type named every time, the yellow
+// tactile blocks, 「今日も…ご利用くださいまして」, and in English "We will soon be making a brief stop at…".
+
+/** The operator's name as spoken (kana: the TTS misreads 秋津洲). */
+const AR_JA = 'あきつしま鉄道', AR_EN = 'the Akitsushima Railway';
+
+export const railVoice = (line: LineDef, dir: Dir): Voice => (dir === (line.inbound ?? 'up') ? 'RF' : 'RM');
+
+/** The subway lines to change to at a main-line station, as spoken: named when one or two, 各線 when more. */
+function subway(st: StationDef): { ja: string; en: string } | null {
+  const ls = st.transfer ? linesAt(st.transfer).filter((l) => l.type !== 'jr' && !l.shares) : [];
+  if (!ls.length) return null;
+  return ls.length > 2
+    ? { ja: '地下鉄各線は、お乗り換えです。', en: 'Please change here for the subway lines.' }
+    : { ja: `地下鉄、${ls.map((l) => l.nameKana).join('、')}は、お乗り換えです。`, en: `Please change here for the subway ${enList(ls.map((l) => l.nameEn))}.` };
+}
+
+const typeJa = (s?: ServiceType) => (s ? `${s.nameJa}、` : ''), typeEn = (s?: ServiceType) => (s ? `${s.nameEn} service` : 'train');
+
+export type RailEvent = Event | 'pass';
+
+/** Clips for one event at one main-line platform track. 'pass': a train that does not stop here is coming. */
+export function railAnnouncement(ev: RailEvent, st: StationDef, line: LineDef, dir: Dir, track: number, service?: ServiceType): Clip[] {
+  const v = railVoice(line, dir), dest = destinationOf(line, dir);
+  const back = [clip(v, '危ないですから、黄色い点字ブロックの内側まで、おさがりください。'), clip(v, 'For your safety, please stand behind the yellow tactile blocks.')];
+  switch (ev) {
+    case 'approach':
+      return [
+        clip(v, `まもなく、${track}番のりばに、${typeJa(service)}${dest.nameKana}行きが、まいります。`),
+        clip(v, `The ${typeEn(service)} bound for ${dest.nameRomaji} will soon arrive on track ${track}.`),
+        ...back,
+      ];
+    case 'pass':
+      return [clip(v, `まもなく、${track}番のりばを、列車が通過します。`), clip(v, `A train will soon pass through on track ${track}.`), ...back];
+    case 'arrive': {
+      const tx = subway(st);
+      return [clip(v, `${st.nameKana}、${st.nameKana}です。${tx?.ja ?? ''}`), clip(v, `This is ${st.nameRomaji}.${tx ? ` ${tx.en}` : ''}`)];
+    }
+    case 'closing':
+      // After the departure bell; Japanese only.
+      return [clip(v, `${track}番のりば、ドアが閉まります。ご注意ください。`)];
+    case 'terminating':
+      return []; // every main-line train runs on beyond the map
+  }
+}
+
+export const RAIL_NOTICES: Clip[][] = [
+  [clip('RF', `今日も、${AR_JA}をご利用くださいまして、ありがとうございます。`), clip('RF', `Thank you for using ${AR_EN}.`)],
+  [clip('RM', '駆け込み乗車は、危険ですので、おやめください。'), clip('RM', 'For your safety, please do not rush onto the train.')],
+  [clip('RF', 'ホームでは、黄色い点字ブロックの内側を、お歩きください。'), clip('RF', 'Please walk behind the yellow tactile blocks on the platform.')],
+  [clip('RM', '歩きながらのスマートフォンのご使用は、危険ですので、おやめください。'), clip('RM', 'Please refrain from using your smartphone while walking.')],
+  [clip('RF', '駅構内、および車内は、終日禁煙です。ご協力をお願いいたします。'), clip('RF', 'Smoking is not allowed in the station or on the trains.')],
+  [clip('RM', '不審なものを見かけられた場合は、駅係員、または乗務員まで、お知らせください。'), clip('RM', 'If you notice any suspicious items, please inform the station staff or train crew.')],
+];
+
+/** The door side at one stop: side platforms at some stops of an island line (LineDef.sideAt). */
+export const railDoorSide = (line: LineDef, stop: number): DoorSide =>
+  line.sideAt?.includes(line.stops[stop]) ? 'left' : line.platformType === 'island' ? 'right' : 'left';
+
+/**
+ * In a main-line car. 'next' (just after departure): thanks, the line, type and destination, and the next stop.
+ * 'soon' (before the stop): 「まもなく、〇〇、〇〇です。お出口は、左側です。」 and the subway change.
+ */
+export function railCarAnnouncement(ev: CarEvent, line: LineDef, dir: Dir, stop: number, service?: ServiceType): Clip[] {
+  const st = stationById(line.stops[stop]), dest = destinationOf(line, dir), side = railDoorSide(line, stop);
+  if (ev === 'next') {
+    return [
+      clip('RC', `今日も、${AR_JA}をご利用くださいまして、ありがとうございます。この電車は、${line.nameKana}、${typeJa(service)}${dest.nameKana}行きです。`),
+      clip('RC', `次は、${st.nameKana}、${st.nameKana}です。`),
+      clip('RC', `Thank you for using ${AR_EN}. This is the ${typeEn(service)} bound for ${dest.nameRomaji}.`),
+      clip('RC', `The next stop is ${st.nameRomaji}.`),
+    ];
+  }
+  const tx = subway(st);
+  return [
+    clip('RC', `まもなく、${st.nameKana}、${st.nameKana}です。お出口は、${side === 'left' ? '左側' : '右側'}です。`),
+    ...(tx ? [clip('RC', tx.ja)] : []),
+    clip('RC', `We will soon be making a brief stop at ${st.nameRomaji}. The doors on the ${side} side will open.`),
+    ...(tx ? [clip('RC', tx.en)] : []),
+  ];
+}
+
+export const RAIL_CAR_DOORS_CLOSING: Clip[] = [clip('RC', 'ドアが閉まります。ご注意ください。')];
+
+export const RAIL_CAR_NOTICES: Clip[][] = [
+  [clip('RC', 'お客様にお願いいたします。車内では、携帯電話をマナーモードに設定のうえ、通話はお控えください。'), clip('RC', 'Please set your mobile phone to silent mode and refrain from talking on the phone.')],
+  [clip('RC', 'この電車には、優先座席があります。お年寄りや、お体の不自由なお客様、妊娠中や、乳幼児をお連れのお客様に、席をお譲りください。'), clip('RC', 'Priority seats are available on this train. Please offer your seat to those who need it.')],
+  [clip('RC', 'やむを得ず、急停車することがあります。お立ちのお客様は、つり革や手すりを、お持ちください。'), clip('RC', 'The train may brake suddenly. Please hold on to a strap or handrail.')],
+];
+
+/** Every main-line clip: the platforms that are built, and every stop a train of each type runs to. */
+function railClips(out: Map<string, Clip>) {
+  for (const line of RAIL_LINES) {
+    const types: (ServiceType | undefined)[] = line.services?.length ? line.services : [undefined];
+    line.stops.forEach((id, i) => {
+      const st = stationById(id);
+      for (const dir of ['down', 'up'] as const) {
+        const track = st.platforms[line.id]?.[dir === 'down' ? 0 : 1];
+        for (const type of types) {
+          const calls = !type?.skips.includes(id);
+          if (calls) for (const ev of ['next', 'soon'] as const) for (const c of railCarAnnouncement(ev, line, dir, i, type)) out.set(c.key, c);
+          if (track === undefined || !hasPlatform(line, i)) continue;
+          for (const ev of (calls ? ['approach', 'arrive', 'closing'] : ['pass']) as RailEvent[]) for (const c of railAnnouncement(ev, st, line, dir, track, type)) out.set(c.key, c);
+        }
+      }
+    });
+  }
+  for (const n of [...RAIL_NOTICES, ...RAIL_CAR_NOTICES, RAIL_CAR_DOORS_CLOSING]) for (const c of n) out.set(c.key, c);
+}
+
 /** Every clip the game can ask for, deduplicated. The generator bakes exactly these. */
 export function allClips(): Clip[] {
   const out = new Map<string, Clip>();
@@ -173,5 +284,6 @@ export function allClips(): Clip[] {
       }
     }
   }
+  railClips(out);
   return [...out.values()];
 }

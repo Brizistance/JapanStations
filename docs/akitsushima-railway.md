@@ -148,3 +148,7 @@ Kirigahara (霧ヶ原) and Asanagi (朝凪) were searched the same day: no real 
 - **Miokami:** two side platforms 12 cars long on the embankment (`sideAt`), old-rail posts and a timber-boarded roof over the middle, a roofed timber footbridge between them. The station carries the wire on its own portals (`built.platformHalf`).
 - Both use AR's half-height platform gates. The HUD names the metro station each is the change for, with the AR station in the zone line, as at Kawaminato.
 - **Still owed:** the ways in; the map and guide still treat every AR station as unbuilt; no auditor run on these two.
+
+## Announcements (built 2026-11-23)
+
+AR speaks in its own three voices (`RF`, `RM`, `RC` in `src/audio/phrases.ts`; ids in `.env.local` as `ELEVENLABS_VOICE_AR_F`, `_AR_M`, `_AR_CAR`) and in JR West's wording under AR's name: 「のりば」, 「まいります」, the service type every time, the yellow tactile blocks, "We will soon be making a brief stop at…". Up (Kirigahara) is the female voice, down (Asanagi) the male. One approach melody for the whole line (`approach-AR`) and a short bell at departure (`depart-AR`), no per-station melody. A Rapid running through Higashi-Kawaminato is announced from where the train really is. Not done: stops lists for Rapids, car counts and queue marks. Bake only AR's clips with `npm run voice -- --voices RF,RM,RC`.

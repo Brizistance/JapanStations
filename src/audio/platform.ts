@@ -4,18 +4,19 @@
 // Each track's PA comes from speakers along its own platform edge. Between trains, now and
 // then, the chime and a general notice. Plus ambience, room-sized echo and footsteps.
 
-import type { Dir, LineDef } from '../data/types';
-import type { StationWorld } from '../stations';
+import type { Dir, LineDef, ServiceType, StationDef } from '../data/types';
+import { RAIL_WORLDS, type StationWorld } from '../stations';
 import { toWorld } from '../world/collision';
-import { lineById } from '../data/network';
-import { clock } from '../sim';
+import { RAIL_STATIONS, hasPlatform, lineById } from '../data/network';
+import { clock, lineDepartures, lineSim } from '../sim';
+import type { Departure } from '../sim/timetable';
 import { input, nearestStation, player, where } from '../player/player';
 import { platformNo, platformTrains, statusOf, type Status } from '../signs/departures';
 import { trains } from '../trains/system';
 import { announce, hushVoice, loopAt, paIdle, playAt, playSeqAt, type PosLoopHandle, playStep, setAmbience, setRoom, setSpeakers, tickListener, type Ambience, type Hearing, type SoundHandle } from './engine';
-import { announcement, NOTICES, PLATFORM_DOOR, type Event } from './phrases';
+import { announcement, NOTICES, PLATFORM_DOOR, RAIL_NOTICES, railAnnouncement, type Event } from './phrases';
 import { tickCarAudio, tickCarNoise } from './car';
-import { approachSfx, melodySeconds, melodySfx, STEP_COUNT } from './sfx';
+import { approachSfx, DEPART_BELL_S, departSfx, melodySeconds, melodySfx, STEP_COUNT } from './sfx';
 
 /** The announcement a status change calls for, if any. Doors closing is timed separately. */
 export function edge(prev: Status | undefined, next: Status): Event | null {
@@ -39,6 +40,8 @@ interface Tracked {
   arr: number;
   dep: number;
   train: number;
+  /** The train's service type, on a line that has them (each type numbers its own trains). */
+  service?: string;
   line: LineDef;
   boarding: boolean;
   status: Status;
@@ -68,8 +71,10 @@ let chan: Record<Dir, string> = { down: 'down', up: 'up' };
 
 const voice = (keys: { key: string }[]) => keys.map((c) => `voice/${c.key}`);
 
-function trainPos(line: string, index: number): () => [number, number, number] | null {
-  const t = trains.find((r) => r.sim.geom.def.id === line && r.index === index);
+const trainOf = (line: string, index: number, service?: string) => trains.find((r) => r.sim.geom.def.id === line && r.index === index && r.service?.id === service);
+
+function trainPos(line: string, index: number, service?: string): () => [number, number, number] | null {
+  const t = trainOf(line, index, service);
   return () => {
     if (!t?.cars.length) return null;
     const c = t.cars[t.cars.length >> 1];
@@ -82,7 +87,10 @@ function trainPos(line: string, index: number): () => [number, number, number] |
 interface Running {
   line: string;
   index: number;
+  service?: string;
   dir: Dir;
+  /** A train running through without stopping: the chainage it has left by. */
+  pass?: number;
   left: boolean;
   motor: PosLoopHandle;
   roll: PosLoopHandle;
@@ -91,9 +99,9 @@ const running: Running[] = [];
 /** Seconds before arrival the running sound starts. */
 const RUN_LEAD = 30;
 
-function startRun(line: string, index: number, dir: Dir) {
-  const pos = trainPos(line, index);
-  running.push({ line, index, dir, left: false, motor: loopAt('ext-motor', pos), roll: loopAt('ext-roll', pos) });
+function startRun(line: string, index: number, dir: Dir, service?: string, pass?: number) {
+  const pos = trainPos(line, index, service);
+  running.push({ line, index, service, dir, pass, left: false, motor: loopAt('ext-motor', pos), roll: loopAt('ext-roll', pos) });
 }
 
 /** Metres a point lies beyond either end of a track's platform (0 alongside it). */
@@ -109,14 +117,15 @@ function beyondPlatform(dir: Dir, p: V3): number {
 function tickRunning(under: boolean) {
   for (let i = running.length - 1; i >= 0; i--) {
     const r = running[i];
-    const t = trains.find((x) => x.sim.geom.def.id === r.line && x.index === r.index);
-    const pos = t ? trainPos(r.line, r.index)() : null;
+    const t = trainOf(r.line, r.index, r.service);
+    const pos = t ? trainPos(r.line, r.index, r.service)() : null;
     if (!t || !pos) {
       r.motor.stop();
       r.roll.stop();
       running.splice(i, 1);
       continue;
     }
+    if (r.pass !== undefined && (t.state.s - r.pass) * (r.dir === 'down' ? 1 : -1) > 0) r.left = true;
     const sv = t.sim.geom.def.service, speed = Math.abs(t.state.speed), v = Math.min(1, speed / sv.maxSpeed);
     const out = beyondPlatform(r.dir, pos);
     // Into the tunnel the sound dulls and dies away quickly; in the open it carries further.
@@ -140,6 +149,7 @@ function reset() {
   }
   for (const t of tracks.values()) t.idle?.stop(0.3);
   tracks.clear();
+  passed.clear();
   hushVoice();
 }
 
@@ -184,12 +194,12 @@ export function speakerRows(min: number[], max: number[]): Record<Dir, V3[]> {
   return { down: row(min[side] + 0.8), up: row(max[side] - 0.8) };
 }
 
-function placeRows(w: StationWorld, line: string) {
+function placeRows(w: StationWorld, line: string, station: string) {
   const b = platformBox(w, line);
   const local = b ? speakerRows(b.min, b.max) : { down: [], up: [] };
   const world = (ps: V3[]) => ps.map((p) => toWorld(w.frame, p, [0, 0, 0]) as V3);
   rows = { down: world(local.down), up: world(local.up) };
-  const island = lineById(line).platformType === 'island';
+  const island = lineById(line).platformType === 'island' && !lineById(line).sideAt?.includes(station);
   chan = island ? { down: 'shared', up: 'shared' } : { down: 'down', up: 'up' };
   setSpeakers('shared', island ? [...rows.down, ...rows.up] : []);
   setSpeakers('down', island ? [] : rows.down);
@@ -244,11 +254,58 @@ function nearEnd(dir: Dir, p: V3 | null): () => V3 | null {
   return () => end;
 }
 
+/** The next train at a platform track: the metro's (with any line sharing its track), or a main line's over all its service types. */
+function nextTrain(pl: LineDef, st: StationDef, dir: Dir, now: number): (Departure & { line: LineDef; boarding: boolean; service?: ServiceType }) | undefined {
+  if (pl.type !== 'jr') return platformTrains(pl, st, dir, now, 1)[0];
+  const d = lineDepartures(lineSim(pl.id), pl.stops.indexOf(st.id), dir, now, 1)[0];
+  return d && { ...d, line: pl, boarding: true };
+}
+
+/** Trains already announced as passing (train and run). */
+const passed = new Set<string>();
+/** A passing train is announced when it is this many seconds away at its present speed. */
+const PASS_LEAD_S = 28;
+
+/**
+ * A train of a type that does not call here (a Rapid at Higashi-Kawaminato), read from where the train
+ * really is: the warning on its track's speakers, and its running sound until it has gone.
+ */
+function tickPassing(pl: LineDef, st: StationDef, key: string) {
+  const stop = pl.stops.indexOf(st.id);
+  for (const t of trains) {
+    const g = t.sim.geom, p = t.state.phase;
+    if (g.def.id !== pl.id || !t.service?.skips.includes(st.id) || p.kind !== 'run' || !p.inService) continue;
+    const at = g.stopS[stop], ahead = (at - t.state.s) * (p.dir === 'down' ? 1 : -1), id = `${t.id}:${t.state.phaseIndex}`;
+    if (ahead < 0 || ahead > PASS_LEAD_S * Math.max(8, Math.abs(t.state.speed)) || passed.has(id)) continue;
+    passed.add(id);
+    const clips = voice(railAnnouncement('pass', st, pl, p.dir, platformNo(st, pl, p.dir), t.service));
+    announce(chan[p.dir], `${key}:${p.dir}:pass`, clips, { priority: true, short: clips.slice(0, 1) });
+    startRun(pl.id, t.index, p.dir, t.service.id, at);
+  }
+}
+
 export function tickStationAudio(dt: number, playing: boolean, cam: { x: number; y: number; z: number }, yaw: number) {
   const now = clock.time;
   const zone = where.zone;
   // Riding, you're in the car, not in any station zone: use the station the train is at.
-  const stw = where.station ?? (where.train ? stationAround(cam.x, cam.z) : null), st = stw?.def;
+  let stw = where.station ?? (where.train ? stationAround(cam.x, cam.z) : null), st = stw?.def;
+  // On a main line's platform, or riding one of its trains: the station is the railway's own, in its own
+  // small world on the trackbed (rail.ts) or inside the metro station it is the change for (Kawaminato).
+  const riding = where.train?.sim.geom.def;
+  const rail = zone?.kind === 'platform' && zone.line && lineById(zone.line).type === 'jr' ? lineById(zone.line) : riding?.type === 'jr' ? riding : null;
+  if (rail) {
+    const own = RAIL_WORLDS.find((w) => rail.stops.includes(w.def.id) && Math.hypot(w.frame.x - cam.x, w.frame.z - cam.z) < w.frame.radius);
+    const host = stw?.def.id;
+    const hosted = RAIL_STATIONS.find((r) => r.transfer === host && hasPlatform(rail, rail.stops.indexOf(r.id)) && !RAIL_WORLDS.some((w) => w.def.id === r.id));
+    if (own) {
+      stw = own;
+      st = own.def;
+    } else if (hosted) st = hosted;
+    else if (where.train) {
+      stw = null;
+      st = undefined;
+    }
+  }
   atStation = !!stw;
   const under = cam.y < -1.2 && !zone?.sky;
   const h = playing ? hearing(under) : { level: 0, muffled: true, under: false };
@@ -276,16 +333,20 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
   if (key !== here) {
     here = key;
     reset();
-    if (key) placeRows(stw!, lineId!);
+    if (key) placeRows(stw!, lineId!, st!.id);
     nextNotice = performance.now() + 20000 + Math.random() * 30000;
   }
   if (!key) return;
-  const pl = lineById(lineId!);
-  const melodyS = melodySeconds(st!.id);
+  const pl = lineById(lineId!), isRail = pl.type === 'jr';
+  // The main line rings a short bell out; a metro station plays its own melody.
+  const melodyS = isRail ? DEPART_BELL_S : melodySeconds(st!.id), melody = isRail ? departSfx(pl.id) : melodySfx(st!.id);
+  const say = (ev: Event, d: { line: LineDef; service?: ServiceType }, dir: Dir, track: number) =>
+    voice(isRail ? railAnnouncement(ev, st!, d.line, dir, track, d.service) : announcement(ev, st!, d.line, dir, track));
+  const notices = isRail ? RAIL_NOTICES : NOTICES;
 
   let quiet = true;
   for (const dir of ['down', 'up'] as Dir[]) {
-    const d = platformTrains(pl, st!, dir, now, 1)[0];
+    const d = nextTrain(pl, st!, dir, now);
     if (!d) continue;
     const status = statusOf(d, now);
     if (status !== 'wait' && status !== 'none') quiet = false;
@@ -297,18 +358,18 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     if (t && t.arr !== d.arr) {
       // That train has gone (or is laying over): pull out.
       t.idle?.stop(1.2);
-      if (t.boarding && t.open) playAt('train-depart', trainPos(t.line.id, t.train), { gain: 0.6 });
-      for (const r of running) if (r.line === t.line.id && r.index === t.train) r.left = true;
+      if (t.boarding && t.open) playAt('train-depart', trainPos(t.line.id, t.train, t.service), { gain: 0.6 });
+      for (const r of running) if (r.line === t.line.id && r.index === t.train && r.service === t.service) r.left = true;
       t = undefined;
     }
     if (!t) {
       // Everything already past counts as done.
       const dwelling = now >= d.arr + DOORS_OPEN_AFTER && now < d.dep - DOORS_CLOSE_BEFORE;
       t = {
-        arr: d.arr, dep: d.dep, train: d.train, line: d.line, boarding: d.boarding, status: prev,
+        arr: d.arr, dep: d.dep, train: d.train, service: d.service?.id, line: d.line, boarding: d.boarding, status: prev,
         braking: now > d.arr - ARRIVE_LEAD, open: now >= d.arr + DOORS_OPEN_AFTER,
         wind: now > d.arr - WIND_LEAD, run: false, pdOpen: now >= d.arr + 1, pdClose: now >= d.dep - DOORS_CLOSE_BEFORE - 1, melody: now >= d.dep - melodyS - CLOSING_VOICE_S, closing: now >= d.dep - DOORS_CLOSE_BEFORE,
-        idle: dwelling ? playAt('train-idle', trainPos(d.line.id, d.train), { loop: true, gain: 0.6 }) : null,
+        idle: dwelling ? playAt('train-idle', trainPos(d.line.id, d.train, d.service?.id), { loop: true, gain: 0.6 }) : null,
       };
       tracks.set(dir, t);
     }
@@ -317,18 +378,18 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     const ev = edge(prev, status);
     t.status = status;
     if (ev) {
-      const clips = voice(announcement(ev, st!, d.line, dir, track));
+      const clips = say(ev, d, dir, track);
       // If it has to wait behind the other track's, it plays just the Japanese line.
       announce(chan[dir], tag, ev === 'approach' ? [`sfx/${approachSfx(pl.id)}`, ...clips] : clips, { short: clips.slice(0, 1) });
     }
-    const pos = trainPos(d.line.id, d.train);
+    const pos = trainPos(d.line.id, d.train, d.service?.id);
     if (!t.wind && now >= d.arr - WIND_LEAD) {
       t.wind = true;
       if (under) playAt('tunnel-wind', nearEnd(dir, pos()), { gain: 1.1 });
     }
     if (!t.run && now >= d.arr - RUN_LEAD && now < d.dep) {
       t.run = true;
-      startRun(d.line.id, d.train, dir);
+      startRun(d.line.id, d.train, dir, d.service?.id);
     }
     if (!t.braking && now >= d.arr - ARRIVE_LEAD) {
       t.braking = true;
@@ -341,7 +402,7 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     }
     if (d.boarding && !t.melody && now >= d.dep - melodyS - CLOSING_VOICE_S) {
       t.melody = true;
-      announce(chan[dir], tag, [`sfx/${melodySfx(st!.id)}`, ...voice(announcement('closing', st!, d.line, dir, track))], { priority: true });
+      announce(chan[dir], tag, [`sfx/${melody}`, ...say('closing', d, dir, track)], { priority: true });
     }
     // The platform doors' own little speakers: a chime as they open; chime and voice as they close.
     if (!t.pdOpen && now >= d.arr + 1) {
@@ -352,7 +413,7 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     if (d.boarding && !t.pdClose && now >= d.dep - DOORS_CLOSE_BEFORE - 1) {
       t.pdClose = true;
       const at = doorPos(dir);
-      if (at) playSeqAt(['sfx/pd-chime', ...voice(PLATFORM_DOOR)], at, 0.8);
+      if (at) playSeqAt(['sfx/pd-chime', ...(isRail ? [] : voice(PLATFORM_DOOR))], at, 0.8);
     }
     if (d.boarding && !t.closing && now >= d.dep - DOORS_CLOSE_BEFORE) {
       t.closing = true;
@@ -360,14 +421,15 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     }
   }
 
+  if (isRail) tickPassing(pl, st!, key);
   tickRunning(under);
 
   // General notice between trains.
   if (quiet && paIdle() && performance.now() >= nextNotice) {
     nextNotice = performance.now() + 100000 + Math.random() * 100000;
-    noticeIdx = (noticeIdx + 1) % NOTICES.length;
+    noticeIdx = (noticeIdx + 1) % notices.length;
     // Same notice on every platform of this line.
-    for (const c of new Set(Object.values(chan))) announce(c, `${key}:notice`, ['sfx/chime', ...voice(NOTICES[noticeIdx])]);
+    for (const c of new Set(Object.values(chan))) announce(c, `${key}:notice`, ['sfx/chime', ...voice(notices[noticeIdx])]);
   }
 }
 

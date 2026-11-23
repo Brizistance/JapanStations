@@ -413,5 +413,15 @@
   "prompt": "Electric train traction motors heard from the platform as the train runs: a steady inverter whine with a low hum, one constant pitch, seamless loop. No voice.",
   "seconds": 6,
   "loop": true
+ },
+ "approach-AR": {
+  "prompt": "Japanese main-line railway train-approach melody (sekkin melody): an original gentle tune of two short phrases on bright electric piano and soft synth bells, unhurried and a little wistful, ending cleanly on the tonic. Played over an open-air station platform speaker. Instrumental only, no voice, no speech.",
+  "seconds": 7,
+  "loop": false
+ },
+ "depart-AR": {
+  "prompt": "Japanese railway platform departure bell: a steady electronic two-tone bell ringing quickly for three seconds, then stopping cleanly. Played over an open-air station platform speaker. Instrumental only, no voice, no speech.",
+  "seconds": 3,
+  "loop": false
  }
 }

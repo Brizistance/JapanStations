@@ -2,6 +2,7 @@
 // the API key stays in .env.local and never reaches the game bundle.
 //   npm run voice            generate missing clips
 //   npm run voice -- --dry   list what would be generated, no API calls
+//   npm run voice -- --voices RF,RM,RC   only these voices' clips, and nothing is removed
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,6 +12,7 @@ const OUT = join(process.cwd(), 'public', 'audio', 'voice');
 const MANIFEST = join(OUT, 'manifest.json');
 const MODEL = 'eleven_multilingual_v2';
 const dry = process.argv.includes('--dry');
+const vAt = process.argv.indexOf('--voices'), only = vAt > 0 ? (process.argv[vAt + 1] ?? '').split(',') : null;
 
 try {
   process.loadEnvFile('.env.local');
@@ -18,7 +20,10 @@ try {
   /* fall back to the real environment */
 }
 const key = process.env.ELEVENLABS_API_KEY;
-const voices = { F: process.env.ELEVENLABS_VOICE_F, M: process.env.ELEVENLABS_VOICE_M, C: process.env.ELEVENLABS_VOICE_CAR };
+const voices = {
+  F: process.env.ELEVENLABS_VOICE_F, M: process.env.ELEVENLABS_VOICE_M, C: process.env.ELEVENLABS_VOICE_CAR,
+  RF: process.env.ELEVENLABS_VOICE_AR_F, RM: process.env.ELEVENLABS_VOICE_AR_M, RC: process.env.ELEVENLABS_VOICE_AR_CAR,
+};
 
 type Manifest = Record<string, { voice: string; text: string }>;
 const manifest: Manifest = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
@@ -28,14 +33,14 @@ const clips = allClips();
 const keep = new Set(clips.map((c) => c.key));
 let pruned = 0;
 for (const k of Object.keys(manifest)) {
-  if (keep.has(k)) continue;
+  if (only || keep.has(k)) continue;
   if (!dry) rmSync(join(OUT, `${k}.mp3`), { force: true });
   delete manifest[k];
   pruned++;
 }
 if (pruned && !dry) writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1));
 if (pruned) console.log(`${pruned} unused clips ${dry ? 'would be' : ''} removed.`);
-const todo = clips.filter((c) => !manifest[c.key] || !existsSync(join(OUT, `${c.key}.mp3`)));
+const todo = clips.filter((c) => (!only || only.includes(c.voice)) && (!manifest[c.key] || !existsSync(join(OUT, `${c.key}.mp3`))));
 const chars = todo.reduce((n, c) => n + c.text.length, 0);
 console.log(`${clips.length} clips, ${todo.length} to generate, ${chars} characters.`);
 
@@ -43,8 +48,10 @@ if (dry) {
   for (const c of todo) console.log(`${c.key}  ${c.text}`);
   process.exit(0);
 }
-if (!key || !voices.F || !voices.M || !voices.C) {
-  console.error('Set ELEVENLABS_API_KEY, ELEVENLABS_VOICE_F, ELEVENLABS_VOICE_M and ELEVENLABS_VOICE_CAR in .env.local');
+// Only the voices that the missing clips are spoken in have to be set.
+const unset = [...new Set(todo.map((c) => c.voice))].filter((v) => !voices[v]);
+if (!key || unset.length) {
+  console.error(`Set ELEVENLABS_API_KEY and the voice ids in .env.local (names in .env.example). Missing voices: ${unset.join(', ') || 'none'}`);
   process.exit(1);
 }
 
