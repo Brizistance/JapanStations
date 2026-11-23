@@ -3,7 +3,6 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { DENSITIES, PRESET_ORDER, type Fx, type FxSwitch, type Preset } from '../render/graphics';
-import { SEASONS, type Season } from '../render/season';
 import { Bi } from './Bi';
 import { FOV_RANGE, SENS_RANGE, useUI, type SettingsTab } from './store';
 
@@ -43,7 +42,6 @@ const SWITCH_INFO: [FxSwitch, string, string, string, Cost][] = [
   ['traffic', '道路の交通', 'Road traffic', 'Cars, buses and scooters driving on the streets', 'light'],
 ];
 const SCALES: Fx['scale'][] = [1, 1.5, 2];
-const SEASON_LABEL: Record<Season, [string, string]> = { spring: ['春', 'Spring'], summer: ['夏', 'Summer'], autumn: ['秋', 'Autumn'], winter: ['冬', 'Winter'] };
 
 /** A setting: its name and a hint on the left, the control on the right. */
 function Row({ ja, en, hint, off, children }: { ja: string; en: string; hint?: ReactNode; off?: boolean; children: ReactNode }) {
@@ -88,8 +86,6 @@ function Graphics() {
   const { preset, fx } = useUI((s) => s.graphics);
   const setPreset = useUI((s) => s.setPreset);
   const setFx = useUI((s) => s.setFx);
-  const season = useUI((s) => s.season);
-  const setSeason = useUI((s) => s.setSeason);
   return (
     <>
       <h3><Bi ja="プリセット" en="Preset" /></h3>
@@ -104,15 +100,6 @@ function Graphics() {
         {preset === 'custom' && <b>カスタム Custom · </b>}
         {PRESET_HINT[preset]}
       </p>
-      <h3><Bi ja="季節" en="Season" /></h3>
-      <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        {SEASONS.map((v) => (
-          <button key={v} className={season === v ? 'on' : ''} aria-pressed={season === v} onClick={() => setSeason(v)}>
-            <Bi ja={SEASON_LABEL[v][0]} en={SEASON_LABEL[v][1]} />
-          </button>
-        ))}
-      </div>
-      <p className="set-hint">Changes the trees only.</p>
       <h3><Bi ja="効果" en="Effects" /></h3>
       {SWITCH_INFO.map(([k, ja, en, hint, cost]) => (
         <Check key={k} ja={ja} en={en} hint={hint} cost={cost} checked={fx[k]} disabled={k === 'lensDirt' && !fx.bloom} onChange={(v) => setFx({ [k]: v })} />

@@ -7,11 +7,14 @@ import { isUnbuilt, lineById, linesAt, stationById, terminusOf } from '../data/n
 import type { Dir, LineDef } from '../data/types';
 import { player, where } from '../player/player';
 import { clock, formatClock, lineSim } from '../sim';
+import { temperatureNow } from '../sim/climate';
+import { WEATHER_NAME, typhoonNotice, weatherIcon } from '../signs/weather-icon';
 import { trainCalls } from '../sim/guide';
 import { nextDepartures } from '../sim/timetable';
 import { Bi } from './Bi';
 import { MiniMap } from './Compass';
 import { DestinationPicker, GuideCard, GuideMarker, guideStep, StepBanner, trackGuide } from './Guide';
+import { WeatherIcon } from './MainMenu';
 import { LineBullet, MetroMap, NumberBadge, StationPanel, useRoute, useTick } from './MetroMap';
 import { Notices } from './Notices';
 import { PauseMenu } from './PauseMenu';
@@ -35,9 +38,16 @@ const SPEEDS: [Speed, string, string, string, string][] = [
 
 function Clock() {
   const speed = useUI((s) => s.speed), setSpeed = useUI((s) => s.setSpeed);
+  const weatherNow = useUI((s) => s.weatherNow);
   return (
     <div className="hud-sign hud-clock">
       <b>{formatClock(clock.time, true)}</b>
+      <div className="hud-weather" title={`${WEATHER_NAME[weatherNow][0]} ${WEATHER_NAME[weatherNow][1]} · 外気温 Outdoor temperature`}>
+        <WeatherIcon d={weatherIcon(weatherNow, clock.time)} size={18} />
+        <span>{temperatureNow(clock.time)}°C</span>
+        <small><Two ja={WEATHER_NAME[weatherNow][0]} en={WEATHER_NAME[weatherNow][1]} /></small>
+      </div>
+      {typhoonNotice(clock.time).length > 0 && <div className="hud-alert" title={typhoonNotice(clock.time).join(' ')}><Two ja="台風注意" en="Typhoon caution" /></div>}
       <div className="hud-speeds">
         {SPEEDS.map(([v, icon, key, ja, en]) => (
           <button key={v} className={speed === v ? 'on' : ''} aria-pressed={speed === v} title={`${ja} ${en}${key ? ` (${key})` : ''}`} onClick={() => setSpeed(v)}>

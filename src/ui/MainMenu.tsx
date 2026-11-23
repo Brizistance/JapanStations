@@ -3,7 +3,8 @@
 
 import { useState } from 'react';
 import { HOME_STATION, LINES, OPERATOR, RAIL_LINES } from '../data/network';
-import { WEATHERS, type Weather } from '../render/atmosphere';
+import { WEATHER_NAME, weatherIcon } from '../signs/weather-icon';
+import { WEATHERS, dayOfMonth, dayRange, daysIn, doyOf, monthOf, temperatureNow } from '../sim/climate';
 import { clock, formatClock } from '../sim';
 import { Bi } from './Bi';
 import { LineBullet, MetroMap, StationPanel, useTick } from './MetroMap';
@@ -27,22 +28,71 @@ export const TIME_PRESETS: [string, string, number][] = [
   ['夕', 'Dusk', 17.75],
   ['夜', 'Night', 21],
 ];
-const WEATHER_LABEL: Record<Weather, [string, string]> = {
-  clear: ['晴れ', 'Clear'],
-  cloudy: ['くもり', 'Cloudy'],
-  overcast: ['曇天', 'Overcast'],
-  rain: ['雨', 'Rain'],
-  fog: ['霧', 'Fog'],
-};
+const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** Time of day and weather for this visit. Both apply live to the view behind the menu. */
-function SkyPicker() {
-  const weather = useUI((s) => s.weather);
+/** A weather pictogram (signs/weather-icon.ts) for menus and the HUD. */
+export function WeatherIcon({ d, size = 22 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  );
+}
+
+/** Today's weather and temperature, and the choice of weather: Auto (by the date) or one kind held. */
+export function WeatherPicker() {
+  const weather = useUI((s) => s.weather), weatherNow = useUI((s) => s.weatherNow);
+  const doy = useUI((s) => s.doy), year = useUI((s) => s.year);
   const setWeather = useUI((s) => s.setWeather);
+  const range = dayRange(doy, weatherNow, year);
+  return (
+    <>
+        <div className="sky-now">
+          <WeatherIcon d={weatherIcon(weatherNow, clock.time)} size={34} />
+          <b>{temperatureNow(clock.time)}<small>°C</small></b>
+          <span>
+            <Bi ja={WEATHER_NAME[weatherNow][0]} en={WEATHER_NAME[weatherNow][1]} />
+            <small><Bi ja={`最高 ${range.high}° · 最低 ${range.low}°`} en={`High ${range.high}° · Low ${range.low}°`} /></small>
+          </span>
+        </div>
+        <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          <button className={weather === 'auto' ? 'on' : ''} aria-pressed={weather === 'auto'} onClick={() => setWeather('auto')}>
+            <Bi ja="自動" en="Auto" />
+          </button>
+          {WEATHERS.map((w) => (
+            <button key={w} className={weather === w ? 'on' : ''} aria-pressed={weather === w} onClick={() => setWeather(w)}>
+              <Bi ja={WEATHER_NAME[w][0]} en={WEATHER_NAME[w][1]} />
+            </button>
+          ))}
+        </div>
+        <p className="set-hint">Auto follows the date: each day brings the weather its month is likely to. Pick one to hold it.</p>
+    </>
+  );
+}
+
+/** Date, time of day and weather for this visit. All apply live to the view behind the menu. */
+function SkyPicker() {
+  const doy = useUI((s) => s.doy);
   const setTime = useUI((s) => s.setTime);
+  const setDate = useUI((s) => s.setDate), stepDay = useUI((s) => s.stepDay);
   const now = ((clock.time % 86400) + 86400) % 86400;
+  const month = monthOf(doy), day = dayOfMonth(doy);
   return (
     <div className="sg-panel">
+      <h3><Bi ja="日付" en="Date" /></h3>
+      <div className="sky-date">
+        <button title="前の日 Previous day" onClick={() => stepDay(-1)}>◀</button>
+        <b><Bi ja={`${month}月${day}日`} en={`${day} ${MONTH_EN[month - 1]}`} /></b>
+        <button title="次の日 Next day" onClick={() => stepDay(1)}>▶</button>
+      </div>
+      <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
+        {MONTH_EN.map((en, i) => (
+          <button key={en} className={month === i + 1 ? 'on' : ''} aria-pressed={month === i + 1} onClick={() => setDate(doyOf(i + 1, Math.min(day, daysIn(i + 1))))}>
+            <Bi ja={`${i + 1}月`} en={en} />
+          </button>
+        ))}
+      </div>
+      <p className="set-hint">The month sets the climate, the length of the day and the trees.</p>
       <h3><Bi ja="時刻" en="Time of day" /></h3>
       <div className="sky-time">
         <b>{formatClock(clock.time)}</b>
@@ -55,14 +105,7 @@ function SkyPicker() {
       </div>
       <p className="set-hint">The clock keeps running from the hour you pick, and the trains follow it.</p>
       <h3><Bi ja="天気" en="Weather" /></h3>
-      <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-        {WEATHERS.map((w) => (
-          <button key={w} className={weather === w ? 'on' : ''} aria-pressed={weather === w} onClick={() => setWeather(w)}>
-            <Bi ja={WEATHER_LABEL[w][0]} en={WEATHER_LABEL[w][1]} />
-          </button>
-        ))}
-      </div>
-      <p className="set-hint">Fixed for the visit. The season is in Settings, under Graphics.</p>
+      <WeatherPicker />
     </div>
   );
 }

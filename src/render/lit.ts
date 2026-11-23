@@ -27,6 +27,8 @@ export const shared = {
   uRainMap: { value: null as THREE.Texture | null },
   /** Centre x, centre z, half size and top height of the area `uRainMap` covers; half size 0 = no map. */
   uRainBox: { value: new THREE.Vector4(0, 0, 0, 0) },
+  /** How far the wind carries rain in under cover, as a world (x, z) offset in metres (weather.ts). */
+  uBlow: { value: new THREE.Vector2(0, 0) },
   /** Outdoor night lights (lamps.ts): position and reach, colour, and how many are in use. */
   uLampPos: { value: Array.from({ length: LAMPS }, () => new THREE.Vector4(0, 0, 0, 1)) },
   uLampCol: { value: Array.from({ length: LAMPS }, () => new THREE.Vector3()) },
@@ -146,6 +148,14 @@ const WET_CHUNK = `
 			float inside = smoothstep( 0.0, 0.06, min( edge.x, edge.y ) );
 			float roofY = uRainBox.w - texture2D( uRainMap, ruv ).r * 120.0;
 			open = mix( 1.0, smoothstep( roofY - 0.7, roofY - 0.3, vWPos.y ), inside );
+			// Wind drives the rain in under canopies and down the first steps of a stairwell:
+			// wet too wherever the ground upwind lies open at about this height.
+			if ( dot( uBlow, uBlow ) > 0.0001 ) {
+				vec2 buv = ruv - vec2( uBlow.x, -uBlow.y ) / ( 2.0 * uRainBox.z );
+				float upY = uRainBox.w - texture2D( uRainMap, buv ).r * 120.0;
+				float blown = smoothstep( upY - 1.2, upY - 0.4, vWPos.y ) * ( 1.0 - smoothstep( upY + 1.5, upY + 3.0, vWPos.y ) );
+				open = max( open, 0.85 * blown * inside );
+			}
 		}
 		vec3 viewUp = ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz;
 		float up = dot( normal, viewUp );
@@ -171,6 +181,7 @@ function patch(m: THREE.MeshStandardMaterial, o: LitOpts) {
     shader.uniforms.uWet = shared.uWet;
     shader.uniforms.uRainMap = shared.uRainMap;
     shader.uniforms.uRainBox = shared.uRainBox;
+    shader.uniforms.uBlow = shared.uBlow;
     shader.uniforms.uNight = shared.uNight;
     shader.uniforms.uLampPos = shared.uLampPos;
     shader.uniforms.uLampCol = shared.uLampCol;
@@ -198,7 +209,7 @@ function patch(m: THREE.MeshStandardMaterial, o: LitOpts) {
     shader.vertexShader = v;
 
     let f = shader.fragmentShader;
-    f = swap(f, '#include <common>', '#include <common>\nvarying vec2 vEnv;\nvarying vec2 vUvM;\nvarying vec3 vWPos;\nuniform sampler2D uMacro;\nuniform vec2 uMacroAmt;\nuniform float uWet;\nuniform float uNight;\nuniform sampler2D uRainMap;\nuniform vec4 uRainBox;\nuniform vec4 uLampPos[ ' + LAMPS + ' ];\nuniform vec3 uLampCol[ ' + LAMPS + ' ];\nuniform int uLampCount;\nuniform vec3 uCity;\nuniform float uClock;', 'fragment pars');
+    f = swap(f, '#include <common>', '#include <common>\nvarying vec2 vEnv;\nvarying vec2 vUvM;\nvarying vec3 vWPos;\nuniform sampler2D uMacro;\nuniform vec2 uMacroAmt;\nuniform float uWet;\nuniform float uNight;\nuniform sampler2D uRainMap;\nuniform vec4 uRainBox;\nuniform vec2 uBlow;\nuniform vec4 uLampPos[ ' + LAMPS + ' ];\nuniform vec3 uLampCol[ ' + LAMPS + ' ];\nuniform int uLampCount;\nuniform vec3 uCity;\nuniform float uClock;', 'fragment pars');
     f = swap(f, '#include <envmap_physical_pars_fragment>', ENV_CHUNK, 'env');
     f = swap(
       f,

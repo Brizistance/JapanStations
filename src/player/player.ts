@@ -21,6 +21,13 @@ export const player = {
   lastStation: HOME_STATION as string,
 };
 
+/**
+ * A gale on the player, set by the scene: `power` 0 … 1 in the open, 0 under cover; (`x`, `z`) is
+ * the way it blows. It slows walking into it and unsteadies the view; it never moves the player.
+ */
+export const gale = { x: 0.93, z: 0.37, power: 0 };
+let galeT = 0;
+
 export const input = {
   fwd: false, back: false, left: false, right: false,
   sprint: false, jump: false,
@@ -85,9 +92,19 @@ export function tickPlayer(dt: number) {
 
   const f = (input.fwd ? 1 : 0) - (input.back ? 1 : 0), s = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   const len = Math.hypot(f, s) || 1;
-  const speed = input.sprint ? RUN : WALK;
   const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
-  const vx = ((-sin * f + cos * s) / len) * speed, vz = ((-cos * f - sin * s) / len) * speed;
+  const dx = (-sin * f + cos * s) / len, dz = (-cos * f - sin * s) / len;
+  // Into a gale you lean and slow; with it behind you, you are hurried along a little.
+  const along = dx * gale.x + dz * gale.z;
+  const speed = (input.sprint ? RUN : WALK) * (1 + gale.power * (along < 0 ? 0.4 * along : 0.1 * along));
+  const vx = dx * speed, vz = dz * speed;
+  // Gusts push at the head: a slight, slow unsteadiness, stronger while walking.
+  if (gale.power > 0) {
+    galeT += dt;
+    const push = gale.power * (f || s ? 1 : 0.5) * dt;
+    player.yaw += push * 0.03 * (Math.sin(galeT * 1.7) + 0.6 * Math.sin(galeT * 4.1 + 1));
+    player.pitch += push * 0.015 * Math.sin(galeT * 2.3 + 2);
+  }
 
   const all = allFrames();
   const steps = Math.max(1, Math.ceil(dt / 0.02));

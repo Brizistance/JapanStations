@@ -84,8 +84,10 @@ function roundNormals(g: THREE.BufferGeometry) {
   }
 }
 
-/** Time for the leaves' sway, in seconds (Scene.tsx advances it). */
+/** The clock of the leaves' sway, in seconds: Scene.tsx advances it, faster in wind. */
 export const treeWind = { value: 0 };
+/** The wind on the trees: x, y = the way it blows (world x, z), z = how hard, 0 … 1 (Scene.tsx). */
+export const treeGust = { value: new THREE.Vector3(1, 0, 0) };
 
 function sheet(name: string): THREE.Texture {
   const t = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}models/buildings/${name}.png`);
@@ -102,12 +104,22 @@ function leafMaterial(): THREE.Material {
   m.onBeforeCompile = (shader, renderer) => {
     base.call(m, shader, renderer);
     shader.uniforms.uWind = treeWind;
+    shader.uniforms.uGust = treeGust;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uWind;')
+      .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform vec3 uGust;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 	float swayAmt = clamp( ( position.y - 1.6 ) / 4.0, 0.0, 1.0 );
-	transformed.x += sin( uWind * 1.1 + position.x * 0.7 + position.y * 0.9 ) * 0.06 * swayAmt;
-	transformed.z += cos( uWind * 0.9 + position.z * 0.8 + position.y * 0.7 ) * 0.05 * swayAmt;`);
+	// A gale shakes the leaves several times harder and pushes the crown downwind (worked out
+	// in the tree's own space, so every tree leans the same way whichever way it was planted).
+	float shake = 1.0 + 5.0 * uGust.z;
+	transformed.x += sin( uWind * 1.1 + position.x * 0.7 + position.y * 0.9 ) * 0.06 * swayAmt * shake;
+	transformed.z += cos( uWind * 0.9 + position.z * 0.8 + position.y * 0.7 ) * 0.05 * swayAmt * shake;
+	mat3 toWorld = mat3( modelMatrix );
+	#ifdef USE_INSTANCING
+		toWorld = toWorld * mat3( instanceMatrix );
+	#endif
+	vec3 lean = inverse( toWorld ) * vec3( uGust.x, 0.0, uGust.y );
+	transformed += lean * ( swayAmt * swayAmt * uGust.z * ( 0.38 + 0.12 * sin( uWind * 0.5 + position.y ) ) );`);
   };
   m.customProgramCacheKey = () => 'lit-leaf';
   m.userData.noCast = true;

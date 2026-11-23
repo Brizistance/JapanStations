@@ -11,6 +11,8 @@ import { shared } from './lit';
 import { macroTexture } from './textures';
 
 /** Uniforms shared by every sky material (the dome and the environment capture). */
+/** The sky's share of the ambient light in calm weather (lit.ts `uEnvLevels.y`). */
+const SKY_LEVEL = 1.15;
 const skyU = {
   uSun: { value: new THREE.Vector3(0, 1, 0) },
   uMoon: { value: new THREE.Vector3(0, -1, 0) },
@@ -24,12 +26,14 @@ const skyU = {
   uHaze: { value: 0 },
   uSunVis: { value: 1 },
   uTime: { value: 0 },
+  /** How far the clouds have drifted: runs with `uTime`, faster in wind. */
+  uDrift: { value: 0 },
   uNoise: { value: null as THREE.Data3DTexture | null },
 };
 
 const SKY_GLSL = /* glsl */ `
   uniform vec3 uSun, uMoon, uLight, uFog, uSunCol, uCloudLit, uCloudDark;
-  uniform float uNight, uCover, uHaze, uSunVis, uTime;
+  uniform float uNight, uCover, uHaze, uSunVis, uTime, uDrift;
 
   float hash12( vec2 p ) {
     vec3 p3 = fract( vec3( p.xyx ) * 0.1031 );
@@ -88,7 +92,7 @@ const SKY_GLSL = /* glsl */ `
   const float C_BASE = 1300.0, C_TOP = 2900.0;
   float cdens( vec3 p, bool cheap ) {
     float h = ( p.y - C_BASE ) / ( C_TOP - C_BASE );
-    vec3 q = p * 0.00016 + vec3( uTime * 0.004, 0.0, uTime * 0.0015 );
+    vec3 q = p * 0.00016 + vec3( uDrift * 0.004, 0.0, uDrift * 0.0015 );
     float shape = texture( uNoise, q ).r * 0.72 + texture( uNoise, q * 0.23 + 0.31 ).r * 0.28;
     float hg = smoothstep( 0.0, 0.14, h ) * smoothstep( 1.0, 0.4, h );
     float dd = shape * hg - mix( 0.76, 0.25, pow( uCover, 1.5 ) );
@@ -127,7 +131,7 @@ const SKY_GLSL = /* glsl */ `
   // A flat sheet of cloud overhead, shaded on the side away from the light.
   vec4 clouds( vec3 d ) {
     if ( d.y < 0.01 ) return vec4( 0.0 );
-    vec2 uv = d.xz / ( d.y + 0.12 ) * 1.1 + vec2( uTime * 0.006, uTime * 0.0022 );
+    vec2 uv = d.xz / ( d.y + 0.12 ) * 1.1 + vec2( uDrift * 0.006, uDrift * 0.0022 );
     float n = fbm( uv ) * 0.75 + fbm( uv * 2.7 + 11.0 ) * 0.25;
     float t = mix( 0.78, 0.16, uCover );
     float a = smoothstep( t, t + 0.22, n );
@@ -315,10 +319,19 @@ export class Lighting {
     skyU.uHaze.value = Math.min(1, Math.max(0, 1 - a.fogFar / 1700));
     skyU.uSunVis.value = a.sunLit ? a.direct : 0;
     skyU.uTime.value += dt;
+    skyU.uDrift.value += dt * (1 + 9 * a.wind);
     shared.uNight.value = a.night;
     shared.uClock.value = skyU.uTime.value;
-    shared.uEnvLevels.value.z = a.night * 0.09;
+    // Storm bands dim and lift the sky's light; lightning throws light on everything outdoors.
+    shared.uEnvLevels.value.y = SKY_LEVEL * a.pulse;
+    shared.uEnvLevels.value.z = a.night * 0.09 + a.flash * 0.55;
     this.capture(a, dt);
+    // The flash itself is added after the capture, so a strike never forces a new sky environment.
+    if (a.flash > 0) {
+      skyU.uFog.value.addScalar(a.flash * 0.3);
+      skyU.uCloudLit.value.addScalar(a.flash * 0.7);
+      skyU.uCloudDark.value.addScalar(a.flash * 0.45);
+    }
 
     this.dome.position.copy(cam);
     this.scene.environmentRotation.set(0, yaw, 0);

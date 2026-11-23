@@ -343,7 +343,51 @@ function call(c: AudioContext, seconds: number, notes: [number, number, number][
   return buf;
 }
 
+/** Wind whistling round corners and through wires: noise rung at a pitch that wanders. Loops. */
+function howl(c: AudioContext): AudioBuffer {
+  const seconds = 8, n = Math.floor(c.sampleRate * seconds), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  let seed = 4242, y1 = 0, y2 = 0;
+  for (let i = 0; i < n; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+    const t = i / n;
+    // Whole turns over the buffer, so the end meets the start.
+    const f = 430 + 150 * Math.sin(2 * Math.PI * t * 2) + 70 * Math.sin(2 * Math.PI * t * 5 + 1);
+    const w = (2 * Math.PI * f) / c.sampleRate, r = 0.9965;
+    const y = (seed / 2147483648) * 0.012 + 2 * r * Math.cos(w) * y1 - r * r * y2;
+    y2 = y1;
+    y1 = y;
+    d[i] = y * 0.15 * (0.6 + 0.4 * Math.sin(2 * Math.PI * t * 3 + 2));
+  }
+  // Let the ringing settle before the join.
+  const fade = Math.floor(c.sampleRate * 0.3);
+  for (let i = 0; i < fade; i++) {
+    d[i] *= i / fade;
+    d[n - 1 - i] *= i / fade;
+  }
+  return buf;
+}
+
+/** Thunder: a crack, then a long low roll that swells and dies away. */
+function thunder(c: AudioContext): AudioBuffer {
+  const seconds = 6, n = Math.floor(c.sampleRate * seconds), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  let seed = 9091, low = 0, lower = 0;
+  for (let i = 0; i < n; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+    const w = seed / 2147483648, t = i / c.sampleRate;
+    low += (w - low) * 0.02;
+    lower += (low - lower) * 0.01;
+    const crack = Math.exp(-t * 9) * (w * 0.5 + low * 4);
+    const roll = lower * 60 * Math.exp(-t * 0.75) * (0.55 + 0.45 * Math.sin(t * 5.3) * Math.sin(t * 1.9 + 1)) * Math.min(1, t * 6 + 0.2);
+    d[i] = Math.max(-1, Math.min(1, (crack + roll) * 0.3)) * Math.min(1, (seconds - t) * 2);
+  }
+  return buf;
+}
+
 const MADE: Record<string, (c: AudioContext) => AudioBuffer> = {
+  'sfx/storm-wind': (c) => noise(c, 6, 0.985),
+  'sfx/storm-howl': howl,
+  'sfx/storm-rain': (c) => noise(c, 5, 0.35),
+  'sfx/thunder': thunder,
   'sfx/road-car': (c) => noise(c, 4, 0.94),
   'sfx/road-heavy': (c) => noise(c, 4, 0.965, 62),
   'sfx/road-scooter': (c) => noise(c, 3, 0.9, 148),
@@ -355,6 +399,63 @@ const MADE: Record<string, (c: AudioContext) => AudioBuffer> = {
 };
 function made(path: string): AudioBuffer | null {
   return ctx && MADE[path] ? MADE[path](ctx) : null;
+}
+
+/** A looping sound of the sky (wind, rain): no place of its own, heard whatever the station's hearing, steered live. */
+export function skyLoop(name: string): PosLoopHandle {
+  let src: AudioBufferSourceNode | null = null, g: GainNode | null = null, lp: BiquadFilterNode | null = null, stopped = false;
+  let want = { rate: 1, gain: 0, cutoff: 18000 };
+  const apply = () => {
+    if (!src || !g || !lp || !ctx) return;
+    const t = ctx.currentTime;
+    src.playbackRate.setTargetAtTime(want.rate, t, 0.3);
+    g.gain.setTargetAtTime(want.gain, t, 0.3);
+    lp.frequency.setTargetAtTime(want.cutoff, t, 0.4);
+  };
+  if (live()) {
+    void load(`sfx/${name}`).then((buf) => {
+      if (!buf || stopped || !ctx) return;
+      g = ctx.createGain();
+      g.gain.value = 0;
+      lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = want.cutoff;
+      src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(lp).connect(g).connect(roadBus);
+      src.start(0, Math.random() * buf.duration);
+      apply();
+    });
+  }
+  return {
+    set(rate, gain, cutoff = 18000) {
+      want = { rate, gain, cutoff };
+      apply();
+    },
+    stop(fadeS = 1) {
+      stopped = true;
+      if (!src || !g || !ctx) return;
+      g.gain.setTargetAtTime(0, ctx.currentTime, fadeS / 3);
+      src.stop(ctx.currentTime + fadeS + 0.5);
+    },
+  };
+}
+
+/** A one-shot from the sky (thunder), `delayS` from now, dulled to `cutoff` Hz. */
+export function playSky(name: string, gain = 1, cutoff = 18000, delayS = 0, rate = 1) {
+  if (!live()) return;
+  void load(`sfx/${name}`).then((buf) => {
+    if (!buf || !ctx) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    g.gain.value = gain;
+    lp.type = 'lowpass';
+    lp.frequency.value = cutoff;
+    src.connect(lp).connect(g).connect(roadBus);
+    src.start(ctx.currentTime + delayS);
+  });
 }
 
 /**

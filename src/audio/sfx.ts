@@ -82,9 +82,18 @@ export const ROAD_SFX: Sfx[] = [
   { name: 'signal-kakko', seconds: 1.6, loop: true, prompt: 'Japanese pedestrian crossing audible signal for the blind: a two-note electronic cuckoo call, then a short silence, clean, seamless loop. No voice, no traffic.' },
 ];
 
+/** The weather (audio/storm.ts). Made in the engine until recordings exist. */
+export const STORM_SFX: Sfx[] = [
+  { name: 'storm-wind', seconds: 8, loop: true, prompt: 'Strong wind blowing down a city street in a storm, heard outdoors: a deep steady roar of air, constant, seamless loop. No rain, no voice, no music.' },
+  { name: 'storm-howl', seconds: 8, loop: true, prompt: 'Gale-force wind whistling and howling round building corners and through overhead wires, rising and falling in pitch, seamless loop. No rain, no voice.' },
+  { name: 'storm-rain', seconds: 8, loop: true, prompt: 'Heavy rain falling on a paved city street, heard outdoors: a dense constant hiss and patter, seamless loop. No thunder, no wind, no voice.' },
+  { name: 'thunder', seconds: 6, prompt: 'A single clap of thunder close by: a sharp crack, then a long low rumble rolling away. No rain, no voice.' },
+];
+
 export const SFX: Sfx[] = [
   ...CAR_SFX,
   ...ROAD_SFX,
+  ...STORM_SFX,
   {
     name: 'chime',
     prompt: `Japanese train station attention chime: four clean electronic bell tones ascending, like a school bell, before an announcement. ${PA} ${NO_VOICE}`,

@@ -1,7 +1,8 @@
 // UI state. Small on purpose: the sim and player live in plain modules; this only
 // tracks which screen is showing and the saved settings.
 
-import { season, SEASON_KEY, SEASONS, type Season } from '../render/season';
+import { season, type Season } from '../render/season';
+import { doyOf, monthOf, seasonOf, today, weatherOn, wrapDoy, YEAR_DAYS } from '../sim/climate';
 import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, teleport } from '../player/player';
@@ -52,12 +53,12 @@ const PLAN_KEY = 'js.floorPlan', FPS_KEY = 'js.fps', GUIDE_VIEW_KEY = 'js.guideV
 const SENS_KEY = 'js.sensitivity', INVERT_KEY = 'js.invertY', FOV_KEY = 'js.fov', LANG_KEY = 'js.lang';
 export const SENS_RANGE = [0.3, 2.5] as const, FOV_RANGE = [55, 100] as const;
 /** What "Reset to defaults" restores. */
-export const DEFAULTS = { voiceVolume: 0.8, sfxVolume: 0.8, masterVolume: 1, muted: false, sensitivity: 1, invertY: false, fov: 72, lang: 'ja' as Lang, season: 'summer' as Season };
+export const DEFAULTS = { voiceVolume: 0.8, sfxVolume: 0.8, masterVolume: 1, muted: false, sensitivity: 1, invertY: false, fov: 72, lang: 'ja' as Lang };
 
-const initialSeason: Season = (() => {
-  const v = storage()?.getItem(SEASON_KEY) as Season | null;
-  return v && SEASONS.includes(v) ? v : DEFAULTS.season;
-})();
+// The calendar date (day of the year, and a year count that only varies the weather), kept between visits.
+const DATE_KEY = 'kawaminato.date', YEAR_KEY = 'kawaminato.year';
+const initialDoy = Math.round(loadNumber(DATE_KEY, 1, YEAR_DAYS, doyOf(7, 21))), initialYear = Math.round(loadNumber(YEAR_KEY, 0, 1e6, 1));
+const initialSeason: Season = seasonOf(monthOf(initialDoy));
 season.now = initialSeason;
 
 const initialVoice = loadNumber(VOICE_KEY, 0, 1, DEFAULTS.voiceVolume), initialSfx = loadNumber(SFX_KEY, 0, 1, DEFAULTS.sfxVolume);
@@ -76,14 +77,22 @@ const initialLang: Lang = (() => {
 
 // The hour and weather chosen on the city menu, kept between visits.
 const TIME_KEY = 'kawaminato.startTime', WEATHER_KEY = 'kawaminato.weather';
-function loadWeather(): Weather {
+/** The weather picked on the city menu: one kind, or whatever the date brings. */
+export type WeatherPick = Weather | 'auto';
+function loadWeather(): WeatherPick {
   try {
     const raw = storage()?.getItem(WEATHER_KEY) as Weather | null;
-    return raw && WEATHERS.includes(raw) ? raw : 'clear';
+    return raw && WEATHERS.includes(raw) ? raw : 'auto';
   } catch {
-    return 'clear';
+    return 'auto';
   }
 }
+const initialPick = loadWeather();
+today.doy = initialDoy;
+today.year = initialYear;
+today.weather = initialPick === 'auto' ? weatherOn(initialDoy, initialYear) : initialPick;
+/** The clock's day count when the date was last brought up to it. */
+let clockDay = 0;
 clock.time = (() => {
   const v = loadNumber(TIME_KEY, -1, 86400, 10 * 3600);
   return v >= 0 && v < 86400 ? v : 10 * 3600;
@@ -126,11 +135,21 @@ interface UI {
   guideTo: string | null;
   setGuide: (id: string | null) => void;
   graphics: Graphics;
-  /** The season the trees are shown in (a look only). */
+  /** The season the trees are shown in: follows the month. */
   season: Season;
-  setSeason: (s: Season) => void;
-  weather: Weather;
-  setWeather: (w: Weather) => void;
+  /** The date: day of the year 1…365, and a year count that only varies the weather. */
+  doy: number;
+  year: number;
+  /** Go to day `doy` of this year (the city menu's month picker). */
+  setDate: (doy: number) => void;
+  /** Move the date by whole days, into the next or the last year if need be. */
+  stepDay: (days: number) => void;
+  /** Called every frame: when the clock passes midnight, the date moves on. */
+  syncDate: () => void;
+  /** The weather picked on the city menu, and the weather it comes to today. */
+  weather: WeatherPick;
+  weatherNow: Weather;
+  setWeather: (w: WeatherPick) => void;
   /** Set the sim clock to `sec` seconds after midnight (the city menu's time of day). */
   setTime: (sec: number) => void;
   /** Everything, 0…1. */
@@ -250,17 +269,33 @@ export const useUI = create<UI>((set, get) => ({
   setGuide: (guideTo) => set({ guideTo }),
   graphics: loadGraphics(storage()),
   season: initialSeason,
-  setSeason: (v) => {
-    season.now = v;
-    save(SEASON_KEY, v);
-    set({ season: v });
+  doy: initialDoy,
+  year: initialYear,
+  setDate: (doy) => get().stepDay(wrapDoy(doy) - get().doy),
+  stepDay: (days) => {
+    const n = get().doy - 1 + Math.round(days);
+    const doy = wrapDoy(n + 1), year = Math.max(0, get().year + Math.floor(n / YEAR_DAYS));
+    const pick = get().weather, weatherNow = pick === 'auto' ? weatherOn(doy, year) : pick;
+    Object.assign(today, { doy, year, weather: weatherNow });
+    season.now = seasonOf(monthOf(doy));
+    save(DATE_KEY, String(doy));
+    save(YEAR_KEY, String(year));
+    set({ doy, year, weatherNow, season: season.now });
   },
-  weather: loadWeather(),
+  syncDate: () => {
+    const d = Math.floor(clock.time / 86400);
+    if (d > clockDay) get().stepDay(d - clockDay);
+    clockDay = d;
+  },
+  weather: initialPick,
+  weatherNow: today.weather,
   setWeather: (weather) => {
     save(WEATHER_KEY, weather);
-    set({ weather });
+    today.weather = weather === 'auto' ? weatherOn(get().doy, get().year) : weather;
+    set({ weather, weatherNow: today.weather });
   },
   setTime: (sec) => {
+    clockDay = 0;
     clock.time = ((sec % 86400) + 86400) % 86400;
     save(TIME_KEY, String(clock.time));
   },
@@ -329,7 +364,6 @@ export const useUI = create<UI>((set, get) => ({
     s.setInvertY(DEFAULTS.invertY);
     s.setFov(DEFAULTS.fov);
     s.setLang(DEFAULTS.lang);
-    s.setSeason(DEFAULTS.season);
     const graphics: Graphics = { preset: DEFAULT_GRAPHICS.preset, fx: { ...DEFAULT_GRAPHICS.fx } };
     saveGraphics(storage(), graphics);
     set({ graphics });

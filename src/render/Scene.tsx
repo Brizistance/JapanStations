@@ -2,7 +2,7 @@ import { perfStats } from './perf';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { EYE, input, player, teleport, tickPlayer, nearestStation, where } from '../player/player';
+import { EYE, gale, input, player, teleport, tickPlayer, nearestStation, where } from '../player/player';
 import { clock } from '../sim';
 import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
@@ -13,12 +13,14 @@ import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
 import { moveWheel, WHEEL, wheelIndex, wheelMove } from '../ui/Wheel';
 import { toWorld } from '../world/collision';
-import { atmosphereAt, newAtmosphere } from './atmosphere';
+import { tickStormAudio } from '../audio/storm';
+import { WIND_DIR, atmosphereAt, lightning, newAtmosphere } from './atmosphere';
+import { declOf } from '../sim/climate';
 import { LampDots, updateLamps } from './lamps';
 import { Lighting } from './lighting';
 import { lineGrade, outdoorGrade, UNDERGROUND, WARM_HUB, type Grade } from './grade';
 import { needsPost } from './graphics';
-import { treeWind } from './building-models';
+import { treeGust, treeWind } from './building-models';
 import { Post } from './post';
 import { ssrWet } from './ssr';
 import { Rain } from './weather';
@@ -55,7 +57,7 @@ function World() {
     scene.add(dots.current.points);
     traffic.current = new TrafficView();
     scene.add(traffic.current.root);
-    atmosphereAt(clock.time, useUI.getState().weather, atm);
+    atmosphereAt(clock.time, useUI.getState().weatherNow, atm, declOf(useUI.getState().doy));
     SKY.fromArray(atm.fogColor);
     scene.fog = new THREE.Fog(SKY.clone(), 300, 1700);
     scene.background = SKY.clone();
@@ -109,7 +111,7 @@ function World() {
     updateTrains(clock.time);
     // Road traffic moves before the player does, so the vehicles are solid where they now are.
     const walking = useUI.getState().mode === 'play';
-    updateTraffic(clock.time, walking ? { x: player.body.pos[0], z: player.body.pos[2] } : camera.position, walking && !where.train ? player.body.pos : null, fx.traffic, fx.density);
+    updateTraffic(clock.time, walking ? { x: player.body.pos[0], z: player.body.pos[2] } : camera.position, walking && !where.train ? player.body.pos : null, fx.traffic, fx.density * (atm.storm > 0.6 ? 0.3 : atm.storm > 0.3 ? 0.6 : 1));
 
     if (useUI.getState().mode === 'play') {
       tickPlayer(dt);
@@ -133,8 +135,11 @@ function World() {
     view.update(dt, camera.position, vis);
 
     // The hour and the weather decide the light, the sky and the fog above ground.
-    atmosphereAt(clock.time, useUI.getState().weather, atm);
-    SKY.fromArray(atm.fogColor);
+    useUI.getState().syncDate();
+    atmosphereAt(clock.time, useUI.getState().weatherNow, atm, declOf(useUI.getState().doy));
+    const bolt = lightning(state.clock.elapsedTime, atm.storm);
+    atm.flash = vis === 'under' ? 0 : bolt;
+    SKY.fromArray(atm.fogColor).addScalar(atm.flash * 0.3);
     SUN.fromArray(atm.sun);
 
     // Underground the far distance fades to black; above ground to sky.
@@ -153,10 +158,15 @@ function World() {
     rain.current?.update(gl, camera.position, atm, dt, vis !== 'under' && camera.position.y > -12, riding, light && dots.current ? [light.dome, dots.current.points] : []);
     traffic.current?.update(vis !== 'under', under ? 0 : atm.night, dt, state.clock.elapsedTime);
     tickTrafficAudio(camera.position, under || useUI.getState().mode !== 'play', atm.wet > 0.5, clock.time);
+    tickStormAudio(camera.position, useUI.getState().mode === 'play' && !useUI.getState().paused, under, riding, atm, bolt, state.clock.elapsedTime);
+    // A gale is felt on foot in the open: under the sky, off the train.
+    gale.power = !under && !riding && useUI.getState().mode === 'play' ? Math.min(1, Math.max(0, (atm.wind - 0.4) / 0.6)) : 0;
     updateLamps(camera.position, under ? 0 : atm.night, fx.hq ? 64 : 24, dt);
     dots.current?.update(under ? 0 : atm.night);
     ssrWet.on = atm.wet > 0.5;
-    treeWind.value = state.clock.elapsedTime;
+    // Trees: the sway runs faster and the crowns lean as the wind rises, in gusts.
+    treeWind.value += dt * (1 + 2.5 * atm.wind);
+    treeGust.value.set(WIND_DIR[0], WIND_DIR[1], atm.wind * (0.75 + 0.25 * Math.sin(state.clock.elapsedTime * 0.8)));
     // Priority 1 takes over rendering from R3F.
     const shafts = under || !atm.sunLit ? 0 : Math.min(1, atm.lightPower / 1.2) * (0.35 + 0.65 * atm.dusk);
     // Out in the city beyond the nearest station's plot (continued streets, boulevards) AO costs far more than it shows.

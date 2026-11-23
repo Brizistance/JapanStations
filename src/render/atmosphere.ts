@@ -2,13 +2,16 @@
 // strong and what colour the key light is, the fog, the cloud cover, how wet the ground is.
 // Pure numbers, no three.js: lighting.ts, weather.ts and Scene.tsx turn them into pictures.
 //
-// World axes: +x east, +y up, +z south. The sun follows one fixed day (a spring day at
-// Kawaminato's latitude: up a little before 06:00, down a little after 18:00); no calendar.
+// World axes: +x east, +y up, +z south. The sun's path follows the declination passed in
+// (sim/climate.ts `declOf`: long days in June, short in December); without one it is a spring
+// day at Kawaminato's latitude, up a little before 06:00 and down a little after 18:00.
 
-export type Weather = 'clear' | 'cloudy' | 'overcast' | 'rain' | 'fog';
-export const WEATHERS: Weather[] = ['clear', 'cloudy', 'overcast', 'rain', 'fog'];
+import { STORM_TURN_H, WEATHERS, stormAt, type Weather } from '../sim/climate';
+export { WEATHERS, type Weather };
 
 export type V3 = [number, number, number];
+/** The way the wind blows, as a unit (x, z): out of the south-west, as typhoon winds reach the bay. */
+export const WIND_DIR: [number, number] = [0.93, 0.37];
 
 export interface Atmosphere {
   /** Unit vectors towards the sun and the moon. */
@@ -40,8 +43,18 @@ export interface Atmosphere {
   cloudDark: V3;
   /** Wet ground, 0…1. */
   wet: number;
-  /** Falling rain, 0…1. */
+  /** Falling rain, 0 … 1 (drizzle about a third, a downpour 1). */
   rain: number;
+  /** Falling snow, 0…1. */
+  snow: number;
+  /** Wind, 0 … 1 (a typhoon). */
+  wind: number;
+  /** How far a typhoon has come, 0 … 1 at full strength (sim/climate.ts `stormAt`). */
+  storm: number;
+  /** Sky light level, about 1: in a storm it rises and falls as the cloud bands pass. */
+  pulse: number;
+  /** Lightning, 0 … 1. Set each frame by the scene (`lightning`), not by `atmosphereAt`. */
+  flash: number;
 }
 
 interface WeatherLook {
@@ -56,13 +69,22 @@ interface WeatherLook {
   heavy: number;
   wet: number;
   rain: number;
+  snow?: number;
+  wind?: number;
 }
 
 const LOOKS: Record<Weather, WeatherLook> = {
   clear: { cover: 0.16, direct: 1, grey: 0, greyLevel: 1, fogNear: 200, fogFar: 800, heavy: 0.15, wet: 0, rain: 0 },
   cloudy: { cover: 0.56, direct: 0.72, grey: 0.3, greyLevel: 0.98, fogNear: 180, fogFar: 740, heavy: 0.35, wet: 0, rain: 0 },
   overcast: { cover: 1, direct: 0.1, grey: 0.85, greyLevel: 0.82, fogNear: 140, fogFar: 640, heavy: 0.55, wet: 0, rain: 0 },
-  rain: { cover: 1, direct: 0.04, grey: 0.92, greyLevel: 0.56, fogNear: 50, fogFar: 620, heavy: 0.85, wet: 1, rain: 1 },
+  drizzle: { cover: 1, direct: 0.07, grey: 0.9, greyLevel: 0.72, fogNear: 60, fogFar: 520, heavy: 0.65, wet: 0.7, rain: 0.35 },
+  rain: { cover: 1, direct: 0.04, grey: 0.92, greyLevel: 0.56, fogNear: 50, fogFar: 620, heavy: 0.85, wet: 1, rain: 0.65, wind: 0.08 },
+  downpour: { cover: 1, direct: 0.02, grey: 0.95, greyLevel: 0.44, fogNear: 25, fogFar: 360, heavy: 1, wet: 1, rain: 1, wind: 0.3 },
+  // Midsummer: strong sun through a milky, humid sky that whites out the distance.
+  haze: { cover: 0.3, direct: 0.8, grey: 0.55, greyLevel: 1.12, fogNear: 15, fogFar: 420, heavy: 0.1, wet: 0, rain: 0 },
+  typhoon: { cover: 1, direct: 0.01, grey: 0.96, greyLevel: 0.34, fogNear: 15, fogFar: 260, heavy: 1, wet: 1, rain: 1, wind: 1 },
+  // Light flurries that melt as they land.
+  snow: { cover: 1, direct: 0.08, grey: 0.9, greyLevel: 0.8, fogNear: 40, fogFar: 420, heavy: 0.5, wet: 0.35, rain: 0, snow: 1, wind: 0.1 },
   fog: { cover: 0.7, direct: 0.22, grey: 0.85, greyLevel: 0.95, fogNear: 3, fogFar: 170, heavy: 0.3, wet: 0.25, rain: 0 },
 };
 
@@ -98,18 +120,50 @@ export function newAtmosphere(): Atmosphere {
   return {
     sun: [0, 1, 0], moon: [0, -1, 0], light: [0, 1, 0], lightColor: [1, 1, 1], lightPower: 0, sunLit: true,
     day: 1, dusk: 0, night: 0, cover: 0, direct: 1, fogColor: [0, 0, 0], fogNear: 300, fogFar: 1700,
-    cloudLit: [1, 1, 1], cloudDark: [0.5, 0.5, 0.5], wet: 0, rain: 0,
+    cloudLit: [1, 1, 1], cloudDark: [0.5, 0.5, 0.5], wet: 0, rain: 0, snow: 0, wind: 0, storm: 0, pulse: 1, flash: 0,
   };
 }
 
-/** Fill `out` for clock time `timeS` (seconds; any day) and `weather`. */
-export function atmosphereAt(timeS: number, weather: Weather, out: Atmosphere = newAtmosphere()): Atmosphere {
-  const w = LOOKS[weather];
+const KEYS = ['cover', 'direct', 'grey', 'greyLevel', 'fogNear', 'fogFar', 'heavy', 'wet', 'rain'] as const;
+const STORM: WeatherLook = { ...LOOKS.typhoon };
+/**
+ * A typhoon's look at strength `s`: closing in from an overcast morning, and clearing to a
+ * washed, far-seeing sky once it has passed. The rain holds off until the storm is well up.
+ */
+function stormLook(s: number, passed: boolean): WeatherLook {
+  const from = passed ? LOOKS.clear : LOOKS.overcast, to = LOOKS.typhoon;
+  for (const k of KEYS) STORM[k] = from[k] + (to[k] - from[k]) * s;
+  STORM.rain = smooth(0.25, 0.7, s);
+  STORM.wet = Math.max(STORM.wet, passed ? smooth(0, 0.15, s) : 0);
+  STORM.wind = s;
+  return STORM;
+}
+
+/**
+ * Lightning brightness 0 … 1 at `t` seconds of real time in a storm of strength `storm`: now and
+ * then a strike, a sharp flash with one flicker after it. Thunder can follow the same strikes.
+ */
+export function lightning(t: number, storm: number): number {
+  if (storm < 0.55) return 0;
+  const slot = Math.floor(t / 5), r = (n: number) => { const x = Math.sin(slot * 127.1 + n * 311.7) * 43758.5453; return x - Math.floor(x); };
+  if (r(1) > 0.4 * storm) return 0;
+  const dt = t - slot * 5 - r(2) * 4;
+  if (dt < 0 || dt > 0.6) return 0;
+  return Math.max(Math.exp(-dt * 16), dt > 0.16 ? 0.75 * Math.exp(-(dt - 0.16) * 20) : 0);
+}
+
+/** Fill `out` for clock time `timeS` (seconds; any day), `weather` and the sun's declination `decl` (radians). */
+export function atmosphereAt(timeS: number, weather: Weather, out: Atmosphere = newAtmosphere(), decl = DECL): Atmosphere {
   const t = ((timeS % DAY_S) + DAY_S) % DAY_S;
+  const storm = stormAt(t, weather);
+  const w = weather === 'typhoon' ? stormLook(storm, t / 3600 >= STORM_TURN_H) : LOOKS[weather];
+  out.storm = storm;
+  out.pulse = 1 + storm * 0.22 * (0.6 * Math.sin(timeS / 2.3) + 0.4 * Math.sin(timeS / 5.1 + 2));
+  out.flash = 0;
   const h = (t / DAY_S - 0.5) * Math.PI * 2;
-  body(h, DECL, out.sun);
+  body(h, decl, out.sun);
   // A near-full moon: roughly opposite the sun, so it is up for most of the night.
-  body(h + 2.95, -DECL - 0.1, out.moon);
+  body(h + 2.95, -decl - 0.1, out.moon);
 
   const alt = out.sun[1];
   out.day = smooth(-0.05, 0.3, alt);
@@ -119,6 +173,8 @@ export function atmosphereAt(timeS: number, weather: Weather, out: Atmosphere = 
   out.direct = w.direct;
   out.wet = w.wet;
   out.rain = w.rain;
+  out.snow = w.snow ?? 0;
+  out.wind = w.wind ?? 0;
 
   // Key light. The sun fades to nothing just below the horizon before the moon takes over,
   // so the direction never jumps while the light is on.

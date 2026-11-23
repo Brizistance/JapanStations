@@ -1,5 +1,5 @@
 // The pause screen (Esc): the clock stands still, the mouse is free. One place with a tab for
-// everything: the game (resume, time of day, clock speed), the route map, guidance, settings and
+// everything: the game (resume, time of day, weather, clock speed), the route map, guidance, settings and
 // the keys.
 
 import { useState } from 'react';
@@ -8,7 +8,7 @@ import { player, where } from '../player/player';
 import { clock, formatClock } from '../sim';
 import { Bi } from './Bi';
 import { DestinationSearch } from './Guide';
-import { TIME_PRESETS } from './MainMenu';
+import { TIME_PRESETS, WeatherPicker } from './MainMenu';
 import { MetroMap, NumberBadge, StationPanel } from './MetroMap';
 import { SettingsBody } from './Settings';
 import { useUI, type Speed } from './store';
@@ -35,6 +35,8 @@ function Game() {
         <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {TIME_PRESETS.map(([ja, en, h]) => <button key={en} onClick={() => setTime(h * 3600)}><Bi ja={ja} en={en} /></button>)}
         </div>
+        <h3><Bi ja="天気" en="Weather" /></h3>
+        <WeatherPicker />
         <h3><Bi ja="時間の速さ" en="Clock speed" /></h3>
         <div className="sg-seg" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           {SPEED_LABEL.map(([v, ja, en]) => (

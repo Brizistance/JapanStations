@@ -1,5 +1,7 @@
 // Canvas drawing for every sign type. All text comes from the network data.
 
+import { temperatureNow, today } from '../sim/climate';
+import { drawWeatherIcon, typhoonNotice } from './weather-icon';
 import { drawCarGuide, drawStrip, drawTimetable, drawWomenOnly } from './boards';
 import { LINES, OPERATOR, STATIONS, diagramRuns, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
@@ -2020,7 +2022,13 @@ function drawLcd(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'l
   }
   text(ctx, ja, x, H * 0.62, H * 0.34, { color: '#fff', weight: 800, maxW: W * 0.45 });
   text(ctx, en, W - H * 0.15, H * 0.66, H * 0.17, { color: '#dfe8f3', weight: 600, align: 'right', maxW: W * 0.4 });
+  const notice = typhoonNotice(clock.time);
   if (p.kind === 'dwell' && p.doors) text(ctx, 'ドアが開きます  Doors open', W / 2, H * 0.9, H * 0.1, { color: '#ffb300', align: 'center', weight: 600 });
+  // Between stops in a typhoon: the caution, in each language in turn.
+  else if (notice.length) text(ctx, notice[Math.floor(clock.time / 6) % 2], W * 0.56, H * 0.9, H * 0.085, { color: '#ffb300', align: 'center', weight: 600, maxW: W * 0.7 });
+  // The weather and the temperature outside, in the corner.
+  drawWeatherIcon(ctx, today.weather, clock.time, H * 0.15, H * 0.82, H * 0.15, '#9fb3c8');
+  text(ctx, `${temperatureNow(clock.time)}°C`, H * 0.34, H * 0.9, H * 0.11, { color: '#dfe8f3', weight: 700, maxW: W * 0.14 });
 }
 
 /**

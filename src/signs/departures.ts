@@ -6,6 +6,8 @@
 import { LINES, OPERATOR, lineById, linesAt, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
+import { temperatureNow, today } from '../sim/climate';
+import { WEATHER_NAME, drawWeatherIcon, typhoonNotice } from './weather-icon';
 import { nextArrivals, nextDepartures, trainStateAt } from '../sim/timetable';
 import { lineBoard, stationBoard, type BoardStyle } from './board-style';
 import type { SignContent } from './content';
@@ -157,6 +159,7 @@ export function depModel(c: DepC, now: number, wall: number): DepModel {
   const others = linesAt(st.id).filter((l) => l.id !== line.id && l.shares?.line !== line.id && line.shares?.line !== l.id);
   const ticker = [
     statusText(status, first, now, false), statusText(status, first, now, true),
+    ...typhoonNotice(now),
     ...(others.length ? [`${others.map((l) => l.nameJa).join('・')}はお乗り換えです`, `Transfer here for the ${others.map((l) => l.nameEn).join(' and ')}`] : []),
     ...thanks,
   ].filter(Boolean).join(SEP);
@@ -200,6 +203,7 @@ export function depAllModel(c: DepAllC, now: number, wall: number): DepAllModel 
   });
   const soon = [...rows].filter((r) => r.deps[0]).sort((a, b) => a.deps[0].dep - b.deps[0].dep)[0];
   const ticker = [
+    ...typhoonNotice(now),
     ...(soon ? [
       `つぎの発車は ${formatClock(soon.deps[0].dep)}  ${soon.line.nameJa} ${soon.dest.nameJa}方面  ${soon.platform}番線`,
       `Next departure ${formatClock(soon.deps[0].dep)}: ${soon.line.nameEn} for ${soon.dest.nameRomaji}, track ${soon.platform}`,
@@ -354,6 +358,8 @@ function ledDepAll(ctx: Ctx, W: number, H: number, m: DepAllModel) {
   let y = Math.round(rh / 2);
   led(ctx, en ? 'Departures' : '発車案内', 1, y, LED.g, { maxW: W * 0.5 });
   led(ctx, formatClock(m.now), W - 2, y, LED.o, { align: 'right', maxW: W * 0.2 });
+  // Today's weather and the temperature outside, as concourse boards carry.
+  led(ctx, `${WEATHER_NAME[today.weather][en ? 1 : 0]} ${temperatureNow(m.now)}°C`, W * 0.53, y, LED.o, { maxW: W * 0.25 });
   m.rows.forEach((r, i) => {
     y = Math.round(rh * (i + 1.5));
     ctx.fillStyle = ledOf(r.line.color);
@@ -488,6 +494,10 @@ function lcdDepAll(ctx: Ctx, W: number, H: number, m: DepAllModel) {
   ctx.fillRect(0, 0, W, hh);
   faded(ctx, a, () => text(ctx, en ? 'Departures' : '発車案内', hh * 0.4, hh / 2, hh * 0.5, { color: '#fff', maxW: W * 0.5 }));
   text(ctx, formatClock(m.now), W - hh * 0.4, hh / 2, hh * 0.62, { color: '#fff', align: 'right', weight: 800, maxW: W * 0.2 });
+  // Today's weather and the temperature outside, as concourse boards carry.
+  drawWeatherIcon(ctx, today.weather, m.now, W * 0.55, hh * 0.17, hh * 0.66, '#fff');
+  text(ctx, `${temperatureNow(m.now)}°C`, W * 0.55 + hh * 0.85, hh / 2, hh * 0.52, { color: '#fff', weight: 800, maxW: W * 0.1 });
+  faded(ctx, a, () => text(ctx, WEATHER_NAME[today.weather][en ? 1 : 0], W * 0.66 + hh * 0.85, hh / 2, hh * 0.4, { color: '#cfe0f2', weight: 600, maxW: W * 0.1 }));
   const top = hh + H * 0.01, bottom = H * 0.86;
   const n = Math.max(m.rows.length, 2), rh = (bottom - top) / n;
   const px = Math.min(rh * 0.42, H * 0.075);
