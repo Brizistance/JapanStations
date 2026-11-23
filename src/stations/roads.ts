@@ -228,10 +228,14 @@ export interface RoadGeo {
   tee?: boolean;
   /** Crossing roads (by index, west to east) that only run to the +z side, where the others run through. */
   tees?: number[];
+  /** The tee roads run to the −z side instead (Daigaku-mae: the town north of the main road, the campus wall south). */
+  teeNorth?: boolean;
   /** The big streets' way: signals hang on dark grey poles shared with the street lights. */
   shared?: boolean;
   /** An old street: single curved arms, hooded heads, a striped back board here and there. */
   old?: boolean;
+  /** Signals on long mast arms (6.5 m) reaching over the inner lane (Daigaku-mae's Gakufu-dōri). */
+  long?: boolean;
   /** Street lights along the main road (build_road.py): highway masts, shopping-street lamps or park lanterns. None: the utility poles carry the lights. */
   lamp?: LampKind;
   /** Names of the junctions, west to east, where the default (the area's name and a chōme number) will not do. */
@@ -329,14 +333,16 @@ function carHead(b: Builder, x: number, y: number, z: number, f: V2, axis: 0 | 1
 /**
  * How a signal is mounted (build_road.py). 'new': today's standard, a straight steel pole with a short
  * arm of two parallel beams and thin LED heads. 'old': the single curved arm and hooded heads of older
- * streets. 'shared': the big streets' dark grey pole that carries the street light too.
+ * streets. 'shared': the big streets' dark grey pole that carries the street light too. 'long': the
+ * new pole with a 6.5 m mast arm and a stay rod, the heads out over the inner lane.
  */
-export type PoleStyle = 'new' | 'old' | 'shared';
+export type PoleStyle = 'new' | 'old' | 'shared' | 'long';
 /** Each style's poles: the arm's length, and the head's middle in from its tip. */
 const POLES: Record<PoleStyle, { id: string; arm: number; inn: number }[]> = {
   new: [{ id: 'sigp2', arm: 2.0, inn: 0.55 }, { id: 'sigp3', arm: 3.5, inn: 0.55 }],
   old: [{ id: 'signal3', arm: 2.6, inn: HEAD_IN }],
   shared: [{ id: 'siglight2', arm: 2.0, inn: 0.55 }, { id: 'siglight3', arm: 3.5, inn: 0.55 }],
+  long: [{ id: 'sigp3', arm: 3.5, inn: 0.55 }, { id: 'sigp6', arm: 6.5, inn: 0.55 }],
 };
 /**
  * build_road.py PLATE: the junction's name plate on the arm, road side, between the pole and the head
@@ -367,7 +373,8 @@ export function vehicleSignal(b: Builder, mx: number, mz: number, h: V2, reach: 
   const f: V2 = [-h[0], -h[1]];
   const style = o.style ?? 'new', list = POLES[style];
   // (A pole that carries the junction's plate has the longer arm: plate and head sit side by side on it.)
-  const pole = (name ? undefined : list.find((q) => q.arm - q.inn >= reach - 0.6)) ?? list[list.length - 1];
+  // ('long' picks by reach alone: both its poles carry a plate; the cross streets keep the 3.5 m arm.)
+  const pole = (name && style !== 'long' ? undefined : list.find((q) => q.arm - q.inn >= reach - 0.6)) ?? list[list.length - 1];
   const flat = o.flat ?? style !== 'old', hx = pole.arm - pole.inn;
   put(b, pole.id, mx, GY, mz, f);
   b.block(mx - 0.16, GY, mz - 0.16, mx + 0.16, GY + 3, mz + 0.16);
@@ -578,10 +585,12 @@ export function roadKit(b: Builder, g: RoadGeo) {
     const ZE = g.ends?.[ji] ?? Z;
     SCR = !!g.scramble?.includes(ji);
     const tee = !!g.tee || !!g.tees?.includes(ji);
+    /** The side a tee road does not run to. */
+    const shut = g.teeNorth ? -1 : 1;
     // An avenue has the thin LED heads, arrow lamps and audible signals; every other narrow junction
     // gives its side street a signal of its own on a utility pole instead of a stop sign.
     const avenue = rw >= 8, sideLit = !wide && (g.lit ? g.lit.includes(ji) : ji % 2 === 0);
-    const style: PoleStyle = g.shared ? 'shared' : g.old ? 'old' : 'new', flatHeads = style !== 'old';
+    const style: PoleStyle = g.shared ? 'shared' : g.long ? 'long' : g.old ? 'old' : 'new', flatHeads = style !== 'old';
     // The junction's control cabinet, on the pavement at a corner.
     put(b, 'sigbox', a - 1.5, GY, -(rw + 2.7), [0, 1]);
     b.block(a - 1.86, GY, -(rw + 2.96), a - 1.14, GY + 1.56, -(rw + 2.44));
@@ -592,7 +601,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
     // (Never a head on a utility pole: a narrow street's own signal stands on the short-arm steel pole.)
     const short = sideLit;
     if (short) for (const sz of [1, -1] as const) {
-      if (tee && sz === 1) continue;
+      if (tee && sz === shut) continue;
       masts.push({ x: mid + left([0, sz])[0] * (half + 0.9), z: sz * (rw + 1.3) });
     }
     // Main road: far-side signals, heads over the general and bus lanes.
@@ -635,7 +644,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
     }
     // The crossing road.
     for (const sz of [1, -1] as const) {
-      if (tee && sz === 1) continue;
+      if (tee && sz === shut) continue;
       const h: V2 = [0, sz], l = left(h);
       // Its traffic's half: x from the centre line out to the kerb on its left.
       const lx = (d: number) => mid + l[0] * d;

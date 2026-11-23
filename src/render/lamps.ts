@@ -49,6 +49,8 @@ const VEND: RGB = [0.75, 0.82, 0.9];
 /** Buildings with shops at street level. */
 const SHOPFRONTS = new Set(['zakkyo', 'shophouse']);
 const CARS = /^(sedan|taxi|kei|van|truck|bus$)/;
+/** A globe or chandelier that lights the room or porch round it at night (looks and streets use this colour for it). */
+export const INDOOR_LAMP = 'glow:#ffe6b8';
 const RANGE = 130, RANGE_FAR = 260;
 
 let fixed: Lamp[] | null = null;
@@ -85,6 +87,8 @@ function collect(): Lamp[] {
           add(m.pos[0] + lx * c + lz * sn, m.pos[1] + 2.45, m.pos[2] - lx * sn + lz * c, 8, ALLEY);
         }
       }
+      // Daigaku-mae's bookshops, eateries and kissaten: their lit fronts.
+      if (m.kind === 'daigakufront' && /^(kosho|mise|kissa)/.test(m.id)) add(m.pos[0] + fx * 1.6, m.pos[1] + 2.6, m.pos[2] + fz * 1.6, 9, SHOP);
       if (SHOPFRONTS.has(m.kind)) {
         // The colour of the building's sign boards, spilling onto the street in front of it.
         const tint = signTint(m.kind, m.id);
@@ -98,6 +102,8 @@ function collect(): Lamp[] {
     // The small bracket lamps of the alleys and back lanes (warm glowing globes, surface.ts backGap / alley).
     for (const m of w.build.meshes) {
       if (m.mat === 'glow:#ffd9a0' && m.shape === 'sphere' && m.pos[1] > GROUND_Y + 2 && m.pos[1] < GROUND_Y + 4.5) add(m.pos[0], m.pos[1] - 0.2, m.pos[2], 8, ALLEY);
+      // Rooms and porches at street level and above: a warm globe (`INDOOR_LAMP`) lights round it, its reach by its size.
+      else if (m.mat === INDOOR_LAMP && m.pos[1] > GROUND_Y + 1) add(m.pos[0], m.pos[1] - 0.3, m.pos[2], Math.min(16, 6 + m.size[0] * 12), PENDANT);
     }
     // Stairwell mouths: the light of the station coming up out of the ground.
     for (const [x0, z0, x1, z1] of w.build.holes) add((x0 + x1) / 2, GROUND_Y + 2.3, (z0 + z1) / 2, 10, ENTRANCE);

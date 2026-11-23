@@ -800,7 +800,7 @@ def sigshort(p):
 # way hangs back to back with it. The junction's name plate is fixed to the arm on the road side,
 # between the pole and the head, its foot on the upper beam (so a pole with a plate has the 3.5 m
 # arm). Shared with src/stations/roads.ts.
-PARM = {'sigp2': 2.0, 'sigp3': 3.5, 'siglight2': 2.0, 'siglight3': 3.5}
+PARM = {'sigp2': 2.0, 'sigp3': 3.5, 'sigp6': 6.5, 'siglight2': 2.0, 'siglight3': 3.5}
 PARM_IN = 0.55                      # the head's middle, in from the arm's tip
 PLATE = dict(x=-1.2, y=HEAD_Y + 0.33 + 0.33, w=1.7, h=0.5, z=0.12)   # y: on the upper beam; the old curved arm carries it at PLATE_OLD_Y
 PLATE_OLD_Y = 6.5
@@ -853,6 +853,9 @@ def sigp(p, arm, light=False):
     p.box('flat:#f1f0ea', -0.07, 1.9, -0.156, 0.07, 2.12, -0.15)
     if arm >= 3.4:
         plate_brackets(p, col, dk)
+    if arm > 4.5:
+        # A long mast arm (the main roads' 6.5 m): a stay rod from the pole's top to the arm's middle.
+        tube(p, col, (0, top - 0.25, 0.12), (-arm * 0.55, HEAD_Y + 0.33, 0.12), 0.022, seg=6)
     ped_bands(p, col, dk)
     if light:
         # The street light: an arm out over the road from the top, a thin blade head.
@@ -1183,7 +1186,7 @@ PROPS = {
     'mirror': (mirror, 1.5), 'bollard': (bollard, 1), 'rail': (rail, 3), 'upole': (upole, 3), 'upole_l': (lambda p: upole(p, False), 3),
     'lamp_hw': (lamp_hw, 3), 'lamp_shop': (lamp_shop, 3), 'lamp_park': (lamp_park, 2), 'fingerpost': (fingerpost, 3), 'mapstand': (mapstand, 3), 'wand': (wand, 1),
     'xing_mast': (xing_mast, 3), 'xing_gate': (xing_gate, 2),
-    'sigp2': (lambda p: sigp(p, 2.0), 3), 'sigp3': (lambda p: sigp(p, 3.5), 4.5), 'siglight2': (lambda p: sigp(p, 2.0, True), 4), 'siglight3': (lambda p: sigp(p, 3.5, True), 4.5),
+    'sigp2': (lambda p: sigp(p, 2.0), 3), 'sigp3': (lambda p: sigp(p, 3.5), 4.5), 'sigp6': (lambda p: sigp(p, 6.5), 7.5), 'siglight2': (lambda p: sigp(p, 2.0, True), 4), 'siglight3': (lambda p: sigp(p, 3.5, True), 4.5),
     'head_zebra': (head_zebra, 2),
     'sigshort': (sigshort, 2.5), 'pedband': (pedband, 1), 'lamp_led': (lamp_led, 3), 'lamp_twin': (lamp_twin, 6), 'lamp_suzuran': (lamp_suzuran, 2),
     'lamp_small': (lamp_small, 2), 'postbox': (postbox, 1), 'phonebox': (phonebox, 1.5), 'gomist': (gomist, 2.5), 'bikerack': (bikerack, 4.5),

@@ -17,9 +17,9 @@
 //   The noticeboard court faces itself across the spine at the west end: a pinned cork wall on
 //   one side, a row of tatekan on the other, club banners above. Staff doors, a hose cabinet,
 //   meter cupboards and flyers fill what is left of the free wall.
-// - The exits on the campus side are the university's own: in the lobby at the stair foot, the
-//   library's basement entrance (oak doors, the stacks seen through the glass); at the top, the
-//   stair comes up into a brick forecourt under the campus trees, with the library gate post.
+// - Every exit comes up inside a brick entrance house (slate roof, arched iron windows, a stone
+//   arch over the mouth). Exit 2's lobby opens on to the lift up to the library forecourt
+//   (through.ts; daigaku-street.ts builds the lift and lays out the street).
 
 import type { Builder } from '../../world/builder';
 import {
@@ -28,64 +28,6 @@ import {
   type Axis, type Brand, type Span, type Wall,
 } from './parts';
 import type { ConcInfo, ExitInfo, Rect, RoomInfo, Stairwell, StationLook, WallFace } from './types';
-import { KIND, stationExits } from '../exits';
-
-/** True for an exit that comes up on the campus side of the road (the university nearest). */
-const campusExit = (e: ExitInfo) =>
-  stationExits(e.station.id).find((x) => x.num === e.num)?.near[0]?.en === KIND.campus.en;
-
-/** The university library's basement entrance on the lobby's −x wall (x = −4, facing +x). */
-function libraryDoor(e: ExitInfo) {
-  const { b, cf, ext } = e, zc = ext + 2, w = 1.1;
-  // Brick surround and a stone lintel carrying the name.
-  b.deco(BRICK, -3.99, cf, zc - w - 0.45, -3.94, cf + 2.62, zc + w + 0.45);
-  b.deco(STONE, -3.94, cf + 2.22, zc - w - 0.5, -3.9, cf + 2.62, zc + w + 0.5);
-  // Behind the glass: dim reading-room light and the stacks.
-  b.deco('flat:#2a1e16', -3.94, cf + 0.05, zc - w, -3.93, cf + 2.18, zc + w);
-  const r = seeded(e.num.charCodeAt(0) * 31 + 7);
-  for (const y0 of [cf + 0.3, cf + 0.85, cf + 1.4]) {
-    b.deco(OAK, -3.93, y0 - 0.04, zc - w + 0.1, -3.925, y0, zc + w - 0.1);
-    for (let z = zc - w + 0.12; z < zc + w - 0.14;) {
-      const t = 0.03 + r() * 0.05;
-      b.deco(`flat:${BOOKS[Math.floor(r() * BOOKS.length)]}`, -3.928, y0, z, -3.922, y0 + 0.32 + r() * 0.12, z + t);
-      z += t + 0.006;
-    }
-  }
-  b.deco('glow:#ffe2a8', -3.93, cf + 1.95, zc - w + 0.1, -3.925, cf + 2.05, zc + w - 0.1);
-  b.deco('glass', -3.92, cf + 0.05, zc - w, -3.91, cf + 2.18, zc + w);
-  // Oak frame, the meeting stile, brass pulls.
-  for (const z of [zc - w - 0.08, zc + w]) b.deco(OAK, -3.94, cf, z, -3.88, cf + 2.22, z + 0.08);
-  b.deco(OAK, -3.94, cf + 2.14, zc - w, -3.88, cf + 2.22, zc + w);
-  b.deco(OAK, -3.92, cf, zc - 0.03, -3.88, cf + 2.18, zc + 0.03);
-  for (const dz of [-0.14, 0.1]) b.deco(BRASS, -3.88, cf + 0.85, zc + dz, -3.84, cf + 1.25, zc + dz + 0.04);
-  b.deco(BRASS, -3.92, cf, zc - w, -3.88, cf + 0.12, zc + w);
-  b.sign({ k: 'label', text: '川湊大学附属図書館 地下入口', sub: 'Kawaminato University Library — basement entrance', fg: '#f0e2c0', bg: '#3d2014' },
-    -3.89, cf + 2.42, zc, [1, 0], 2.9, 0.34);
-}
-
-/** At street level on the campus side: a brick forecourt round the stair mouth, the library gate post. */
-function campusForecourt(e: ExitInfo) {
-  const { b, gy, ext, run } = e, z0 = ext + 1.2, z1 = ext + 4.0;
-  // Brick paving beyond the parapets and in front of the mouth.
-  b.deco(BRICK, -1.2, gy + 0.004, z0 - 2.2, run + 3.2, gy + 0.01, z1 + 2.2);
-  for (let x = -1.2; x < run + 3.2; x += 1.2) b.deco(STONE, x, gy + 0.01, z0 - 2.2, x + 0.04, gy + 0.012, z1 + 2.2);
-  // Low brick planters along both sides with a cherry tree in each, benches on their fronts.
-  for (const [a, c] of [[z0 - 2.2, z0 - 1.2], [z1 + 1.2, z1 + 2.2]]) {
-    b.deco(BRICK, 0, gy, a, run - 0.8, gy + 0.5, c);
-    b.deco(STONE, -0.04, gy + 0.5, a - 0.04, run - 0.76, gy + 0.56, c + 0.04);
-    b.deco('flat:#4a3b2c', 0.1, gy + 0.56, a + 0.1, run - 0.9, gy + 0.58, c - 0.1);
-    const tx = (run - 0.8) / 2, tz = (a + c) / 2;
-    b.mesh('wood:#4a3424', 'cyl', tx, gy + 1.9, tz, 0.22, 2.7, 0.22);
-    b.mesh('flat:#f2c9d4', 'sphere', tx, gy + 3.7, tz, 3.0, 1.8, 2.4);
-    b.mesh('flat:#e8b3c2', 'sphere', tx + 0.6, gy + 3.4, tz + 0.3, 1.8, 1.2, 1.6);
-  }
-  // The library gate post at the forecourt's street corner.
-  const px = run + 2.4, pz = z1 + 1.7;
-  b.deco(BRICK, px - 0.35, gy, pz - 0.35, px + 0.35, gy + 2.4, pz + 0.35);
-  b.deco(STONE, px - 0.42, gy + 2.4, pz - 0.42, px + 0.42, gy + 2.55, pz + 0.42);
-  b.mesh(OPAL, 'sphere', px, gy + 2.78, pz, 0.36, 0.36, 0.36);
-  b.sign({ k: 'label', text: '川湊大学 図書館口', sub: 'University — Library Gate', fg: '#f0e2c0', bg: '#3d2014' }, px + 0.36, gy + 1.6, pz, [1, 0], 0.66, 1.2);
-}
 
 // ── Palette ──────────────────────────────────────────────────────────────────────────────────
 
@@ -964,8 +906,7 @@ export const look: StationLook = {
     b.deco(PLASTER, -0.008, cf + 1.15, ext, 0, cf + 2.7, ext + 0.9);
     b.deco(PLASTER, -4, cf + 1.15, L - 0.008, 0, cf + 2.7, L);
     // Flyers pasted on the lobby walls (clear of the kit's poster at x = −2 on the back wall).
-    if (campusExit(e)) libraryDoor(e);
-    else flyers(r, ext + 0.4, L - 0.4, cf + 1.3, cf + 2.1, (mat, a, c, ya, yb) => b.deco(mat, -3.986, ya, a, -3.984, yb, c), 0.5);
+    flyers(r, ext + 0.4, L - 0.4, cf + 1.3, cf + 2.1, (mat, a, c, ya, yb) => b.deco(mat, -3.986, ya, a, -3.984, yb, c), 0.5);
     for (const [p, q] of [[-3.8, -2.75], [-1.25, -0.2]]) {
       flyers(r, p, q, cf + 1.25, cf + 2.1, (mat, a, c, ya, yb) => b.deco(mat, a, ya, L - 0.016, c, yb, L - 0.014), 0.7);
     }
@@ -986,49 +927,61 @@ export const look: StationLook = {
   },
 
   canopy(e) {
+    // A brick entrance house over the whole stair (Taishō campus brick): side walls with arched iron
+    // windows on the parapets, a stone-dressed round arch at the street end, a slate roof in steps.
     const { b, gy, ext, run } = e, X = run, z0 = ext + 1.2, z1 = ext + 4.0, zc = (z0 + z1) / 2;
-    // Brick piers either side of the stair mouth at its street end, on stone bases.
-    for (const [p, q] of [[z0 - 0.6, z0], [z1, z1 + 0.6]]) {
-      b.deco(BRICK, X - 0.6, gy, p, X, gy + 2.55, q);
-      b.deco(STONE, X - 0.64, gy, p - 0.04, X + 0.04, gy + 0.35, q + 0.04);
-    }
-    // Stone lintel over the entrance sign, and a dark board behind the sign.
-    b.deco(STONE, X - 0.64, gy + 2.55, z0 - 0.64, X + 0.04, gy + 2.8, z1 + 0.64);
-    b.deco(IRON, X - 0.03, gy + 1.88, z0 - 0.1, X + 0.04, gy + 2.52, z1 + 0.1);
-    // Wrought-iron arch on the lintel: a stepped half-ellipse, spindles, a brass medallion.
-    const xa = X - 0.32, xb = X - 0.28, y0 = gy + 2.8, rise = 0.75, R = (z1 - z0) / 2 + 0.05, N = 5;
-    const pts = Array.from({ length: N + 1 }, (_, k) => {
-      const t = (k / N) * (Math.PI / 2);
-      return [R * Math.cos(t), y0 + rise * Math.sin(t)] as const;
-    });
-    for (const sd of [-1, 1]) {
-      for (let k = 0; k < N; k++) {
-        const [r0, h0] = pts[k], [r1, h1] = pts[k + 1];
-        const za = zc + sd * r0, zb = zc + sd * r1;
-        b.deco(IRON, xa, h0, za - 0.018, xb, h1 + 0.018, za + 0.018);
-        b.deco(IRON, xa, h1 - 0.018, Math.min(za, zb), xb, h1 + 0.018, Math.max(za, zb));
+    const T = 0.34, wa = z0 - T, wb = z1 + T, EAVE = gy + 3.3;
+    const SLATE = 'flat:#3c4146', GLASSD = 'glassDark';
+    // Side walls on the parapets, and the back wall over the lobby.
+    for (const [p, q] of [[wa, z0], [z1, wb]]) {
+      b.deco(BRICK, 0, gy + 1.0, p, X - 0.6, EAVE, q);
+      b.deco(STONE, -0.04, gy + 1.0, p - 0.04, X - 0.6, gy + 1.12, q + 0.04);
+      // Arched windows, both faces: dark glass, an iron bar or two, a stone sill.
+      for (let x = 1.0; x + 1.1 < X - 0.9; x += 1.9) {
+        for (const [fa, fb] of [[p - 0.012, p], [q, q + 0.012]]) {
+          b.deco(GLASSD, x, gy + 1.5, fa, x + 1.1, gy + 2.55, fb);
+          arch(b, GLASSD, 'x', fa, fb, x, x + 1.1, gy + 2.55, gy + 2.95, gy + 2.95, U_SMALL);
+          b.deco(IRON, x + 0.53, gy + 1.5, fa - 0.004, x + 0.57, gy + 2.95, fb + 0.004);
+          b.deco(STONE, x - 0.06, gy + 1.42, fa - 0.03, x + 1.16, gy + 1.5, fb + 0.03);
+        }
       }
     }
-    for (let j = -2; j <= 2; j++) {
-      const z = zc + (j * R) / 3, h = y0 + rise * Math.sqrt(1 - ((j / 3) ** 2));
-      b.deco(IRON, xa + 0.005, y0, z - 0.012, xb - 0.005, h, z + 0.012);
+    b.deco(BRICK, -T, gy, wa, 0, EAVE, wb);
+    b.block(-T, gy, wa, 0, EAVE, wb);
+    // The street end: piers, a brick head with a round arch in stone, the name on a stone tablet.
+    for (const [p, q] of [[wa - 0.26, z0], [z1, wb + 0.26]]) {
+      b.deco(BRICK, X - 0.6, gy, p, X, EAVE, q);
+      b.deco(STONE, X - 0.64, gy, p - 0.04, X + 0.04, gy + 0.35, q + 0.04);
+      b.deco(STONE, X - 0.64, gy + 2.5, p - 0.04, X + 0.04, gy + 2.62, q + 0.04);
+      b.block(X - 0.6, gy, p, X, EAVE, q);
     }
-    b.mesh(BRASS, 'sphere', X - 0.3, y0 + rise * 0.55, zc, 0.07, 0.28, 0.28);
-    // A lamp on each pier.
-    for (const z of [z0 - 0.3, z1 + 0.3]) {
-      b.mesh(IRON, 'cyl', X - 0.3, gy + 2.86, z, 0.16, 0.12, 0.16);
-      b.mesh(OPAL, 'sphere', X - 0.3, gy + 3.09, z, 0.34, 0.34, 0.34);
-      b.mesh(IRON, 'cyl', X - 0.3, gy + 3.28, z, 0.12, 0.05, 0.12);
+    arch(b, BRICK, 'z', X - 0.6, X, z0, z1, gy + 2.62, gy + 3.05, EAVE, U_BIG);
+    arch(b, STONE, 'z', X - 0.62, X + 0.03, z0, z1, gy + 2.62, gy + 3.05, EAVE, U_BIG, 0.16);
+    b.deco(STONE, X - 0.6, gy + 2.62, z0 - 0.06, X + 0.04, gy + 2.7, z0);
+    b.deco(STONE, X - 0.6, gy + 2.62, z1, X + 0.04, gy + 2.7, z1 + 0.06);
+    // The kit's entrance sign hangs in the arch from an iron bar, a dark board behind it.
+    b.deco(IRON, X - 0.03, gy + 1.88, z0 + 0.05, X + 0.04, gy + 2.52, z1 - 0.05);
+    b.deco(IRON, X - 0.05, gy + 2.52, z0, X + 0.05, gy + 2.56, z1);
+    // Cornice, then the roof: slate stepping up to a copper ridge along the stair.
+    b.deco(STONE, -T - 0.12, EAVE, wa - 0.38, X + 0.16, EAVE + 0.14, wb + 0.38);
+    const half = (wb - wa) / 2 + 0.3, N = 9, rise = 1.3;
+    for (let k = 0; k < N; k++) {
+      const w = half * (1 - k / N), y = EAVE + 0.14 + (rise * k) / N;
+      b.deco(SLATE, -T - 0.05, y, zc - w, X + 0.1, y + rise / N + 0.02, zc + w);
     }
-    // Stone coping on the parapets round the stair, an iron railing on top.
-    const rails: [number, number, number, number][] = [[0, z0 - 0.34, X - 0.6, z0], [0, z1, X - 0.6, z1 + 0.34], [-0.34, z0 - 0.34, 0, z1 + 0.34]];
-    for (const [p, a, q, c] of rails) b.deco(STONE, p, gy + 1.0, a, q, gy + 1.06, c);
-    for (const z of [z0 - 0.15, z1 + 0.15]) {
-      b.deco(IRON, 0, gy + 1.56, z - 0.02, X - 0.6, gy + 1.6, z + 0.02);
-      for (let x = 0.2; x < X - 0.7; x += 1.8) b.deco(IRON, x - 0.018, gy + 1.06, z - 0.018, x + 0.018, gy + 1.56, z + 0.018);
+    b.deco('metal:#5f8f7a', -T - 0.1, EAVE + 0.14 + rise, zc - 0.12, X + 0.14, EAVE + 0.26 + rise, zc + 0.12);
+    // Inside: the ceiling under the roof, and two opal globes on iron rods.
+    b.deco(PLASTER, -0.01, EAVE - 0.06, z0, X - 0.6, EAVE, z1);
+    for (const x of [X * 0.3, X * 0.7]) {
+      b.deco(IRON, x - 0.015, EAVE - 0.5, zc - 0.015, x + 0.015, EAVE - 0.06, zc + 0.015);
+      b.mesh(OPAL, 'sphere', x, EAVE - 0.65, zc, 0.3, 0.3, 0.3);
     }
-    b.deco(IRON, -0.17, gy + 1.56, z0 - 0.15, -0.13, gy + 1.6, z1 + 0.15);
-    if (campusExit(e)) campusForecourt(e);
+    // A lamp either side of the arch.
+    for (const z of [wa - 0.13, wb + 0.13]) {
+      b.deco(IRON, X + 0.04, gy + 2.2, z - 0.03, X + 0.3, gy + 2.24, z + 0.03);
+      b.mesh('glow:#ffe6b8', 'sphere', X + 0.3, gy + 2.0, z, 0.26, 0.3, 0.26); // lamps.ts INDOOR_LAMP
+    }
+    // (The campus side's street level is daigaku-street.ts: the wall, the gates, the library forecourt.)
   },
 
   passage(p) {

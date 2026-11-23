@@ -17,6 +17,8 @@ export const THROUGH_EXITS: Record<string, ThroughExit> = {
   tsumugibashi: { num: '2', x0: -2.7, x1: -0.2, ja: '紬橋ロトンダ・絹取引所', en: 'Rotunda / Silk Exchange' },
   // Exit 1's lobby opens north onto the lift up to the station house and its café (aobadai-street.ts LIFT).
   aobadai: { num: '1', x0: -3.0, x1: -0.7, ja: 'エレベーター　駅舎・喫茶', en: 'Lift — station house, café' },
+  // Exit 2's lobby opens south onto the lift up to the library forecourt (daigaku-street.ts LIFT).
+  'daigaku-mae': { num: '2', x0: -3.55, x1: -1.25, ja: 'エレベーター　附属図書館', en: 'Lift — University Library' },
 };
 
 export const throughExit = (station: string, num: string): ThroughExit | null => {

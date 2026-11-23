@@ -459,6 +459,23 @@ function aizomeFeatures(): Feature[] {
   ];
 }
 
+/** What stands round Daigaku-mae's exits (daigaku-street.ts). The university first on the campus side. */
+function daigakuFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: KIND.campus, x0: -130, x1: 130, side: 1, named: true },
+    { n: n('川湊大学附属図書館', 'University Library'), x0: 24, x1: 84, side: 1, named: true, reach: 40 },
+    { n: n('川湊大学 正門', 'University Main Gate'), x0: -8, x1: 8, side: 1, named: true, reach: 60 },
+    { n: n('川湊大学 西通用門', 'University West Gate'), x0: -41, x1: -35, side: 1, named: true, reach: 30 },
+    { n: n('古書店街', 'Old bookshops'), x0: -58, x1: 10, side: -1, named: true },
+    { n: n('蛍雪横丁', 'Keisetsu-yokochō'), x0: 10, x1: 16, side: -1, named: true, reach: 60 },
+    { n: n('桐筋', 'Kiri-suji'), x0: -80, x1: -72, side: 0, named: true, reach: 50 },
+    { n: n('梓筋', 'Azusa-suji'), x0: 68.75, x1: 75.25, side: 0, named: true, reach: 50 },
+    { n: n('雀湯', 'Suzume-yu (public bath)'), x0: -30, x1: -12, side: -1, named: true, reach: 50 },
+    { n: KIND.oldtown, x0: -130, x1: 130, side: -1, named: false },
+  ];
+}
+
 /** What stands round Aobadai's exits (aobadai-street.ts). */
 function aobaFeatures(): Feature[] {
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -572,6 +589,7 @@ function derive(id: StationId): StationStreet {
       const es = twoEnds(29, cw, run, spec.exits);
       // Tsumugibashi's street is not laid out by surface() (tsumugibashi-street.ts): list its exits.
       if (id === 'tsumugibashi') return { kind: 'hub', exits: withNear(tsumugiFeatures(), es) };
+      if (id === 'daigaku-mae') return { kind: 'hub', exits: withNear(daigakuFeatures(), es) };
       if (id === 'aizomecho') {
         // Exits 1 and 2 off the east gates; exit 3 is the headhouse on the dyers' street, where its stair's
         // well opens in the hall floor (headhouse.ts HH: gap, foot).

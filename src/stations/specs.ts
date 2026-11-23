@@ -260,7 +260,8 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: { seed: 73, roadHalf: 9, cross: [-88, 88], left: 'oldtown', right: 'mixed', poles: true, avenue: true },
   },
-  // University: brick walls, campus gate outside. Nagisa Line above, Shiokaze Line crossing below.
+  // University: brick walls, campus gate outside. Nagisa Line above, Shiokaze Line crossing below. The street is
+  // daigaku-street.ts (the 2026-11 rebuild), which reads only `seed` from `surface`.
   'daigaku-mae': {
     kind: 'interchange',
     primary: 'N',

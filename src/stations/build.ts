@@ -4,6 +4,7 @@
 
 import { tsumugiStreet } from './tsumugibashi-street';
 import { aizomeStreet } from './aizomecho-street';
+import { daigakuStreet } from './daigaku-street';
 import { aobaStreet } from './aobadai-street';
 import { lift, LIFT_OUT } from './lift';
 import { buildHeadhouse, HH } from './headhouse';
@@ -850,9 +851,10 @@ function buildInterchange(
   }
   // Before the street: the rotunda cuts its own openings in it.
   if (spec.rotunda) buildRotunda(c, cf, sw, outer, 29 + exitAt(spec.exits?.[0], 1) + 4);
-  // Tsumugibashi's and Aizomechō's streets are their own (the 2026-11 rebuilds); the others' are laid out by surface().
+  // Tsumugibashi's, Aizomechō's and Daigaku-mae's streets are their own (the 2026-11 rebuilds); the others' are laid out by surface().
   if (station.id === 'tsumugibashi') tsumugiStreet(c, spec.surface, outer, other.primaryDir);
   else if (station.id === 'aizomecho') aizomeStreet(c, spec.surface, outer, other.primaryDir);
+  else if (station.id === 'daigaku-mae') daigakuStreet(c, spec.surface, outer, other.primaryDir, cf);
   else surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji }, { id: station.id, dir: other.primaryDir });
   // Everything below the street here is closed in: the exits (and a rotunda) are the only openings.
   b.out.sealed = true;
