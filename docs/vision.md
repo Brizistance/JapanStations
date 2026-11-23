@@ -20,6 +20,7 @@ A fictional transit simulator for an invented Japanese city. The city has an Osa
 | **Operations sim** | Trains running to a timetable: headways, dwell times | Done: fixed headway all day. No rush hour, delays or passenger flow. |
 | **Station walk-throughs** | First-person exploration of 3D stations | Done for all 44 stations, generated from kits + per-station specs, plus one hand-composed hub. |
 | **Ride-along** | Riding between stations | Done: board, ride, look out of the cab end, in a modelled (Blender) metro car. No audio yet. |
+| **Menu music** | Music on the menus | Done: three original styles made in code, chosen in Settings: station-melody chiptune, one fixed tune per line (`stationMelody.ts`, default), koto and shakuhachi (`src/audio/menuMusic.ts`), 80s city pop (`cityPop.ts`). Fades out in 3D. Volume in Settings, speaker button on the menus. |
 
 ## Scope
 

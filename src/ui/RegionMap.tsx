@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { LINES, OPERATOR, STATIONS } from '../data/network';
 import { CITIES, cityById, HOME_CITY, linesServing, REGION, REGION_H, REGION_LINES, REGION_W, type City, type RegionLine } from '../data/region';
 import { Bi, RegionMark, usePair } from './Bi';
+import { MusicToggle } from './MusicToggle';
 import { useUI } from './store';
 
 /** How long each half of the map zoom lasts; 0 when the visitor asks for less motion. */
@@ -150,6 +151,7 @@ export function RegionMap() {
         </div>
         <div className="sg-band-actions">
           <button className="sg-btn" onClick={toTitle}><Bi ja="← タイトル" en="Title" /></button>
+          <MusicToggle inline />
           <button className="sg-btn" onClick={() => setSettings(true)}><Bi ja="設定" en="Settings" /></button>
         </div>
       </header>

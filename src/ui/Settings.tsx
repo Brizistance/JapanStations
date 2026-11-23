@@ -136,6 +136,13 @@ function Sound() {
         <Slider ja="全体" en="Master" hint="Everything you hear" value={s.masterVolume} min={0} max={1} step={0.05} show={pct(s.masterVolume)} onChange={s.setMasterVolume} />
         <Slider ja="案内放送" en="Announcements" hint="Platform voice and melodies" value={s.voiceVolume} min={0} max={1} step={0.05} show={pct(s.voiceVolume)} onChange={s.setVoiceVolume} />
         <Slider ja="効果音" en="Sound effects" hint="Trains, doors, footsteps, streets" value={s.sfxVolume} min={0} max={1} step={0.05} show={pct(s.sfxVolume)} onChange={s.setSfxVolume} />
+        <Slider ja="音楽" en="Music" hint="On the menus" value={s.musicVolume} min={0} max={1} step={0.05} show={pct(s.musicVolume)} onChange={s.setMusicVolume} />
+      </div>
+      <h3><Bi ja="メニューの音楽" en="Menu music" /></h3>
+      <div className="sg-seg" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <button className={s.musicStyle === 'melody' ? 'on' : ''} aria-pressed={s.musicStyle === 'melody'} onClick={() => s.setMusicStyle('melody')}>駅メロ <em>Station melodies</em></button>
+        <button className={s.musicStyle === 'traditional' ? 'on' : ''} aria-pressed={s.musicStyle === 'traditional'} onClick={() => s.setMusicStyle('traditional')}>和風 <em>Koto and shakuhachi</em></button>
+        <button className={s.musicStyle === 'citypop' ? 'on' : ''} aria-pressed={s.musicStyle === 'citypop'} onClick={() => s.setMusicStyle('citypop')}>シティポップ <em>80s city pop</em></button>
       </div>
       <p className="set-hint">Sound starts after your first click or key press: the browser asks for that.</p>
     </>

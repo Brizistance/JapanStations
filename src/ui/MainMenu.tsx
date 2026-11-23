@@ -9,6 +9,7 @@ import { clock, formatClock } from '../sim';
 import { Bi } from './Bi';
 import { LineBullet, MetroMap, StationPanel, useTick } from './MetroMap';
 import { zoomMs } from './RegionMap';
+import { MusicToggle } from './MusicToggle';
 import { shownTime, useUI } from './store';
 
 export function Logo({ size = 56 }: { size?: number }) {
@@ -169,6 +170,7 @@ export function MainMenu() {
         </div>
         <div className="sg-band-actions">
           <button className="sg-btn" onClick={back}><Bi ja="← 西海地方" en="Region map" /></button>
+          <MusicToggle inline />
           <button className="sg-btn" onClick={() => setSettings(true)}><Bi ja="設定" en="Settings" /></button>
         </div>
       </header>

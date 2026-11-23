@@ -24,8 +24,9 @@ type V3 = [number, number, number];
 
 let ctx: AudioContext | null = null;
 let trainBus: GainNode, carBus: GainNode, roadBus: GainNode, stepBus: GainNode, ambBus: GainNode, hearing: GainNode, muffle: BiquadFilterNode, out: AudioNode;
-let echoIn: GainNode, stepEcho: GainNode, ambEcho: GainNode;
-const vol = { voice: 0.8, sfx: 0.8, master: 1, muted: false };
+let echoIn: GainNode, stepEcho: GainNode, ambEcho: GainNode, musicBus: GainNode;
+const vol = { voice: 0.8, sfx: 0.8, music: 0.6, master: 1, muted: false, musicMuted: false };
+const unlockWaiters: ((c: AudioContext, bus: GainNode) => void)[] = [];
 /** Master volume, or silence when muted. */
 const master = () => (vol.muted ? 0 : vol.master);
 
@@ -110,8 +111,12 @@ function unlock() {
     ambEcho.gain.value = 0.15;
     ambBus.connect(out);
     ambBus.connect(ambEcho).connect(echoIn);
+    musicBus = c.createGain();
+    musicBus.gain.value = 0;
+    musicBus.connect(out);
     for (const ch of channels.values()) wireChannel(ch);
     applyVolume();
+    for (const w of unlockWaiters.splice(0)) w(c, musicBus);
   }
   if (ctx.state === 'suspended') void ctx.resume();
 }
@@ -132,6 +137,20 @@ function applyVolume() {
   roadBus.gain.setTargetAtTime(sfx * 0.55, t, 0.05);
   stepBus.gain.setTargetAtTime(sfx * 0.45, t, 0.05);
   ambBus.gain.setTargetAtTime(sfx * 0.5, t, 0.05);
+  musicBus.gain.setTargetAtTime(vol.musicMuted ? 0 : vol.music * master(), t, 0.05);
+}
+export function setMusicVolume(v: number) {
+  vol.music = v;
+  applyVolume();
+}
+export function setMusicMuted(m: boolean) {
+  vol.musicMuted = m;
+  applyVolume();
+}
+/** Calls `fn` with the context and the music bus once sound is unlocked (at once if it already is). */
+export function whenMusicReady(fn: (c: AudioContext, bus: GainNode) => void) {
+  if (ctx) fn(ctx, musicBus);
+  else unlockWaiters.push(fn);
 }
 export function setMasterVolume(v: number) {
   vol.master = v;

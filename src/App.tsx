@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Scene } from './render/Scene';
 import { Hud } from './ui/Hud';
 import { MainMenu } from './ui/MainMenu';
+import { MusicToggle } from './ui/MusicToggle';
 import { RegionMap } from './ui/RegionMap';
 import { Settings } from './ui/Settings';
 import { TitleScreen } from './ui/TitleScreen';
@@ -34,6 +35,7 @@ export function App() {
       {mode === 'region' && <RegionMap />}
       {mode === 'menu' && <MainMenu />}
       {mode === 'play' && <Hud />}
+      {mode === 'title' && !settingsOpen && <MusicToggle />}
       <Travel />
       {settingsOpen && <Settings />}
     </div>

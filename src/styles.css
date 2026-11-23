@@ -736,3 +736,16 @@ kbd {
 .map-legend { position: absolute; right: 10px; bottom: 10px; width: clamp(140px, 19%, 200px); height: auto; max-height: calc(100% - 20px); filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.18)); }
 /* The region map is a plain picture: it scales to fit its card and is not dragged. */
 .map.region-map { position: static; flex: 1; min-height: 0; cursor: default; border-radius: 8px; }
+
+/* Menu music toggle: bottom-right on the title screen, in the header elsewhere */
+.music-toggle {
+  position: absolute; right: 16px; bottom: 16px; z-index: 40; display: flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; padding: 7px 11px 7px 9px; border-radius: 99px; cursor: pointer;
+  color: #f1efe8; background: rgba(12, 13, 16, 0.55); border: 1px solid rgba(255, 255, 255, 0.18); backdrop-filter: blur(6px);
+  transition: background 0.15s, opacity 0.15s;
+}
+.music-toggle:hover { background: rgba(12, 13, 16, 0.8); }
+.music-toggle.off { opacity: 0.6; }
+.music-toggle svg { display: block; }
+.music-inline { display: inline-flex; align-items: center; gap: 5px; }
+.music-inline.off { opacity: 0.6; }

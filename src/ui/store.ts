@@ -6,7 +6,8 @@ import { doyOf, monthOf, seasonOf, today, weatherOn, wrapDoy, YEAR_DAYS } from '
 import { create } from 'zustand';
 import { clock } from '../sim';
 import { clearInput, onFall } from '../player/player';
-import { setMasterVolume, setMuted, setSfxVolume, setVoiceVolume } from '../audio/engine';
+import { setMasterVolume, setMusicMuted, setMusicVolume, setMuted, setSfxVolume, setVoiceVolume } from '../audio/engine';
+import { setMenuMusic, setMusicStyle, type MusicStyle } from '../audio/menuMusic';
 import { WEATHERS, type Weather } from '../render/atmosphere';
 import { DEFAULT_GRAPHICS, fromPreset, loadGraphics, saveGraphics, withFx, type Fx, type Graphics, type Preset } from '../render/graphics';
 
@@ -48,12 +49,12 @@ function loadFlag(key: string): boolean {
 export type Lang = 'ja' | 'en';
 export type SettingsTab = 'graphics' | 'sound' | 'controls' | 'language';
 
-const VOICE_KEY = 'js.voiceVolume', SFX_KEY = 'js.sfxVolume', MASTER_KEY = 'js.masterVolume', MUTE_KEY = 'js.muted';
+const VOICE_KEY = 'js.voiceVolume', SFX_KEY = 'js.sfxVolume', MASTER_KEY = 'js.masterVolume', MUTE_KEY = 'js.muted', MUSIC_KEY = 'js.musicVolume', MUSIC_MUTE_KEY = 'js.musicMuted', MUSIC_STYLE_KEY = 'js.musicStyle';
 const PLAN_KEY = 'js.floorPlan', FPS_KEY = 'js.fps', GUIDE_VIEW_KEY = 'js.guideView';
 const SENS_KEY = 'js.sensitivity', INVERT_KEY = 'js.invertY', FOV_KEY = 'js.fov', LANG_KEY = 'js.lang';
 export const SENS_RANGE = [0.3, 2.5] as const, FOV_RANGE = [55, 100] as const;
 /** What "Reset to defaults" restores. */
-export const DEFAULTS = { voiceVolume: 0.8, sfxVolume: 0.8, masterVolume: 1, muted: false, sensitivity: 1, invertY: false, fov: 72, lang: 'ja' as Lang };
+export const DEFAULTS = { voiceVolume: 0.8, sfxVolume: 0.8, musicVolume: 0.6, musicMuted: false, musicStyle: 'melody' as MusicStyle, masterVolume: 1, muted: false, sensitivity: 1, invertY: false, fov: 72, lang: 'ja' as Lang };
 
 // The calendar date (day of the year, and a year count that only varies the weather), kept between visits.
 const DATE_KEY = 'kawaminato.date', YEAR_KEY = 'kawaminato.year';
@@ -67,6 +68,18 @@ setVoiceVolume(initialVoice);
 setSfxVolume(initialSfx);
 setMasterVolume(initialMaster);
 setMuted(initialMuted);
+const initialMusic = loadNumber(MUSIC_KEY, 0, 1, DEFAULTS.musicVolume), initialMusicMuted = loadFlag(MUSIC_MUTE_KEY);
+setMusicVolume(initialMusic);
+setMusicMuted(initialMusicMuted);
+const initialMusicStyle: MusicStyle = (() => {
+  try {
+    const v = storage()?.getItem(MUSIC_STYLE_KEY);
+    return v === 'traditional' || v === 'citypop' || v === 'melody' ? v : DEFAULTS.musicStyle;
+  } catch {
+    return DEFAULTS.musicStyle;
+  }
+})();
+setMusicStyle(initialMusicStyle);
 const initialLang: Lang = (() => {
   try {
     return storage()?.getItem(LANG_KEY) === 'en' ? 'en' : 'ja';
@@ -165,6 +178,15 @@ interface UI {
   /** Trains, doors, footsteps, 0…1. */
   sfxVolume: number;
   setSfxVolume: (v: number) => void;
+  /** Menu music, 0…1. */
+  musicVolume: number;
+  setMusicVolume: (v: number) => void;
+  /** Menu music off (the speaker button on the menus). */
+  musicMuted: boolean;
+  setMusicMuted: (m: boolean) => void;
+  /** Which menu music: koto and shakuhachi, or 80s city pop (saved). */
+  musicStyle: MusicStyle;
+  setMusicStyle: (s: MusicStyle) => void;
   /** Mouse look speed, as a multiple of the built-in speed. */
   sensitivity: number;
   setSensitivity: (v: number) => void;
@@ -362,6 +384,24 @@ export const useUI = create<UI>((set, get) => ({
     save(SFX_KEY, String(v));
     set({ sfxVolume: v });
   },
+  musicVolume: initialMusic,
+  setMusicVolume: (v) => {
+    setMusicVolume(v);
+    save(MUSIC_KEY, String(v));
+    set({ musicVolume: v });
+  },
+  musicMuted: initialMusicMuted,
+  setMusicMuted: (m) => {
+    setMusicMuted(m);
+    save(MUSIC_MUTE_KEY, m ? '1' : '0');
+    set({ musicMuted: m });
+  },
+  musicStyle: initialMusicStyle,
+  setMusicStyle: (st) => {
+    setMusicStyle(st);
+    save(MUSIC_STYLE_KEY, st);
+    set({ musicStyle: st });
+  },
   sensitivity: loadNumber(SENS_KEY, SENS_RANGE[0], SENS_RANGE[1], DEFAULTS.sensitivity),
   setSensitivity: (v) => {
     save(SENS_KEY, String(v));
@@ -399,6 +439,9 @@ export const useUI = create<UI>((set, get) => ({
     s.setMuted(DEFAULTS.muted);
     s.setVoiceVolume(DEFAULTS.voiceVolume);
     s.setSfxVolume(DEFAULTS.sfxVolume);
+    s.setMusicVolume(DEFAULTS.musicVolume);
+    s.setMusicMuted(DEFAULTS.musicMuted);
+    s.setMusicStyle(DEFAULTS.musicStyle);
     s.setSensitivity(DEFAULTS.sensitivity);
     s.setInvertY(DEFAULTS.invertY);
     s.setFov(DEFAULTS.fov);
@@ -476,3 +519,7 @@ export const useUI = create<UI>((set, get) => ({
 }));
 
 onFall.go = (id) => useUI.getState().travelTo(id);
+
+// Menu music plays on every screen but the 3D world.
+setMenuMusic(useUI.getState().mode !== 'play');
+useUI.subscribe((st) => setMenuMusic(st.mode !== 'play'));
