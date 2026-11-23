@@ -396,8 +396,9 @@ export const SPECS: Record<StationId, StationSpec> = {
   hibarino: {
     kind: 'elevated',
     style: {
-      wall: 'panel:#e4e6e8', concWall: 'panel:#eef0f1', floor: 'floor:#d4d2cb', pillar: 'concrete',
-      accent: '#5aa0d8', mural: { v: 'hills', color: '#3f8f4f' },
+      // The meadow (2026-11 rebuild): wheat enamel, honey tile, timber soffits, sky blue and meadow green.
+      wall: 'panel:#ead7a5', concWall: 'panel:#ead7a5', floor: 'floor:#d2a873', pillar: 'panel:#5aa0d8',
+      accent: '#5aa0d8', mural: { v: 'skylarks', color: '#6f9a4f' }, platWall: 'panel:#ead7a5', canopy: 'wood:#b8875a',
     },
     surface: { seed: 97, roadHalf: 5, cross: [72], left: 'house', right: 'apartment', trees: true, poles: true },
   },

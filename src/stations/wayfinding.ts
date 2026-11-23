@@ -50,6 +50,8 @@ export interface ElevInfo {
   under?: { line: LineDef; platforms: number[]; hole: Rect };
   /** Street entrances: centre, outward normal and width of each opening. */
   entrances: { x: number; z: number; n: [number, number]; w: number }[];
+  /** false: the caller hangs the station map, area map and exits boards itself (a hall wider to −z than cw). */
+  boards?: boolean;
 }
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────────────────────
@@ -1232,8 +1234,8 @@ export function wayfindElevated(v: ElevInfo): void {
     .map((p): Rect => [p.min[0], p.min[2], p.max[0], p.max[2]]);
   const signs = b.out.signs.map((s) => signRect(s, 0.1)).filter((r): r is Rect => !!r);
   const used: Rect[] = [];
-  const boards: SignContent[] = [{ k: 'stationmap', station: station.id }, { k: 'areamap', station: station.id }];
-  if (stationExits(station.id).length) boards.push({ k: 'exits', station: station.id });
+  const boards: SignContent[] = v.boards === false ? [] : [{ k: 'stationmap', station: station.id }, { k: 'areamap', station: station.id }];
+  if (v.boards !== false && stationExits(station.id).length) boards.push({ k: 'exits', station: station.id });
   let x = gateX - 3.2;
   for (const c of boards) {
     const w = c.k === 'exits' ? 2.0 : 2.2;

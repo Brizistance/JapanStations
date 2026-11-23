@@ -378,7 +378,7 @@ describe('street lanes', () => {
         noOverlap(tr, w.def.id);
         for (const v of tr.list) {
           // (A taxi waiting on the stand is not stuck.)
-          still.set(v, v.v < 0.05 && !(v.route.merge && v.served === 0) ? (still.get(v) ?? 0) + 0.1 : 0);
+          still.set(v, v.v < 0.05 && !((v.route.merge || v.route.slow) && v.served === 0) ? (still.get(v) ?? 0) + 0.1 : 0);
           if (still.get(v)! > 2 * SIGNAL_CYCLE) expect.fail(`${w.def.id}: a ${v.model} stood at ${v.x.toFixed(1)}, ${v.z.toFixed(1)}`);
           if (v.route.turn && v.s > v.route.turn.arc1 && !seen.has(v)) {
             seen.add(v);
@@ -389,5 +389,23 @@ describe('street lanes', () => {
       expect(tr.cleared, `${w.def.id}: vehicles cleared from a knot`).toBe(0);
       expect(turned, `${w.def.id}: vehicles that turned`).toBeGreaterThan(3);
     }
+  }, 120000);
+
+  it('take buses and taxis round the Hibarino rotary and back onto the main road', () => {
+    const w = withLanes.find((s) => s.def.id === 'hibarino')!;
+    const tr = makeTraffic(longLanes(w), 5);
+    const routes = new Set(tr.lanes.flatMap((l) => l.detours.map((d) => d.route)));
+    expect(routes.size, 'detour routes').toBe(4);
+    const round = new Set<Vehicle>(), served = new Set<Vehicle>();
+    run(tr, EIGHT, 900, () => {
+      noOverlap(tr, 'hibarino');
+      for (const v of tr.list) if (routes.has(v.route)) {
+        if (v.served > 0) served.add(v);
+        if (v.s > v.route.len - 60) round.add(v);
+      }
+    }, 0.1);
+    expect(tr.cleared, 'vehicles cleared from a knot').toBe(0);
+    expect(served.size, 'vehicles that stopped in the rotary').toBeGreaterThan(4);
+    expect(round.size, 'vehicles back on the main road').toBeGreaterThan(4);
   }, 120000);
 });

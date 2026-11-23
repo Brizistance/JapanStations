@@ -78,4 +78,6 @@ First check whether trains on the opposite track and on shared sections are alre
 - Signs as self-lit plates: green exit signs with the distance to each station, distance posts, a speed board after each station and three countdown boards before the next.
 - Signals about every 150 m on each track, red within 170 m behind a train, yellow to 340 m, green beyond, read each frame from the trains' real positions (`trainStateAt`).
 
+**The Nagisa Line from Daigaku-mae to Hibarino** (2026-11-22, `src/render/stretches.ts`, the kit in `track.ts`, the band in `world-view.ts` `cityBand`): the old box tunnel and its kit, a portal with a 渚線 1961 plate, a cutting with cable troughs and fences, the viaduct with noise walls kept under the window sills, a through-girder span over 菜種筋 with a clearance board, and a band of houses, shops and flats (two rows back to back along a lane each side) that stops at each station's plot and continuation. The whole N line has overhead wire (rigid bar under roofs, gantries every 50 m in the open).
+
 Not built: the ventilation shaft opening; everything else in this file. The frame rate was not compared before and after (the preview used for checking was too unsteady to give a fair reading).

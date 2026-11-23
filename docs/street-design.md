@@ -125,6 +125,8 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 **Midorizaka (2026-11-21):** a different street plan: the park (pond, bridge, trellis, playground) opens onto the pavement where the station's pavilions stand; across the road a bus and taxi rotary (standing buses and taxis; moving traffic stays on the main road) and Midorizaka Ginza, all `pieces` (`midorizaka-street.ts`, models `build_midori.py`).
 
+**Moving rotary traffic (2026-11-22, Hibarino):** `LanePart.detours` take a share of a main lane's buses and taxis off it, round the rotary (bus bays, a taxi stand) and back onto it with a give-way at the exit (`traffic/system.ts` `detourRoute`).
+
 **Kaiseichō (2026-11-20):** model old town with small streets and ginkgo street trees; the high school (walk-in forecourt, porch, clock tower) and Gakurindō Stationery as `pieces` (`kaiseicho-street.ts`, models `build_kaisei.py`).
 
 **Small-street signals (2026-11-20):** each signalled small-street junction has a head on each side with its own crosswalk; spec `smallSignals` sets the share per station (default 0.4).
@@ -218,3 +220,9 @@ Winter is a fourth season: trees that drop their leaves stand bare, their cards 
 ## University quarter (Daigaku-mae, 2026-11-22)
 
 After Hongō-style university towns: the campus behind a long brick wall on the main road with a grand brick gate and a ginkgo avenue in, used-book shops in 1920s-30s "signboard architecture" (看板建築: copper or mortar fronts on timber shop houses) facing the wall, old wooden boarding houses (下宿) and a sentō behind. Researched 2026-11-22 (search results only): Hongō's Akamon gate (1827) and the ginkgo avenue from the main gate (NDL landmarks, ndl.go.jp/landmarks/sights/hongo); old wooden glass-fronted lodging inns like Homeikan in Hongō 5-chōme; the UTokyo General Library (1928, Uchida, tan tile, grand staircase up to a basilica-like reading room). Ours stays red brick with a ground-floor reading room, a deliberate difference. The road kit gained `teeNorth` (roads.ts) for T-junctions that open north. Stage 2 (owner's choice): Gakufu-dōri got a ginkgo median and a signalled crossing straight to the main gate; the exits are brick entrance houses; Exit 2's lobby opens on a lift to the library forecourt; the library has a walk-in hall and reading room (`daigaku-library.ts`). Later (owner's choice): Gakufu-dōri's signals on long mast arms (roads.ts `long`, build_road.py `sigp6`, 6.5 m with a stay rod); the campus got the auditorium closing the avenue, a pond garden, campus props and an athletics ground past the south edge.
+
+## Junction town (Hibarino, 2026-11-22)
+
+After Kansai suburban junction towns (Ibaraki-shi, Takatsuki): the main road a block off the viaduct with a bus and taxi rotary (駅前ロータリー) between, left turns in and out; tenant buildings and a manshon tower by the station; a covered shōtengai with gates at both ends; a Hachiman shrine in its grove and a hill park behind the tracks. `roadKit` takes `reach` (a main road off the plot's centre line, called in a moved frame) and `noPoles` (no pole lines under a viaduct). Sources: not yet written down (owed, rule 20).
+
+Hibarino's station (hibarino.ts, the owner's picks 2026-11-22): a free passage with the gates off it; the meadow theme (wheat enamel, honey tile, timber slat ceiling and canopy soffits, sky-blue fins, meadow-green kick, skylark murals) reaching the platforms through `StationStyle.platWall` and `canopy`; the Kikyō B1 in that line's lilac.

@@ -111,6 +111,7 @@ Kirigahara (霧ヶ原) and Asanagi (朝凪) were searched the same day: no real 
 
 - **Rapid** skips Higashi-Kawaminato and Kon'yahama (Claude's choice, not yet confirmed). Local and Rapid each run every 10 minutes, five minutes apart at Kawaminato.
 - **Alignment (draft):** 150 m north of Kita-Ōdōri avenue through Kawaminato and Higashi-Kawaminato, rail level +9 m everywhere. To be matched to the reserved deck in `hub.ts` in pass 2, and lifted clear of the Nagisa viaduct by Uguisuzaka.
+- **Uguisuzaka moved 60 m north (2026-11-22)** for the Hibarino rebuild: the valley run is 529.5 m, the hills run 661.9 m, and Miokami moved to 280 m along the valley to stay off the curve.
 - **Miokami is about 570 m from Kawaminato-daigaku-mae**, on the other bank. It is listed as a walking transfer, but that is long; open point.
 - **Kon'yahama** is about 90 m from Aizomechō (transfer set there). Its place and the line's course there now cross Aizomechō's rebuilt dyers' quarter (the dye yard and the headhouse): settle which moves before building AR in 3D.
 - **Not done:** the AR train model (20 m, 4 doors) and anything in 3D. Trains exist as timetable entries and live dots on the map.

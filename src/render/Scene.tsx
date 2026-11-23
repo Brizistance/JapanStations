@@ -135,7 +135,7 @@ function World() {
     // What cannot be seen from here is not drawn (WorldView.update): indoors underground the street, on the street the halls below.
     const zone = useUI.getState().mode === 'play' ? where.zone : null;
     const vis = !zone ? 'any' : zone.kind === 'street' ? 'street' : !zone.sky && camera.position.y < -2.5 ? 'under' : 'any';
-    view.update(dt, camera.position, vis, (scene.fog as THREE.Fog).far);
+    view.update(dt, camera.position, vis, (scene.fog as THREE.Fog).far, useUI.getState().mode === 'play' && !!player.body.ride);
 
     // The hour and the weather decide the light, the sky and the fog above ground.
     useUI.getState().syncDate();

@@ -38,7 +38,7 @@ export const KONBINI: Record<KonbiniType, { w: number; d: number; h: number }> =
 export const CAR_PARK = 12;
 
 // build_konbini.py SIZES: each fitting's length (x), depth (z) and height, front towards −z.
-const FIT: Record<string, [number, number, number]> = {
+export const FIT: Record<string, [number, number, number]> = {
   gondola: [2.4, 0.9, 1.45], wallshelf: [2.4, 0.45, 1.9], fridge: [2.4, 0.75, 2.05], magrack: [2.4, 0.4, 1.35],
   counter: [3.2, 0.75, 1.0], backwall: [3.2, 0.3, 2.1], atm: [0.6, 0.6, 1.55], copier: [0.95, 0.65, 1.1],
   baskets: [0.5, 0.4, 0.75], bins: [1.6, 0.45, 0.95], polesign: [2.6, 0.4, 8.0], wheelstop: [1.8, 0.2, 0.14],

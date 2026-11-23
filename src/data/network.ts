@@ -132,6 +132,7 @@ export const LINES: LineDef[] = [
     railY: [-16, -15, -11, -12, -11.5, -11, 6.5, 6.5, 6.5, 6.5],
     platformType: 'side',
     trackOffset: 1.9,
+    power: 'overhead',
     alignment: { vertices: [[-1520, 0], N_BEND, along(N_BEND, N_EAST_DIR, 3990)], radius: 400 },
     service: { ...baseService, headwayS: 300 },
   },
@@ -1001,14 +1002,14 @@ const AR_KITA_Z = A_ODORI_Z - 150; // the viaduct, 150 m north of Kita-Ōdōri a
 const AR_EDGE_M = 1500; // how far beyond the end stops trains run before they leave the map
 const AR_E1: [number, number] = [2660, AR_KITA_Z]; // east of Higashi-Kawaminato: turns into the valley
 const AR_VALLEY_DIR: [number, number] = [0.89101, 0.45399]; // 27° south of east
-const AR_E2: [number, number] = along(AR_E1, AR_VALLEY_DIR, 620);
+const AR_E2: [number, number] = along(AR_E1, AR_VALLEY_DIR, 529.5); // shortened 2026-11-22 so Uguisuzaka sits 60 m further north, clear of Hibarino
 const AR_HILLS_DIR: [number, number] = [0.97237, -0.23345]; // 13.5° north of east
 const AR_W1: [number, number] = [1500, AR_KITA_Z]; // west of Kawaminato: turns south-west to the river
 const AR_SHORE_DIR: [number, number] = [-0.52498, 0.85112];
 const AR_W2: [number, number] = along(AR_W1, AR_SHORE_DIR, 1250);
 const AR_COAST_DIR: [number, number] = [0.26892, 0.96316];
 const AR_FUNAMIDAI: [number, number] = along(AR_W2, AR_COAST_DIR, 3370);
-const AR_UGUISUZAKA: [number, number] = along(AR_E2, AR_HILLS_DIR, 605);
+const AR_UGUISUZAKA: [number, number] = along(AR_E2, AR_HILLS_DIR, 661.9);
 
 export const RAIL_LINES: LineDef[] = [
   {
@@ -1065,7 +1066,7 @@ export const RAIL_STATIONS: StationDef[] = [
     nameKana: 'みおかみ',
     nameRomaji: 'Miokami',
     numbers: { AR: 'AR-A02' },
-    position: pos(along(AR_E1, AR_VALLEY_DIR, 340)),
+    position: pos(along(AR_E1, AR_VALLEY_DIR, 280)), // was 340; moved with the shorter valley run (2026-11-22)
     diagram: { x: 1040, y: 315, label: 'right' },
     district: 'University',
     districtJa: '大学地区',

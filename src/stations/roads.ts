@@ -257,6 +257,13 @@ export interface RoadGeo {
   /** Crossing roads (by index) whose junction is a scramble: diagonal crosswalks, an all-walk phase. */
   scramble?: number[];
   taxi?: number;
+  /**
+   * How far the plot reaches from the main road's middle to −z and to +z, where the main road is not on
+   * the plot's centre line (Hibarino: the call is made inside a frame moved to the road). Default Z both.
+   */
+  reach?: [number, number];
+  /** Stretches of the crossing roads (frame z, from and to) with no utility poles: under a viaduct. Their pole lines stop either side. */
+  noPoles?: [number, number][];
 }
 
 // build_road.py: arm lengths, the lens housing's place on an arm, the direction board's place.
@@ -544,6 +551,7 @@ function destinations(at: RoadGeo['at']): Partial<Record<'px' | 'nx' | 'pz' | 'n
 
 export function roadKit(b: Builder, g: RoadGeo) {
   const { X, Z, rw } = g;
+  const [ZN, ZS] = g.reach ?? [Z, Z];
   const r = rng(g.seed * 7 + 101);
   const streets = [...g.streets].sort((p, q) => p[0] - q[0]);
   const dest = destinations(g.at);
@@ -559,7 +567,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
     const [len, wid, hgt] = VEH[id.split('_')[0]];
     const hx = h[0] !== 0 ? len / 2 : wid / 2, hz = h[0] !== 0 ? wid / 2 : len / 2;
     const box: [number, number, number, number] = [x - hx - 0.6, z - hz - 0.3, x + hx + 0.6, z + hz + 0.3];
-    if (Math.abs(x) + hx > X - 2 || Math.abs(z) + hz > Z - 2) return false;
+    if (Math.abs(x) + hx > X - 2 || z - hz < -ZN + 2 || z + hz > ZS - 2) return false;
     if (parked.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) return false;
     parked.push(box);
     put(b, id, x, 0, z, h);
@@ -582,7 +590,7 @@ export function roadKit(b: Builder, g: RoadGeo) {
     const mid = (a + c) / 2, half = (c - a) / 2, wide = half >= 5;
     const ji = streets.findIndex((q) => q[0] === a), jname = nameOf(ji);
     /** How far this road runs from the main road's middle (a tee road may stop short of the plot's edge). */
-    const ZE = g.ends?.[ji] ?? Z;
+    const ZE = (s: number) => g.ends?.[ji] ?? (s < 0 ? ZN : ZS);
     SCR = !!g.scramble?.includes(ji);
     const tee = !!g.tee || !!g.tees?.includes(ji);
     /** The side a tee road does not run to. */
@@ -654,11 +662,12 @@ export function roadKit(b: Builder, g: RoadGeo) {
        * leaves by turning, and a lane out on its other half, which only turning traffic feeds.
        */
       const crossLane = (dir: 1 | -1, d: number, o: { speed: number; flow: number; use: 'general' | 'all' }) => {
-        const stops = [{ at: ZE - (rw + 6.4) - 0.5, axis: sa(1), exit: ZE + rw + 6.4 }];
+        const z0 = -dir * ZE(-dir), z1 = dir * ZE(dir);
+        const stops = [{ at: ZE(-dir) - (rw + 6.4) - 0.5, axis: sa(1), exit: ZE(-dir) + rw + 6.4 }];
         o = { ...o, flow: o.flow * (g.flows?.[ji] ?? 1) };
-        if (!tee) return trafficLane(b, lx(d), -dir * ZE, lx(d), dir * ZE, { ...o, taxi, stops, halts: [] });
-        trafficLane(b, lx(d), -dir * ZE, lx(d), dir * (GEN + 0.1), { ...o, taxi, stops, halts: [], dead: true });
-        trafficLane(b, 2 * mid - lx(d), dir * (GEN + 0.1), 2 * mid - lx(d), -dir * ZE, { ...o, flow: 0, taxi, stops: [], halts: [] });
+        if (!tee) return trafficLane(b, lx(d), z0, lx(d), z1, { ...o, taxi, stops, halts: [] });
+        trafficLane(b, lx(d), z0, lx(d), dir * (GEN + 0.1), { ...o, taxi, stops, halts: [], dead: true });
+        trafficLane(b, 2 * mid - lx(d), dir * (GEN + 0.1), 2 * mid - lx(d), z0, { ...o, flow: 0, taxi, stops: [], halts: [] });
       };
       // Stop line before the crosswalk (which lies 1.2 … 5.2 m outside the main road's kerb).
       const stopZ = -sz * (rw + 6.4);
@@ -695,7 +704,19 @@ export function roadKit(b: Builder, g: RoadGeo) {
         for (const dz of [0.5, 1.5, 2.5]) put(b, 'wand', lx(half + 0.35), GY, -sz * (rw + 0.4 + dz), [0, -1]);
         // 30 km/h and the school route warning as you turn in; utility poles and their wires down its left kerb.
         roadSign(b, 'speed30', lx(-(half + 0.55)), stopZ - sz * 9, [0, sz], 0.6, 'school');
-        poleLine(b, { axis: 'z', from: -sz * (rw + 12), to: -sz * (ZE - 4), at: lx(half + 0.9), road: -l[0] as 1 | -1, drops: 2.2, cross: 2 * half + 2.4, name: g.name });
+        {
+          // One pole line, or one each side of every stretch kept clear (g.noPoles).
+          let from = -sz * (rw + 12);
+          const end = -sz * (ZE(-sz) - 4), runs: [number, number][] = [];
+          for (const [p, q] of [...(g.noPoles ?? [])].map(([p, q]): [number, number] => [Math.min(p, q), Math.max(p, q)]).sort((m, n) => (m[0] - n[0]) * -sz)) {
+            const [near, far] = sz < 0 ? [p, q] : [q, p];
+            if ((near - from) * -sz <= 0 || (far - end) * -sz >= 0) continue;
+            runs.push([from, near + sz * 3]);
+            from = far - sz * 3;
+          }
+          runs.push([from, end]);
+          for (const [a0, a1] of runs) if ((a1 - a0) * -sz > 8) poleLine(b, { axis: 'z', from: a0, to: a1, at: lx(half + 0.9), road: -l[0] as 1 | -1, drops: 2.2, cross: 2 * half + 2.4, name: g.name });
+        }
       }
     }
     // For people on foot at every junction: a finger post and a map on the −z side, and a hydrant sign.

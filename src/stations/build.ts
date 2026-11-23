@@ -5,6 +5,7 @@
 import { tsumugiStreet } from './tsumugibashi-street';
 import { aizomeStreet } from './aizomecho-street';
 import { daigakuStreet } from './daigaku-street';
+import { buildHibarino } from './hibarino';
 import { aobaStreet } from './aobadai-street';
 import { lift, LIFT_OUT } from './lift';
 import { buildHeadhouse, HH } from './headhouse';
@@ -868,7 +869,7 @@ function buildInterchange(
  * 18 m-deep concourse. Returns the opening it needs in the street-level floor.
  */
 const UNDER_MEZZ_Y = -4.2;
-function underLine(c: Ctx, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, fl: number): Rect {
+export function underLine(c: Ctx, other: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }, fl: number): Rect {
   const { b, line, station, style } = c;
   const o = other.ctx;
   const dK = hallDims(o.line, o.railY);
@@ -925,6 +926,8 @@ function underLine(c: Ctx, other: { ctx: Ctx; dir: [number, number]; primaryDir:
 }
 
 function buildElevated(c: Ctx, spec: ElevatedSpec, under?: { ctx: Ctx; dir: [number, number]; primaryDir: [number, number] }) {
+  // Hibarino's own station building (hibarino.ts), its streets after it.
+  if (c.station.id === 'hibarino' && under) return buildHibarino(c, spec, under);
   const { b, line, station, railY, style } = c;
   const d = hallDims(line, railY);
   const pf = d.pf;
@@ -1004,6 +1007,7 @@ function buildElevated(c: Ctx, spec: ElevatedSpec, under?: { ctx: Ctx; dir: [num
   });
   b.setSpawn(-17, fl, 2, [1, 0]);
 
+  // (Hibarino builds its own: hibarino.ts.) The suburb below is Nanohanadai's.
   // ── Suburban surroundings ──
   const X = PLOT_X, Z = PLOT_Z, GY = GROUND_Y;
   const road = [-X, 26, X, 36], crossSt = [68.5, 36, 75.5, Z], back = [-X, -24, X, -18];

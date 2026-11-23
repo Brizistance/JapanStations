@@ -42,6 +42,9 @@ export interface StationStyle {
   mural: { v: string; color: string };
   /** High vaulted ceiling over the open part of the platform hall. */
   vault?: boolean;
+  /** Viaduct platforms only: the glazed back walls' panels and the canopies' underside (default pale grey, white). */
+  platWall?: string;
+  canopy?: string;
 }
 
 export interface Ctx {
@@ -420,17 +423,17 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
         }
         if (from < P) runs.push([from, P]);
         for (const [xa, xb] of runs) {
-          b.wallX('panel:#e4e6e8', xa, xb, lo, hi, pf, pf + 1.1);
+          b.wallX(style.platWall ?? 'panel:#e4e6e8', xa, xb, lo, hi, pf, pf + 1.1);
           b.block(xa, pf + 1.1, lo, xb, pf + 3.3, hi);
           b.deco('glass', xa, pf + 1.1, lo + 0.07, xb, pf + 2.5, hi - 0.07);
-          b.deco('panel:#e4e6e8', xa, pf + 2.5, lo, xb, pf + 3.3, hi);
+          b.deco(style.platWall ?? 'panel:#e4e6e8', xa, pf + 2.5, lo, xb, pf + 3.3, hi);
         }
         for (let x = -P; x <= P; x += 5.8) if (!inGap(s, x, 0.2)) b.deco('flat:#8d949b', x - 0.1, pf, lo - 0.05, x + 0.1, pf + 3.4, hi + 0.05);
       }
       if (o.roof !== false) {
         // Canopy.
         const c0 = s * (pe - 0.7), c1 = s * (wallZ + 0.7);
-        b.deco('flat:#eef0f2', -P - 1, pf + 3.3, Math.min(c0, c1), P + 1, pf + 3.45, Math.max(c0, c1));
+        b.deco(style.canopy ?? 'flat:#eef0f2', -P - 1, pf + 3.3, Math.min(c0, c1), P + 1, pf + 3.45, Math.max(c0, c1));
         b.deco(`flat:${line.color}`, -P - 1, pf + 3.1, s * (pe - 0.7) - 0.04, P + 1, pf + 3.3, s * (pe - 0.7) + 0.04);
       }
     }
@@ -554,9 +557,11 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   // Station name boards and posters on the walls.
   const nameZ = wallZ - 0.03;
   let poster = (station.id.length * 3) % 8;
-  for (let x = -52; x <= 52; x += 13) {
+  for (let x0 = -52; x0 <= 52; x0 += 13) {
+    // On a viaduct the glazed back wall has a post every 5.8 m: a board goes between two of them.
+    const x = o.elevated && !o.cutting ? -P + 5.8 * (Math.round((x0 + P) / 5.8 - 0.5) + 0.5) : x0;
     for (const s of [-1, 1] as const) {
-      const isName = Math.round((x + 52) / 13) % 2 === 0;
+      const isName = Math.round((x0 + 52) / 13) % 2 === 0;
       if (!island && inBlocks(x, o.blocks, 1.5)) continue;
       if (o.elevated && !isName) continue;
       if (inGap(s, x)) continue;

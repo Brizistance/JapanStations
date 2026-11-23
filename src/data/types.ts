@@ -71,6 +71,8 @@ export interface LineDef {
   inbound?: Dir;
   /** Distance of each track centre from the line centreline, metres. */
   trackOffset: number;
+  /** How the trains draw power: a third rail (default) or an overhead wire (pantographs on the cars). */
+  power?: 'third' | 'overhead';
   /**
    * Stations where the two tracks run one above the other (Hotarugawa): both at lateral
    * STACK_LATERAL, the up track STACK_DY above the down track, easing back to side by side

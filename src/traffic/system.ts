@@ -53,6 +53,10 @@ export interface Route {
   yields: NonNullable<LanePart['yields']>;
   gates: NonNullable<LanePart['gates']>;
   turn: Turn | null;
+  /** Off the lane on a detour: no faster than `speed` from route distance `from` to `to`. */
+  slow?: { from: number; to: number; speed: number };
+  /** Coming back onto the lane off a detour: wait at route distance `hold` while anything is on that stretch (lane distances) of it. */
+  exit?: { hold: number; from: number; to: number; lane: Lane };
 }
 
 /** A turn from one lane into another at a signalled junction. */
@@ -131,6 +135,8 @@ export interface Lane {
   busRoute: Route | null;
   rankRoute: Route | null;
   rank: number;
+  /** Its detours (LanePart.detours), each with its route. */
+  detours: { d: NonNullable<LanePart['detours']>[number]; route: Route }[];
   /** Seconds (of peak-hour traffic) until the next vehicle is due, and the one waiting to enter. */
   next: number;
   pending: Vehicle | null;
@@ -289,7 +295,7 @@ export function makeTraffic(parts: LanePart[], seed: number): Traffic {
     const dx = part.to[0] - part.from[0], dz = part.to[2] - part.from[2], len = Math.hypot(dx, dz) || 1;
     const rand = rng(seed * 31 + index * 977 + 5);
     const lane: Lane = {
-      index, part, len, ux: dx / len, uz: dz / len, straight: null as unknown as Route, turns: [], busRoute: null, rankRoute: null, rank: 0,
+      index, part, len, ux: dx / len, uz: dz / len, straight: null as unknown as Route, turns: [], busRoute: null, rankRoute: null, rank: 0, detours: [],
       next: part.flow > 0 ? rand() * (60 / part.flow) : Infinity, pending: null, sinceBus: rand() * BUS_EVERY, rand,
     };
     lane.straight = { pieces: [line(0, lane, 0, len)], len, stops: part.stops, halts: [], dwell: [0, 0], merge: null, enter: null, yields: part.yields ?? [], gates: part.gates ?? [], turn: null };
@@ -302,6 +308,10 @@ export function makeTraffic(parts: LanePart[], seed: number): Traffic {
         lane.rankRoute = route;
         lane.rank = h.rank;
       } else lane.busRoute = route;
+    }
+    for (const d of part.detours ?? []) {
+      const route = detourRoute(lane, d);
+      if (route) lane.detours.push({ d, route });
     }
     return lane;
   });
@@ -334,6 +344,19 @@ export function makeTraffic(parts: LanePart[], seed: number): Traffic {
       if (k === 0) v.dwell = 5 + lane.rand() * 40;
       place(v);
       tr.list.push(v);
+    }
+    // A rotary starts with its stand full and a bus at its stop.
+    let bus = false;
+    for (const { d, route } of lane.detours) {
+      if (!route.halts.length || (d.who === 'bus' && bus)) continue;
+      for (let k = 0; k < (d.who === 'taxi' ? d.rank ?? 1 : 1); k++) {
+        const v = create(tr, lane, d.who === 'taxi' ? 'taxi' : lane.rand() < 0.5 ? 'bus' : 'bus_c', route);
+        v.s = route.halts[0] - k * RANK_PITCH;
+        if (k === 0) v.dwell = 5 + lane.rand() * 30;
+        place(v);
+        tr.list.push(v);
+      }
+      if (d.who === 'bus') bus = true;
     }
   }
   return tr;
@@ -388,6 +411,75 @@ function aside(lane: Lane, f0: number, f1: number, side: number): { route: Route
   };
 }
 
+/** A free straight piece (off any lane) from (x, z) heading (hx, hz). */
+const run = (start: number, len: number, x: number, z: number, hx: number, hz: number): Piece =>
+  ({ start, len, x, z, hx, hz, cx: 0, cz: 0, r: 0, a0: 0, w: 0, lane: null, from: 0 });
+
+/** Route distance of the point of `route` nearest (x, z). */
+function along(route: Route, x: number, z: number): number {
+  let best = 0, bd = Infinity;
+  for (let s = 0; s <= route.len; s += 0.25) {
+    poseAt(route, s);
+    const d = (pose.x - x) ** 2 + (pose.z - z) ** 2;
+    if (d < bd) (bd = d), (best = s);
+  }
+  return best;
+}
+
+/**
+ * A detour's route: along the lane to its first point, round each corner of the polyline on an arc of
+ * radius d.r (smaller where the legs are short), and back along the lane from its last point.
+ */
+function detourRoute(lane: Lane, d: NonNullable<LanePart['detours']>[number]): Route | null {
+  const part = lane.part, f = part.from;
+  const onLane = (p: number[]) => (p[0] - f[0]) * lane.ux + (p[2] - f[2]) * lane.uz;
+  const out = onLane(d.via[0]), back = onLane(d.via[d.via.length - 1]);
+  if (out < 5 || back > lane.len - 5 || back <= out) return null;
+  // The polyline, with the lane's own line before and after it.
+  const pts: [number, number][] = [[f[0], f[2]], ...d.via.map((p): [number, number] => [p[0], p[2]]), [f[0] + lane.ux * lane.len, f[2] + lane.uz * lane.len]];
+  const seg = (i: number) => {
+    const dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1], n = Math.hypot(dx, dz) || 1;
+    return { hx: dx / n, hz: dz / n, n };
+  };
+  // Each corner's turn, radius and tangent length.
+  const corners = pts.slice(1, -1).map((_, k) => {
+    const a = seg(k), b = seg(k + 1);
+    const th = Math.acos(Math.max(-1, Math.min(1, a.hx * b.hx + a.hz * b.hz)));
+    return { th, w: a.hx * b.hz - a.hz * b.hx > 0 ? 1 : -1, r: k === 0 || k === pts.length - 3 ? d.rEnds ?? d.r : d.r, t: 0 };
+  });
+  corners.forEach((c, k) => {
+    const room = Math.min(k === 0 ? Infinity : seg(k).n / 2, k === corners.length - 1 ? Infinity : seg(k + 1).n / 2);
+    const tan = Math.tan(c.th / 2) || 1e-6;
+    c.r = Math.min(c.r, room / tan);
+    c.t = c.r * tan;
+  });
+  const pieces: Piece[] = [line(0, lane, 0, out - corners[0].t)];
+  corners.forEach((c, k) => {
+    const prev = pieces[pieces.length - 1];
+    if (c.th > 1e-3) pieces.push(after(prev, c.r, c.w, c.r * c.th));
+    if (k === corners.length - 1) return;
+    const p = pieces[pieces.length - 1];
+    poseAt({ pieces: [p] } as Route, p.start + p.len);
+    pieces.push(run(p.start + p.len, Math.max(0, seg(k + 1).n - c.t - corners[k + 1].t), pose.x, pose.z, pose.hx, pose.hz));
+  });
+  const end = pieces[pieces.length - 1];
+  const lastFrom = back + corners[corners.length - 1].t;
+  pieces.push(line(end.start + end.len, lane, lastFrom, lane.len));
+  const shift = pieces[pieces.length - 1].start - lastFrom;
+  const route: Route = {
+    pieces, len: pieces[pieces.length - 1].start + pieces[pieces.length - 1].len, halts: [], dwell: d.rank ? [25, 70] : [20, 45], merge: null, enter: null, turn: null,
+    stops: part.stops.filter((s) => s.at < out - 8 || s.at > back + 8).map((s) => (s.at < out ? s : { ...s, at: s.at + shift, exit: s.exit + shift })),
+    yields: [],
+    gates: (part.gates ?? []).filter((g) => g.at < out - 8 || g.at > back + 8).map((g) => (g.at < out ? g : { ...g, at: g.at + shift })),
+    slow: { from: pieces[0].len, to: pieces[pieces.length - 1].start, speed: d.speed },
+    exit: { hold: pieces[pieces.length - 2].start - 6, from: back - 35, to: lastFrom + 12, lane },
+  };
+  if (d.halt) route.halts = [along(route, d.halt[0], d.halt[2])];
+  const own = (part.yields ?? []).filter((y) => y.at < out - 8 || y.at > back + 8).map((y) => (y.at < out ? y : { ...y, at: y.at + shift }));
+  route.yields = [...own, ...(d.yields ?? []).map((y) => ({ at: along(route, y.at[0], y.at[2]), zone: y.zone }))].sort((p, q) => p.at - q.at);
+  return route;
+}
+
 /**
  * What sets out next on a lane. The hour shifts the mix: more taxis at the rush hours and late at
  * night, when little else is about; delivery trucks through the morning; few cyclists after dark.
@@ -424,6 +516,11 @@ function pickModel(lane: Lane, time: number): string {
  */
 function pickRoute(tr: Traffic, lane: Lane, model: string, heavy: boolean): Route {
   const { turns, rand } = lane;
+  for (const { d, route } of lane.detours) {
+    if (d.who === 'bus' ? family(model) !== 'bus' : model !== 'taxi') continue;
+    if (d.rank && tr.list.filter((o) => o.route === route && o.served === 0).length >= d.rank) continue;
+    if (rand() < d.share) return route;
+  }
   if (family(model) === 'bus' && lane.busRoute) return lane.busRoute;
   if (lane.part.use === 'cycle') return lane.straight;
   if (model === 'taxi' && lane.rankRoute) {
@@ -486,6 +583,8 @@ function roomTo(v: Vehicle, o: Vehicle, margin: number, far = 0): number {
   // (A vehicle on another level, an expressway overhead, is never in the way.)
   if (d2 > 4900 || Math.abs(o.y - v.y) > 3) return Infinity;
   const fwd = dx * v.hx + dz * v.hz, lat = dx * v.hz - dz * v.hx, par = v.hx * o.hx + v.hz * o.hz;
+  // (Swinging back onto the road off a detour, its tail across the lane: never held up by one behind it.)
+  if (v.route.slow && par > -0.2 && fwd < 0) return Infinity;
   // How much of the way to it is straight road.
   const ps = v.route.pieces;
   let p = ps[0];
@@ -547,6 +646,16 @@ function stopping(o: Vehicle, time: number): boolean {
   return false;
 }
 
+/** True if the vehicle stands at a stop line (waiting for the light, or for the junction to clear): behind a detour vehicle there, a queue, not a knot. */
+function atLine(o: Vehicle): boolean {
+  const nose = o.s + o.len / 2;
+  for (const st of o.route.stops) {
+    if (nose > st.at + 0.3) continue;
+    return st.at - nose < 3 && o.v < 0.1;
+  }
+  return false;
+}
+
 /** True if the vehicle is past a stop line and not yet out of that junction. */
 function inJunction(o: Vehicle): boolean {
   for (const st of o.route.stops) if (o.s + o.len / 2 > st.at + 0.3 && o.s - o.len / 2 < st.exit) return true;
@@ -602,7 +711,7 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
         } else if (mutual) {
           // The one giving way keeps well back, so the other has room to get past.
           r = Math.min(r, roomTo(v, o, 1.3, far));
-          if (r < 1.5) jammed = true;
+          if (r < 1.5 && !(o.route.slow && atLine(o))) jammed = true;
         }
       }
       if (sampled && r < crossing) crossing = r;
@@ -674,6 +783,17 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
         }
       }
     }
+    // Off a detour: give way to the lane it comes back onto.
+    const ex = route.exit;
+    if (ex && v.s <= ex.hold + 0.05 && v.s > ex.hold - 30 && ex.hold - v.s < room) {
+      for (const o of list) {
+        if (o.lane === ex.lane && o.ls > ex.from && o.ls < ex.to) {
+          room = ex.hold - v.s;
+          jammed = false;
+          break;
+        }
+      }
+    }
     // Bus stops and the taxi stand: pull up, wait, and pull out when nothing is coming up the lane.
     if (v.served < route.halts.length) {
       const d = route.halts[v.served] + v.len / 2 - nose;
@@ -693,7 +813,7 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
             if (o.ls < here + v.len / 2 + o.len / 2 + 3 && o.ls > here - v.len / 2 - Math.max(14, o.v * 3)) coming = true;
           }
           // The last taxi on a stand stays until another has come.
-          const alone = route.merge !== null && route.dwell[1] > 20 && !list.some((o) => o !== v && o.route === route && o.served === 0 && o.v < 0.1 && o.s > route.halts[0] - 3 * RANK_PITCH);
+          const alone = (route.merge !== null || route.slow !== undefined) && route.dwell[1] > 60 && !list.some((o) => o !== v && o.route === route && o.served === 0 && o.v < 0.1 && o.s > route.halts[0] - 3 * RANK_PITCH);
           if (coming) v.dwell = 0.5;
           else if (alone) v.dwell = 4;
           else v.served++;
@@ -730,6 +850,8 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
     // The speed limit, lower for heavy vehicles, and lower still for a turn coming up.
     let limit = (v.lane ?? v.origin).part.speed * (v.heavy ? 0.88 : 1);
     if (turn && v.s < turn.arc1) limit = Math.min(limit, Math.sqrt(turn.speed * turn.speed + 2 * COMFORT * Math.max(0, turn.arc0 - v.s)));
+    const sl = route.slow;
+    if (sl && v.s < sl.to) limit = Math.min(limit, Math.sqrt(sl.speed * sl.speed + 2 * COMFORT * Math.max(0, sl.from - v.s)));
     const want = room === Infinity ? limit : Math.min(limit, Math.sqrt(2 * COMFORT * Math.max(0, room - 0.15)));
     const before = v.v;
     v.v += Math.max(-BRAKE * dt, Math.min((v.heavy ? ACCEL_HEAVY : ACCEL) * dt, want - v.v));

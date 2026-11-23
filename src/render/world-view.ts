@@ -23,7 +23,8 @@ import { getMaterial } from './materials';
 import { GateSet, makeSigns, staticGroup } from './part-view';
 import { disposeCache, redrawLive, type SignCache, type SignSet } from './sign-set';
 import type { SignContent } from '../signs/content';
-import { buildTrack } from './track';
+import { buildTrack, WIRE_H } from './track';
+import { stretchesOf, stretchRange } from './stretches';
 
 const STATION_IN = 520, STATION_OUT = 680, TRAIN_RANGE = 750;
 /**
@@ -104,6 +105,27 @@ const LAMP = { x: 9.213, y: 1.72, z: 0.93, turn: 0.205 };
 const white = new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff7d6').multiplyScalar(3) });
 const red = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a').multiplyScalar(2) });
 
+/** A single-arm pantograph on the roof (3.56 m above the rail), its head touching the contact wire. */
+function pantograph(): THREE.Group {
+  const g = new THREE.Group();
+  const frame = getMaterial('flat:#3a3e44'), arm = getMaterial('metal:#8d9094');
+  const bar = (mat: THREE.Material, x0: number, y0: number, x1: number, y1: number, t: number, wz: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(x1 - x0, y1 - y0), t, wz), mat);
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0);
+    m.rotation.z = Math.atan2(y1 - y0, x1 - x0);
+    return m;
+  };
+  const top = WIRE_H - 0.03;
+  g.add(
+    bar(frame, -0.9, 3.6, 0.9, 3.6, 0.08, 1.3), // base frame on insulators
+    bar(arm, -0.7, 3.66, 0.35, top - 0.2, 0.06, 0.5), // lower arm
+    bar(arm, 0.35, top - 0.2, -0.25, top - 0.04, 0.045, 0.08), // upper arm
+    bar(frame, -0.31, top, -0.19, top, 0.05, 1.7), // the pan head across the car
+  );
+  g.traverse((o) => ((o as THREE.Mesh).castShadow = true));
+  return g;
+}
+
 function destDir(t: TrainRuntime): 'down' | 'up' | 'none' {
   const p = t.state.phase;
   if (p.kind === 'run') return p.inService ? p.dir : 'none';
@@ -133,6 +155,8 @@ function mountTrain(t: TrainRuntime): TrainView {
     };
     // The Blender model if it has loaded; the collision boxes drawn as they are if not.
     const body = carModel(line.color, kind) ?? staticGroup(build, CAR_ENV, `car:${line.id}:${kind}`).group;
+    // A pantograph on every other car of a line on overhead wire, raised to the contact wire (track.ts WIRE_H).
+    if (line.power === 'overhead' && c % 2 === 1) body.add(pantograph());
     body.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (mesh.isMesh) mesh.material = mine(mesh.material as THREE.Material);
@@ -214,6 +238,7 @@ function backdropModels(): THREE.Group {
     }
   }
   // Detail cells: the blocks near the camera full, the rest simplified (updateLod).
+  parts.push(...bandParts);
   const { group, rest } = lodModels(parts);
   // In grid cells, not one city-wide mesh: cells behind the camera or past the fog are skipped (cull()).
   if (farParts.length) group.add(cellMergedModels(farParts, BACKDROP_CELL, { noAO: true }));
@@ -227,7 +252,7 @@ function backdropModels(): THREE.Group {
  * across it, kept off the plot, the continuation and its cleared strips, and off the roads. The
  * blocks just behind the plot stand as full models (`near`).
  */
-function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRoad: (x: number, z: number, m: number) => boolean) {
+function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRoad: (x: number, z: number, m: number) => boolean, nearBand: (x: number, z: number) => boolean) {
   for (const w of STATION_WORLDS) {
     const d = w.build.district;
     if (!d) continue;
@@ -243,7 +268,7 @@ function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRo
         const corners = [[-31, -15], [31, -15], [31, 15], [-31, 15], [0, 0]].map(([a, b]) => toWorld(lx + a, lz + b));
         if (corners.some((p) => inPlot(p.x, p.z, 1))) continue;
         const ctr = toWorld(lx, lz);
-        if (onRoad(ctr.x, ctr.z, 18)) continue;
+        if (onRoad(ctr.x, ctr.z, 18) || nearBand(ctr.x, ctr.z)) continue;
         // Where two districts overlap, a block belongs to the nearer station only.
         const own = Math.hypot(w.frame.x - ctr.x, w.frame.z - ctr.z);
         if (STATION_WORLDS.some((o) => o !== w && o.build.district && Math.hypot(o.frame.x - ctr.x, o.frame.z - ctr.z) < own)) continue;
@@ -253,6 +278,100 @@ function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRo
       }
     }
   }
+}
+
+/** The band of buildings beside a modelled stretch's open-air track (cityBand): filled by backdropModels() once the models have loaded. */
+const bandParts: ModelPart[] = [];
+
+/**
+ * The city beside the open-air track of each modelled stretch (render/stretches.ts), seen from the
+ * train: a lane along the line each side, then a block of two rows back to back, houses, small
+ * shops and flats facing the lane in front and a back street behind, the mix blending from one
+ * station's to the other's. It stops short of each station's plot, whose own street scene takes
+ * over, and leaves the crossing streets clear (paved here, under their girder spans).
+ * Scenery only: nothing here can be walked in. Returns the paving and a test for keeping the
+ * plain backdrop blocks and the districts' grid blocks off it.
+ */
+function cityBand(inPlot: (x: number, z: number, m: number) => boolean) {
+  const meshes: THREE.Mesh[] = [];
+  const pts: { x: number; z: number }[] = [];
+  const asphalt: number[] = [];
+  bandParts.length = 0;
+  for (const sim of NET) {
+    const geom = sim.geom, W = halfWidth(geom);
+    for (const st of stretchesOf(geom)) {
+      const { s0, s1, sFrom, dir } = stretchRange(geom, st);
+      const r = rng(7919 + Math.round(s0));
+      const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
+      const roads = st.roads.map((rd) => ({ ...rd, s: sFrom + dir * rd.at }));
+      const P = (s: number, lat: number) => { const p = geom.path.pointAt(s); return { x: p.x - p.tz * lat, z: p.z + p.tx * lat, tx: p.tx, tz: p.tz }; };
+      // The band runs where the track is open to the sky, from 40 m back over the tunnel, and not in a plot.
+      const open = (s: number) => [-40, 0, 40].some((d) => { const t = structureAt(geom, s + d); return t === 'cut' || t === 'viaduct'; });
+      const inBand = (s: number, lat: number) => { const p = P(s, lat); return s > s0 && s < s1 && open(s) && !inPlot(p.x, p.z, 4); };
+      for (let s = s0; s < s1; s += 8) if (inBand(s, 0)) pts.push(P(s, 0));
+      const quad = (list: number[], a: { x: number; z: number }, b: { x: number; z: number }, c: { x: number; z: number }, d: { x: number; z: number }, y: number) =>
+        // Wound to face up, whichever side of the line it lies on.
+        (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x) < 0
+          ? list.push(a.x, y, a.z, b.x, y, b.z, c.x, y, c.z, a.x, y, a.z, c.x, y, c.z, d.x, y, d.z)
+          : list.push(a.x, y, a.z, d.x, y, d.z, c.x, y, c.z, a.x, y, a.z, c.x, y, c.z, b.x, y, b.z);
+      const LANE = [W + 1.0, W + 5.0], FRONT = W + 6.2, BACK = W + 33;
+      for (const sg of [-1, 1]) {
+        // The lane along the line.
+        for (let s = s0; s < s1; s += 4) {
+          if (!inBand(s, sg * LANE[1]) || !inBand(s + 4, sg * LANE[1])) continue;
+          quad(asphalt, P(s, sg * LANE[0]), P(s + 4, sg * LANE[0]), P(s + 4, sg * LANE[1]), P(s, sg * LANE[1]), 0.0);
+        }
+        // Two rows back to back: the front row faces the lane, the back row a street behind.
+        for (const [off, facing] of [[FRONT, 1], [BACK, -1]] as const) {
+          let u = s0 + r() * 6;
+          let lastGap = u;
+          while (u < s1) {
+            // A side street through the block now and then.
+            if (u - lastGap > 55 + r() * 30) { u += 6; lastGap = u; continue; }
+            const f = Math.min(1, Math.max(0, ((u - sFrom) * dir) / (s1 - s0)));
+            const kinds = r() < f ? st.band.to : st.band.from;
+            const kind = pick(kinds);
+            const pool = BUILDING_MODELS.filter((m) => m.kind === kind && !m.corner && m.d <= 13 && m.h < 42);
+            const m = pick(pool.length ? pool : BUILDING_MODELS.filter((q) => q.kind === 'machi'));
+            const sc = u + m.w / 2;
+            const clearRoad = roads.every((rd) => Math.abs(sc - rd.s) > rd.half + 3 + m.w / 2);
+            if (inBand(u, sg * off) && inBand(u + m.w, sg * off) && clearRoad) {
+              const p = P(sc, sg * off);
+              // Outward from the line, the way the model's +z (into its plot) points for the front row.
+              const nx = -p.tz * sg * facing, nz = p.tx * sg * facing;
+              bandParts.push({ kind: m.kind, id: `${m.id}_lo`, pos: [p.x, -0.03, p.z], yaw: Math.atan2(nx, nz), seed: Math.floor(r() * 3) });
+            }
+            u += m.w + 0.5 + r() * 1.2;
+          }
+        }
+      }
+      // The crossing streets: paved under the viaduct, where the station's continuation leaves its strip clear.
+      for (const rd of roads) {
+        const p = geom.path.pointAt(rd.s), ax = -p.tz, az = p.tx; // across the line
+        const at = (lat: number, along: number) => ({ x: p.x + ax * lat + p.tx * along, z: p.z + az * lat + p.tz * along });
+        quad(asphalt, at(-12, -rd.half), at(12, -rd.half), at(12, rd.half), at(-12, rd.half), 0.0);
+        for (let l = -110; l <= 110; l += 8) pts.push(at(l, 0));
+      }
+    }
+  }
+  for (const [mat, list] of [['asphalt', asphalt]] as const) {
+    if (!list.length) continue;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(list, 3));
+    // Shape UVs in metres, as the ground's; full daylight.
+    const uv: number[] = [];
+    for (let i = 0; i < list.length; i += 3) uv.push(list[i], -list[i + 2]);
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('aEnv', new THREE.BufferAttribute(new Float32Array((list.length / 3) * 2).fill(1), 2));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, getMaterial(mat));
+    m.matrixAutoUpdate = false;
+    m.receiveShadow = true;
+    m.userData.noAO = true;
+    meshes.push(m);
+  }
+  const near = (x: number, z: number, d: number) => pts.some((p) => Math.abs(p.x - x) < d && Math.abs(p.z - z) < d && Math.hypot(p.x - x, p.z - z) < d);
+  return { meshes, near };
 }
 
 /** Low-detail city beyond the station plots, plus the ground it stands on. */
@@ -330,6 +449,8 @@ function buildBackdrop(): THREE.Group {
       group.add(paving);
     }
   }
+  const band = cityBand(inPlot);
+  group.add(...band.meshes);
   const onRoad = (x: number, z: number, m: number) =>
     roads.some(({ w, strips }) => {
       const dx = x - w.frame.x, dz = z - w.frame.z;
@@ -367,7 +488,7 @@ function buildBackdrop(): THREE.Group {
       const nearStation = STATION_WORLDS.some((s) => Math.hypot(s.frame.x - x, s.frame.z - z) < 480);
       const openDist = openDistAt(x, z);
       if (!nearStation && openDist > 330) continue;
-      if (inPlot(x, z, 24) || openDist < 34) continue;
+      if (inPlot(x, z, 24) || openDist < 34 || band.near(x, z, 58)) continue;
       const centre = Math.hypot(x - 1870, z);
       const tall = Math.max(0, 1 - centre / 1500);
       const h = 9 + r() * 16 + tall * tall * r() * 70;
@@ -379,7 +500,7 @@ function buildBackdrop(): THREE.Group {
       boxes.push({ mat, min: [x - w / 2, -0.03, z - d / 2], max: [x + w / 2, h, z + d / 2], solid: false });
     }
   }
-  districtGrid(inPlot, onRoad);
+  districtGrid(inPlot, onRoad, (x, z) => band.near(x, z, 66));
   for (const [mat, list] of groupBy(boxes)) {
     const m = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
     m.matrixAutoUpdate = false;
@@ -468,8 +589,8 @@ export class WorldView {
 
   /** Mount/unmount stations by distance and move the trains. Call after the sim tick. */
   /** `fogFar`: where the fog is total right now, m (cells past it are not drawn). */
-  update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any', fogFar = FOG_OPEN) {
-    this.cull(cam, vis, fogFar);
+  update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any', fogFar = FOG_OPEN, riding = false) {
+    this.cull(cam, vis, fogFar, riding);
     updateLod(cam);
     // Stations: at most one mount per frame to spread the cost.
     for (const tick of this.trackTicks) tick(clock.time);
@@ -550,11 +671,12 @@ export class WorldView {
    * underground ('under') nothing at street level is drawn, at any station, nor the city beyond;
    * out on the street ('street') nothing below it is. Anywhere else everything is drawn.
    */
-  private cull(cam: THREE.Vector3, vis: 'any' | 'street' | 'under', fogFar: number) {
+  private cull(cam: THREE.Vector3, vis: 'any' | 'street' | 'under', fogFar: number, riding: boolean) {
     let far = false, sealed = false;
     // Out in the city beyond every station's plot (the continued streets, the boulevards), at street
     // level: nothing below the street can be seen from there, the stations' halls nor the tunnels.
-    if (vis === 'any' && cam.y > -1) {
+    // Not on a train: one climbing out of a portal has its rear cars still below the street.
+    if (vis === 'any' && cam.y > -1 && !riding) {
       const inPlot = STATION_WORLDS.some((w) => {
         const dx = cam.x - w.frame.x, dz = cam.z - w.frame.z;
         const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);

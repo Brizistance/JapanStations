@@ -8,7 +8,7 @@ import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
 import { trainStateAt } from '../sim/timetable';
 import {
-  ELEVATED, KIND, OPEN_AIR, PLACE, PLOT, STREET, concourseY, mezzanineY, stationExits, stationStreet,
+  ELEVATED, HIBARINO_MAP, KIND, OPEN_AIR, PLACE, PLOT, STREET, concourseY, mezzanineY, stationExits, stationStreet,
   type AreaFill, type Named, type OpenAirPlan, type PlanRect, type StationExit, type StationStreet,
 } from '../stations/exits';
 import { SPECS } from '../stations/specs';
@@ -621,6 +621,57 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       ctx.lineTo(W, H);
       ctx.fill();
     });
+  } else if (c.v === 'skylarks') {
+    // Skylarks rising over a hill meadow in early summer (Hibarino): a warm morning sky, the sun,
+    // rolling meadow and wheat, the birds climbing in a loose spiral, wings up and down by turns.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#8ec5ea');
+    g.addColorStop(0.55, '#cfe8f4');
+    g.addColorStop(1, '#f6eccf');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255, 236, 170, 0.55)';
+    ctx.beginPath();
+    ctx.arc(W * 0.8, H * 0.24, H * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff4c8';
+    ctx.beginPath();
+    ctx.arc(W * 0.8, H * 0.24, H * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+    ['#b9d79a', '#8fbf6e', '#e2c779', col].forEach((cc, k) => {
+      ctx.fillStyle = cc;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += W / 60) ctx.lineTo(x, H * (0.56 + 0.1 * k) + Math.sin(x / (W * (0.11 - k * 0.015)) + k * 1.7) * H * (0.07 - k * 0.01));
+      ctx.lineTo(W, H);
+      ctx.fill();
+    });
+    // Flowers in the near meadow.
+    for (let k = 0; k < 90; k++) {
+      const x = ((k * 97) % 100) / 100 * W, y = H * (0.86 + ((k * 37) % 13) / 100);
+      ctx.fillStyle = ['#f4f1e8', '#f2c230', '#d94f8a'][k % 3];
+      ctx.beginPath();
+      ctx.arc(x, y, H * 0.008, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // The skylarks: a brown body and two swept wings, smaller as they climb.
+    for (let k = 0; k < 9; k++) {
+      const t = k / 8, a = t * Math.PI * 3.2;
+      const x = W * (0.3 + 0.3 * t) + Math.cos(a) * W * 0.06 * (1 - t * 0.5), y = H * (0.62 - 0.5 * t) + Math.sin(a) * H * 0.05;
+      const s = H * (0.05 - 0.03 * t), up = k % 2 ? 1 : -1;
+      ctx.fillStyle = '#7a5a34';
+      ctx.beginPath();
+      ctx.ellipse(x, y, s * 0.9, s * 0.35, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.2, y);
+      ctx.quadraticCurveTo(x - s * 1.2, y + up * s * 1.1, x - s * 2.0, y + up * s * 0.5);
+      ctx.quadraticCurveTo(x - s * 1.0, y + up * s * 0.3, x + s * 0.2, y);
+      ctx.moveTo(x + s * 0.2, y);
+      ctx.quadraticCurveTo(x + s * 1.2, y + up * s * 1.1, x + s * 2.0, y + up * s * 0.5);
+      ctx.quadraticCurveTo(x + s * 1.0, y + up * s * 0.3, x - s * 0.2, y);
+      ctx.fill();
+    }
   } else if (c.v === 'gulls') {
     // Gulls wheeling over a pale sea.
     const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -1725,6 +1776,7 @@ function drawAreaMap(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k
   const m: MapCtx = { R, P, sc, lp, box: [...P(-X, -Z), ...P(X, Z)], placed: [] };
   const spec = SPECS[st.id];
   if (plan.kind === 'street') areaStreet(ctx, st, plan, m);
+  else if (st.id === 'hibarino') areaOpenAir(ctx, st, plan.exits, m, HIBARINO_MAP);
   else if (spec.kind === 'elevated' && spec.layout) areaOpenAir(ctx, st, plan.exits, m, OPEN_AIR[spec.layout]);
   else areaElevated(ctx, st, plan.exits, m);
   ctx.restore();

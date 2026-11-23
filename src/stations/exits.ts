@@ -147,6 +147,36 @@ const IZUMI_DECK: Named = { ja: '泉ヶ丘デッキ', en: 'Izumigaoka Deck' };
 const IZUMI_BUS: Named = { ja: '泉ヶ丘駅前バスターミナル', en: 'Izumigaoka Bus Terminal' };
 const IZUMI_PARK: Named = { ja: '泉ヶ丘公園', en: 'Izumigaoka Park' };
 const IZUMI_CENTRE: Named = { ja: '泉ヶ丘センター', en: 'Izumigaoka Centre' };
+/** Hibarino's area map (hibarino-street.ts: its streets, blocks, the rotary, the deck and the supermarket). */
+export const HIBARINO_MAP: OpenAirPlan = {
+  box: [-34, -13, 26, 9],
+  areas: [
+    { r: [-130, -85, 130, -6], fill: 'house' },
+    { r: [-130, 6, 130, 85], fill: 'apartment' },
+    { r: [-130, -85, -66.75, -26.75], fill: 'green', label: { ja: '揚雲雀の丘公園', en: 'Agehibari Hill Park' } },
+    { r: [-57.25, -85, -24, -26.75], fill: 'green', label: { ja: '囀八幡神社', en: 'Saezuri Hachiman Shrine' } },
+    { r: [-130, -6, 130, 6], fill: 'track' },
+    { r: [-130, -25.25, 47.25, -18.75], fill: 'road', label: { ja: '囀通', en: 'Saezuri-dōri' } },
+    { r: [-65.25, -85, -58.75, 85], fill: 'road', label: { ja: '野辺筋', en: 'Nobe-suji' } },
+    { r: [43.75, -85, 50.75, 85], fill: 'road', label: { ja: '麦畑筋', en: 'Mugibatake-suji' } },
+    { r: [-130, 37, 130, 51], fill: 'road', label: { ja: '雲雀野通', en: 'Hibarino-dōri' } },
+    { r: [-130, 76.75, 130, 83.25], fill: 'road', label: { ja: '穂波通', en: 'Honami-dōri' } },
+    { r: [-38, 14, 28, 21], fill: 'road' },
+    { r: [-38, 21, -31, 37], fill: 'road' },
+    { r: [21, 21, 28, 37], fill: 'road' },
+    { r: [-40, 9, 30, 14], fill: 'plaza' },
+    { r: [-34, -17.25, 26, -9], fill: 'plaza' },
+    { r: [-31, 21, 21, 33], fill: 'plaza', label: { ja: '駅前ロータリー広場', en: 'Station Rotary Plaza' } },
+    { r: [-35, 55, -11, 76.75], fill: 'shop', label: { ja: 'ひばり野中央商店街', en: 'Hibarino Chūō Shōtengai' } },
+    { r: [-11, 55, 36, 76.75], fill: 'shop', label: { ja: 'スーパー ことり屋', en: 'Kotoriya Supermarket' } },
+    { r: [-6, 9.8, 9.6, 13.6], fill: 'deck' },
+    { r: [-6, 13.6, -2, 55], fill: 'deck' },
+  ],
+  bus: [-19, 12],
+  taxi: [6, 19.5],
+  exits: [],
+};
+
 export const OPEN_AIR: Record<NonNullable<ElevatedSpec['layout']>, OpenAirPlan> = {
   // Asahino: a gate hall for each direction under the viaduct (platform 1 west, platform 2
   // east), a free passage under the tracks between them, shops in the arches beyond. The box
@@ -632,6 +662,17 @@ function derive(id: StationId): StationStreet {
       if (spec.layout) return { kind: 'elevated', exits: OPEN_AIR[spec.layout].exits.map((e) => ({ num: '', ...e })) };
       // Two street entrances: the wide south front onto the plaza, and the west end.
       const [x0, , cw0] = ELEVATED.concourse, cw = spec.width ?? cw0;
+      // Hibarino's own building (hibarino.ts): the south exit on the rotary and the main road, the north exit on Saezuri-dōri.
+      if (id === 'hibarino') {
+        const n = (ja: string, en: string): Named => ({ ja, en });
+        return {
+          kind: 'elevated',
+          exits: [
+            { num: '', side: 1, rect: [-21.15, 8.85, -7.1, 9], near: [n('バス・タクシーのりば', 'Buses & taxis'), n('雲雀野通', 'Hibarino-dōri'), n('ひばり野中央商店街', 'Hibarino Chūō Shōtengai')] },
+            { num: '', side: -1, rect: [-21.15, -13, -7.1, -12.85], near: [n('囀通', 'Saezuri-dōri'), n('囀八幡神社', 'Saezuri Hachiman Shrine'), n('揚雲雀の丘公園', 'Agehibari Hill Park')] },
+          ],
+        };
+      }
       return {
         kind: 'elevated',
         exits: [

@@ -136,6 +136,13 @@ export interface LanePart {
   gates?: { at: number; line: string; station: string }[];
   /** The lane ends inside the plot (a side street meeting a main road): everybody turns off it at its last junction. */
   dead?: boolean;
+  /**
+   * Ways off the lane and back onto it further along (a station's rotary): out at the first `via` point
+   * and back in at the last (both on the lane), through the others, corners rounded to `r` (`rEnds` off and onto the lane), at `speed`
+   * off the lane. A `share` of `who` take it; they stop with their middle at `halt` (a point on the way),
+   * a taxi stand of `rank` places there, and stop short of a zebra (`yields`: a point on the way, the zone).
+   */
+  detours?: { via: V3[]; r: number; rEnds?: number; speed: number; who: 'bus' | 'taxi'; share: number; halt?: V3; rank?: number; yields?: { at: V3; zone: [number, number, number, number] }[] }[];
 }
 
 /** A lift's car in plan (frame x and z) and the floor heights it serves, lowest first (world/lifts.ts). */
