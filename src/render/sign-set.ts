@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { signKey, type SignContent } from '../signs/content';
 import { drawSign, isLed, signSize } from '../signs/draw';
+import { awaitPoster } from '../signs/posters';
 import type { SignPart } from '../world/builder';
 import { skyAt } from './geometry';
 import { lit } from './lit';
@@ -84,6 +85,16 @@ function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
     if (CUTOUT.has(c.k)) mat.alphaTest = 0.5;
     e = { canvas, ctx, tex, mat, content: c, live: LIVE.has(c.k), fast: FAST.has(c.k) };
     cache.set(k, e);
+    if (c.k === 'poster') {
+      // A poster's image loads after the case is up: draw it in when it arrives.
+      const made = e, wait = () => awaitPoster(c.v, c.at, W / H, () => {
+        if (cache.get(k) !== made) return;
+        drawSign(ctx, W, H, c);
+        tex.needsUpdate = true;
+        wait();
+      });
+      wait();
+    }
   }
   return e;
 }

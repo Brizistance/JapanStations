@@ -16,6 +16,9 @@ import type { BlockStyle } from '../stations/surface';
 import type { Arrow, Picto, SignContent } from './content';
 import { boardPixels, boards, drawDep, drawDepAll, platformNo, crossingActive } from './departures';
 import { signalState } from '../traffic/signals';
+import { drawShop } from './shop';
+import { drawPosterAt } from './posters';
+import { drawArtPoster } from './poster-art';
 
 export const FONT = '"Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans JP",system-ui,sans-serif';
 const NAVY = '#14233b';
@@ -284,62 +287,6 @@ function drawFareMap(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k
   text(ctx, 'きっぷ運賃表', H * 0.18, H * 0.07, H * 0.075, { color: '#fff' });
   text(ctx, `Fares from ${stationById(c.station).nameRomaji}  (yen)`, W - H * 0.05, H * 0.07, H * 0.055, { color: '#dfe8f3', align: 'right', weight: 600 });
   drawDiagram(ctx, 0, H * 0.13, W, H * 0.87, c.station);
-}
-
-function drawShop(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'shop' }>) {
-  ctx.fillStyle = c.bg;
-  ctx.fillRect(0, 0, W, H);
-  if (c.vertical) {
-    const chars = [...c.ja];
-    const size = Math.min(W * 0.72, (H * 0.94) / chars.length);
-    chars.forEach((ch, i) => {
-      const y = H / 2 + (i - (chars.length - 1) / 2) * size;
-      if (ch === 'ー') {
-        ctx.fillStyle = c.fg;
-        ctx.fillRect(W / 2 - size * 0.05, y - size * 0.4, size * 0.1, size * 0.8);
-      } else text(ctx, ch, W / 2, y, size * 0.92, { align: 'center', color: c.fg, weight: 800 });
-    });
-    return;
-  }
-  if (c.en) {
-    text(ctx, c.ja, W / 2, H * 0.42, H * 0.5, { align: 'center', color: c.fg, weight: 800, maxW: W * 0.92 });
-    text(ctx, c.en, W / 2, H * 0.82, H * 0.2, { align: 'center', color: c.fg, weight: 600, maxW: W * 0.92 });
-  } else text(ctx, c.ja, W / 2, H / 2, H * 0.6, { align: 'center', color: c.fg, weight: 800, maxW: W * 0.92 });
-}
-
-const POSTERS: { bg: [string, string]; fg: string; ja: string; en: string; tag: string }[] = [
-  { bg: ['#0b6fa4', '#0a2f5c'], fg: '#fff', ja: '川湊水族館', en: 'Kawaminato Aquarium', tag: '川湊港駅 徒歩5分' },
-  { bg: ['#ff7aa2', '#ffd1dc'], fg: '#3a0d1e', ja: 'ICカード ミナカ', en: 'MINACA — tap and go', tag: 'チャージは券売機で' },
-  { bg: ['#f2e9d0', '#e3c98a'], fg: '#5a2d0c', ja: '柳筋まつり', en: 'Yanagisuji Festival', tag: '十月 第二土曜・日曜' },
-  { bg: ['#9fd8a4', '#e8f6e0'], fg: '#14401c', ja: 'ひばり野の丘に住む', en: 'Hibarino Hills Residences', tag: '雲雀野駅 徒歩8分' },
-  { bg: ['#7b1e28', '#3d0f14'], fg: '#f6e7c8', ja: '川湊大学 公開講座', en: 'Kawaminato University Open Lectures', tag: '受講生募集中' },
-  { bg: ['#fff7cc', '#ffe066'], fg: '#222', ja: '歩きスマホは危険です', en: 'Please do not use your phone while walking', tag: '川湊メトロ マナー向上運動' },
-  { bg: ['#151515', '#3a2a00'], fg: '#ffcf4a', ja: '瓢箪堀 グルメ横丁', en: 'Hyotanbori Gourmet Alley', tag: '瓢箪堀駅 2番出口すぐ' },
-  { bg: ['#1c355e', '#274b82'], fg: '#fff', ja: '港の朝市', en: 'Harbour Morning Market', tag: '毎週日曜 朝6時から' },
-];
-
-function drawPoster(ctx: Ctx, W: number, H: number, v: number) {
-  const p = POSTERS[v % POSTERS.length];
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, p.bg[0]);
-  g.addColorStop(1, p.bg[1]);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = p.fg;
-  for (let i = 0; i < 5; i++) {
-    ctx.beginPath();
-    ctx.arc(W * (0.15 + 0.2 * i), H * (0.3 + 0.12 * ((i * 7 + v) % 4)), H * (0.1 + 0.03 * ((i + v) % 3)), 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  const portrait = H > W;
-  text(ctx, p.ja, W / 2, H * (portrait ? 0.56 : 0.4), portrait ? W * 0.15 : H * 0.26, { align: 'center', color: p.fg, weight: 800, maxW: W * 0.9 });
-  text(ctx, p.en, W / 2, H * (portrait ? 0.68 : 0.66), portrait ? W * 0.065 : H * 0.11, { align: 'center', color: p.fg, weight: 600, maxW: W * 0.9 });
-  text(ctx, p.tag, W / 2, H * 0.9, portrait ? W * 0.06 : H * 0.09, { align: 'center', color: p.fg, weight: 600, maxW: W * 0.9 });
-  ctx.strokeStyle = '#d8d8d8';
-  ctx.lineWidth = Math.max(2, W * 0.012);
-  ctx.strokeRect(0, 0, W, H);
 }
 
 function drawMachine(ctx: Ctx, W: number, H: number, v: string, era: 'old' | 'mid' | 'new') {
@@ -2285,8 +2232,14 @@ export function drawSign(ctx: Ctx, W: number, H: number, c: SignContent) {
     case 'entrance': return drawEntrance(ctx, W, H, c);
     case 'faremap': return drawFareMap(ctx, W, H, c);
     case 'shop': return drawShop(ctx, W, H, c);
-    case 'poster': return drawPoster(ctx, W, H, c.v);
-    case 'screen': return drawPoster(ctx, W, H, c.v + Math.floor(clock.time / 9) * 3);
+    // (The bare backing board shows until the image has loaded.)
+    case 'poster':
+      if (!drawPosterAt(ctx, W, H, c.v, c.at)) {
+        ctx.fillStyle = '#eceae4';
+        ctx.fillRect(0, 0, W, H);
+      }
+      return;
+    case 'screen': return drawArtPoster(ctx, W, H, c.v + Math.floor(clock.time / 9) * 3);
     case 'machine': return drawMachine(ctx, W, H, c.v, c.era ?? 'mid');
     case 'mural': return drawMural(ctx, W, H, c);
     case 'label':

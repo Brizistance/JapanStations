@@ -237,6 +237,8 @@ export class Builder {
   };
   private m: M = toM({});
   private isOpen = false;
+  /** The station being built: stamped on its posters, which differ by station (signs/posters.ts). */
+  place = '';
   /** Volumes that decoration must stay out of (round wayfinding signs), in builder coords. */
   private kept: { min: V3; max: V3 }[] = [];
 
@@ -428,6 +430,7 @@ export class Builder {
   sign(content: SignContent, x: number, y: number, z: number, normal: V2 | null, w: number, h: number, o: SignOpts = {}) {
     const n = normal ? this.dir(normal) : null;
     let c = content;
+    if (c.k === 'poster' && c.at === undefined) c = { ...c, at: this.place };
     if (o.arrow && n) {
       const a = this.dir(o.arrow);
       const right = a[0] * n[1] - a[1] * n[0];

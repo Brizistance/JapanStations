@@ -13,6 +13,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SignContent } from '../signs/content';
 import { drawSign } from '../signs/draw';
+import { isChain, lum, shopStyle, tone } from '../signs/shop';
 import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, MACHI_NAMES, MACHI_WORDS, SIGN_WORDS, TOWER_NAMES, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
 import { SHOPS } from '../stations/surface';
 import { rng, type ModelPart } from '../world/builder';
@@ -194,11 +195,6 @@ function material(name: string): THREE.Material {
   return m;
 }
 
-const luminance = (hex: string) => {
-  const c = new THREE.Color(hex);
-  return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
-};
-
 /** The average colour (linear) of a building variant's sign boards, or null if it has none or the models are not loaded yet. */
 export function signTint(kind: string, id: string): [number, number, number] | null {
   const boards = protos.get(`${kind}_${id}`)?.boards;
@@ -215,22 +211,97 @@ export function modelPieces(kind: string, id: string): { geometry: THREE.BufferG
 /** True once the building models are in memory. */
 export const modelsLoaded = () => protos.size > 0;
 
-/** What one board says. Tall boards take a trade word, a tower's wide board its name, the rest a shop. */
-function boardContent(kind: BuildingKind, b: Board, r: () => number): SignContent {
-  const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
-  const fg = luminance(b.col) > 0.3 ? '#1f2023' : '#ffffff';
-  if (kind === 'boutique') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(BOUTIQUE_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(BOUTIQUE_NAMES), bg: b.col, fg };
-  if (kind === 'machi') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(MACHI_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(MACHI_NAMES), bg: b.col, fg };
-  if (kind === 'yokocho') return b.h > b.w * 1.4 ? { k: 'shop', ja: pick(YOKOCHO_WORDS), bg: b.col, fg, vertical: true } : { k: 'shop', ...pick(YOKOCHO_NAMES), bg: b.col, fg };
-  if (b.h > b.w * 1.4) return { k: 'shop', ja: pick(SIGN_WORDS), bg: b.col, fg, vertical: true };
-  if (kind === 'tower' && b.w > 8) return { k: 'shop', ...pick(TOWER_NAMES), bg: b.col, fg };
-  const s = pick(SHOPS);
-  return { k: 'shop', ja: s.ja, en: s.en, bg: b.col, fg };
+/** How worn a kind of building's signs are, from its best kept to its worst: old mixed-use blocks carry old signs. */
+const WEAR: Record<string, [number, number]> = { zakkyo: [0.2, 0.8], shophouse: [0.3, 0.85], yokocho: [0.35, 0.9], machi: [0.25, 0.8], canalfront: [0.1, 0.5], manshon: [0.05, 0.3], office: [0, 0.12], tower: [0, 0.08], boutique: [0, 0.15] };
+/** Sign-maker's colours for the cells of a shared upright sign. */
+const INKS = ['#b3261e', '#1f4e8c', '#1f6b45', '#d9861a', '#3a2a22', '#6a2c70', '#0f7f86', '#c2185b', '#222429', '#0d3b66'];
+const CHAIN_SHOPS = SHOPS.filter((s) => isChain(s.ja));
+/** The tenants of an ordinary block: enough of them that a big building does not run out and start again. */
+const EVERYONE: { ja: string; en?: string; bg?: string; fg?: string }[] = [...SHOPS, ...MACHI_NAMES, ...BOUTIQUE_NAMES];
+
+interface Named { ja: string; en?: string; bg?: string; fg?: string }
+interface Cell { x: number; y: number; w: number; h: number; c: SignContent }
+
+/**
+ * What one building's boards say. Every tenant is on the building once. A long fascia is shared by
+ * two or three tenants, a high upright sign is a stack of them with their floors, a big square
+ * board advertises a chain, a tower's wide board carries its name, and the rest take one shop each.
+ */
+function tenants(kind: BuildingKind, r: () => number, tier: number) {
+  const quiet = tier === 1, busy = tier === 2;
+  const bag = <T,>(src: T[]) => {
+    let left: T[] = [];
+    return () => {
+      if (!left.length) {
+        left = src.slice();
+        for (let i = left.length - 1; i > 0; i--) {
+          const j = Math.floor(r() * (i + 1));
+          [left[i], left[j]] = [left[j], left[i]];
+        }
+      }
+      return left.pop()!;
+    };
+  };
+  const name = bag<Named>(kind === 'boutique' ? BOUTIQUE_NAMES : kind === 'machi' ? MACHI_NAMES : kind === 'yokocho' ? YOKOCHO_NAMES : EVERYONE);
+  const word = bag(kind === 'boutique' ? BOUTIQUE_WORDS : kind === 'machi' ? MACHI_WORDS : kind === 'yokocho' ? YOKOCHO_WORDS : SIGN_WORDS);
+  const chain = bag<Named>(CHAIN_SHOPS), tower = bag<Named>(TOWER_NAMES);
+  const own = kind === 'boutique' || kind === 'machi' || kind === 'yokocho';
+  const [lo, hi] = WEAR[kind] ?? [0.05, 0.3];
+  const age = lo + r() * (hi - lo);
+  const wear = (k = 1) => Math.min(1, Math.max(0, age + (r() - 0.5) * 0.3)) * k;
+  const ink = (bg: string) => (lum(bg) > 0.5 ? '#1f2023' : '#ffffff');
+  let ads = 0;
+
+  const shop = (n: Named, col: string): SignContent => {
+    const bg = n.bg ?? tone(col), fg = n.fg ?? ink(bg), known = isChain(n.ja), g = r();
+    // A quiet street's signs are mostly white with coloured lettering, a busy one's mostly coloured.
+    const ground = known ? (lum(bg) > 0.72 ? 'white' : 'solid') : g < (quiet ? 0.75 : busy ? 0.25 : 0.45) ? 'white' : g < (quiet ? 0.9 : busy ? 0.4 : 0.6) ? 'band' : 'solid';
+    return { k: 'shop', ja: n.ja, en: n.en, bg, fg, box: { ...shopStyle(n.ja), ground, wear: wear(known ? 0.5 : 1) } };
+  };
+
+  return (b: Board, W: number, H: number): Cell[] => {
+    if (b.h > b.w * 1.4) {
+      const n = b.h > b.w * 5 ? Math.min(busy ? 6 : 5, Math.max(2, Math.round(b.h / (b.w * (quiet ? 3.6 : busy ? 2.2 : 2.8))))) : 1;
+      return Array.from({ length: n }, (_, k) => {
+        const ja = word(), bg = n > 1 ? INKS[Math.floor(r() * INKS.length)] : tone(b.col);
+        const y = Math.round((H * k) / n);
+        return { x: 0, y, w: W, h: Math.round((H * (k + 1)) / n) - y, c: { k: 'shop', ja, bg, fg: ink(bg), vertical: true, box: { mark: 'none', face: shopStyle(ja).face, ground: n > 1 && r() < 0.5 ? 'white' : 'solid', wear: wear(), tag: n > 1 ? `${n - k + 1}F` : undefined } } };
+      });
+    }
+    const one = (c: SignContent): Cell[] => [{ x: 0, y: 0, w: W, h: H, c }];
+    if (kind === 'tower' && b.w > 8) {
+      const bg = tone(b.col);
+      return one({ k: 'shop', ...tower(), bg, fg: ink(bg), box: { mark: 'none', face: 'gothic', ground: 'solid', wear: wear() } });
+    }
+    // (At most two chain advertisements on a building: the rest of its big boards are tenants'.)
+    if (!own && b.h >= 2.4 && b.w >= 5 && b.w < b.h * 4 && ads++ < 2) return one(shop(chain(), b.col));
+    if (!quiet && b.w > b.h * 7 && b.w > 9 && (busy || r() > 0.25)) {
+      const n = (r() < 0.55 ? 2 : 3) + (busy && b.w > 14 ? 1 : 0), share = Array.from({ length: n }, () => 0.7 + r() * 0.7), sum = share.reduce((a, v) => a + v, 0);
+      let at = 0;
+      return share.map((v, k) => {
+        const x = Math.round(at);
+        at += (W * v) / sum;
+        const vacant = age > 0.4 && r() < (busy ? 0.04 : 0.12);
+        const c: SignContent = vacant
+          ? { k: 'shop', ja: 'テナント募集', en: 'For Lease', bg: '#f2f0e9', fg: '#b3261e', box: { mark: 'none', face: 'gothic', ground: 'solid', wear: wear() } }
+          : shop(name(), k === 0 ? b.col : INKS[Math.floor(r() * INKS.length)]);
+        return { x, y: 0, w: (k === n - 1 ? W : Math.round(at)) - x, h: H, c };
+      });
+    }
+    // On a quiet street some boards have no tenant: a blank face, gone grey.
+    if (quiet && r() < 0.25) return one({ k: 'shop', ja: '', bg: '#e6e3da', fg: '#1f2023', box: { mark: 'none', face: 'gothic', ground: 'solid', wear: Math.min(1, wear() + 0.3) } });
+    return one(shop(name(), b.col));
+  };
 }
 
-/** The texture for all sign boards of one model variant, in one of a few sets of names. */
-function signMaterial(kind: BuildingKind, id: string, set: number, boards: Board[]): THREE.Material {
-  const key = `signface:${kind}_${id}:${set}`;
+/** How thick with signs a building's street is, from the thousands of its seed (stations/surface.ts): 0 ordinary, 1 quiet, 2 busy. */
+const signTier = (seed: number) => Math.floor(seed / 1000) % 3;
+const signKey = (kind: string, id: string, seed: number) => `signface:${kind}_${id}:${seed % NAME_SETS}:${signTier(seed)}`;
+
+/** The texture for all sign boards of one model variant, in one of a few sets of names, for one kind of street. */
+function signMaterial(kind: BuildingKind, id: string, seed: number, boards: Board[]): THREE.Material {
+  const set = seed % NAME_SETS, tier = signTier(seed);
+  const key = signKey(kind, id, seed);
   let m = materials.get(key);
   if (m) return m;
   const canvas = document.createElement('canvas');
@@ -238,25 +309,32 @@ function signMaterial(kind: BuildingKind, id: string, set: number, boards: Board
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, ATLAS_PX, ATLAS_PX);
-  const r = rng(id.charCodeAt(0) * 7919 + kind.length * 104729 + set * 31);
+  const cells = tenants(kind, rng(id.charCodeAt(0) * 7919 + kind.length * 104729 + set * 31), tier);
   // At night a few boards are switched off and the odd one flickers: kept in the atlas's alpha (lit.ts, `glow`).
   const state = rng(id.charCodeAt(0) * 331 + kind.length * 17 + set * 7 + 5);
   for (const b of boards) {
-    const x = b.uv[0] * ATLAS_PX, y = (1 - b.uv[3]) * ATLAS_PX;
+    const x = Math.round(b.uv[0] * ATLAS_PX), y = Math.round((1 - b.uv[3]) * ATLAS_PX);
     const w = Math.max(2, Math.round((b.uv[2] - b.uv[0]) * ATLAS_PX)), h = Math.max(2, Math.round((b.uv[3] - b.uv[1]) * ATLAS_PX));
-    ctx.save();
-    ctx.translate(Math.round(x), Math.round(y));
-    ctx.beginPath();
-    ctx.rect(0, 0, w, h);
-    ctx.clip();
-    drawSign(ctx, w, h, boardContent(kind, b, r));
+    for (const cell of cells(b, w, h)) {
+      ctx.save();
+      ctx.translate(x + cell.x, y + cell.y);
+      ctx.beginPath();
+      ctx.rect(0, 0, cell.w, cell.h);
+      ctx.clip();
+      drawSign(ctx, cell.w, cell.h, cell.c);
+      ctx.restore();
+    }
     const s = state();
     if (s < 0.12) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
       ctx.globalCompositeOperation = 'destination-in';
       ctx.fillStyle = `rgba(0,0,0,${s < 0.08 ? 0.5 : 0.75})`;
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillRect(x, y, w, h);
+      ctx.restore();
     }
-    ctx.restore();
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.flipY = false;
@@ -274,7 +352,7 @@ export function buildingModel(part: ModelPart): THREE.Group | null {
   const kind = part.kind as BuildingKind;
   const group = new THREE.Group();
   for (const p of proto.pieces) {
-    const mat = p.mat === 'signface' ? signMaterial(kind, part.id, part.seed % NAME_SETS, proto.boards) : material(p.mat);
+    const mat = p.mat === 'signface' ? signMaterial(kind, part.id, part.seed, proto.boards) : material(p.mat);
     const m = new THREE.Mesh(p.geometry, mat);
     m.matrixAutoUpdate = false;
     m.userData.shared = true; // geometry belongs to the loaded model, not to the station that shows it
@@ -320,8 +398,7 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
     m4.makeTranslation(part.pos[0], part.pos[1], part.pos[2]).multiply(rot.makeRotationY(part.yaw));
     for (const p of proto.pieces) {
       const sign = p.mat === 'signface';
-      const set = part.seed % NAME_SETS;
-      const key = sign ? `signface:${part.kind}_${part.id}:${set}` : p.mat;
+      const key = sign ? signKey(part.kind, part.id, part.seed) : p.mat;
       const src = p.geometry.index ? p.geometry.toNonIndexed() : p.geometry;
       if (!src.getAttribute('position') || !src.getAttribute('normal')) continue;
       // Only the attributes every model has, so the pieces always merge.
@@ -333,7 +410,7 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
       }
       g.applyMatrix4(m4);
       let e = byMat.get(key);
-      if (!e) byMat.set(key, (e = { mat: sign ? signMaterial(part.kind as BuildingKind, part.id, set, proto.boards) : material(p.mat), list: [] }));
+      if (!e) byMat.set(key, (e = { mat: sign ? signMaterial(part.kind as BuildingKind, part.id, part.seed, proto.boards) : material(p.mat), list: [] }));
       e.list.push(g);
     }
   }

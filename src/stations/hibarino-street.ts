@@ -169,7 +169,7 @@ export function hibarinoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numb
     let z = f0;
     b.with(FRAME[face], () => {
       for (let k = 0; k < rows && f1 - z - keep > 8.5; k++) {
-        const lots = fillModelLots(b, r, a, e, z, f1 - keep + 2.01, { noBack: true, kinds, lo, old: true });
+        const lots = fillModelLots(b, r, a, e, z, f1 - keep + 2.01, { noBack: true, kinds, lo, old: true, bare: k > 0 });
         if (!lots.length) break;
         z = Math.max(...lots.map((l) => l[3])) + 0.02;
       }

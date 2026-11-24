@@ -124,6 +124,7 @@ A line's theme shapes the platform hall; a station's **look** shapes everything 
   - *service elements*, each on a face or long wall, 0.12 m proud at most so they can line a corridor: `serviceDoor` (staff door, one or two leaves, labelled from `STAFF_ROOMS`), `shutter` (a closed shop with a brand sign or a "unit to let" notice), `ventGrille`, `hoseCabinet` (消火栓) and `meterCupboard` (分電盤). Where the info object has `free()` they check and claim their strip.
   - `doorways()` returns every opening, so dados, shops and posters skip room mouths. The island parts (`shopIsland`, `vendingIsland`, `benchIsland`, `totemRow`, `waitingRoom`) are still there.
 - **The default look** (`looks/default.ts`) is what every station without its own gets. It follows the primary line's era and a per-station seed:
+  - Posters are the owner's finished images in `public/posters/`, listed and tagged by station in `src/signs/posters.ts` (decided 2026-11-23): each station has its own weighted order, and a wide board holds two upright posters.
   - *old* (Y, N): tiled dado in the platform wall's colour, downstand beams every 4 m, a duct, cable tray and pipes, bare battens, square tiled pillars with adverts, small counters and kiosks, posters on every free wall;
   - *mid* (A, S): enamel dado, shallow coffers with light panels, a convenience store plus a bakery, café or ATM corner, benches;
   - *new* (K, M): pale panels, continuous light slots, fewer and larger glazed fronts, digital advert panels, benches and planters.

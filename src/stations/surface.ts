@@ -338,8 +338,9 @@ export function fillLots(b: Builder, r: () => number, style: BlockStyle, xa: num
  * district: mostly offices, some zakkyo buildings, one glass tower if asked for. Plain blocks behind.
  * `cornerAtStart`: the lot at xa stands on a street corner (a corner model, its second face towards -x).
  */
-export function fillModelLots(b: Builder, r: () => number, xa: number, xb: number, z0: number, zMax: number, o: { tower?: boolean; cornerAtStart?: boolean; old?: boolean; night?: boolean; noBack?: boolean; lo?: boolean; kinds?: string[]; open?: boolean } = {}): Lot[] {
+export function fillModelLots(b: Builder, r: () => number, xa: number, xb: number, z0: number, zMax: number, o: { tower?: boolean; cornerAtStart?: boolean; old?: boolean; night?: boolean; noBack?: boolean; lo?: boolean; kinds?: string[]; open?: boolean; /** How thick with shop signs: 0 ordinary, 1 quiet, 2 busy (default: busy at night spots, quiet in old quarters). */ signs?: 0 | 1 | 2; /** No standing signs at the doors (a row with no street in front). */ bare?: boolean } = {}): Lot[] {
   const GAP = 0.3;
+  const tier = o.signs ?? (o.night ? 2 : o.old ? 1 : 0);
   const deep: [number, number, number][] = []; // x0, x1, depth of the towers, for the back row
   const placed: Lot[] = [];
   let x = xa + (o.cornerAtStart ? GAP : 0), n = 0, last = '', towerDue = !!o.tower;
@@ -363,7 +364,9 @@ export function fillModelLots(b: Builder, r: () => number, xa: number, xb: numbe
     if (!pool.length) break;
     const m = pool[Math.floor(r() * pool.length)];
     b.block(x, GY, z0, x + m.w, GY + m.h, z0 + m.d);
-    b.model(m.kind, o.lo ? `${m.id}_lo` : m.id, x + m.w / 2, GY, z0, Math.floor(r() * 1000));
+    // (The thousands of the seed tell the sign painter what kind of street this is: render/building-models.ts.)
+    b.model(m.kind, o.lo ? `${m.id}_lo` : m.id, x + m.w / 2, GY, z0, Math.floor(r() * 1000) + tier * 1000);
+    if (!o.lo && !o.bare) frontSigns(b, m, x, z0, tier);
     placed.push([x, z0, x + m.w, z0 + m.d]);
     if (m.kind === 'tower') deep.push([x, x + m.w, m.d]);
     last = `${m.kind}_${m.id}`;
@@ -395,6 +398,45 @@ export function fillModelLots(b: Builder, r: () => number, xa: number, xb: numbe
     x += w;
   }
   return placed;
+}
+
+const STAND_INKS = ['#b3261e', '#1f4e8c', '#1f6b45', '#d9861a', '#2a2d32', '#6a2c70', '#0f7f86'];
+const CABINET = 'flat:#24272b';
+
+/**
+ * A building's own signs on the pavement at its front (facing −z at z0, from x): a standing lightbox
+ * end-on to the pavement, a plate of the tenants by floor at the door of a multi-tenant building,
+ * and on a busy street a banner flag. More of them the busier the street (`tier`, as in fillModelLots).
+ * Placed from the lot's position, not from the street's random stream, so nothing else moves.
+ */
+function frontSigns(b: Builder, m: BuildingModel, x: number, z0: number, tier: number) {
+  if (!['zakkyo', 'shophouse', 'office', 'machi', 'yokocho'].includes(m.kind) || m.w < 4.5) return;
+  const q = rng(Math.abs(Math.round(x * 131 + z0 * 17 + m.w * 7)) + 3);
+  const shops = m.kind !== 'office';
+  const wear = shops ? 0.15 + q() * 0.5 : 0.05;
+  if (shops && q() < [0.35, 0.15, 0.7][tier]) {
+    const sx = x + m.w - 0.7, zc = z0 - 0.42;
+    const ja = NEON_WORDS[Math.floor(q() * NEON_WORDS.length)], bg = STAND_INKS[Math.floor(q() * STAND_INKS.length)], white = q() < 0.4;
+    b.deco(CABINET, sx - 0.2, GY, zc - 0.26, sx + 0.2, GY + 0.06, zc + 0.26);
+    b.deco(CABINET, sx - 0.07, GY + 0.06, zc - 0.24, sx + 0.07, GY + 1.5, zc + 0.24);
+    b.block(sx - 0.2, GY, zc - 0.26, sx + 0.2, GY + 1.5, zc + 0.26);
+    for (const s of [1, -1]) b.sign({ k: 'shop', ja, bg, fg: '#ffffff', vertical: true, box: { mark: 'none', face: 'gothic', ground: white ? 'white' : 'solid', wear } }, sx + s * 0.075, GY + 0.8, zc, [s, 0], 0.44, 1.32);
+  }
+  if ((m.kind === 'zakkyo' || m.kind === 'office') && q() < [0.4, 0.25, 0.6][tier]) {
+    const px = x + 0.65, zf = z0 - 0.3, n = Math.min(5, Math.max(3, Math.floor(m.h / 3.3) - 1)), from = Math.floor(q() * SHOPS.length);
+    b.deco(CABINET, px - 0.32, GY, zf - 0.05, px + 0.32, GY + 0.62 + n * 0.19, zf + 0.05);
+    b.block(px - 0.32, GY, zf - 0.08, px + 0.32, GY + 0.62 + n * 0.19, zf + 0.08);
+    for (let k = 0; k < n; k++) {
+      const s = SHOPS[(from + k * 5) % SHOPS.length];
+      b.sign({ k: 'shop', ja: s.ja, bg: s.bg, fg: s.fg, box: { mark: 'none', face: 'gothic', ground: 'white', wear: wear * 0.6, tag: `${k + 2}F` } }, px, GY + 0.62 + k * 0.19, zf - 0.055, [0, -1], 0.58, 0.17);
+    }
+  }
+  if (shops && tier === 2 && q() < 0.3) {
+    const f = NOBORI[Math.floor(q() * NOBORI.length)], px = x + m.w * 0.5, pz = z0 - 0.5, d = b.dir([0, -1]);
+    b.out.models.push({ kind: 'road', id: 'nobori', pos: b.pt(px, GY, pz), yaw: Math.atan2(-d[0], -d[1]), seed: 0, merge: true });
+    b.block(px - 0.2, GY, pz - 0.2, px + 0.2, GY + 2.6, pz + 0.2);
+    for (const s of [1, -1]) b.sign({ k: 'shop', ja: f.ja, bg: f.bg, fg: f.fg, vertical: true }, px + 0.13, GY + 1.85, pz - s * 0.012, [0, -s], 0.42, 1.65);
+  }
 }
 
 /** A building's lot in plan: [x0, z0, x1, z1]. */

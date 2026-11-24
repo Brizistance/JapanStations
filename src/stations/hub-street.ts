@@ -177,7 +177,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     b.with(FRAME[face], () => {
       let z = f0;
       for (let k = 0; k < 6 && f1 - z > 8.5; k++) {
-        const lots = fillModelLots(b, r, a, e, z, f1 + 2.01, { noBack: true, kinds, lo });
+        const lots = fillModelLots(b, r, a, e, z, f1 + 2.01, { noBack: true, kinds, lo, bare: k > 0, signs: 2 });
         if (!lots.length) break;
         z = Math.max(...lots.map((l) => l[3])) + 0.8;
       }

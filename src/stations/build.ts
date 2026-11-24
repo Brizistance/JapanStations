@@ -1118,6 +1118,7 @@ function besideOffset(station: StationDef, p: StationBuildInput['lines'][number]
 export function buildStation(input: StationBuildInput): { build: Build; primary: string } {
   const b = new Builder();
   const { station, spec } = input;
+  b.place = station.id;
   const style: StationStyle = spec.style;
   // The line as built here: its platform type at this station (LineDef.sideAt).
   const mk = (l: StationBuildInput['lines'][number]): Ctx => ({

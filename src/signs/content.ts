@@ -6,6 +6,19 @@ import type { Dir, LineId, StationId } from '../data/types';
 export type Arrow = 'left' | 'right' | 'up' | 'down';
 export type Picto = 'toilet' | 'lift' | 'locker' | 'tickets' | 'office' | 'info' | 'stairs' | 'escalator' | 'bus' | 'taxi';
 
+/**
+ * How a shop's sign is made. `mark`: its emblem (the yagō kinds ring, roof and square a character).
+ * `ground`: coloured face, white face with coloured lettering, or white with a coloured stripe.
+ * `wear`: 0 new … 1 sun-faded and streaked. `tag`: a floor plate ('3F').
+ */
+export interface ShopBox {
+  mark: 'maru' | 'yama' | 'kaku' | 'disc' | 'hishi' | 'bars' | 'none';
+  face: 'gothic' | 'mincho';
+  ground: 'solid' | 'white' | 'band';
+  wear: number;
+  tag?: string;
+}
+
 export type SignContent =
   /** Station name board. `arrow` = which side the down-direction neighbour is on. */
   | { k: 'name'; station: StationId; line: LineId; arrow?: Arrow }
@@ -15,8 +28,10 @@ export type SignContent =
   | { k: 'guide'; ja: string; en: string; bg: 'navy' | 'white' | 'yellow' | 'green'; badges?: LineId[]; num?: string; arrow?: Arrow }
   | { k: 'entrance'; station: StationId; exit?: string }
   | { k: 'faremap'; station: StationId }
-  | { k: 'shop'; ja: string; en?: string; bg: string; fg: string; vertical?: boolean }
-  | { k: 'poster'; v: number }
+  /** `box`: built as a lightbox (signs/shop.ts). Without it, a plain lettered plate (or a chain's box, by name). */
+  | { k: 'shop'; ja: string; en?: string; bg: string; fg: string; vertical?: boolean; box?: ShopBox }
+  /** `at`: the station it hangs at (set by the builder), which decides which poster it is (signs/posters.ts). */
+  | { k: 'poster'; v: number; at?: string }
   /** A big outdoor LED screen: shows the posters one after another, changing every few seconds of sim time. */
   | { k: 'screen'; v: number }
   | { k: 'machine'; v: 'ticket' | 'vending' | 'vending2' | 'locker' | 'charge' | 'elevator' | 'door' | 'window'; era?: 'old' | 'mid' | 'new' }
