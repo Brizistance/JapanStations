@@ -402,7 +402,28 @@ function thunder(c: AudioContext): AudioBuffer {
   return buf;
 }
 
+/**
+ * A level crossing's electronic bell (踏切の警報音), measured from a recording (2026-11-24): two alarms
+ * a little apart in pitch (740 and 690 Hz, with their 2nd, 3rd and 4th harmonics) struck together every
+ * 0.47 s; each strike comes in sharply, holds, and fades away just before the next. Two strikes, so it loops.
+ */
+function crossingBell(c: AudioContext): AudioBuffer {
+  const beat = 0.47, n = Math.floor(c.sampleRate * beat * 2), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  const tones: [number, number][] = [[740, 1], [690, 0.72]], harm: [number, number][] = [[1, 1], [2, 0.38], [3, 0.1], [4, 0.11]];
+  for (let i = 0; i < n; i++) {
+    const ts = i / c.sampleRate, t = ts % beat;
+    let v = 0;
+    for (const [f, a] of tones) for (const [h, b] of harm) v += Math.sin(2 * Math.PI * f * h * ts) * a * b;
+    const env = Math.min(1, t / 0.015) * Math.max(0, 1 - (t / beat) ** 1.8);
+    d[i] = v * env * 0.2;
+  }
+  return buf;
+}
+
 const MADE: Record<string, (c: AudioContext) => AudioBuffer> = {
+  'sfx/xing-bell': crossingBell,
+  // A viaduct under a passing train: a deep hollow rumble of the structure.
+  'sfx/viaduct-boom': (c) => noise(c, 5, 0.99, 34),
   'sfx/storm-wind': (c) => noise(c, 6, 0.985),
   'sfx/storm-howl': howl,
   'sfx/storm-rain': (c) => noise(c, 5, 0.35),
@@ -481,7 +502,8 @@ export function playSky(name: string, gain = 1, cutoff = 18000, delayS = 0, rate
  * A looping sound that follows a moving position (a train running past), steered live.
  * `road`: heard in the street whatever the station's hearing (road traffic).
  */
-export function loopAt(name: string, pos: () => V3 | null, road = false): PosLoopHandle {
+/** `ref`: the distance within which it is heard at full level (it fades as 1/distance beyond). */
+export function loopAt(name: string, pos: () => V3 | null, road = false, ref = 10): PosLoopHandle {
   let a: Attached | null = null, lp: BiquadFilterNode | null = null, stopped = false;
   let want = { rate: 1, gain: 0, cutoff: 18000 };
   const apply = () => {
@@ -495,7 +517,7 @@ export function loopAt(name: string, pos: () => V3 | null, road = false): PosLoo
     void load(`sfx/${name}`).then((buf) => {
       if (!buf || stopped || !ctx) return;
       const c = ctx;
-      const p = panner(c, pos() ?? listener, 10, 1);
+      const p = panner(c, pos() ?? listener, ref, 1);
       const gain = c.createGain();
       gain.gain.value = 0;
       lp = c.createBiquadFilter();

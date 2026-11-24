@@ -190,6 +190,20 @@ export interface Build {
   sealed?: boolean;
   /** Areas outside the plot (frame x0, z0, x1, z1) the backdrop city keeps off (a valley's hillsides). */
   clear?: [number, number, number, number][];
+  /** Level crossings' gate arms, which swing up and down with the crossing (roads.ts levelCrossing). */
+  arms?: ArmPart[];
+  /** Level crossings' warning lamps, which light the street red at night while they flash. */
+  xingLamps?: { pos: V3; line: string; key: string; left: boolean }[];
+}
+
+/** A level crossing's gate arm: pivoted at `pivot`, lying along `along` (horizontal) when down. */
+export interface ArmPart {
+  pivot: V3;
+  along: V2;
+  len: number;
+  /** The crossing (signs/departures.ts crossingState): its line and key. */
+  line: string;
+  key: string;
 }
 
 export interface Xf {

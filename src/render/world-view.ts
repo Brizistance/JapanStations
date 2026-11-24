@@ -12,10 +12,11 @@ import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF_W } from '../trains/car';
 import { carOf } from '../sim/geometry';
 import { cellMergedModels, loadBuildingModels, lodModels, updateLod } from './building-models';
-import { headlights } from './lamps';
+import { headlights, xingLights } from './lamps';
+import { crossingState } from '../signs/departures';
 import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
-import type { BoxPart, GatePart, ModelPart } from '../world/builder';
+import type { ArmPart, BoxPart, GatePart, ModelPart } from '../world/builder';
 import { builtRange, halfWidth, sampleChainages, structureAt } from '../world/structure';
 import { runOnRoads, runOnStrips } from '../world/runon';
 import { DEFAULT_PLOT, rng } from '../world/builder';
@@ -50,7 +51,38 @@ interface StationView {
   deep: THREE.Object3D[];
   cache: SignCache;
   gates: GateSet[];
+  /** Level crossings' arms, each turning on its hinge, and their lamps (world space). */
+  arms: { hinge: THREE.Object3D; line: string; key: string }[];
+  xingLamps: { x: number; y: number; z: number; line: string; key: string; left: boolean }[];
   dispose: () => void;
+}
+
+/** A gate arm raised stands not quite upright, leaning over the road. */
+const ARM_UP = (82 * Math.PI) / 180;
+const ARM_SEG = new THREE.BoxGeometry(1, 1, 1);
+/** A level crossing's gate arm: yellow and black bands along a pole, turning about its hinge (ArmPart). */
+function armMesh(a: ArmPart): { pivot: THREE.Object3D; hinge: THREE.Object3D } {
+  const pivot = new THREE.Group(), hinge = new THREE.Group();
+  pivot.position.set(a.pivot[0], a.pivot[1], a.pivot[2]);
+  pivot.rotation.y = Math.atan2(-a.along[1], a.along[0]);
+  pivot.add(hinge);
+  const yellow = getMaterial('paint:#f2c200'), black = getMaterial('paint:#1c1c1e');
+  const band = 0.5, n = Math.ceil((a.len - 0.15) / band);
+  for (let i = 0; i < n; i++) {
+    const x0 = 0.15 + i * band, x1 = Math.min(a.len, x0 + band);
+    const m = new THREE.Mesh(ARM_SEG, i % 2 === 0 ? yellow : black);
+    m.position.set((x0 + x1) / 2, 0, 0);
+    m.scale.set(x1 - x0, 0.085, 0.085);
+    m.castShadow = true;
+    hinge.add(m);
+  }
+  // The hub on the hinge, and the counterweight's short arm behind it.
+  const hub = new THREE.Mesh(ARM_SEG, black);
+  hub.position.set(-0.12, 0, 0);
+  hub.scale.set(0.55, 0.16, 0.14);
+  hinge.add(hub);
+  hinge.rotation.z = ARM_UP;
+  return { pivot, hinge };
 }
 
 const STATION_ENV: EnvMode = { kind: 'station' };
@@ -79,9 +111,18 @@ function mountStation(w: StationWorld): StationView {
     { mat: 'metal:#b9bdc2', rect: [0, 0, 0.05, list[0].window ? 0.96 : 0.93], proud: 0.003 },
   ]));
   for (const g of gates) group.add(...g.meshes);
+  const arms = (w.build.arms ?? []).map((a) => {
+    const { pivot, hinge } = armMesh(a);
+    group.add(pivot);
+    return { hinge, line: a.line, key: a.key };
+  });
+  const c = Math.cos(w.frame.yaw), sn = Math.sin(w.frame.yaw);
+  const xingLamps = (w.build.xingLamps ?? []).map((l) => ({
+    x: w.frame.x + l.pos[0] * c + l.pos[2] * sn, y: w.frame.y + l.pos[1], z: w.frame.z - l.pos[0] * sn + l.pos[2] * c, line: l.line, key: l.key, left: l.left,
+  }));
   group.updateMatrixWorld(true);
   return {
-    group, cache, gates, surface, deep,
+    group, cache, gates, surface, deep, arms, xingLamps,
     dispose: () => {
       st.dispose();
       disposeCache(cache);
@@ -254,7 +295,7 @@ function backdropModels(): THREE.Group {
  * across it, kept off the plot, the continuation and its cleared strips, and off the roads. The
  * blocks just behind the plot stand as full models (`near`).
  */
-function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRoad: (x: number, z: number, m: number) => boolean, nearBand: (x: number, z: number) => boolean) {
+function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRoad: (x: number, z: number, m: number) => boolean, nearBand: (x: number, z: number) => boolean, openDist: (x: number, z: number) => number) {
   for (const w of STATION_WORLDS) {
     const d = w.build.district;
     if (!d) continue;
@@ -268,7 +309,8 @@ function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRo
         if (Math.hypot(lx, lz) > d.radius) continue;
         // The whole block must stand clear of the plot and anything kept clear.
         const corners = [[-31, -15], [31, -15], [31, 15], [-31, 15], [0, 0]].map(([a, b]) => toWorld(lx + a, lz + b));
-        if (corners.some((p) => inPlot(p.x, p.z, 1))) continue;
+        // (Nor on open track: a main line at street level runs between the blocks.)
+        if (corners.some((p) => inPlot(p.x, p.z, 1)) || openDist(corners[4].x, corners[4].z) < 42) continue;
         const ctr = toWorld(lx, lz);
         if (onRoad(ctr.x, ctr.z, 18) || nearBand(ctr.x, ctr.z)) continue;
         // Where two districts overlap, a block belongs to the nearer station only.
@@ -502,7 +544,7 @@ function buildBackdrop(): THREE.Group {
       boxes.push({ mat, min: [x - w / 2, -0.03, z - d / 2], max: [x + w / 2, h, z + d / 2], solid: false });
     }
   }
-  districtGrid(inPlot, onRoad, (x, z) => band.near(x, z, 66));
+  districtGrid(inPlot, onRoad, (x, z) => band.near(x, z, 66), openDistAt);
   for (const [mat, list] of groupBy(boxes)) {
     const m = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
     m.matrixAutoUpdate = false;
@@ -603,6 +645,7 @@ export class WorldView {
     this.fastTimer -= dt;
     const fast = this.fastTimer <= 0;
     if (fast) this.fastTimer = 1 / 15;
+    xingLights.length = 0;
     for (const w of WORLDS) {
       const d = Math.hypot(w.frame.x - cam.x, w.frame.z - cam.z) - (w.frame.radius - BASE_RADIUS);
       const v = this.stations.get(w.def.id);
@@ -618,6 +661,16 @@ export class WorldView {
         this.stations.delete(w.def.id);
       } else if (v) {
         for (const set of v.gates) set.update((g) => gateOpen(g.line!, g.stop!, g.track!, g.service));
+        for (const a of v.arms) {
+          const r = (1 - crossingState(a.line, a.key, clock.time).arm) * ARM_UP;
+          if (Math.abs(a.hinge.rotation.z - r) > 1e-4) {
+            a.hinge.rotation.z = r;
+            a.hinge.updateMatrixWorld(true);
+          }
+        }
+        // The flashing lamp of each pair lights the street red (lamps.ts: by night only).
+        const leftOn = Math.floor(clock.time * 2) % 2 === 0;
+        for (const l of v.xingLamps) if (l.left === leftOn && crossingState(l.line, l.key, clock.time).on) xingLights.push(l);
       }
     }
 

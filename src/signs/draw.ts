@@ -14,7 +14,7 @@ import {
 import { SPECS } from '../stations/specs';
 import type { BlockStyle } from '../stations/surface';
 import type { Arrow, Picto, SignContent } from './content';
-import { boardPixels, boards, drawDep, drawDepAll, platformNo, crossingActive } from './departures';
+import { boardPixels, boards, drawDep, drawDepAll, platformNo, crossingState } from './departures';
 import { signalState } from '../traffic/signals';
 import { drawShop } from './shop';
 import { drawPosterAt } from './posters';
@@ -2555,8 +2555,30 @@ function drawRoadSign(ctx: Ctx, W: number, H: number, v: Extract<SignContent, { 
  */
 /** Level crossing lamps (flashing alternately while a train is near) and gate arm (down then, up otherwise). */
 function drawCrossing(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 'crossing' }>) {
-  const on = crossingActive(c.line, c.station, clock.time);
+  const state = crossingState(c.line, c.station, clock.time), on = state.on;
   ctx.clearRect(0, 0, W, H);
+  if (c.v === 'arrows') {
+    // A black box, the two arrows dim until lit.
+    ctx.fillStyle = '#111214';
+    rr(ctx, 0, 0, W, H, H * 0.12);
+    ctx.fill();
+    const right = c.downRight ? state.down : state.up, left = c.downRight ? state.up : state.down;
+    [[-1, left], [1, right]].forEach(([sg, lit]) => {
+      const s = sg as number, cx = W / 2 + s * W * 0.25, hw = W * 0.19, hh = H * 0.32;
+      ctx.fillStyle = lit ? '#fff3c4' : '#2c2a26';
+      ctx.beginPath();
+      ctx.moveTo(cx + s * hw, H / 2);
+      ctx.lineTo(cx + s * hw * 0.15, H / 2 - hh);
+      ctx.lineTo(cx + s * hw * 0.15, H / 2 - hh * 0.42);
+      ctx.lineTo(cx - s * hw, H / 2 - hh * 0.42);
+      ctx.lineTo(cx - s * hw, H / 2 + hh * 0.42);
+      ctx.lineTo(cx + s * hw * 0.15, H / 2 + hh * 0.42);
+      ctx.lineTo(cx + s * hw * 0.15, H / 2 + hh);
+      ctx.closePath();
+      ctx.fill();
+    });
+    return;
+  }
   if (c.v === 'lamps') {
     const left = Math.floor(clock.time * 2) % 2 === 0;
     const R = Math.min(H * 0.46, W * 0.2);

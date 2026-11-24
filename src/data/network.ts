@@ -1014,19 +1014,23 @@ const AR_E1: [number, number] = [2660, AR_KITA_Z]; // east of Higashi-Kawaminato
 const AR_E2: [number, number] = along([2660, AR_DRAFT_Z], [0.89101, 0.45399], 529.5);
 const AR_VALLEY_DIR = unit(AR_E1, AR_E2);
 const AR_HILLS_DIR: [number, number] = [0.97237, -0.23345]; // 13.5° north of east
-// West of Kawaminato it turns south-west to the river. The bend was moved 200 m west (2026-11-23) so the
-// curve begins beyond the hub's plot: trains leave the station along the straight viaduct built there.
-const AR_W1: [number, number] = [1300, AR_KITA_Z];
-const AR_W2: [number, number] = along([1500, AR_DRAFT_Z], [-0.52498, 0.85112], 1250); // the shore bend, as drafted
+// West of Kawaminato it runs on straight, then turns due south down the west edge of Aizomechō (15 m
+// beyond its plot) to the shore bend (rerouted 2026-11-23: the old course cut across the dyers' quarter).
+// It comes down from the viaduct to street level for Kon'yahama, and crosses Tsumugi-dōri on a level crossing.
+const AR_SHORE_X = A_SUJI_X - 185;
+const AR_W1: [number, number] = [AR_SHORE_X, AR_KITA_Z];
+const AR_W2: [number, number] = [AR_SHORE_X, 234]; // the shore bend
+const AR_TSUMUGI_XING: [number, number] = [AR_SHORE_X, 0]; // Tsumugi-dōri (aizomecho-street.ts, z 0)
+const AR_HANADA_XING: [number, number] = [AR_SHORE_X, 95]; // Hanada-dōri (z 95)
 const AR_SHORE_DIR = unit(AR_W1, AR_W2);
-const AR_RADIUS = 400;
+const AR_RADIUS = 400, AR_KITA_TURN = 120;
 /**
  * How far the hub's street carries the straight viaduct as its own models (hub-street.ts), measured from
- * Kawaminato Station: 490 m east (the plot's 190 and a 300 m run), and west to the last whole 8 m bay
- * before the curve (the plot's 190 and a shorter run).
+ * Kawaminato Station: 490 m east (the plot's 190 and a 300 m run), and west the plot's 190 and 128 m (or
+ * to the last whole 8 m bay before the curve): beyond, the swept viaduct begins its way down to Kon'yahama.
  */
-const AR_WEST_STRAIGHT = 1870 - AR_W1[0] - AR_RADIUS * Math.tan(Math.acos(-AR_SHORE_DIR[0]) / 2);
-export const AR_HUB_MODELS = { east: 490, west: 190 + 8 * Math.floor((AR_WEST_STRAIGHT - 190) / 8) };
+const AR_WEST_STRAIGHT = 1870 - AR_W1[0] - AR_KITA_TURN * Math.tan(Math.acos(-AR_SHORE_DIR[0]) / 2);
+export const AR_HUB_MODELS = { east: 490, west: 190 + 8 * Math.min(16, Math.floor((AR_WEST_STRAIGHT - 190) / 8)) };
 const AR_COAST_DIR: [number, number] = [0.26892, 0.96316];
 const AR_FUNAMIDAI: [number, number] = along(AR_W2, AR_COAST_DIR, 3370);
 const AR_UGUISUZAKA: [number, number] = along(AR_E2, AR_HILLS_DIR, 661.9);
@@ -1040,10 +1044,18 @@ export const RAIL_LINES: LineDef[] = [
     color: '#0b6e6e',
     type: 'jr',
     stops: ['uguisuzaka', 'miokami', 'higashi-kawaminato', 'kawaminato', 'konyahama', 'funamidai'],
-    // The brick viaduct through Kita (its models stand on the pavement, 0.15 up); a lower embankment in the valley at Miokami.
-    railY: [9.15, 6.5, 9.15, 9.15, 9.15, 9.15],
+    // The brick viaduct through Kita (its models stand on the pavement, 0.15 up); a lower embankment in the valley at Miokami;
+    // street level at Kon'yahama (the bed top just over the road).
+    railY: [9.15, 6.5, 9.15, 9.15, 0.25, 9.15],
+    // Level with Kawaminato to the end of the viaduct models the hub's street builds, then down to Kon'yahama.
+    profile: [{ at: [1870 - AR_HUB_MODELS.west + 40, AR_KITA_Z], y: 9.15 }],
+    brickAt: { after: 'kawaminato', minY: 4 },
+    crossings: [
+      { station: 'konyahama', at: AR_TSUMUGI_XING, half: 21, name: { ja: '紬通踏切', en: 'Tsumugi-dōri Crossing' } },
+      { station: 'konyahama', key: 'konyahama-hanada', at: AR_HANADA_XING, half: 11, name: { ja: '縹通踏切', en: 'Hanada-dōri Crossing' } },
+    ],
     platformType: 'island',
-    sideAt: ['miokami'], // on the embankment the platforms stand outside the tracks
+    sideAt: ['miokami', 'konyahama'], // on the embankment and at street level the platforms stand outside the tracks
     trackOffset: 4.3, // the viaduct's track pair either side of an island 5.4 m wide
     power: 'overhead',
     // 20 m four-door commuter cars (the metro's are 18 m with three).
@@ -1051,6 +1063,8 @@ export const RAIL_LINES: LineDef[] = [
     alignment: {
       vertices: [along(AR_UGUISUZAKA, AR_HILLS_DIR, AR_EDGE_M + 200), AR_E2, AR_E1, AR_W1, AR_W2, along(AR_FUNAMIDAI, AR_COAST_DIR, AR_EDGE_M + 200)],
       radius: AR_RADIUS,
+      // The turn south at the end of Kita is a sharp one, round the corner of Kurayashiki's plot.
+      radii: { 3: AR_KITA_TURN },
     },
     // 8-car trains at up to 100 km/h. A Local and a Rapid every 10 minutes each.
     service: { ...baseService, headwayS: 600, dwellS: 30, maxSpeed: 27.5, cars: 8 },
@@ -1071,9 +1085,9 @@ export const RAIL_LINES: LineDef[] = [
     // its plot is 190 m either side of the station, and the plain run goes on 300 m beyond.
     // Miokami's platforms take 12 cars (Rapids call); Higashi-Kawaminato's 8 (Locals only).
     built: {
-      from: 'miokami', to: 'kawaminato', stubM: 400, stations: ['miokami', 'higashi-kawaminato', 'kawaminato'],
+      from: 'miokami', to: 'konyahama', stubM: 400, stations: ['miokami', 'higashi-kawaminato', 'kawaminato', 'konyahama'],
       modelled: [{ station: 'kawaminato', before: AR_HUB_MODELS.east, after: AR_HUB_MODELS.west }],
-      platformHalf: { miokami: 124 }, // (Higashi-Kawaminato's island stands between the tracks, clear of the gantries.)
+      platformHalf: { miokami: 124, konyahama: 84 }, // (Higashi-Kawaminato's island stands between the tracks, clear of the gantries.)
     },
     beyond: {
       up: { nameJa: '霧ヶ原', nameKana: 'きりがはら', nameRomaji: 'Kirigahara' },

@@ -67,7 +67,7 @@ export class LineGeom {
   readonly profile: { s: number; y: number; flat: number }[];
 
   constructor(readonly def: LineDef) {
-    this.path = new Alignment(def.alignment.vertices, def.alignment.radius);
+    this.path = new Alignment(def.alignment.vertices, def.alignment.radius, def.alignment.radii);
     this.stopS = [];
     this.stopError = [];
     for (const id of def.stops) {

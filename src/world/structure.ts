@@ -10,8 +10,17 @@ export function structureAt(geom: LineGeom, s: number): Structure {
   // (A line built in part has no station that builds its own structure yet: the trackbed runs through.)
   if (!geom.def.built && geom.stopS.some((ss) => Math.abs(s - ss) < HALL_HALF)) return 'station';
   const y = geom.railY(s);
+  // (A main line at street level runs on its bed on the ground: drawn as a bank no higher than the bed.)
+  if (geom.def.type === 'jr' && y > -1) return 'viaduct';
   return y < -5.4 ? 'tunnel' : y < 0.35 ? 'cut' : 'viaduct';
 }
+
+/** Chainages of a line's level crossings (LineDef.crossings), each with the half-length of track its road takes. */
+export function crossingsOf(geom: LineGeom): { s: number; half: number; key: string; at: [number, number] }[] {
+  return (geom.def.crossings ?? []).map((c) => ({ s: geom.path.project(c.at[0], c.at[1]).s, half: c.half, key: c.key ?? c.station, at: c.at }));
+}
+/** Within a level crossing's road, or `m` metres of it. */
+export const inCrossing = (geom: LineGeom, s: number, m = 0) => crossingsOf(geom).some((c) => Math.abs(s - c.s) < c.half + m);
 
 /**
  * Is a through-running line on its host's track here (Sumire on the Shiokaze Line)? The host
@@ -30,7 +39,9 @@ export function onHostTrack(geom: LineGeom, s: number): boolean {
 export type Deck = 'concrete' | 'brick' | 'bank';
 export function deckAt(geom: LineGeom, s: number): Deck {
   if (geom.def.type !== 'jr') return 'concrete';
-  return geom.railY(s) >= 8.8 ? 'brick' : 'bank';
+  const y = geom.railY(s), low = geom.def.brickAt;
+  if (low && s > stopAt(geom, low.after)) return y >= low.minY ? 'brick' : 'bank';
+  return y >= 8.8 ? 'brick' : 'bank';
 }
 
 const stopAt = (geom: LineGeom, id: string) => geom.stopS[geom.def.stops.indexOf(id)];
@@ -66,6 +77,7 @@ export function sampleChainages(geom: LineGeom, step = 4): number[] {
   for (const m of geom.def.built?.modelled ?? []) {
     for (const e of [stopAt(geom, m.station) - m.before, stopAt(geom, m.station) + m.after]) if (e > a && e < b) set.add(Math.round(e * 100) / 100);
   }
+  for (const c of crossingsOf(geom)) for (const e of [c.s - c.half, c.s + c.half]) if (e > a && e < b) set.add(Math.round(e * 100) / 100);
   for (const ss of geom.stopS) {
     set.add(Math.round((ss - HALL_HALF) * 100) / 100);
     set.add(Math.round((ss + HALL_HALF) * 100) / 100);

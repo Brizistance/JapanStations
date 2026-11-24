@@ -22,7 +22,8 @@
 // Signals share one 60 s cycle (traffic/signals.ts): axis 0 every east–west street, axis 1 every
 // north–south one. Models: tools/blender/build_aizome.py (the quarter), build_aizomefront.py (the fronts).
 
-import { linesAt } from '../data/network';
+import { RAIL_LINES, linesAt } from '../data/network';
+import { lineSim } from '../sim';
 import type { SignContent } from '../signs/content';
 import { rng, type LanePart, type SignOpts } from '../world/builder';
 import type { Anchor, AnchorPt, Anchors } from './anchors/types';
@@ -31,7 +32,7 @@ import { AIZOMEFRONT } from './anchors/aizomefront';
 import { KITACITY } from './anchors/kitacity';
 import { GROUND_Y as GY, vending, type Ctx } from './kit';
 import { KONBINI, konbini } from './konbini';
-import { kerbGaps, kerbRail, mark, pedSignal, poleLine, roadKit, roadModel, roadSign, shortSignal, streetLamp, trafficLane, vehicleSignal } from './roads';
+import { kerbGaps, kerbRail, levelCrossing, mark, pedSignal, poleLine, roadKit, roadModel, roadSign, shortSignal, streetLamp, trafficLane, vehicleSignal } from './roads';
 import type { SurfaceSpec } from './surface';
 import { crosswalk, fillModelLots } from './surface';
 import { modelTree, type TreeKind } from './trees';
@@ -118,6 +119,11 @@ export function aizomeStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
   const lines = linesAt(st.id).map((l) => l.id);
   const stName: Named = { ja: st.nameJa, en: st.nameRomaji };
   b.out.plot = { ...AIZOME_PLOT };
+  // The AR Main Line runs north–south at street level just past the west edge (Kon'yahama), with its
+  // level crossings over Tsumugi-dōri and Hanada-dōri (LineDef.crossings), here in this frame.
+  const rails = RAIL_LINES.flatMap((l) => (l.crossings ?? []).map((c) => ({ l, c, lx: c.at[0] - st.position.x, lz: c.at[1] - st.position.y })))
+    .filter((q) => Math.abs(q.lx) < X + 40 && Math.abs(q.lz) < Z);
+  const railX = rails.length ? rails[0].lx : null;
   const holes: Rect[] = b.out.holes.map((q) => [...q] as Rect);
   const nearHole = (x: number, z: number, m: number) => holes.some((q) => x > q[0] - m && x < q[2] + m && z > q[1] - m && z < q[3] + m);
   const clearOf = (u: number, spans: [number, number][], m = 0) => !spans.some(([p, q]) => u > p - m && u < q + m);
@@ -262,8 +268,11 @@ export function aizomeStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
     for (const q of [SHI, AKA, KAT, KAR]) {
       junction(q.c, q.half, q.way ? [q.way] : [1, -1], s.z, s.half, { ja: `${s.short.ja}${q.name.ja.replace('筋', '')}`, en: `${s.short.en} ${q.name.en.replace('-suji', '')}` }, [1, -1]);
     }
-    trafficLane(b, -X, s.z - 2.25, X, s.z - 2.25, { speed: 30 / 3.6, flow: 2.2, use: 'all', taxi: 0.1, halts: [], stops: stopsX(1, -X), yields: zebraYield(1, -X, s.z, s.half) });
-    trafficLane(b, X, s.z + 2.25, -X, s.z + 2.25, { speed: 30 / 3.6, flow: 2.2, use: 'all', taxi: 0.1, halts: [], stops: stopsX(-1, X), yields: zebraYield(-1, X, s.z, s.half) });
+    // (Asagi-dōri ends at the line's fence by Kon'yahama's platforms: nobody comes in from the west, and those
+    // heading west turn off at Shinshi-suji.)
+    const end = s === ASA && railX !== null;
+    trafficLane(b, -X, s.z - 2.25, X, s.z - 2.25, { speed: 30 / 3.6, flow: end ? 0 : 2.2, use: 'all', taxi: 0.1, halts: [], stops: stopsX(1, -X), yields: zebraYield(1, -X, s.z, s.half) });
+    trafficLane(b, X, s.z + 2.25, -X, s.z + 2.25, { speed: 30 / 3.6, flow: 2.2, use: 'all', taxi: 0.1, halts: [], stops: stopsX(-1, X), yields: zebraYield(-1, X, s.z, s.half), ...(end ? { dead: true } : {}) });
     const boxes = crossAll.map(({ c: cx, half }): [number, number] => [cx - half - 8, cx + half + 8]);
     const clear = [...boxes, [AIG0 - 2, AIG1 + 2] as [number, number]];
     for (let x = -X + 1; x < X - 3; x += 6) if (clearOf(x + 1.5, clear)) b.deco(WHITE, x, 0.004, s.z - 0.07, x + 3, 0.01, s.z + 0.07);
@@ -770,10 +779,19 @@ export function aizomeStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
   // Every street runs on between rows of simplified buildings, with a cross street half way.
   {
     const OUT = 180, CW = 3.5;
-    type Edge = { c: number; half: number; pave: number; wide: boolean; tree?: TreeKind; setts?: boolean };
+    // Nothing stands on the AR line's strip past the west edge, and a lane runs along each side of it
+    // (線路沿いの道) between the fences and the buildings: Tsumugi-dōri and Hanada-dōri cross the line,
+    // Asagi-dōri meets the lanes on either side of Kon'yahama's platforms.
+    const gap: [number, number] | null = railX !== null ? [railX - 15, railX + 15] : null;
+    const inGap = (u: number, m = 0) => !!gap && u > gap[0] - m && u < gap[1] + m;
+    type Edge = { c: number; half: number; pave: number; wide: boolean; tree?: TreeKind; setts?: boolean; crosses?: boolean };
     const roadOut = (alongZ: boolean, s: 1 | -1, q: Edge) => {
       const lim = alongZ ? Z : X, u0 = s > 0 ? lim : -lim - OUT, u1 = u0 + OUT;
-      const R = (mat: string, v0: number, v1: number, y0: number, y1: number, a = u0, e = u1) => (alongZ ? b.deco(mat, q.c + v0, y0, a, q.c + v1, y1, e) : b.deco(mat, a, y0, q.c + v0, e, y1, q.c + v1));
+      const cut = !alongZ && !q.crosses && gap && gap[0] > u0 && gap[1] < u1 ? gap : null;
+      const R = (mat: string, v0: number, v1: number, y0: number, y1: number, a = u0, e = u1) => {
+        const put = (p: number, r: number) => r - p > 0.5 && (alongZ ? b.deco(mat, q.c + v0, y0, p, q.c + v1, y1, r) : b.deco(mat, p, y0, q.c + v0, r, y1, q.c + v1));
+        if (cut) { put(a, Math.min(e, cut[0])); put(Math.max(a, cut[1]), e); } else put(a, e);
+      };
       if (q.setts) {
         R(SETT, -q.half, q.half, -0.03, GY + 0.012);
         for (const k of [-1, 1]) R('paver', Math.min(k * q.half, k * (q.half + 2)), Math.max(k * q.half, k * (q.half + 2)), -0.03, GY);
@@ -787,10 +805,11 @@ export function aizomeStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
         else if (!q.wide) for (const k of [-1, 1]) R(WHITE, k * (q.half - 0.6) - 0.05, k * (q.half - 0.6) + 0.05, 0.004, 0.01, u, u + 3);
       }
       for (let u = u0 + 12, k = 0; u < u1 - 6; u += 26, k++) {
+        if (!alongZ && inGap(u, 4)) continue;
         const side = k % 2 ? 1 : -1, v = side * (q.half + 0.8);
         const [px, pz] = alongZ ? [q.c + v, u] : [u, q.c + v];
         roadModel(b, q.half > 5 ? 'lamp_led' : 'lamp_small', px, GY, pz, alongZ ? [-side, 0] : [0, -side]);
-        if (q.tree) for (const kk of [-1, 1]) {
+        if (q.tree && !(!alongZ && inGap(u + 9, 4))) for (const kk of [-1, 1]) {
           const [tx, tz] = alongZ ? [q.c + kk * (q.half + 1.5), u + 9] : [u + 9, q.c + kk * (q.half + 1.5)];
           modelTree(b, q.tree, tx, tz, 'b', GY, false);
         }
@@ -799,7 +818,12 @@ export function aizomeStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
     const packOut = (alongZ: boolean, s: 1 | -1, a: number, e: number, kinds: string[]) => {
       const lim = alongZ ? Z : X, mid = (a + e) / 2, CROSS = OUT / 2;
       for (const [d0, d1] of [[0.15, CROSS - CW], [CROSS + CW, OUT]]) {
-        const u0 = s > 0 ? lim + d0 : -lim - d1, u1 = s > 0 ? lim + d1 : -lim - d0;
+        let u0 = s > 0 ? lim + d0 : -lim - d1, u1 = s > 0 ? lim + d1 : -lim - d0;
+        if (!alongZ && gap && u1 > gap[0] && u0 < gap[1]) {
+          // (The rows stop short of the line's strip: what is left on the plot's side is too narrow to build on.)
+          if (u0 >= gap[0]) continue;
+          u1 = gap[0];
+        }
         if (alongZ) {
           fillRect(a + 0.2, u0, mid - 0.4, u1, 'w', kinds, true);
           fillRect(mid + 0.4, u0, e - 0.2, u1, 'e', kinds, true);
@@ -821,11 +845,42 @@ export function aizomeStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
         b.clearScenery(a - 9, s > 0 ? Z : -Z - OUT - 2, e + 9, s > 0 ? Z + OUT + 2 : -Z);
       }
       // East and west: Tsumugi-dōri and the two back streets.
-      roadOut(false, s, { c: 0, half: RW, pave: FRONT - RW, wide: true, tree: 'zelkova' });
-      for (const q of [ASA, HAN]) roadOut(false, s, { c: q.z, half: q.half, pave: q.pave, wide: true });
+      roadOut(false, s, { c: 0, half: RW, pave: FRONT - RW, wide: true, tree: 'zelkova', crosses: true });
+      for (const q of [ASA, HAN]) roadOut(false, s, { c: q.z, half: q.half, pave: q.pave, wide: true, crosses: q === HAN });
       for (const [a, e] of between([[ASA.z - 7.5, ASA.z + 7.5], [-FRONT, FRONT], [HAN.z - 7.5, HAN.z + 7.5]], -Z, Z)) {
         packOut(false, s, a, e, BIZ);
         b.clearScenery(s > 0 ? X : -X - OUT - 2, a - 9, s > 0 ? X + OUT + 2 : -X, e + 9);
+      }
+    }
+  }
+
+  // ═════════════════════════ The AR Main Line past the west edge ═════════════════════════
+  if (railX !== null) {
+    // The lanes along the line: asphalt from the fences (Kon'yahama's platforms stand 9.2 m out) to the
+    // buildings, a white line at the fence side, broken where the streets cross.
+    const OUT = 180, roads: [number, number][] = [[-FRONT, FRONT], [ASA.z - ASA.half - ASA.pave, ASA.z + ASA.half + ASA.pave], [HAN.z - HAN.half - HAN.pave, HAN.z + HAN.half + HAN.pave]];
+    for (const [x0, x1, fx] of [[railX + 9.4, railX + 15, railX + 9.8], [railX - 15, railX - 9.4, railX - 9.8]]) {
+      b.deco('asphalt', x0, -0.03, -Z - OUT, x1, 0.002, Z + OUT);
+      let from = -Z - OUT;
+      for (const [p, q] of [...roads, [Z + OUT, Z + OUT] as [number, number]]) {
+        if (p - from > 1) b.deco(WHITE, fx - 0.07, 0.002, from, fx + 0.07, 0.008, p);
+        from = q;
+      }
+    }
+    b.clearScenery(railX - 16, -Z - OUT, railX + 16, Z + OUT);
+    for (const { l, c, lx, lz } of rails) {
+      const road = [{ z: 0, half: RW }, { z: ASA.z, half: ASA.half }, { z: HAN.z, half: HAN.half }].find((q) => Math.abs(q.z - lz) < q.half);
+      if (!road) throw new Error(`aizomeStreet: a level crossing at z ${lz} is on no street`);
+      const geom = lineSim(l.id).geom, ry = geom.railY(geom.path.project(c.at[0], c.at[1]).s);
+      const key = c.key ?? c.station, tracks = l.trackOffset + 2.2;
+      // (Down trains run south here: the line turns south at the end of Kita.)
+      levelCrossing(b, { road: 'x', x: lx, z: lz, rw: road.half, tracks, line: l.id, station: key, downTo: 1, ry, name: c.name });
+      // The street's traffic waits at the stop lines while the gates are down (its lanes run on over the line: world/runon.ts).
+      for (const lane of b.out.lanes) {
+        const ux = Math.sign(lane.to[0] - lane.from[0]);
+        if (Math.abs(lane.to[2] - lane.from[2]) > 0.5 || Math.abs(lane.from[2] - lz) > road.half || !ux) continue;
+        const stop = lx - ux * (tracks + 3.2);
+        (lane.gates ??= []).push({ at: (stop - lane.from[0]) * ux, line: l.id, station: key });
       }
     }
   }

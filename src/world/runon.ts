@@ -10,18 +10,20 @@ import { WORLD_NET } from '../sim';
 import { STATION_WORLDS, type StationWorld } from '../stations';
 import type { LanePart } from './builder';
 import { toWorld } from './collision';
-import { sampleChainages, structureAt } from './structure';
+import { crossingsOf, sampleChainages, structureAt } from './structure';
 
 /** How far a road runs on, and how wide the paving is to each side of a lane. */
 export const RUN_ON = 90, RUN_ON_HALF = 3.4;
 
 let open: { x: number; z: number }[] | null = null;
-/** Every stretch of track that is open to the sky (a cut or a viaduct), as points 4 m apart. */
+/** Every stretch of track that is open to the sky (a cut or a viaduct), as points 4 m apart; less the track either side of a level crossing, which a road runs on over. */
 function openTrack() {
   if (open) return open;
   open = [];
   for (const { geom } of WORLD_NET) {
+    const xings = crossingsOf(geom);
     for (const s of sampleChainages(geom)) {
+      if (xings.some((c) => Math.abs(s - c.s) < 50)) continue;
       const type = structureAt(geom, s);
       if (type !== 'cut' && type !== 'viaduct') continue;
       const p = geom.path.pointAt(s);

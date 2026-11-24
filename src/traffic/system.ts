@@ -247,7 +247,9 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
     const arc: Piece = { start: first.len, len: arcLen, x: sx, z: sz, hx: a.ux, hz: a.uz, cx, cz, r, a0, w, lane: null, from: 0 };
     const last = line(first.len + arcLen, b, u + r, b.len);
     const route: Route = {
-      pieces: [first, arc, last], len: last.start + last.len, turn: null, dwell: [0, 0], merge: null, enter: null, yields: [], gates: [],
+      pieces: [first, arc, last], len: last.start + last.len, turn: null, dwell: [0, 0], merge: null, enter: null, yields: [],
+      // (A level crossing on either lane still holds a car that will turn off later, or has turned in.)
+      gates: [...(a.part.gates ?? []).filter((g) => g.at < t - r), ...(b.part.gates ?? []).filter((g) => g.at > u + r).map((g) => ({ ...g, at: g.at - (u + r) + last.start }))],
       stops: [...a.part.stops.filter((s) => s.at < t - r), ...b.part.stops.filter((s) => s.at > u + r).map((s) => ({ at: s.at - (u + r) + last.start, axis: s.axis, exit: s.exit - (u + r) + last.start }))],
       halts: [],
     };

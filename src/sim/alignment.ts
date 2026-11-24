@@ -15,13 +15,15 @@ export class Alignment {
   readonly cum: number[] = [];
   readonly length: number;
 
-  constructor(vertices: [number, number][], radius: number) {
+  /** `radii`: a corner's own radius, by vertex index, where it is not `radius`. */
+  constructor(vertices: [number, number][], radius: number, radii: Record<number, number> = {}) {
     const push = (x: number, z: number) => {
       const n = this.xs.length;
       if (n > 0 && Math.hypot(x - this.xs[n - 1], z - this.zs[n - 1]) < 1e-6) return;
       this.xs.push(x);
       this.zs.push(z);
     };
+    const r0 = radius;
     push(vertices[0][0], vertices[0][1]);
     for (let i = 1; i < vertices.length - 1; i++) {
       const [px, pz] = vertices[i - 1];
@@ -37,6 +39,7 @@ export class Alignment {
         push(vx, vz);
         continue;
       }
+      const radius = radii[i] ?? r0;
       const t = radius * Math.tan(theta / 2);
       const sgn = Math.sign(d1x * d2z - d1z * d2x);
       const ax = vx - d1x * t, az = vz - d1z * t;

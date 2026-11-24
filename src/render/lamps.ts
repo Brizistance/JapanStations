@@ -114,6 +114,9 @@ function collect(): Lamp[] {
 /** Lights that move: filled by the train views each frame (world-view.ts). */
 export const headlights: { x: number; y: number; z: number }[] = [];
 const HEAD: RGB = [2.0, 1.9, 1.6];
+/** Level crossings' lit warning lamps: filled by the station views each frame (world-view.ts). */
+export const xingLights: { x: number; y: number; z: number }[] = [];
+const XING_RED: RGB = [2.4, 0.12, 0.06];
 /** Headlights of the road traffic: filled by the traffic view each frame (traffic-view.ts). */
 export const carLights: { x: number; y: number; z: number }[] = [];
 
@@ -140,6 +143,7 @@ export function updateLamps(cam: THREE.Vector3, night: number, max: number, dt: 
   moving.length = 0;
   for (const h of headlights) moving.push({ x: h.x, y: h.y, z: h.z, r: 18, c: HEAD });
   for (const h of carLights) moving.push({ x: h.x, y: h.y, z: h.z, r: 8, c: CAR });
+  for (const h of xingLights) moving.push({ x: h.x, y: h.y, z: h.z, r: 9, c: XING_RED });
   for (const list of [fixed ?? list0, moving]) {
     for (const l of list) {
       const dx = l.x - cam.x, dz = l.z - cam.z;

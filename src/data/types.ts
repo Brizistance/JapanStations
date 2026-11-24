@@ -103,8 +103,8 @@ export interface LineDef {
    * between stations (sim/geometry.ts).
    */
   stackAt?: StationId[];
-  /** Centreline in world metres (x = east, z = south). Corners are filleted with `radius`. */
-  alignment: { vertices: [number, number][]; radius: number };
+  /** Centreline in world metres (x = east, z = south). Corners are filleted with `radius` (or their own, `radii` by vertex index). */
+  alignment: { vertices: [number, number][]; radius: number; radii?: Record<number, number> };
   service: ServicePattern;
   /**
    * Route-map corners that are not stations, keyed by segment (i = from stops[i] to
@@ -150,6 +150,14 @@ export interface LineDef {
    * on the swept trackbed itself: the running line's wire gantries leave that length clear.
    */
   built?: { from: StationId; to: StationId; stubM: number; stations?: StationId[]; modelled?: { station: StationId; before: number; after: number }[]; platformHalf?: Record<StationId, number> };
+  /** A main line's brick viaduct carries on down to `minY` past `after` (down the line), where elsewhere the embankment takes over at 8.8 m. */
+  brickAt?: { after: StationId; minY: number };
+  /**
+   * Level crossings (踏切) where the line runs at street level: the point where it crosses a road's
+   * centre line, the station it belongs to, half the length of track its road and panels take, and its name (踏切名).
+   * Its signs and gates are keyed by line and `key` (the station's id where it has only one).
+   */
+  crossings?: { station: StationId; key?: string; at: [number, number]; half: number; name: { ja: string; en: string } }[];
 }
 
 export interface StationDef {

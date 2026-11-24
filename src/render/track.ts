@@ -7,7 +7,7 @@ import { stationById } from '../data/network';
 import { trainStateAt } from '../sim/timetable';
 import { BED } from '../stations/kit';
 import { XOVER_FAR, XOVER_NEAR, type LineGeom, type Track } from '../sim/geometry';
-import { atOwnPlatform, deckAt, halfWidth, isSiding, modelled, onHostTrack, sampleChainages, structureAt, trackRange, type Deck, type Structure } from '../world/structure';
+import { atOwnPlatform, deckAt, halfWidth, inCrossing, isSiding, modelled, onHostTrack, sampleChainages, structureAt, trackRange, type Deck, type Structure } from '../world/structure';
 import { meshesToGeometry } from './geometry';
 import { getMaterial } from './materials';
 import { stretchesOf, stretchRange } from './stretches';
@@ -207,7 +207,8 @@ export function buildTrack(sim: LineSim): THREE.Group {
     const siding = isSiding(geom, mid);
     const isOld = type === 'tunnel' && inOld(mid) && !siding;
     const deck = type === 'viaduct' ? deckAt(geom, mid) : 'concrete';
-    const pa = profiles(geom, type, siding, a, isOld, deck), pb = profiles(geom, type, siding, b, isOld, deck);
+    // (A level crossing's road runs over the bed: no bank there; its panels are the crossing's own, roads.ts.)
+    const pa = deck === 'bank' && inCrossing(geom, mid) ? [] : profiles(geom, type, siding, a, isOld, deck), pb = profiles(geom, type, siding, b, isOld, deck);
     const target = sweep(type === 'tunnel' ? 'tunnel' : deck === 'brick' ? BRICK : deck === 'bank' ? BANK : 'viaduct', a);
     pa.forEach((p, k) => target.span(a, b, p.p, pb[k].p, p.closed));
 
@@ -465,8 +466,8 @@ export function buildTrack(sim: LineSim): THREE.Group {
           else boxAt(STEEL, a, 0.06, c - 0.03, c + 0.03, dy + WIRE_H + 0.13, roof);
         }
       }
-      // (Along a station's own platforms its canopy frames carry the wire.)
-      if (open && a.s >= gantryAt && !atOwnPlatform(geom, a.s)) {
+      // (Along a station's own platforms its canopy frames carry the wire; no mast stands in a level crossing's road.)
+      if (open && a.s >= gantryAt && !atOwnPlatform(geom, a.s) && !inCrossing(geom, a.s, 6)) {
         gantryAt = a.s + 50;
         // On the viaduct the masts stand in the parapet; in a cutting, just inside its walls.
         const lat = type === 'viaduct' ? W + 0.38 : W - 0.3, top = WIRE_H + 1.65;
@@ -488,7 +489,7 @@ export function buildTrack(sim: LineSim): THREE.Group {
     let bayAt = -Infinity, postAt = -Infinity, was: Deck | null = null;
     for (let i = 0; i < samples.length - 1; i++) {
       const a = samples[i], mid = (a.s + samples[i + 1].s) / 2;
-      if (structureAt(geom, mid) !== 'viaduct' || modelled(geom, mid)) { was = null; continue; }
+      if (structureAt(geom, mid) !== 'viaduct' || modelled(geom, mid) || inCrossing(geom, mid)) { was = null; continue; }
       const deck = deckAt(geom, mid);
       if (deck === 'brick') {
         strip(BALLAST, a, () => rect(-W - 0.3, W + 0.3, -BED, -BED + 0.006));

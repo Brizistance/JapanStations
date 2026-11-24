@@ -311,3 +311,64 @@ export function miokami(): Build {
   }
   return b.out;
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// Kon'yahama (2026-11-23, for now): two side platforms at street level, the level crossing over
+// Tsumugi-dōri just past their south end (aizomecho-street.ts). A temporary build: plain platforms,
+// a short shelter on each, a chain-link fence; the way out (down the ramp to the crossing) is shut
+// until the station gets its own design.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+export function konyahama(): Build {
+  const S = site('konyahama'), { b, line, c, P, nums, name } = S;
+  const H = 84, ZI = 5.8, ZO = 9.2, CAN = 22;
+  const STEEL = 'metal:#5b6670', FACE = 'concrete', ROOF = 'metal:#8b949b', MESH = 'trackside:#6f7a72';
+  b.out.plot = { x: H + 6, z: 13 };
+  b.out.spawn = { pos: [-10, P, -7.4], yaw: -Math.PI / 2 };
+  for (const s of [-1, 1] as const) {
+    const zz = (a: number, e: number): [number, number] => [Math.min(s * a, s * e), Math.max(s * a, s * e)];
+    const track = s < 0 ? 'down' : 'up', n = nums[s < 0 ? 0 : 1];
+    // The platform: a concrete body from the ground, asphalt on top, the white edge band.
+    b.box(FACE, -H, 0, zz(ZI + 0.1, ZO)[0], H, P - 0.14, zz(ZI + 0.1, ZO)[1]);
+    b.box('asphalt', -H, P - 0.14, zz(ZI, ZO)[0], H, P, zz(ZI, ZO)[1]);
+    b.deco('flat:#e9e6dc', -H, P - 0.14, zz(ZI, ZI + 0.3)[0], H, P + 0.002, zz(ZI, ZI + 0.3)[1]);
+    psd(c, s * ZI, s, track, P, [-H, H]);
+    endRail(b, -H, P, zz(ZI, ZO)[0], zz(ZI, ZO)[1], STEEL);
+    b.zone('platform', -H, P - 0.2, zz(ZI, ZO + 0.3)[0], H, P + 5.2, zz(ZI, ZO + 0.3)[1], `${name.ja} ${n}番のりば`, `${name.en} — Platform ${n}`, true, line.id);
+    // The south end: a ramp down towards the crossing, shut by a gate for now.
+    b.deco('flat:#b9b3a6', H - 0.06, P - 0.14, zz(ZI, ZO)[0], H + 4, 0.16, zz(ZI, ZO)[1]);
+    endRail(b, H, P, zz(ZI, ZO)[0], zz(ZI, ZO)[1], STEEL);
+    b.sign(NOTICE('出口は工事中です', 'Way out under construction — not open yet'), H - 0.08, P + 1.6, s * (ZI + ZO) / 2, [-1, 0], 1.5, 0.5);
+
+    // The back: a chain-link fence on steel posts.
+    b.block(-H, P, zz(ZO - 0.06, ZO + 0.06)[0], H, P + 1.6, zz(ZO - 0.06, ZO + 0.06)[1]);
+    b.deco(MESH, -H, P, zz(ZO - 0.02, ZO + 0.02)[0], H, P + 1.5, zz(ZO - 0.02, ZO + 0.02)[1]);
+    b.deco(STEEL, -H, P + 1.48, zz(ZO - 0.03, ZO + 0.03)[0], H, P + 1.54, zz(ZO - 0.03, ZO + 0.03)[1]);
+    for (let x = -H; x <= H; x += 3) b.deco(STEEL, x - 0.03, P, s * ZO - 0.03, x + 0.03, P + 1.55, s * ZO + 0.03);
+
+    // A short shelter: steel posts at the back, a mono-pitch roof out over the platform.
+    for (let x = -CAN; x <= CAN; x += 5.5) {
+      b.box(STEEL, x - 0.06, P, zz(ZO - 0.5, ZO - 0.38)[0], x + 0.06, P + 3.0, zz(ZO - 0.5, ZO - 0.38)[1]);
+      b.deco(STEEL, x - 0.04, P + 2.8, zz(ZI + 0.2, ZO - 0.38)[0], x + 0.04, P + 2.9, zz(ZI + 0.2, ZO - 0.38)[1]);
+    }
+    b.deco(ROOF, -CAN - 0.4, P + 2.9, zz(ZI - 0.1, ZO)[0], CAN + 0.4, P + 2.96, zz(ZI - 0.1, ZO)[1]);
+    for (const x of [-CAN + 6, CAN - 6]) {
+      b.mesh(INDOOR_LAMP, 'sphere', x, P + 2.75, s * 7.2, 0.15, 0.15, 0.15);
+    }
+    for (const x of [-12, 4, 14]) {
+      fitting(b, 'pbench_old', x, P, s * (ZO - 0.6), [0, -s]);
+      b.block(x - 0.9, P, zz(ZO - 1.0, ZO - 0.08)[0], x + 0.9, P + 0.45, zz(ZO - 1.0, ZO - 0.08)[1]);
+    }
+    depBoard(S, 0, P + 2.25, s * 7.4, P + 2.8, track);
+    // Lamp posts along the fence, a name board at every other one.
+    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) {
+      const x = sx * (30 + k * 15);
+      b.box(STEEL, x - 0.06, P, zz(ZO - 0.3, ZO - 0.18)[0], x + 0.06, P + 3.5, zz(ZO - 0.3, ZO - 0.18)[1]);
+      b.deco(STEEL, x - 0.03, P + 3.4, zz(ZO - 1.5, ZO - 0.18)[0], x + 0.03, P + 3.46, zz(ZO - 1.5, ZO - 0.18)[1]);
+      b.mesh(INDOOR_LAMP, 'sphere', x, P + 3.22, s * (ZO - 1.4), 0.15, 0.15, 0.15);
+      if (k % 2 === 0) nameBoard(S, x + 4, P + 1.75, s * (ZO - 0.4), STEEL);
+    }
+    nameBoard(S, -8, P + 1.75, s * (ZO - 0.6), STEEL);
+  }
+  vending(b, 9, P, -(ZO - 0.45), [0, 1], 'vending', 'old');
+  return b.out;
+}

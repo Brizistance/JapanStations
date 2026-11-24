@@ -98,6 +98,8 @@ export type SignContent =
    * the trains of `line` at `station` (signs/departures.ts crossingActive).
    */
   | { k: 'crossing'; v: 'lamps' | 'arm'; line: LineId; station: StationId; flip?: boolean }
+  /** The crossing's direction indicator (方向指示器): ← and → lit for the way the trains it waits for are going; `downRight`: a down train shows →. */
+  | { k: 'crossing'; v: 'arrows'; line: LineId; station: StationId; downRight: boolean }
   /** Address plate on a pole or wall (街区表示板): green, the town and chōme written downwards. */
   | { k: 'address'; ja: string; en: string }
   /** Blue overhead direction board: what lies ahead, to the left and to the right. */

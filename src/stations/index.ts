@@ -10,7 +10,7 @@ import type { Build, V3 } from '../world/builder';
 import { makeColliders, type Blocker, type Frame } from '../world/collision';
 import { buildStation } from './build';
 import { KAWAMINATO_SPAWN } from './kawaminato';
-import { higashiKawaminato, miokami } from './rail';
+import { higashiKawaminato, konyahama, miokami } from './rail';
 import { SPECS } from './specs';
 
 export interface StationWorld {
@@ -131,7 +131,7 @@ export const STATION_WORLDS: StationWorld[] = STATIONS.map(make);
  * line (rail.ts): platforms only, so they are kept out of STATION_WORLDS, whose stations all have a
  * street, exits and a plot of ground.
  */
-export const RAIL_WORLDS: StationWorld[] = ([['miokami', miokami], ['higashi-kawaminato', higashiKawaminato]] as const).map(([id, build]) => {
+export const RAIL_WORLDS: StationWorld[] = ([['miokami', miokami], ['higashi-kawaminato', higashiKawaminato], ['konyahama', konyahama]] as const).map(([id, build]) => {
   const { geom } = RAIL_NET[0], s = geom.stopS[geom.def.stops.indexOf(id)], o = geom.path.pointAt(s);
   return place(stationById(id), build(), geom.def.id, o.x, o.z, geom.yawAt(s));
 });

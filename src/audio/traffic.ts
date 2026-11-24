@@ -15,6 +15,8 @@ import { signalState } from '../traffic/signals';
 import { streets } from '../traffic/street';
 import type { StationWorld } from '../stations';
 import { toWorld } from '../world/collision';
+import { RAIL_LINES } from '../data/network';
+import { crossingActive } from '../signs/departures';
 import { audioLive, loopAt, playAt, type PosLoopHandle } from './engine';
 
 const VOICES = 3, REACH = 70;
@@ -23,13 +25,19 @@ type Loop = 'road-car' | 'road-heavy' | 'road-scooter';
 /** One sound source that follows a place: its loops by name, made when first wanted. */
 class Source {
   at: V3 = [0, 0, 0];
+  /** `ref`: how near it must be to be heard at full level (a crossing bell carries much further than a car). */
+  constructor(private ref = 10) {}
   private loops = new Map<string, PosLoopHandle>();
   /** Play `name` here at this rate, level and cutoff; every other loop of this source falls silent. */
   play(name: string | null, rate = 1, gain = 0, cutoff = 18000) {
-    if (name && gain > 0 && !this.loops.has(name) && audioLive()) this.loops.set(name, loopAt(name, () => this.at, true));
+    if (name && gain > 0 && !this.loops.has(name) && audioLive()) this.loops.set(name, loopAt(name, () => this.at, true, this.ref));
     for (const [k, loop] of this.loops) loop.set(k === name ? rate : 1, k === name ? gain : 0, cutoff);
   }
 }
+
+/** Every level crossing, where its bells hang (on the masts, over the road's centre line here). */
+const XINGS = RAIL_LINES.flatMap((l) => (l.crossings ?? []).map((c) => ({ line: l.id, station: c.key ?? c.station, at: [c.at[0], 2.6, c.at[1]] as V3 })));
+const bells = XINGS.map(() => new Source(28));
 
 const voices = Array.from({ length: VOICES }, () => ({ src: new Source(), on: null as Passing | null }));
 const idle = new Source(), wetRoad = new Source(), calls = [new Source(), new Source()];
@@ -128,6 +136,16 @@ export function tickTrafficAudio(cam: { x: number; y: number; z: number }, under
     }
     heard.sort((a, b) => a.d - b.d);
   }
+  // The level crossings' bells, while the gates are down (LineDef.crossings; signs/departures.ts).
+  for (const [i, x] of XINGS.entries()) {
+    const d = Math.hypot(x.at[0] - cam.x, x.at[1] - cam.y, x.at[2] - cam.z);
+    if (under || d > 260 || !crossingActive(x.line, x.station, time)) bells[i].play(null);
+    else {
+      bells[i].at = x.at;
+      bells[i].play('xing-bell', 1, 2.0);
+    }
+  }
+
   calls.forEach((c, i) => {
     const sp = heard[i];
     if (!sp || signalState(sp.axis, time).walk !== 'go') return c.play(null);

@@ -164,21 +164,29 @@ export interface LevelCrossing {
   /** Whose trains close it: the lamps and arms follow this line's timetable at this station. */
   line: string;
   station: string;
+  /** Which way along the tracks (the kit's z, before any turn) a down train runs: gives each mast's arrows (方向指示器). None: no arrows. */
+  downTo?: 1 | -1;
+  /** Height of the crossing's panels: the rail level of a line on its bed (0: flush with the road). */
+  ry?: number;
+  /** Its name, on a plate on each mast (踏切名標). */
+  name?: { ja: string; en: string };
 }
 
 /**
- * A railway level crossing (踏切) over a road: on each approach a warning mast with lamps on the
- * left kerb and a gate whose arm closes the entry lane, a panelled track bed with rails, stop
- * lines and yellow edge lines. The lamps flash and the arms come down while a train of the line
- * is near (never otherwise). No line has a crossing yet: this is ready for the first one.
+ * A railway level crossing (踏切) over a road: on each corner a warning mast (lamps, arrows, name
+ * plate, emergency button) and a gate whose arm closes half the road, a panelled track bed with
+ * rails, stop lines and yellow edge lines. The lamps flash and the arms swing down while a train of
+ * the line is near (never otherwise). The first is the AR Main Line's over Tsumugi-dōri by Kon'yahama (aizomecho-street.ts).
  * The arms are drawn, not solid: nothing stops a walker.
  */
 export function levelCrossing(b: Builder, o: LevelCrossing) {
   const run = () => {
     // Local frame: the road along x, the tracks across it at x = 0.
-    const { rw, tracks } = o;
-    b.deco('flat:#3a3d42', -tracks - 0.6, 0.012, -rw - 2.5, tracks + 0.6, 0.02, rw + 2.5);
-    for (const tx of tracks > 2.5 ? [-tracks / 2, tracks / 2] : [0]) {
+    const { rw, tracks } = o, ry = o.ry ?? 0;
+    b.deco('flat:#3a3d42', -tracks - 0.6, 0.012, -rw - 2.5, tracks + 0.6, Math.max(0.02, ry - 0.03), rw + 2.5);
+    // (On a line's bed the road rises over the panels; its own track and rails are the line's.)
+    if (ry > 0.05) for (const sx of [-1, 1]) b.deco('flat:#3a3d42', sx > 0 ? tracks + 0.6 : -tracks - 3.6, 0.012, -rw - 2.5, sx > 0 ? tracks + 3.6 : -tracks - 0.6, ry * 0.4, rw + 2.5);
+    for (const tx of ry > 0.05 ? [] : tracks > 2.5 ? [-tracks / 2, tracks / 2] : [0]) {
       for (const g of [-0.72, 0.72]) b.deco('flat:#8d9094', tx + g - 0.04, 0.02, -rw - 2.5, tx + g + 0.04, 0.035, rw + 2.5);
       b.deco('flat:#2a2c30', tx - 0.62, 0.02, -rw, tx + 0.62, 0.026, rw);
     }
@@ -187,22 +195,33 @@ export function levelCrossing(b: Builder, o: LevelCrossing) {
       b.deco('flat:#e9e9e4', s * (tracks + 2.2) - 0.2, 0.004, Math.min(0, -s * rw), s * (tracks + 2.2) + 0.2, 0.01, Math.max(0, -s * rw));
     }
     for (const sx of [1, -1] as const) {
-      // Traffic travelling sx stops before the tracks; its mast and gate stand on its left kerb.
-      const h: V2 = [sx, 0], l = left(h), f: V2 = [-sx, 0];
-      const mx = -sx * (tracks + 1.6), mz = l[1] * (rw + 0.6);
-      put(b, 'xing_mast', mx, GY, mz, f);
-      b.block(mx - 0.1, GY, mz - 0.1, mx + 0.1, GY + 3, mz + 0.1);
-      const [lx, lz] = off(f, 0, -0.16);
-      b.sign({ k: 'crossing', v: 'lamps', line: o.line, station: o.station }, mx + lx, GY + XING.lampY, mz + lz, f, XING.lampDx * 2 + 0.44, 0.4);
-      b.sign({ k: 'label', text: '踏切', sub: 'Level crossing', fg: '#1c1c1e', bg: '#f2c200' }, mx + lx, GY + 1.85, mz + lz * 0.9, f, 0.6, 0.24);
-      // The gate, a little nearer the tracks: its arm reaches from the kerb to the road's centre line.
-      const gx = -sx * (tracks + 0.9), gz = l[1] * (rw + 0.35), L = rw + 0.35;
-      put(b, 'xing_gate', gx, GY, gz, f);
-      b.block(gx - 0.22, GY, gz - 0.22, gx + 0.22, GY + 1.3, gz + 0.22);
-      const cz = gz - l[1] * (L / 2);
-      for (const back of [false, true]) {
-        const n: V2 = back ? [sx, 0] : f;
-        b.sign({ k: 'crossing', v: 'arm', line: o.line, station: o.station, flip: back }, gx - sx * (back ? 0.3 : 0.28), GY + XING.pivotY - 0.07 + L / 2, cz, n, L, L);
+      // Traffic travelling sx stops before the tracks. A mast and a gate stand on each corner: the
+      // gate on its left kerb closes the lanes coming in, the one on its right the lanes going out.
+      const h: V2 = [sx, 0], f: V2 = [-sx, 0];
+      for (const side of [left(h)[1], -left(h)[1]] as const) {
+        const entry = side === left(h)[1];
+        const mx = -sx * (tracks + 1.6), mz = side * (rw + 0.6);
+        put(b, 'xing_mast', mx, GY, mz, f);
+        b.block(mx - 0.1, GY, mz - 0.1, mx + 0.1, GY + 3, mz + 0.1);
+        const [lx, lz] = off(f, 0, -0.16);
+        b.sign({ k: 'crossing', v: 'lamps', line: o.line, station: o.station }, mx + lx, GY + XING.lampY, mz + lz, f, XING.lampDx * 2 + 0.44, 0.4);
+        if (o.downTo) b.sign({ k: 'crossing', v: 'arrows', line: o.line, station: o.station, downRight: o.downTo === sx }, mx + lx, GY + XING.lampY - 0.42, mz + lz, f, 0.62, 0.26);
+        b.sign({ k: 'label', text: '踏切', sub: 'Level crossing', fg: '#1c1c1e', bg: '#f2c200' }, mx + lx, GY + (o.downTo ? 1.62 : 1.85), mz + lz * 0.9, f, 0.6, 0.24);
+        // The crossing's name plate (踏切名標), and the emergency button (非常ボタン) for anyone who sees something stuck on the tracks.
+        if (o.name) b.sign({ k: 'label', text: o.name.ja, sub: o.name.en, fg: '#1c1c1e', bg: '#f4f3ee' }, mx + lx, GY + 1.3, mz + lz * 0.9, f, 0.62, 0.2);
+        const [bx, bz] = off(f, 0, -0.2);
+        b.deco('paint:#c8102e', mx + bx - 0.12, GY + 0.86, mz + bz - 0.12, mx + bx + 0.12, GY + 1.14, mz + bz + 0.12);
+        const [px, pz] = off(f, 0, -0.33);
+        b.sign({ k: 'label', text: '非常ボタン', sub: 'Emergency', fg: '#ffffff', bg: '#c8102e' }, mx + px, GY + 1.04, mz + pz, f, 0.22, 0.09);
+        b.mesh('paint:#f2efe6', 'cyl', mx + px, GY + 0.93, mz + pz, 0.07, 0.03, 0.07);
+        // Its two lamps light the street red at night while they flash (render/lamps.ts).
+        if (entry) for (const k of [1, -1]) b.out.xingLamps = [...(b.out.xingLamps ?? []), { pos: b.pt(mx - sx * 0.4, GY + XING.lampY, mz + k * sx * XING.lampDx), line: o.line, key: o.station, left: k < 0 }];
+        // The gate, a little nearer the tracks: its arm swings down across half the road (world-view.ts), the entry
+        // lanes' to the centre line, the exit lanes' stopping short of it, so the two read as two barriers.
+        const gx = -sx * (tracks + 0.9), gz = side * (rw + 0.35);
+        put(b, 'xing_gate', gx, GY, gz, f);
+        b.block(gx - 0.22, GY, gz - 0.22, gx + 0.22, GY + 1.3, gz + 0.22);
+        b.out.arms = [...(b.out.arms ?? []), { pivot: b.pt(gx - sx * 0.28, GY + XING.pivotY, gz), along: b.dir([0, -side]), len: entry ? rw + 0.1 : rw - 1.2, line: o.line, key: o.station }];
       }
     }
   };

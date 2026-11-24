@@ -9,6 +9,7 @@ import { stationWorld } from '../stations';
 import { updateTrains } from '../trains/system';
 import { updateTraffic } from '../traffic/street';
 import { tickTrafficAudio } from '../audio/traffic';
+import { tickTracksideAudio } from '../audio/trackside';
 import { TrafficView } from './traffic-view';
 import { tickStationAudio } from '../audio/platform';
 import { dom, useUI, capturePointer } from '../ui/store';
@@ -164,6 +165,9 @@ function World() {
     rain.current?.update(gl, camera.position, atm, dt, vis !== 'under' && camera.position.y > -12, riding, light && dots.current ? [light.dome, dots.current.points] : []);
     traffic.current?.update(vis !== 'under', under ? 0 : atm.night, dt, state.clock.elapsedTime);
     tickTrafficAudio(camera.position, under || useUI.getState().mode !== 'play', atm.wet > 0.5, clock.time);
+    // Trains passing, heard from outside (on a platform, in a concourse or riding, the station's and the car's own sound play).
+    const zk = where.zone?.kind;
+    tickTracksideAudio(camera.position, under || riding || useUI.getState().mode !== 'play' || zk === 'platform' || zk === 'concourse' || zk === 'passage');
     tickStormAudio(camera.position, useUI.getState().mode === 'play' && !useUI.getState().paused, under, riding, atm, bolt, state.clock.elapsedTime);
     // A gale is felt on foot in the open: under the sky, off the train.
     gale.power = !under && !riding && useUI.getState().mode === 'play' ? Math.min(1, Math.max(0, (atm.wind - 0.4) / 0.6)) : 0;

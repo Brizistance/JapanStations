@@ -3,9 +3,10 @@
 // trains) drawn one of two ways, by the line's era (board-style.ts): a 3-colour dot-matrix
 // LED or a full-colour LCD. Nothing here invents a time: every time is a timetable time.
 
-import { LINES, OPERATOR, lineById, linesAt, platformFor, stationById, terminusOf } from '../data/network';
+import { LINES, OPERATOR, RAIL_LINES, lineById, linesAt, platformFor, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
+import { carOf } from '../sim/geometry';
 import { temperatureNow, today } from '../sim/climate';
 import { WEATHER_NAME, drawWeatherIcon, typhoonNotice } from './weather-icon';
 import { nextArrivals, nextDepartures, trainStateAt } from '../sim/timetable';
@@ -49,7 +50,82 @@ export const crossingTest: { force: boolean | null } = { force: null };
  * way) reaches the station until 12 s after it leaves. Read from the timetable, like the boards.
  */
 export function crossingActive(lineId: string, stationId: string, now: number): boolean {
-  if (crossingTest.force !== null) return crossingTest.force;
+  return crossingState(lineId, stationId, now).on;
+}
+
+/** Seconds a crossing on open line (LineDef.crossings) rings before a train reaches it. */
+const XING_WARN = 30;
+/** The arms start down this long after the bell, take ARM_DOWN s to come down, and ARM_UP s to rise once the train is clear. */
+const ARM_DELAY = 5, ARM_DOWN = 6, ARM_UP = 4;
+type Ring = { a: number; b: number; down: boolean; up: boolean };
+/** Each crossing's rings over a window of time, worked out from the timetable now and then (they do not change). */
+const plans = new Map<string, { t0: number; t1: number; rings: Ring[]; merged: [number, number][] }>();
+function planOf(line: LineDef, xing: { at: [number, number] }, key: string, now: number) {
+  const p = plans.get(key);
+  if (p && now > p.t0 + 60 && now < p.t1 - 60) return p;
+  const t0 = now - 90, t1 = now + 240;
+  const sim = lineSim(line.id), sx = sim.geom.path.project(xing.at[0], xing.at[1]).s;
+  const reach = (carOf(line).pitch * line.service.cars) / 2 + 8;
+  const rings: Ring[] = [];
+  for (const { tt } of sim.services ?? [{ tt: sim.tt }]) {
+    for (let k = 0; k < tt.trainCount; k++) {
+      let start = NaN, heading = 1;
+      for (let t = t0; t <= t1; t += 0.5) {
+        const st = trainStateAt(tt, k, t), hit = Math.abs(st.s - sx) < reach;
+        if (hit && Number.isNaN(start)) { start = t; heading = st.heading; }
+        if ((!hit || t + 0.5 > t1) && !Number.isNaN(start)) {
+          rings.push({ a: start - XING_WARN, b: t + 1, down: heading > 0, up: heading < 0 });
+          start = NaN;
+        }
+      }
+    }
+  }
+  rings.sort((p, q) => p.a - q.a);
+  const merged: [number, number][] = [];
+  for (const r of rings) {
+    const last = merged[merged.length - 1];
+    if (last && r.a <= last[1]) last[1] = Math.max(last[1], r.b);
+    else merged.push([r.a, r.b]);
+  }
+  const plan = { t0, t1, rings, merged };
+  plans.set(key, plan);
+  return plan;
+}
+const smooth = (x: number) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
+const armAt = (a: number, t: number) => smooth((t - a - ARM_DELAY) / ARM_DOWN);
+
+/**
+ * A level crossing's state: ringing (`on`: the lamps flash, the bell rings, traffic stops), how far
+ * its arms are down (`arm`: 0 up … 1 down), and which way the trains it waits for are going (`down`:
+ * towards increasing chainage), for the direction arrows. A crossing on open line (LineDef.crossings;
+ * `stationId` is then its key) rings XING_WARN s before any train of any service reaches it and stops
+ * once the last car is clear (a train standing at the platform beside it, clear of the road, leaves it
+ * open); the arms follow the bell. One by a station without a place of its own rings from 35 s before
+ * a train reaches the station until 12 s after it leaves. All from the timetable.
+ */
+export function crossingState(lineId: string, stationId: string, now: number): { on: boolean; arm: number; down: boolean; up: boolean } {
+  if (crossingTest.force !== null) return { on: crossingTest.force, arm: crossingTest.force ? 1 : 0, down: crossingTest.force, up: false };
+  const line = LINES.find((l) => l.id === lineId) ?? RAIL_LINES.find((l) => l.id === lineId);
+  const xing = line?.crossings?.find((c) => (c.key ?? c.station) === stationId);
+  if (line && xing) {
+    const plan = planOf(line, xing, `${lineId}:${stationId}`, now);
+    const v = { on: false, arm: 0, down: false, up: false };
+    for (const r of plan.rings) {
+      if (r.a > now) break;
+      if (now <= r.b) { v.on = true; v.down ||= r.down; v.up ||= r.up; }
+    }
+    for (const [a, b] of plan.merged) {
+      if (a > now) break;
+      if (now <= b) v.arm = armAt(a, now);
+      else if (now - b < ARM_UP) v.arm = armAt(a, b) * smooth(1 - (now - b) / ARM_UP);
+    }
+    return v;
+  }
+  const on = crossingAtStation(lineId, stationId, now);
+  return { on, arm: on ? 1 : 0, down: false, up: false };
+}
+
+function crossingAtStation(lineId: string, stationId: string, now: number): boolean {
   const line = LINES.find((l) => l.id === lineId), st = stationById(stationId);
   if (!line || !line.stops.includes(stationId)) return false;
   return (['down', 'up'] as const).some((dir) => platformTrains(line, st, dir, now - 12, 2).some((d) => d.arr - 35 <= now && now <= d.dep + 12));
