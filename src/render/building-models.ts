@@ -34,9 +34,9 @@ interface Proto {
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique', 'machi'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'miochika', 'tsumugifront', 'tsumugikit', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'miochika', 'tsumugifront', 'tsumugikit', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port'];
 /** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
 const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */

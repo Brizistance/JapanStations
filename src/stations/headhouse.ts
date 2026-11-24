@@ -200,8 +200,8 @@ export function buildHeadhouse(c: Ctx, cf: number, cw: number) {
     b.deco('glow:#fff2d8', xw + 0.28, GY + 0.5, z - 0.17, xw + 0.62, GY + 1.4, z + 0.17);
     b.deco(TIMBER, xw + 0.26, GY + 1.4, z - 0.19, xw + 0.64, GY + 1.45, z + 0.19);
   }
-  // The other railway, a short walk from this door (not yet built in the street: the map and the timetable have it).
-  b.sign({ k: 'label', text: 'AR本線 紺屋浜駅 徒歩2分', sub: 'AR Main Line: Kon’yahama, 2 min on foot, north by Aizome-yokochō', fg: '#ffffff', bg: '#14233b' }, HH.gate - 1.05, GY + 1.75, zn + 0.02, [0, 1], 1.7, 0.5);
+  // The other railway, a short walk from this door: Kon'yahama's station house, west along Tsumugi-dōri by the crossing.
+  b.sign({ k: 'label', text: 'AR本線 紺屋浜駅 徒歩2分', sub: 'AR Main Line: Kon’yahama, 2 min on foot, west along Tsumugi-dōri', fg: '#ffffff', bg: '#14233b' }, HH.gate - 1.05, GY + 1.75, zn + 0.02, [0, 1], 1.7, 0.5);
 
   // ── The gate line (unpaid side west), the beam its signs hang from, ticket machines on the north wall ──
   const c2: Ctx = { ...c, style: { ...style, concWall: TIMBER } };

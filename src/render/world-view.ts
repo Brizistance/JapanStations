@@ -23,6 +23,8 @@ import { DEFAULT_PLOT, rng } from '../world/builder';
 import { boxesToGeometry, groupBy, type EnvMode } from './geometry';
 import { withEnvMod } from './lit';
 import { getMaterial } from './materials';
+import { buildLandAndWater, inVista, wetNear } from './water';
+import { isWater } from '../data/geography';
 import { GateSet, makeSigns, staticGroup } from './part-view';
 import { disposeCache, redrawLive, type SignCache, type SignSet } from './sign-set';
 import type { SignContent } from '../signs/content';
@@ -311,6 +313,9 @@ function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRo
         const corners = [[-31, -15], [31, -15], [31, 15], [-31, 15], [0, 0]].map(([a, b]) => toWorld(lx + a, lz + b));
         // (Nor on open track: a main line at street level runs between the blocks.)
         if (corners.some((p) => inPlot(p.x, p.z, 1)) || openDist(corners[4].x, corners[4].z) < 42) continue;
+        // (Its buildings reach up to 36 m deep each side of the centre line: none of that may be water or a kept view.)
+        const reach = [[-33, -36], [33, -36], [33, 36], [-33, 36], [-33, 0], [33, 0], [0, -36], [0, 36]].map(([a, b]) => toWorld(lx + a, lz + b));
+        if (reach.some((p) => wetNear(p.x, p.z, 2) || inVista(p.x, p.z, 0))) continue;
         const ctr = toWorld(lx, lz);
         if (onRoad(ctr.x, ctr.z, 18) || nearBand(ctr.x, ctr.z)) continue;
         // Where two districts overlap, a block belongs to the nearer station only.
@@ -439,34 +444,23 @@ function buildBackdrop(): THREE.Group {
 
   // Open-air track: holes in the ground for the cut, and a keep-clear corridor for buildings.
   const openPts: { x: number; z: number }[] = [];
-  const shape = new THREE.Shape([new THREE.Vector2(-3000, 5000), new THREE.Vector2(8000, 5000), new THREE.Vector2(8000, -5000), new THREE.Vector2(-3000, -5000)]);
-  for (const p of plots) shape.holes.push(new THREE.Path(p.pts));
+  const cuts: [number, number][][] = [];
   for (const { geom } of WORLD_NET) {
     const W = halfWidth(geom) + 0.45;
-    let left: THREE.Vector2[] = [], right: THREE.Vector2[] = [];
-    const flush = () => {
-      if (left.length > 1) shape.holes.push(new THREE.Path([...left, ...right.reverse()]));
-      left = [];
-      right = [];
-    };
+    let prev: [number, number][] | null = null;
     for (const s of sampleChainages(geom)) {
       const type = structureAt(geom, s);
       const p = geom.path.pointAt(s);
       if (type === 'cut' || type === 'viaduct') openPts.push({ x: p.x, z: p.z });
       if (type === 'cut' && !inPlot(p.x, p.z, 1)) {
-        left.push(new THREE.Vector2(p.x + p.tz * W, -(p.z - p.tx * W)));
-        right.push(new THREE.Vector2(p.x - p.tz * W, -(p.z + p.tx * W)));
-      } else flush();
+        const now: [number, number][] = [[p.x + p.tz * W, p.z - p.tx * W], [p.x - p.tz * W, p.z + p.tx * W]];
+        if (prev) cuts.push([prev[0], now[0], now[1], prev[1]]);
+        prev = now;
+      } else prev = null;
     }
-    flush();
   }
-  const groundGeo = new THREE.ShapeGeometry(shape);
-  groundGeo.setAttribute('aEnv', new THREE.BufferAttribute(new Float32Array(groundGeo.getAttribute('position').count * 2).fill(1), 2));
-  // Shape UVs are its xy in metres already.
-  const ground = new THREE.Mesh(groundGeo, getMaterial('ground'));
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.03;
-  group.add(ground);
+  // The ground, the sea, the river and the canals with their embankments (render/water.ts).
+  group.add(...buildLandAndWater(plots.map((p) => p.pts.map((v) => [v.x, -v.y] as [number, number])), cuts));
 
   // Roads that run on past a plot's edge (world/runon.ts): paved, and kept clear of buildings.
   const roads = STATION_WORLDS.map((w) => ({ w, strips: runOnStrips(w) })).filter((s) => s.strips.length);
@@ -478,6 +472,26 @@ function buildBackdrop(): THREE.Group {
       for (const s of [-1, 1]) {
         const e = s < 0 ? (alongX ? rz0 : rx0) : alongX ? rz1 : rx1, lo = Math.min(e, e + s * PAVE), hi = Math.max(e, e + s * PAVE);
         parts.push(alongX ? { mat: 'paver', min: [rx0, -0.4, lo], max: [rx1, 0.14, hi], solid: false } : { mat: 'paver', min: [lo, -0.4, rz0], max: [hi, 0.14, rz1], solid: false });
+      }
+      // Over water the road is a bridge: a girder under the deck and a parapet along each side.
+      const c = Math.cos(w.frame.yaw), sn = Math.sin(w.frame.yaw);
+      const [ua, ub] = alongX ? [rx0, rx1] : [rz0, rz1], [va, vb] = alongX ? [rz0 - PAVE, rz1 + PAVE] : [rx0 - PAVE, rx1 + PAVE], vm = (va + vb) / 2;
+      let wetFrom: number | null = null;
+      for (let u = ua; u <= ub + 1; u += 1) {
+        const [lx, lz] = alongX ? [u, vm] : [vm, u];
+        const wet = u <= ub && isWater(w.frame.x + lx * c + lz * sn, w.frame.z - lx * sn + lz * c);
+        if (wet && wetFrom === null) wetFrom = Math.max(ua, u - 2);
+        if (!wet && wetFrom !== null) {
+          const [u0, u1] = [wetFrom, Math.min(ub, u + 1)];
+          const box = (mat: string, a0: number, a1: number, y0: number, y1: number): BoxPart =>
+            alongX ? { mat, min: [u0, y0, a0], max: [u1, y1, a1], solid: false } : { mat, min: [a0, y0, u0], max: [a1, y1, u1], solid: false };
+          parts.push(box('flat:#8d887e', va, vb, -1.4, -0.4));
+          for (const [a0, a1] of [[va - 0.3, va], [vb, vb + 0.3]]) {
+            parts.push(box('flat:#b9b4aa', a0, a1, -1.4, 1.1));
+            parts.push(box('flat:#a39e94', a0 - 0.05, a1 + 0.05, 1.1, 1.2));
+          }
+          wetFrom = null;
+        }
       }
       for (let u = alongX ? rx0 : rz0; u + 3 < (alongX ? rx1 : rz1); u += 6) {
         parts.push(alongX ? { mat: 'flat:#e9e9e4', min: [u, 0.004, mid - 0.07], max: [u + 3, 0.01, mid + 0.07], solid: false } : { mat: 'flat:#e9e9e4', min: [mid - 0.07, 0.004, u], max: [mid + 0.07, 0.01, u + 3], solid: false });
@@ -493,7 +507,9 @@ function buildBackdrop(): THREE.Group {
       group.add(paving);
     }
   }
-  const band = cityBand(inPlot);
+  // Nothing of the backdrop city stands in the water.
+  const dry = (x: number, z: number, m: number) => inPlot(x, z, m) || wetNear(x, z, m) || inVista(x, z, m);
+  const band = cityBand(dry);
   group.add(...band.meshes);
   const onRoad = (x: number, z: number, m: number) =>
     roads.some(({ w, strips }) => {
@@ -532,7 +548,7 @@ function buildBackdrop(): THREE.Group {
       const nearStation = STATION_WORLDS.some((s) => Math.hypot(s.frame.x - x, s.frame.z - z) < 480);
       const openDist = openDistAt(x, z);
       if (!nearStation && openDist > 330) continue;
-      if (inPlot(x, z, 24) || openDist < 34 || band.near(x, z, 58)) continue;
+      if (dry(x, z, 24) || openDist < 34 || band.near(x, z, 58)) continue;
       const centre = Math.hypot(x - 1870, z);
       const tall = Math.max(0, 1 - centre / 1500);
       const h = 9 + r() * 16 + tall * tall * r() * 70;
@@ -544,7 +560,7 @@ function buildBackdrop(): THREE.Group {
       boxes.push({ mat, min: [x - w / 2, -0.03, z - d / 2], max: [x + w / 2, h, z + d / 2], solid: false });
     }
   }
-  districtGrid(inPlot, onRoad, (x, z) => band.near(x, z, 66), openDistAt);
+  districtGrid(dry, onRoad, (x, z) => band.near(x, z, 66), openDistAt);
   for (const [mat, list] of groupBy(boxes)) {
     const m = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
     m.matrixAutoUpdate = false;

@@ -523,9 +523,11 @@ function pickRoute(tr: Traffic, lane: Lane, model: string, heavy: boolean): Rout
     if (d.rank && tr.list.filter((o) => o.route === route && o.served === 0).length >= d.rank) continue;
     if (rand() < d.share) return route;
   }
-  if (family(model) === 'bus' && lane.busRoute) return lane.busRoute;
-  if (lane.part.use === 'cycle') return lane.straight;
-  if (model === 'taxi' && lane.rankRoute) {
+  // (On a lane that ends at a T everybody turns, buses and taxis too: its stops are passed by.)
+  const ends = !!lane.part.dead && turns.length > 0;
+  if (family(model) === 'bus' && lane.busRoute && !ends) return lane.busRoute;
+  if (lane.part.use === 'cycle' && !ends) return lane.straight;
+  if (model === 'taxi' && lane.rankRoute && !ends) {
     const rank = lane.rankRoute;
     let bound = 0;
     for (const o of tr.list) if (o.route === rank && o.served === 0) bound++;

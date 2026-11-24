@@ -170,11 +170,13 @@ export interface LevelCrossing {
   ry?: number;
   /** Its name, on a plate on each mast (踏切名標). */
   name?: { ja: string; en: string };
+  /** Width of the pavements beyond the road: their own gates stand at the outer edge (default 2.5). */
+  walk?: number;
 }
 
 /**
  * A railway level crossing (踏切) over a road: on each corner a warning mast (lamps, arrows, name
- * plate, emergency button) and a gate whose arm closes half the road, a panelled track bed with
+ * plate, emergency button), a gate whose arm closes half the road and a short one across the pavement, a panelled track bed with
  * rails, stop lines and yellow edge lines. The lamps flash and the arms swing down while a train of
  * the line is near (never otherwise). The first is the AR Main Line's over Tsumugi-dōri by Kon'yahama (aizomecho-street.ts).
  * The arms are drawn, not solid: nothing stops a walker.
@@ -222,6 +224,12 @@ export function levelCrossing(b: Builder, o: LevelCrossing) {
         put(b, 'xing_gate', gx, GY, gz, f);
         b.block(gx - 0.22, GY, gz - 0.22, gx + 0.22, GY + 1.3, gz + 0.22);
         b.out.arms = [...(b.out.arms ?? []), { pivot: b.pt(gx - sx * 0.28, GY + XING.pivotY, gz), along: b.dir([0, -side]), len: entry ? rw + 0.1 : rw - 1.2, line: o.line, key: o.station }];
+        // The pavement's own gate (歩道用遮断機) at its outer edge, its arm reaching in to the mast, so
+        // the footway closes with the road.
+        const walk = o.walk ?? 2.5, wz = side * (rw + walk - 0.3);
+        put(b, 'xing_gate', gx, GY, wz, f);
+        b.block(gx - 0.22, GY, wz - 0.22, gx + 0.22, GY + 1.3, wz + 0.22);
+        b.out.arms = [...(b.out.arms ?? []), { pivot: b.pt(gx - sx * 0.28, GY + XING.pivotY, wz), along: b.dir([0, -side]), len: walk - 1.1, line: o.line, key: o.station }];
       }
     }
   };

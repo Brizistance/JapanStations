@@ -7,11 +7,12 @@ import { stationById } from '../data/network';
 import { trainStateAt } from '../sim/timetable';
 import { BED } from '../stations/kit';
 import { XOVER_FAR, XOVER_NEAR, type LineGeom, type Track } from '../sim/geometry';
-import { atOwnPlatform, deckAt, halfWidth, inCrossing, isSiding, modelled, onHostTrack, sampleChainages, structureAt, trackRange, type Deck, type Structure } from '../world/structure';
+import { ABUTMENT, atOwnPlatform, bridgesOf, deckAt, halfWidth, inCrossing, isSiding, modelled, onHostTrack, sampleChainages, structureAt, trackRange, type Deck, type Structure } from '../world/structure';
 import { meshesToGeometry } from './geometry';
 import { getMaterial } from './materials';
 import { stretchesOf, stretchRange } from './stretches';
 import type { MeshPart } from '../world/builder';
+import { CHANNELS, CHANNEL_Y, SEA_Y, distToLine, isSea } from '../data/geography';
 
 interface Sample {
   s: number;
@@ -121,6 +122,8 @@ function profiles(geom: LineGeom, type: Structure, siding: boolean, m: Sample, o
     // Parapets and a solid brick body down to the street (the arches are dressed on afterwards).
     return [{ p: [[-W - 0.5, 1.1], [-W - 0.3, 1.1], [-W - 0.3, -BED], [W + 0.3, -BED], [W + 0.3, 1.1], [W + 0.5, 1.1], [W + 0.5, -m.y], [-W - 0.5, -m.y]], closed: true }];
   }
+  // (A bridge's deck, trusses, pier and abutments are drawn with the main line's kit.)
+  if (type === 'viaduct' && deck === 'bridge') return [];
   if (type === 'viaduct' && deck === 'bank') {
     const foot = W + BANK_SHOULDER + BANK_K * Math.max(0, m.y - BED);
     return [{ p: [[-foot, -m.y + 0.02], [-W - BANK_SHOULDER, -BED], [W + BANK_SHOULDER, -BED], [foot, -m.y + 0.02]], closed: false }];
@@ -467,7 +470,8 @@ export function buildTrack(sim: LineSim): THREE.Group {
         }
       }
       // (Along a station's own platforms its canopy frames carry the wire; no mast stands in a level crossing's road.)
-      if (open && a.s >= gantryAt && !atOwnPlatform(geom, a.s) && !inCrossing(geom, a.s, 6)) {
+      // (On a bridge the trusses' top bracing carries the wire.)
+      if (open && a.s >= gantryAt && !atOwnPlatform(geom, a.s) && !inCrossing(geom, a.s, 6) && deckAt(geom, a.s) !== 'bridge') {
         gantryAt = a.s + 50;
         // On the viaduct the masts stand in the parapet; in a cutting, just inside its walls.
         const lat = type === 'viaduct' ? W + 0.38 : W - 0.3, top = WIRE_H + 1.65;
@@ -491,6 +495,11 @@ export function buildTrack(sim: LineSim): THREE.Group {
       const a = samples[i], mid = (a.s + samples[i + 1].s) / 2;
       if (structureAt(geom, mid) !== 'viaduct' || modelled(geom, mid) || inCrossing(geom, mid)) { was = null; continue; }
       const deck = deckAt(geom, mid);
+      if (deck === 'bridge') {
+        strip(BALLAST, a, () => rect(-W + 0.1, W - 0.1, -BED, -BED + 0.006));
+        was = deck;
+        continue;
+      }
       if (deck === 'brick') {
         strip(BALLAST, a, () => rect(-W - 0.3, W + 0.3, -BED, -BED + 0.006));
         for (const sg of [-1, 1]) {
@@ -524,6 +533,61 @@ export function buildTrack(sim: LineSim): THREE.Group {
         if (was === 'brick') sweep(BRICK, a).cap(a, -W - 0.5, W + 0.5, -a.y, 1.1);
       }
       was = deck;
+    }
+  }
+
+  // ── A main line's bridge over water (bridgesOf): two riveted Warren through-trusses in oxide red on a
+  // steel deck, a granite pier mid-stream and an abutment in each bank; the wire hangs from the top
+  // bracing; the bridge's name on a plate over each portal ──
+  for (const [b0, b1] of bridgesOf(geom)) {
+    const RED = 'trackside:#7a3026', GRANITE = 'trackside:#9a958b', STEEL = 'trackside:#8f969c';
+    const w0 = b0 + ABUTMENT, w1 = b1 - ABUTMENT, pm = (w0 + w1) / 2;
+    const pc = at(pm), sea = isSea(pc.x, pc.z), water = sea ? SEA_Y : CHANNEL_Y;
+    const H = 6.6, T0 = W - 0.05, T1 = W + 0.45, FLOOR = -BED - 1.0;
+    // The abutments, as wide as the embankment's foot, and the pier.
+    for (const [s0, len] of [[b0, ABUTMENT + 1], [w1 - 1, ABUTMENT + 1]] as const) {
+      const m = at(s0), foot = W + BANK_SHOULDER + BANK_K * Math.max(0, m.y - BED) + 0.3;
+      boxAt(GRANITE, m, len, -foot, foot, water - m.y - 0.6, FLOOR);
+      boxAt(GRANITE, m, len, -foot, foot, FLOOR, FLOOR + 0.25);
+    }
+    boxAt(GRANITE, at(pm - 2.2), 4.4, -W - 1.2, W + 1.2, water - pc.y - 0.6, FLOOR - 0.3);
+    boxAt(GRANITE, at(pm - 2.5), 5.0, -W - 1.4, W + 1.4, FLOOR - 0.6, FLOOR - 0.3);
+    // The deck: cross girders under a steel floor, the ballast on it (drawn with the trackbed).
+    boxAt(RED, at(w0 - 1), w1 - w0 + 2, -W - 0.2, W + 0.2, FLOOR, -BED);
+    const member = (sA: number, yA: number, sB: number, yB: number, l0: number, l1: number, t = 0.28) =>
+      sweep(RED, at(sA)).span(at(sA), at(sB), rect(l0, l1, yA - t, yA + t), rect(l0, l1, yB - t, yB + t), true);
+    const portals: number[] = [];
+    for (const [sA, sB] of [[w0 - 1, pm - 0.6], [pm + 0.6, w1 + 1]]) {
+      const Ls = sB - sA, n = 2 * Math.max(3, Math.round(Ls / 11)), p = Ls / n, node = (k: number) => sA + k * p;
+      for (const sg of [-1, 1]) {
+        const [l0, l1] = out(sg, T0, T1);
+        // Bottom chord along the deck's edge, top chord between the end posts, the diagonals between.
+        boxAt(RED, at(sA), Ls, l0, l1, FLOOR, -BED + 0.35);
+        boxAt(RED, at(node(1)), node(n - 1) - node(1), l0, l1, H - 0.3, H + 0.3);
+        for (let k = 0; k < n; k++) {
+          const up = k % 2 === 0, y0 = up ? -BED + 0.1 : H, y1 = up ? H : -BED + 0.1;
+          member(node(k), y0, node(k + 1), y1, l0, l1);
+        }
+        // Verticals at the top nodes, and a row of rivet-plate gussets at every node.
+        for (let k = 1; k < n; k += 2) boxAt(RED, at(node(k) - 0.15), 0.3, l0, l1, -BED, H);
+        for (let k = 0; k <= n; k++) boxAt(RED, at(node(k) - 0.5), 1.0, ...out(sg, T1, T1 + 0.04), k % 2 ? H - 0.6 : -BED - 0.4, k % 2 ? H + 0.4 : -BED + 0.7);
+      }
+      // Top bracing across at every top node, a deep portal beam at each end.
+      for (let k = 1; k < n; k += 2) boxAt(RED, at(node(k) - 0.15), 0.3, -T0, T0, H - 0.1, H + 0.25);
+      for (const k of [1, n - 1]) boxAt(RED, at(node(k) - 0.2), 0.4, -T0, T0, H - 1.1, H + 0.3);
+      portals.push(sA === w0 - 1 ? node(1) - 0.25 : node(n - 1) + 0.25);
+      // The wire: droppers from the bracing to the messenger over each track.
+      for (let k = 1; k < n; k += 2) for (const t of ['down', 'up'] as const) {
+        const c = geom.lateral(t, node(k));
+        boxAt(STEEL, at(node(k) - 0.03), 0.06, c - 0.03, c + 0.03, WIRE_H + 1.13, H - 0.1);
+      }
+    }
+    // The name of the water crossed, on a cast plate over each portal (橋梁 for a river, none over open sea).
+    const ch = CHANNELS.map((c) => ({ c, d: distToLine(c.pts, pc.x, pc.z) })).sort((x, y) => x.d - y.d)[0];
+    if (!sea && ch && ch.d < ch.c.width) {
+      for (const [sp, face] of [[portals[0], -1], [portals[1], 1]] as const) {
+        place(plate([`${ch.c.ja}橋梁`, `${ch.c.en} Bridge`], '#3b2a24', '#e9e2d2', 2.4, 0.7, 0.25), sp, 0, H - 0.6, face);
+      }
     }
   }
 

@@ -6,7 +6,8 @@ import type { StationDef } from '../data/types';
 import { RAIL_NET, clock, lineSim } from '../sim';
 import { builtRange, halfWidth } from '../world/structure';
 import { platformDoorOpen } from '../sim/timetable';
-import type { Build, V3 } from '../world/builder';
+import { inPlot, type Build, type V3 } from '../world/builder';
+import { isWater } from '../data/geography';
 import { makeColliders, type Blocker, type Frame } from '../world/collision';
 import { buildStation } from './build';
 import { KAWAMINATO_SPAWN } from './kawaminato';
@@ -105,6 +106,16 @@ function make(def: StationDef): StationWorld {
 
 /** A built station set down in the world: its collision frame (platform gates open with the trains) and its spawn point. */
 function place(def: StationDef, build: Build, primary: string, x: number, z: number, yaw: number): StationWorld {
+  const c = Math.cos(yaw), sn = Math.sin(yaw);
+  const wet = (lx: number, lz: number) => isWater(x + lx * c + lz * sn, z - lx * sn + lz * c);
+  // Beyond its plot a station's street runs on between rows of buildings: none of them stands in the
+  // water (data/geography.ts), at its frontage or 10 m back into its lot.
+  build.models = build.models.filter((m) => {
+    const [lx, , lz] = m.pos;
+    // (Afloat, below the ground: a moored boat.)
+    if (inPlot(build.plot, lx, lz) || m.pos[1] < -0.5) return true;
+    return !wet(lx, lz) && !wet(lx + Math.sin(m.yaw) * 10, lz + Math.cos(m.yaw) * 10);
+  });
   const blockers: Blocker[] = build.gates.map((g) => {
     const hx = g.along[0] !== 0 ? g.width / 2 : 0.1, hz = g.along[0] !== 0 ? 0.1 : g.width / 2;
     return {
@@ -117,7 +128,6 @@ function place(def: StationDef, build: Build, primary: string, x: number, z: num
     id: def.id, kind: 'station', x, y: 0, z, yaw, pitch: 0,
     colliders: makeColliders(build), blockers, radius: Math.hypot(build.plot.x, Math.max(build.plot.z, build.plot.north ?? 0)) + 5, zones: build.zones,
   };
-  const c = Math.cos(yaw), sn = Math.sin(yaw);
   const sp = build.spawn.pos;
   return {
     def, build, frame, primary,

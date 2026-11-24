@@ -1,9 +1,10 @@
 // Interactive route diagram. Everything is drawn from the network data, including
 // the live train markers, which come from the same timetable the 3D trains follow.
 
+import { BASINS, CHANNELS, LAND as GEO_LAND, type Pt } from '../data/geography';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
-import { ALL_LINES, ALL_STATIONS, LINES, RAIL_LINES, RAIL_STATIONS, STATIONS, alongPolyline, destinationOf, diagramPath, diagramRuns, diagramSegment, isUnbuilt, linesAt, platformFor, platformsFor, stationById } from '../data/network';
+import { ALL_LINES, ALL_STATIONS, LINES, RAIL_LINES, RAIL_STATIONS, STATIONS, alongPolyline, destinationOf, diagramPath, diagramRuns, diagramSegment, isUnbuilt, isWalkable, linesAt, platformFor, platformsFor, stationById } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { NET, RAIL_NET, clock, formatClock, lineDepartures, lineSim, type LineDeparture } from '../sim';
 import { CHANGE_S, WALK_S, findRoute, type Leg, type Route } from '../sim/route';
@@ -368,23 +369,10 @@ function allDiagramLinePts(): [number, number][] {
   return (diagramLinePts = out);
 }
 
-/** A smooth curve through world points, as an SVG path on the geographic sheet. */
-function geoCurve(pts: [number, number][]): string {
-  const P = pts.map(([x, y]) => [geoX(x), geoY(y)]);
-  let d = `M ${P[0][0]} ${P[0][1]}`;
-  for (let i = 1; i < P.length - 1; i++) d += ` Q ${P[i][0]} ${P[i][1]}, ${(P[i][0] + P[i + 1][0]) / 2} ${(P[i][1] + P[i + 1][1]) / 2}`;
-  return `${d} L ${P[P.length - 1][0]} ${P[P.length - 1][1]}`;
-}
 const WATER = '#d3e6f1', LAND = '#f7f6f1';
-/** Reclaimed land in the bay, world metres [x0, y0, x1, y1]: the landfills the western stations stand on. */
-const LANDFILL: [number, number, number, number][] = [
-  [-1280, -960, 620, -570], // river-mouth landfill, north bank (Shiomi)
-  [-1430, -470, 620, 300], // the bay new town and the port (Minato Center)
-  [-520, 1120, 620, 1700], // south bay (Kamomehama)
-  [-1250, 1130, -690, 1680], // the new island (Shin-Kamome)
-];
-/** The Mio-gawa: west along about z = -450 between Kita and Central, out between the landfills. */
-const RIVER: [number, number][] = [[7700, -3500], [6700, -2900], [5900, -2000], [4900, -1440], [4270, -1140], [3700, -640], [3100, -420], [2300, -440], [1500, -470], [560, -515], [-1500, -515]];
+/** A shape from the geography as an SVG path on the geographic sheet (kept to the sheet). */
+const geoPoly = (pts: Pt[]) => 'M ' + pts.map(([x, z]) => `${Math.max(-20, Math.min(MAP_W + 20, geoX(x)))} ${Math.max(-20, Math.min(MAP_H + 20, geoY(z)))}`).join(' L ') + ' Z';
+const geoLine = (pts: Pt[]) => 'M ' + pts.map(([x, z]) => `${geoX(x)} ${geoY(z)}`).join(' L ');
 
 /** What lies behind the lines: water, parks and district names. Decorative; the sim knows none of it. */
 function Backdrop({ geo, detail, ja, m, taken, linePts }: { geo: boolean; detail: boolean; ja: boolean; m: number; taken: Box[]; linePts: [number, number][] }) {
@@ -395,12 +383,14 @@ function Backdrop({ geo, detail, ja, m, taken, linePts }: { geo: boolean; detail
     <g>
       {geo ? (
         <>
-          {/* The bay to the west and the sea along the south port. */}
-          <path d={`M 0 0 L ${geoX(150)} 0 C ${geoX(420)} ${geoY(-2200)}, ${geoX(640)} ${geoY(-1500)}, ${geoX(600)} ${geoY(-900)} L ${geoX(600)} ${geoY(1900)} C ${geoX(620)} ${geoY(2900)}, ${geoX(900)} ${geoY(3800)}, ${geoX(1500)} ${geoY(3800)} L ${MAP_W} ${geoY(3800)} L ${MAP_W} ${MAP_H} L 0 ${MAP_H} Z`} fill={WATER} />
-          {LANDFILL.map(([x0, y0, x1, y1], i) => (
-            <rect key={i} x={geoX(x0)} y={geoY(y0)} width={(x1 - x0) * GEO_K} height={(y1 - y0) * GEO_K} rx={12} fill={LAND} />
+          {/* The sea, the land and the landfills on it, the docks and the inner bay, then the river and canals (data/geography.ts). */}
+          <rect x={-20} y={-20} width={MAP_W + 40} height={MAP_H + 40} fill={WATER} />
+          {GEO_LAND.map((l, i) => <path key={`l${i}`} d={geoPoly(l.pts)} fill={LAND} />)}
+          {BASINS.map((w, i) => <path key={`b${i}`} d={geoPoly(w.pts)} fill={WATER} />)}
+          {CHANNELS.map((c, i) => (
+            <path key={`c${i}`} d={geoLine(c.pts)} stroke={WATER} strokeWidth={Math.max(2, c.width * GEO_K)} fill="none" strokeLinejoin="round" strokeLinecap={c.kind === 'river' ? 'butt' : 'round'} />
           ))}
-          <path d={geoCurve(RIVER)} stroke={WATER} strokeWidth={13} fill="none" strokeLinecap="round" />
+          <text x={geoX(5600)} y={geoY(2560)} className="map-geo">朝凪湾 Asanagi-wan</text>
           <text x={geoX(-1500)} y={geoY(760)} className="map-geo">川湊湾 Kawaminato Bay</text>
           <text x={geoX(1380)} y={geoY(-470) + 4} className="map-geo">澪川 Mio-gawa</text>
         </>
@@ -650,7 +640,7 @@ function RoutePanel({ onGo, onGuide, confirm }: { onGo?: (id: string) => void; o
               <Bi ja="ここから案内する" en="Guide me there from where I am" />
             </button>
           )}
-          {!confirm && onGo && rt.from && !isUnbuilt(rt.from) && (
+          {!confirm && onGo && rt.from && isWalkable(rt.from) && (
             <button className={`btn wide${onGuide ? '' : ' primary'}`} onClick={() => onGo(rt.from!)}>
               <Bi ja="出発駅へ移動" en="Go to the start station" />
             </button>
@@ -713,7 +703,7 @@ export function StationPanel({ id, onGo, goLabel, onGuide, onPreview, confirm }:
       )}
       <h3><Bi ja="つぎの電車" en="Next departures" /></h3>
       <Departures station={s} />
-      {isUnbuilt(id) && <p className="panel-blurb"><Bi ja="この駅はまだ歩けません" en="On the timetable, but not built to walk around yet." /></p>}
+      {!isWalkable(id) && <p className="panel-blurb"><Bi ja="この駅はまだ歩けません" en="On the timetable, but not built to walk around yet." /></p>}
       <div className="route-open">
         <button className="btn small" onClick={() => rt.open(id, null)}><Bi ja="ここから経路" en="Route from here" /></button>
         <button className="btn small" onClick={() => rt.open(null, id)}><Bi ja="ここまで経路" en="Route to here" /></button>
@@ -723,7 +713,7 @@ export function StationPanel({ id, onGo, goLabel, onGuide, onPreview, confirm }:
           <Bi ja="この駅まで案内" en="Guide me to this station" />
         </button>
       )}
-      {onGo && !isUnbuilt(id) && (
+      {onGo && isWalkable(id) && (
         <button className={`btn wide${onGuide ? '' : ' primary'}`} onClick={() => onGo(id)}>
           <Bi ja={goLabel?.[0] ?? 'この駅へ移動'} en={goLabel?.[1] ?? 'Go to this station'} />
         </button>

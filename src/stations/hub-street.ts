@@ -29,6 +29,7 @@
 // build_viaduct.py, build_ring.py, build_kitaarcade.py, build_kitacity.py). Where the game letters
 // one, the place comes from src/stations/anchors/*.ts, written by those scripts.
 
+import { isWater } from '../data/geography';
 import { AR_HUB_MODELS, RAIL_OPERATOR, lineById, linesAt, platformsFor, stationById } from '../data/network';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder, type LanePart, type SignOpts, type V2 } from '../world/builder';
@@ -1728,9 +1729,16 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
   // Yanagi-suji is left alone: Tsumugibashi's boulevard arrives along it.
   {
     const OUT = 200, CROSS = 100, CW = 3.5;
+    // South of the plot the Mio-gawa runs (data/geography.ts): the streets and rows stop at its north
+    // bank, the embankment's coping (render/water.ts draws the river; the run-on roads cross it as bridges).
+    const hub = stationById('kita-odori').position;
+    let OUT_S = OUT;
+    for (let u = 0; u < OUT; u += 0.5) if (isWater(hub.x, hub.y + Z + u + 0.6)) { OUT_S = Math.max(0, u - 0.6); break; }
     type Edge = { c: number; half: number; pave: number; wide: boolean; tree?: TreeKind };
     const roadOut = (alongZ: boolean, s: 1 | -1, q: Edge) => {
-      const lim = alongZ ? (s > 0 ? Z : ZN) : X, u0 = s > 0 ? lim : -lim - OUT, u1 = u0 + OUT;
+      const len = alongZ && s > 0 ? OUT_S : OUT;
+      if (len < 1) return;
+      const lim = alongZ ? (s > 0 ? Z : ZN) : X, u0 = s > 0 ? lim : -lim - len, u1 = u0 + len;
       const R = (mat: string, v0: number, v1: number, y0: number, y1: number, a = u0, e = u1) => (alongZ ? b.deco(mat, q.c + v0, y0, a, q.c + v1, y1, e) : b.deco(mat, a, y0, q.c + v0, e, y1, q.c + v1));
       R('asphalt', -q.half, q.half, -0.03, 0.004);
       for (const k of [-1, 1]) R('paver', Math.min(k * q.half, k * (q.half + q.pave)), Math.max(k * q.half, k * (q.half + q.pave)), -0.03, GY);
@@ -1741,6 +1749,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       }
       for (let u = u0 + 12, k = 0; u < u1 - 6; u += 26, k++) {
         if (Math.abs(u - (s > 0 ? lim + CROSS : -lim - CROSS)) < 8) continue;
+        if (len < OUT && u > u1 - 10) continue;
         const side = k % 2 ? 1 : -1, v = side * (q.half + 0.8);
         const [px, pz] = alongZ ? [q.c + v, u] : [u, q.c + v];
         roadModel(b, q.wide ? 'lamp_led' : 'lamp_small', px, GY, pz, alongZ ? [-side, 0] : [0, -side]);
@@ -1752,8 +1761,11 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     };
     const pack = (alongZ: boolean, s: 1 | -1, a: number, e: number) => {
       // The ground between two streets beyond the edge: rows fronting each, back to back; a cross street half way out.
-      const lim = alongZ ? (s > 0 ? Z : ZN) : X, mid = (a + e) / 2;
-      for (const [d0, d1] of [[0.5, CROSS - CW], [CROSS + CW, OUT]]) {
+      const lim = alongZ ? (s > 0 ? Z : ZN) : X, mid = (a + e) / 2, len = alongZ && s > 0 ? OUT_S : OUT;
+      // (A strip too shallow for a row before the river is left as the riverside street's pavement.)
+      if (len < 24) return;
+      for (const [d0, d1] of [[0.5, Math.min(len, CROSS - CW)], [CROSS + CW, len]]) {
+        if (d1 - d0 < 12) continue;
         const u0 = s > 0 ? lim + d0 : -lim - d1, u1 = s > 0 ? lim + d1 : -lim - d0;
         if (alongZ) {
           fillRect(a + 0.2, u0, mid - 0.4, u1, 'w', BIZ, true);
@@ -1764,6 +1776,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
         }
       }
       const uc = s > 0 ? lim + CROSS : -lim - CROSS;
+      if (len < CROSS + CW) return;
       if (alongZ) b.deco('asphalt', a - 20, -0.03, uc - CW, e + 20, 0.004, uc + CW);
       else b.deco('asphalt', uc - CW, -0.03, a - 20, uc + CW, 0.004, e + 20);
     };
@@ -1780,7 +1793,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       for (const [a, e] of between(corridors)) {
         if (s > 0 && a >= keepOff[0] - 0.1 && e <= keepOff[1] + 0.1) continue; // Tsumugibashi's boulevard
         pack(true, s, a, e);
-        b.clearScenery(a - 9, s > 0 ? Z : -ZN - OUT - 2, e + 9, s > 0 ? Z + OUT + 2 : -ZN);
+        b.clearScenery(a - 9, s > 0 ? Z : -ZN - OUT - 2, e + 9, s > 0 ? Z + Math.max(OUT_S, 1) : -ZN);
       }
     }
     // East and west.

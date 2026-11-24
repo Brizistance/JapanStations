@@ -144,6 +144,8 @@ export interface LanePart {
   gates?: { at: number; line: string; station: string }[];
   /** The lane ends inside the plot (a side street meeting a main road): everybody turns off it at its last junction. */
   dead?: boolean;
+  /** Ends where the road stops at the plot's edge (a T junction past it, the railway's fence): it does not run on past them (world/runon.ts). */
+  closed?: ('from' | 'to')[];
   /**
    * Ways off the lane and back onto it further along (a station's rotary): out at the first `via` point
    * and back in at the last (both on the lane), through the others, corners rounded to `r` (`rEnds` off and onto the lane), at `speed`

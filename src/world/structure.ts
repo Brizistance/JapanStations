@@ -3,6 +3,7 @@
 
 import { HALL_HALF, TAIL_END, type LineGeom } from '../sim/geometry';
 import { lineSim } from '../sim';
+import { isWater } from '../data/geography';
 
 export type Structure = 'station' | 'tunnel' | 'cut' | 'viaduct';
 
@@ -36,12 +37,37 @@ export function onHostTrack(geom: LineGeom, s: number): boolean {
 }
 
 /** What a viaduct stretch is made of: the metro's concrete deck on piers, or a main line's brick arches or earth embankment. */
-export type Deck = 'concrete' | 'brick' | 'bank';
+export type Deck = 'concrete' | 'brick' | 'bank' | 'bridge';
 export function deckAt(geom: LineGeom, s: number): Deck {
   if (geom.def.type !== 'jr') return 'concrete';
+  if (bridgesOf(geom).some(([a, b]) => s > a && s < b)) return 'bridge';
   const y = geom.railY(s), low = geom.def.brickAt;
   if (low && s > stopAt(geom, low.after)) return y >= low.minY ? 'brick' : 'bank';
   return y >= 8.8 ? 'brick' : 'bank';
+}
+
+/** How far a main line's bridge reaches onto land at each end, for its abutment. */
+export const ABUTMENT = 4;
+const bridgeCache = new WeakMap<LineGeom, [number, number][]>();
+/** A main line's bridges: chainage ranges where it crosses water (data/geography.ts), abutments included. */
+export function bridgesOf(geom: LineGeom): [number, number][] {
+  let r = bridgeCache.get(geom);
+  if (r) return r;
+  r = [];
+  bridgeCache.set(geom, r);
+  if (geom.def.type !== 'jr') return r;
+  const [a, b] = trackRange(geom);
+  let start: number | null = null;
+  for (let s = a; s <= b; s += 1) {
+    const p = geom.path.pointAt(s);
+    const wet = isWater(p.x, p.z) && geom.railY(s) > -1 && !geom.stopS.some((ss) => Math.abs(s - ss) < HALL_HALF);
+    if (wet && start === null) start = s;
+    if (!wet && start !== null) {
+      r.push([start - ABUTMENT, s - 1 + ABUTMENT]);
+      start = null;
+    }
+  }
+  return r;
 }
 
 const stopAt = (geom: LineGeom, id: string) => geom.stopS[geom.def.stops.indexOf(id)];

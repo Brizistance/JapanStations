@@ -121,7 +121,7 @@ export function tickPlayer(dt: number) {
   const h = dt / steps;
   let jump = input.jump;
   // (A lift carries whoever stands in it: no walking or falling meanwhile.)
-  const lifted = rideLifts(b, dt, STATION_WORLDS);
+  const lifted = rideLifts(b, dt, WORLDS);
   for (let i = 0; i < steps && !lifted; i++) {
     stepBody(b, all, vx * h, vz * h, h, jump);
     jump = false;

@@ -1206,6 +1206,8 @@ export const hasPlatform = (line: LineDef, stop: number): boolean => !line.built
 
 /** True for a station that is on the map and in the timetable but not built in 3D yet. */
 export const isUnbuilt = (id: StationId): boolean => RAIL_STATIONS.some((s) => s.id === id);
+/** True for a station you can stand in: the metro's, and the main line's built ones (a teleport goes there; guidance does not yet). */
+export const isWalkable = (id: StationId): boolean => !isUnbuilt(id) || RAIL_LINES.some((l) => (l.built?.stations ?? []).includes(id));
 
 export const lineById = (id: LineId): LineDef => {
   const l = ALL_LINES.find((x) => x.id === id);

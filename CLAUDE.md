@@ -14,7 +14,7 @@ Work for the coming months goes to **more stations and lines** and **visual qual
 
 ## Status
 
-Playable. Seven lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**, Sumire **M**, Ichō **G**), 54 stations, fourteen interchanges, eleven hero stations. Kita-Ōdōri is the central hub. The AR Main Line (Akitsushima Railway, 6 stations, Local and Rapid) is built in 3D from Miokami to Kon'yahama: trains, trackbed, Kawaminato Station in full (in Kita-Ōdōri's plot), and platforms only at Higashi-Kawaminato, Miokami and Kon'yahama (`src/stations/rail.ts`; Kon'yahama at street level with a level crossing by Aizomechō): [docs/akitsushima-railway.md](docs/akitsushima-railway.md). Main menu with route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. Details: [docs/vision.md](docs/vision.md).
+Playable. Seven lines (Yanagisuji **Y**, Nagisa **N**, Akanesuji **A**, Shiokaze **S**, Kikyō **K**, Sumire **M**, Ichō **G**), 54 stations, fourteen interchanges, eleven hero stations. Kita-Ōdōri is the central hub. The AR Main Line (Akitsushima Railway, 6 stations, Local and Rapid) is built in 3D from Miokami to Kon'yahama: trains, trackbed, Kawaminato Station in full (in Kita-Ōdōri's plot), platforms only at Higashi-Kawaminato and Miokami, and Kon'yahama with its station house, footbridge and shore street at street level by Aizomechō (`src/stations/rail.ts`, `konyahama-street.ts`): [docs/akitsushima-railway.md](docs/akitsushima-railway.md). Main menu with route map, teleport, first-person walking, timetabled trains you can board and ride, live departure boards. Details: [docs/vision.md](docs/vision.md).
 
 ## Working cheaply (usage limits are tight)
 

@@ -481,7 +481,7 @@ function aizomeFeatures(): Feature[] {
     { n: n('藍染処 つゆ草 干し場', 'Tsuyukusa dye works & drying yard'), x0: -98, x1: -66.3, side: -1, named: true, reach: 70 },
     { n: n('甕守稲荷神社', 'Kamemori Inari Shrine'), x0: -95, x1: -80, side: -1, named: true, reach: 70 },
     { n: n('のれん小路', 'Noren-kōji'), x0: -39.5, x1: -16, side: -1, named: true, reach: 70 },
-    { n: n('AR本線 紺屋浜駅', 'AR Main Line Kon’yahama Sta.'), x0: -45, x1: -20, side: -1, named: true, reach: 60 },
+    { n: n('AR本線 紺屋浜駅', 'AR Main Line Kon’yahama Sta.'), x0: -175.6, x1: -150, side: -1, named: true, reach: 60 },
     { n: n('茜筋', 'Akane-suji'), x0: -16, x1: 16, side: 0, named: true },
     { n: n('型紙筋', 'Katagami-suji'), x0: 57, x1: 67, side: 0, named: true, reach: 40 },
     { n: KIND.office, x0: -170, x1: 170, side: -1, named: false },

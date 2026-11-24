@@ -61,8 +61,8 @@ export function runOns(w: StationWorld): [number, number][] {
   out = w.build.lanes.map((l) => {
     const dx = l.to[0] - l.from[0], dz = l.to[2] - l.from[2], n = Math.hypot(dx, dz) || 1, ux = dx / n, uz = dz / n;
     return [
-      atEdge(l.from, ux) && free(w, l.from[0], l.from[2], -ux, -uz) ? RUN_ON : 0,
-      atEdge(l.to, ux) && free(w, l.to[0], l.to[2], ux, uz) ? RUN_ON : 0,
+      !l.closed?.includes('from') && atEdge(l.from, ux) && free(w, l.from[0], l.from[2], -ux, -uz) ? RUN_ON : 0,
+      !l.closed?.includes('to') && atEdge(l.to, ux) && free(w, l.to[0], l.to[2], ux, uz) ? RUN_ON : 0,
     ];
   });
   cache.set(w, out);
