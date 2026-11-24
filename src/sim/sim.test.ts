@@ -307,3 +307,33 @@ describe('AR Main Line (timetable and map only)', () => {
     }
   });
 });
+
+// A station whose tracks are paired by direction (LineDef.fanAt): Kawaminato on the AR Main Line.
+import { RAIL_NET as FAN_NET } from './index';
+describe('tracks paired by direction', () => {
+  const ar = FAN_NET.find((l) => l.geom.def.id === 'AR')!, g = ar.geom, fan = g.def.fanAt!, s0 = g.fanS;
+  it('gives each service type its own track at the station and the running pair beyond the fan', () => {
+    for (const [id, at] of Object.entries(fan.lateral)) {
+      for (const dir of ['down', 'up'] as const) {
+        expect(g.lateral(dir, s0, id)).toBeCloseTo(at[dir]);
+        expect(g.lateral(dir, s0 + fan.near - 1, id)).toBeCloseTo(at[dir]);
+        for (const sg of [-1, 1]) expect(g.lateral(dir, s0 + sg * fan.far, id)).toBeCloseTo(dir === 'down' ? -g.def.trackOffset : g.def.trackOffset);
+      }
+    }
+  });
+  it('keeps the two directions apart all the way (tracks of one direction merge), and lies within the modelled viaduct', () => {
+    const ids = Object.keys(fan.lateral);
+    for (let d = 0; d <= fan.far; d += 5) {
+      const up = Math.min(...ids.map((id) => g.lateral('up', s0 + d, id))), down = Math.max(...ids.map((id) => g.lateral('down', s0 + d, id)));
+      expect(up - down).toBeGreaterThanOrEqual(3.59);
+    }
+    const m = g.def.built!.modelled!.find((q) => q.station === fan.station)!;
+    expect(fan.far).toBeLessThanOrEqual(Math.min(m.before, m.after));
+  });
+  it('opens the doors towards each direction\'s island', () => {
+    for (const dir of ['down', 'up'] as const) {
+      const sides = Object.keys(fan.lateral).map((id) => g.doorSide(g.lateral(dir, s0, id), s0));
+      expect(new Set(sides).size).toBe(2);
+    }
+  });
+});

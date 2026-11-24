@@ -29,7 +29,7 @@
 // build_viaduct.py, build_ring.py, build_kitaarcade.py, build_kitacity.py). Where the game letters
 // one, the place comes from src/stations/anchors/*.ts, written by those scripts.
 
-import { AR_HUB_MODELS, RAIL_OPERATOR, linesAt, stationById } from '../data/network';
+import { AR_HUB_MODELS, RAIL_OPERATOR, lineById, linesAt, platformsFor, stationById } from '../data/network';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder, type LanePart, type SignOpts, type V2 } from '../world/builder';
 import type { Anchor, AnchorPt, Anchors } from './anchors/types';
@@ -43,8 +43,8 @@ import { KITAFRONT } from './anchors/kitafront';
 import { MIOYA } from './anchors/mioya';
 import { RING } from './anchors/ring';
 import { VIADUCT } from './anchors/viaduct';
-import { GROUND_Y as GY, rail, stairs, vending, type Ctx } from './kit';
-import { EXIT15, MIOYA_GATE, exit15Run, kawaminatoStation, mioyaGate, platformPiece } from './kawaminato';
+import { GROUND_Y as GY, rail, stairs, ticketMachines, vending, type Ctx } from './kit';
+import { AR_BARE, AR_NO_BENCH, EXIT15, MIOYA_GATE, exit15Run, kawaminatoStation, mioyaGate, platformPiece } from './kawaminato';
 import { KONBINI, konbini } from './konbini';
 import { LIFT_DOOR, LIFT_DOOR_H, LIFT_OUT, lift } from './lift';
 import { CARS, VEH } from '../traffic/vehicles';
@@ -116,11 +116,15 @@ const VIA: [number, number] = [-106, -80], LANE_S = -74;
 const NEW_N = -119, BACK = NEW_N - 3;
 /** Under the viaduct's bridges: the local streets end there, at the way into the car parks in its arches. */
 const UNDER = (VIA[0] + VIA[1]) / 2;
-/** Kawaminato Station (AR) on the viaduct: its platforms' ends (12 cars; bay joints), and its five middle bays by their centres. */
+/** Kawaminato Station (AR) on the viaduct: its platforms' ends (12 cars; bay joints), and its bays between the two local streets by their centres. */
 const AR_PF: [number, number] = [-125, 127];
-const AR_BAYS: Record<number, string> = { [-8]: 'ho8', 0: 'ho8', 8: 'he8', 16: 'hl8', 24: 'hs8', [-32]: 'stp8', 32: 'stp8' };
+const AR_BAYS: Record<number, string> = {
+  [-56]: 'hw8w', [-48]: 'hcl8', [-40]: 'hcr8', [-32]: 'hw8w', [-24]: 'hsl8', [-16]: 'hl8w', [-8]: 'hop8', 0: 'ho8', 8: 'he8', 16: 'hl8', 24: 'hsr8', 32: 'hw8', 40: 'hcl8', 48: 'hcr8', 56: 'hw8',
+};
 /** Of those, the hollow ones: kawaminato.ts builds what is inside them and their colliders, under the widening too. */
-const AR_HOLLOW = ['ho8', 'he8', 'hl8', 'hs8'];
+const AR_HOLLOW = ['ho8', 'hop8', 'he8', 'hl8', 'hcr8', 'hcl8', 'hw8', 'hl8w', 'hw8w', 'hsr8', 'hsl8'];
+/** The train shed over the platforms (build_viaduct.py shed()): its ends; a rib every 8 m from there. */
+const AR_SHED = 124;
 /** Stop lines stand this far outside a street's kerb where another crosses it (a crosswalk lies between). */
 const SL = 5.2;
 /** The footbridge ring and the terminal's terrace: deck level, deck width. */
@@ -489,7 +493,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     const underPf = (x: number) => x > AR_PF[0] && x < AR_PF[1];
     let pfCount = 0;
     /** The 1914 widening along the old viaduct's north side (build_viaduct.py n<id>): the piece that stands beside each of the old ones. */
-    const northOf = (base: string) => (base.startsWith('g') ? `n${base}` : base === 'p8' || base === 'stp8' ? 'np8' : base === 'ho8' || base === 'he8' ? 'nh8' : AR_HOLLOW.includes(base) ? 'nc8' : /^[as]\d$/.test(base) ? `n${base}` : 'ns8');
+    const northOf = (base: string) => (base.startsWith('g') ? `n${base}` : base === 'p8' || base === 'stp8' ? 'np8' : base === 'ho8' || base === 'hop8' || base === 'he8' ? 'nh8' : AR_HOLLOW.includes(base) ? 'nc8' : /^[as]\d$/.test(base) ? `n${base}` : 'ns8');
     const putNorth = (base: string, x: number) => {
       const nb = northOf(base), id = underPf(x) && VIADUCT[`pf_${nb}`] ? `pf_${nb}` : nb, w = VIADUCT[id].w;
       b.model('viaduct', id, x, GY, NEW_N, Math.floor(r() * 90));
@@ -511,12 +515,15 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       b.model('viaduct', id, x, GY, VIA[0], Math.floor(r() * 90));
       const w = VIADUCT[id].w;
       putNorth(base, x);
-      // Under the platforms: the canopy column at the piece's middle on the south island, and the bench beside it (build_viaduct.py platforms()).
+      // Under the platforms: the lamp rail's standard at the piece's middle on each island in use, and the bench beside it (build_viaduct.py platforms()).
       if (underPf(x)) {
-        const pf = GY + 10.1, zc = VIA[0] + 19.1;
+        const pf = GY + 10.1;
         platformPiece(b, x, base, pfCount++);
-        if (base !== 'hl8') b.block(x - 0.14, pf, zc - 0.14, x + 0.14, pf + 3.3, zc + 0.14);
-        if (base !== 'hl8') b.block(x + 1.5, pf, zc - 0.25, x + 3.1, pf + 0.45, zc + 0.25);
+        // (The south island, and the middle one, where only a wholly bare piece has no bench.)
+        for (const [zc, noBench] of [[VIA[0] + 19.1, AR_NO_BENCH], [VIA[0] + 6.9, AR_BARE]] as const) {
+          if (!AR_BARE.includes(base)) b.block(x - 0.14, pf, zc - 0.14, x + 0.14, pf + 3.3, zc + 0.14);
+          if (!noBench.includes(base)) b.block(x + 1.5, pf, zc - 0.25, x + 3.1, pf + 0.45, zc + 0.25);
+        }
       }
       if (base.startsWith('g')) {
         for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * (w / 2 - ABUT)), GY, VIA[0], Math.max(x + e * w / 2, x + e * (w / 2 - ABUT)), 8, VIA[0] + VD);
@@ -556,6 +563,18 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       }
     }
     kawaminatoStation(b, { ends: AR_PF, style: c.style });
+    // The train shed: 8 m of roof from each rib to the next, the last rib, a glazed fan closing each end.
+    // (Each piece's rib is at its west end. Those in the bridge concourse have no hangers to the wire's span; those over the stairs down from it, no span.)
+    const SHEDS: Record<number, string> = { [-16]: 'shedb8', [-8]: 'shedh8', 0: 'shedd8', 8: 'shedh8', 16: 'shedh8', 24: 'shedb8' };
+    for (let x = -AR_SHED + 4; x < AR_SHED; x += 8) b.model('viaduct', SHEDS[x] ?? 'shed8', x, GY, NEW_N, 0);
+    b.model('viaduct', 'shedx', AR_SHED, GY, NEW_N, 0);
+    // The track fans from the running pair to the two islands' four tracks (LineDef.fanAt; build_viaduct.py fan()).
+    {
+      const f = lineById('AR').fanAt!, mid = (f.near + f.far) / 2;
+      b.model('viaduct', 'fane', mid, GY, VIA[0], 0);
+      b.model('viaduct', 'fanw', -mid, GY, VIA[0], 0);
+    }
+    for (const sx of [-1, 1]) b.model('viaduct', 'shedscr', sx * (AR_SHED + 0.3), GY, NEW_N, 0);
     // Beyond the plot it runs on, drawn simply.
     // (East 300 m; west only as far as the line runs straight, where its curve to the river begins.)
     for (const sx of [-1, 1]) {
@@ -911,11 +930,19 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     // walkway under the tracks comes out behind the building; nothing else of them is entered.
     const WAY = 4, EKI_HX = KAWAEKI.main.w / 2;
     piece('kawaeki', KAWAEKI, 'main', 'n', 0, SITE_N, (m) => {
-      const D = m.d, q = m.pts, [CXP, PROJ_C, EX0, PROJ_E] = q._geo;
-      const HX = q._hall[3] / 2, HH = q._hall[4], DX = q._doors[3] / 2, BX = q._back[3] / 2;
+      const D = m.d, q = m.pts, [CXP, PROJ_C, EX0, PROJ_E, EAVE_C] = q._geo;
+      const HX = q._hall[3] / 2, DX = q._doors[3] / 2, DH = q._doors[4], BX = q._back[3] / 2, BH = q._back[4];
+      const [SX0, , SX1, SDX, SDH] = q._sth, [G1m, G2m, DZ, , GDH] = q._lv;
+      // The galleries' floors (+6.0 and +16.5), the stairs' half landing between them, the walls' top.
+      const G1 = GY + G1m, G2 = GY + G2m, GM = (G1 + G2) / 2, TOP = GY + EAVE_C + 0.8;
+      const GD = [q._gd[0], q._gd[2]], SA = q._sa, PA = [q._pa0, q._pa1];
+      const Z0 = -PROJ_C + 1, Z1 = D - 0.6, GW = 2.2;
+      const ar = stationById('kawaminato'), nm = `${ar.nameJa}駅`, nmEn = `${ar.nameRomaji} Station`;
+      /** From |x| a to |x| e on side sx, low first. */
+      const span = (sx: number, a: number, e: number): [number, number] => [Math.min(sx * a, sx * e), Math.max(sx * a, sx * e)];
       // Colliders: the wings and end pavilions, but for the ways through them where a walkway under the tracks
-      // comes out behind the building; round the hall, its walls, the door piers and the back wall.
-      const TUN = ['_tun0', '_tun1', '_tun2'].map((k) => q[k]);
+      // comes out behind the building; the pavilion's walls round the hall, the stair halls and the wings' rooms.
+      const TUN = Object.keys(q).filter((k) => k.startsWith('_tun')).map((k) => q[k]);
       const solid = (x0: number, x1: number, z0: number, z1: number) => {
         let e = x0;
         for (const t of TUN.filter((t) => t[0] > x0 && t[0] < x1 && t[2] <= z0 + 0.01).sort((u, v) => u[0] - v[0])) {
@@ -925,65 +952,420 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
         }
         b.block(e, GY, z0, x1, GY + 19, z1);
       };
+      /** A wall lo … hi thick across x (it runs along z) or across z, with openings (from, to, bottom, top) left in it. */
+      const pierced = (ax: 'x' | 'z', lo: number, hi: number, a0: number, a1: number, y0: number, y1: number, holes: number[][]) => {
+        const cuts = [...new Set([a0, a1, ...holes.flatMap((h) => [h[0], h[1]]).filter((v) => v > a0 && v < a1)])].sort((u, v) => u - v);
+        for (let i = 0; i + 1 < cuts.length; i++) {
+          const u = cuts[i], v = cuts[i + 1];
+          let e = y0;
+          for (const [h0, h1] of [...holes.filter((h) => h[0] <= u && h[1] >= v).map((h) => [h[2], h[3]]).sort((s, t) => s[0] - t[0]), [y1, y1]]) {
+            if (h0 - e > 0.01) { if (ax === 'x') b.block(lo, e, u, hi, h0, v); else b.block(u, e, lo, v, h0, hi); }
+            e = Math.max(e, h1);
+          }
+        }
+      };
       for (const t of TUN) {
         const [x0, x1, z0] = [t[0] - t[3] / 2, t[0] + t[3] / 2, t[2]];
         b.deco('floor:#c9bfae', x0, GY + 0.012, z0, x1, GY + 0.018, D);
         b.sign({ k: 'guide', ja: '駅裏通・北大通・澪屋', en: 'Ekiura-dōri / Kita-Ōdōri / Mioya', bg: 'white', arrow: 'up' }, t[0], GY + 5.55, z0 - 0.02, [0, -1], Math.min(4.2, t[3]), 0.5);
-        b.zone('passage', x0, GY - 0.2, z0, x1, GY + t[4], D, `${stationById('kawaminato').nameJa}駅 通り抜け通路`, `${stationById('kawaminato').nameRomaji} Station — way through to Ekiura-dōri`, false);
+        b.zone('passage', x0, GY - 0.2, z0, x1, GY + t[4], D, `${nm} 通り抜け通路`, `${nmEn} — way through to Ekiura-dōri`, false);
       }
+      const partHoles = [...PA.map((a) => [a[0], a[2], GY, GY + a[1] - 0.2]), [GD[0], GD[1], G1, G1 + GDH], [GD[0], GD[1], G2, G2 + GDH]];
       for (const sx of [-1, 1]) {
-        solid(Math.min(sx * HX, sx * EKI_HX), Math.max(sx * HX, sx * EKI_HX), 0, D);
-        solid(Math.min(sx * EX0, sx * EKI_HX), Math.max(sx * EX0, sx * EKI_HX), -PROJ_E, 0);
-        b.block(Math.min(sx * HX, sx * CXP), GY, -PROJ_C, Math.max(sx * HX, sx * CXP), GY + HH, 0);
-        b.block(Math.min(sx * DX, sx * CXP), GY, -PROJ_C, Math.max(sx * DX, sx * CXP), GY + HH, -PROJ_C + 1);
-        b.block(Math.min(sx * BX, sx * HX), GY, D - 0.6, Math.max(sx * BX, sx * HX), GY + HH, D);
+        const wing = span(sx, SDX, EKI_HX), end = span(sx, EX0, EKI_HX), room = span(sx, CXP, SDX);
+        solid(wing[0], wing[1], 0, D);
+        solid(end[0], end[1], -PROJ_E, 0);
+        // The wing's room: its front and back walls, and the floors over it.
+        b.block(room[0], GY, 0, room[1], GY + SDH, 0.6);
+        b.block(room[0], GY, D - 0.6, room[1], GY + SDH, D);
+        b.block(room[0], GY + SDH, 0, room[1], GY + 19, D);
+        // The pavilion: its front wall beside the doors, its flank (an arch into the wing's room), the wall
+        // between the great hall and the stair hall (two arches, a door at each gallery).
+        const front = span(sx, DX, CXP), flank = span(sx, SX1, CXP), part = span(sx, HX, SX0);
+        b.block(front[0], GY, -PROJ_C, front[1], TOP, Z0);
+        b.block(flank[0], GY, -PROJ_C, flank[1], TOP, Z0);
+        pierced('x', flank[0], flank[1], Z0, Z1, GY, TOP, [[SA[0], SA[2], GY, GY + SA[1] - 0.2]]);
+        pierced('x', part[0], part[1], Z0, Z1, GY, TOP, partHoles);
       }
-      for (const k of ['_pier0', '_pier1']) b.block(q[k][0] - q[k][3] / 2, GY, -PROJ_C, q[k][0] + q[k][3] / 2, GY + HH, -PROJ_C + 1);
-      b.block(-BX, GY + q._back[4], D - 0.6, BX, GY + HH, D);
-      // The hall: a stone floor with a border, lamps under the ceiling, the station's name and the clock outside.
+      for (const k of ['_pier0', '_pier1']) b.block(q[k][0] - q[k][3] / 2, GY, -PROJ_C, q[k][0] + q[k][3] / 2, TOP, Z0);
+      b.block(-DX, GY + DH, -PROJ_C, DX, TOP, Z0);
+      // (The back wall: the wide opening to the central passage, and over it the doorway to the bridge concourse.)
+      pierced('z', Z1, D, -CXP, CXP, GY, TOP, [[-BX, BX, GY, GY + BH], [q._up[0] - q._up[3] / 2, q._up[0] + q._up[3] / 2, G2, G2 + q._up[4]]]);
+
+      // ── The great hall: a rotunda open up into the dome (the model's), a stone floor with a paved round ──
       // (Round the well of the metro's Exit 15, which comes up in the hall's south-east corner: hub.ts exit15().)
+      const FL = 'floor:#cfc8b8', STONE = 'flat:#ddd6c6', BRASS = 'metal:#8a7a52', BAND = 'flat:#8f6a52';
       const [wx0, wx1] = EXIT15.x, wz0 = EXIT15.foot - exit15Run(cf) - SITE_N, wz1 = EXIT15.open - SITE_N;
-      for (const [x0, z0, x1, z1] of [[-HX, -PROJ_C, HX, wz0], [-HX, wz0, wx0, D], [wx1, wz0, HX, D], [wx0, wz1, wx1, D]]) b.deco('floor:#cfc8b8', x0, GY + 0.002, z0, x1, GY + 0.012, z1);
-      for (const sx of [-1, 1]) b.deco('flat:#8f6a52', Math.min(sx * (HX - 1.4), sx * (HX - 1.0)), GY + 0.012, -PROJ_C + 1, Math.max(sx * (HX - 1.4), sx * (HX - 1.0)), GY + 0.016, sx > 0 ? wz0 - 0.4 : EXIT15.lift.z - 1.15 - SITE_N - 0.4);
-      const ar = stationById('kawaminato');
-      // Its dress. Globes hung in three rows; a stone dado and a cornice band round the side walls; a paved
-      // round in the floor's middle; benches by the walls. On the west wall the departures, on the east the
-      // ticket office's windows.
-      const STONE = 'flat:#ddd6c6', Z0 = -PROJ_C + 1, Z1 = D - 0.6;
-      for (const z of [7, 14, 21]) for (const x of [-8, 0, 8]) {
-        b.deco('metal:#8a7a52', x - 0.025, GY + HH - 2.4, z - 0.025, x + 0.025, GY + HH, z + 0.025);
-        b.mesh(INDOOR_LAMP, 'sphere', x, GY + HH - 2.7, z, 0.42, 0.42, 0.42);
+      for (const [x0, z0, x1, z1] of [[-HX, -PROJ_C, HX, wz0], [-HX, wz0, wx0, D], [wx1, wz0, HX, D], [wx0, wz1, wx1, D]]) b.deco(FL, x0, GY + 0.002, z0, x1, GY + 0.012, z1);
+      for (const sx of [-1, 1]) b.deco(BAND, Math.min(sx * (HX - 1.4), sx * (HX - 1.0)), GY + 0.012, Z0, Math.max(sx * (HX - 1.4), sx * (HX - 1.0)), GY + 0.016, sx > 0 ? wz0 - 0.4 : EXIT15.lift.z - 1.15 - SITE_N - 0.4);
+      for (const [rr, mat] of [[7.2, BAND], [6.8, 'flat:#e3ddd0'], [3.2, BAND], [2.8, FL.replace('floor:', 'flat:')]] as const) {
+        for (let k = -10; k < 10; k++) {
+          const za = (k * rr) / 10, zb = ((k + 1) * rr) / 10, hw = Math.sqrt(Math.max(0, rr * rr - Math.max(za * za, zb * zb)));
+          if (hw > 0.05) b.deco(mat, -hw, GY + 0.012 + (7.3 - rr) * 0.0008, DZ + za, hw, GY + 0.014 + (7.3 - rr) * 0.0008, DZ + zb);
+        }
       }
+      // A chandelier on a long rod from the dome's eye: a brass ring of small globes round one large one.
+      {
+        const cy = GY + 11.5;
+        b.deco(BRASS, -0.03, cy, DZ - 0.03, 0.03, GY + EAVE_C + 12.5, DZ + 0.03);
+        b.mesh(INDOOR_LAMP, 'sphere', 0, cy - 0.5, DZ, 0.7, 0.7, 0.7);
+        // (Two arms and a square frame, a small globe at each end and corner.)
+        for (const [hx, hz] of [[2.6, 0.02], [0.02, 2.6]]) b.deco(BRASS, -hx, cy - 0.02, DZ - hz, hx, cy + 0.02, DZ + hz);
+        for (const s of [-1, 1]) {
+          b.deco(BRASS, -1.84, cy - 0.02, DZ + s * 1.84 - 0.02, 1.84, cy + 0.02, DZ + s * 1.84 + 0.02);
+          b.deco(BRASS, s * 1.84 - 0.02, cy - 0.02, DZ - 1.84, s * 1.84 + 0.02, cy + 0.02, DZ + 1.84);
+        }
+        for (const [x, z] of [[2.6, 0], [-2.6, 0], [0, 2.6], [0, -2.6], [1.84, 1.84], [-1.84, 1.84], [1.84, -1.84], [-1.84, -1.84]]) b.mesh('glow:#f2e3bd', 'sphere', x, cy - 0.3, DZ + z, 0.3, 0.3, 0.3);
+      }
+      // The galleries. At +6.0 a balcony along each side wall; at +16.5 a ring right round, under the dome's
+      // opening, with the doorway to the bridge concourse over the tracks in its back wall.
+      const BZ: [number, number] = [3, 17];
       for (const sx of [-1, 1]) {
-        const xw = sx * HX, xi = sx * (HX - 0.06);
-        b.deco(STONE, Math.min(xw, xi), GY, Z0, Math.max(xw, xi), GY + 1.5, Z1);
-        b.deco(STONE, Math.min(xw, sx * (HX - 0.14)), GY + 1.5, Z0, Math.max(xw, sx * (HX - 0.14)), GY + 1.66, Z1);
-        b.deco(STONE, Math.min(xw, sx * (HX - 0.2)), GY + 7.6, Z0, Math.max(xw, sx * (HX - 0.2)), GY + 8.0, Z1);
-        // (Pilasters at the bays of the ceiling's beams.)
-        for (const z of [3.5, 10.5, 17.5, 24.4]) b.deco(STONE, Math.min(xw, sx * (HX - 0.18)), GY + 1.66, z - 0.45, Math.max(xw, sx * (HX - 0.18)), GY + 7.6, z + 0.45);
-        for (const z of [7]) { // (the south corners hold the metro's Exit 15 and its lift)
-          roadModel(b, 'bench_s', sx * (HX - 0.75), GY, z, [-sx, 0]);
-          b.block(Math.min(sx * (HX - 1.05), sx * (HX - 0.45)), GY, z - 0.95, Math.max(sx * (HX - 1.05), sx * (HX - 0.45)), GY + 0.5, z + 0.95);
+        const g = span(sx, HX - GW, HX), edge = span(sx, HX - GW - 0.08, HX - GW), xw = sx * HX;
+        b.box(STONE, g[0], G1 - 0.3, BZ[0], g[1], G1, BZ[1]);
+        rail(b, edge[0], BZ[0], edge[1], BZ[1], G1);
+        for (const z of BZ) rail(b, g[0], z - 0.04, g[1], z + 0.04, G1);
+        b.box(STONE, g[0], G2 - 0.3, Z0, g[1], G2, Z1);
+        rail(b, edge[0], Z0 + GW, edge[1], Z1 - GW, G2);
+        for (const z of [6, 14]) b.mesh(INDOOR_LAMP, 'sphere', sx * (HX - GW / 2), G1 - 0.7, z, 0.34, 0.34, 0.34);
+        for (const z of [1, 12, 23]) b.mesh(INDOOR_LAMP, 'sphere', sx * (HX - GW / 2), G2 - 0.7, z, 0.34, 0.34, 0.34);
+        // A stone dado and its cap along the side walls, between the arches.
+        for (const [z0, z1] of [[Z0, PA[0][0]], [PA[0][2], PA[1][0]], [PA[1][2], Z1]]) {
+          b.deco(STONE, Math.min(xw, sx * (HX - 0.06)), GY, z0, Math.max(xw, sx * (HX - 0.06)), GY + 1.5, z1);
+          b.deco(STONE, Math.min(xw, sx * (HX - 0.14)), GY + 1.5, z0, Math.max(xw, sx * (HX - 0.14)), GY + 1.66, z1);
         }
+        // On the balcony's edge, what lies through the arches under it.
+        b.sign(sx > 0 ? { k: 'label', text: 'きっぷうりば・階段・エレベーター', sub: 'Tickets / Stairs / Lift', fg: '#3a2a20', bg: '#ddd6c6' } : { k: 'label', text: '待合室・階段・エレベーター', sub: 'Waiting Room / Stairs / Lift', fg: '#3a2a20', bg: '#ddd6c6' },
+          sx * (HX - GW - 0.1), G1 - 0.15, (PA[0][2] + PA[1][0]) / 2, [-sx, 0], 5.2, 0.3);
       }
-      for (const [rr, mat] of [[5.2, 'flat:#8f6a52'], [4.8, 'flat:#e3ddd0'], [2.2, 'flat:#8f6a52'], [1.8, 'flat:#cfc8b8']] as const) {
-        for (let k = -8; k < 8; k++) {
-          const za = (k * rr) / 8, zb = ((k + 1) * rr) / 8, hw = Math.sqrt(Math.max(0, rr * rr - Math.max(za * za, zb * zb)));
-          if (hw > 0.05) b.deco(mat, -hw, GY + 0.012 + (5.3 - rr) * 0.0008, 14 + za, hw, GY + 0.014 + (5.3 - rr) * 0.0008, 14 + zb);
-        }
+      for (const [z0, z1] of [[Z0, Z0 + GW], [Z1 - GW, Z1]]) b.box(STONE, -HX + GW, G2 - 0.3, z0, HX - GW, G2, z1);
+      rail(b, -HX + GW, Z0 + GW, HX - GW, Z0 + GW + 0.08, G2);
+      rail(b, -HX + GW, Z1 - GW - 0.08, HX - GW, Z1 - GW, G2);
+      {
+        const u = q._up;
+        // (The doorway's floor through the wall; over it, where it leads.)
+        b.box(STONE, u[0] - u[3] / 2, G2 - 0.3, Z1, u[0] + u[3] / 2, G2, D);
+        b.sign({ k: 'label', text: `橋上口　${ar.nameJa}駅 のりば`, sub: 'Bridge Gate — to the platforms, over the tracks', fg: '#ffffff', bg: '#2b2e33' }, u[0], G2 + u[4] + 0.75, Z1 - 0.03, [0, -1], 5.2, 0.7);
       }
-      b.deco('flat:#17181b', -HX + 0.06, GY + 3.0, 11.0, -HX + 0.12, GY + 5.4, 17.0);
-      b.sign({ k: 'ardep', station: ar.id, line: 'AR' }, -HX + 0.13, GY + 4.2, 14, [1, 0], 5.8, 2.1, { dynamic: true });
-      b.sign({ k: 'label', text: '発車のご案内', sub: 'Departures', fg: '#3a2a20', bg: '#ddd6c6' }, -HX + 0.02, GY + 5.9, 14, [1, 0], 4.2, 0.6);
-      for (const z of [12.3, 14, 15.7]) {
-        b.deco('metal:#8a7a52', HX - 0.2, GY + 1.0, z - 0.8, HX - 0.06, GY + 2.5, z + 0.8);
-        b.deco('glow:#f2e3bd', HX - 0.22, GY + 1.1, z - 0.7, HX - 0.2, GY + 2.4, z + 0.7);
-        b.deco(STONE, HX - 0.5, GY + 0.95, z - 0.85, HX - 0.06, GY + 1.02, z + 0.85);
-      }
-      b.sign({ k: 'label', text: 'きっぷうりば・ご案内', sub: 'Tickets and information', fg: '#3a2a20', bg: '#ddd6c6' }, HX - 0.02, GY + 5.9, 14, [-1, 0], 4.6, 0.6);
-      signAt(q.name, { k: 'label', text: `${ar.nameJa}駅`, sub: `${ar.nameRomaji} Station`, fg: '#3a2a20', bg: '#ddd6c6' });
+      // The departures, over the opening to the central passage, facing the doors.
+      b.deco('flat:#17181b', -6.2, GY + BH + 1.4, Z1 - 0.07, 6.2, GY + BH + 4.8, Z1 - 0.012);
+      b.sign({ k: 'ardep', station: ar.id, line: 'AR' }, 0, GY + BH + 3.1, Z1 - 0.08, [0, -1], 11.6, 3.0, { dynamic: true });
+      b.sign({ k: 'label', text: '発車のご案内', sub: 'Departures', fg: '#3a2a20', bg: '#ddd6c6' }, 0, GY + BH + 5.4, Z1 - 0.03, [0, -1], 5.2, 0.7);
+      signAt(q.name, { k: 'label', text: nm, sub: nmEn, fg: '#3a2a20', bg: '#ddd6c6' });
       b.sign({ k: 'clock' }, q.clock[0], q.clock[1] + GY, q.clock[2], [q.clock[5], q.clock[6]], q.clock[3], q.clock[4]);
-      b.zone('concourse', -HX, GY - 0.2, -PROJ_C + 1, HX, GY + HH, D, `${ar.nameJa}駅 大広間`, `${ar.nameRomaji} Station — Great Hall`, false);
+      b.zone('concourse', -HX, GY - 0.2, Z0, HX, G1 - 0.4, D, `${nm} 大広間`, `${nmEn} — Great Hall`, false);
+      b.zone('concourse', -HX, G2 - 0.2, Z0, HX, G2 + 4, Z1, `${nm} 大広間 3階回廊`, `${nmEn} — Great Hall, upper gallery`, false);
+
+      // ── The stair halls either side: a dogleg stair round a spine wall, a lift, doors onto the galleries;
+      //    and off each, a room in the wing: the ticket office east, the waiting room west ──
+      const STEP = 'flat:#d6cfbf';
+      /** A flight in a lane xs, from (zl, yl) up to (zh, yh). A hanging flight is drawn as a stepped slab. */
+      const flight = (xs: [number, number], zl: number, zh: number, yl: number, yh: number, hang: boolean) => {
+        const n = Math.max(2, Math.round((yh - yl) / 0.165)), dz = (zh - zl) / n, dy = (yh - yl) / n;
+        b.ramp(xs[0], Math.min(zl, zh), xs[1], Math.max(zl, zh), yl, yh, [0, Math.sign(zh - zl)]);
+        for (let i = 0; i < n; i++) {
+          const za = zl + i * dz, top = yl + (i + 1) * dy;
+          b.deco(STEP, xs[0], hang ? Math.max(yl - 0.3, top - 0.55) : yl - 0.02, Math.min(za, za + dz), xs[1], top, Math.max(za, za + dz));
+          b.deco(BRASS, xs[0], top - 0.02, Math.min(za, za + dz * 0.1), xs[1], top + 0.004, Math.max(za, za + dz * 0.1));
+        }
+      };
+      const ZA = 3, ZL = ZA + Math.round((G1 - GY) * 172) / 100, ZH = ZL - Math.round((GM - G1) * 172) / 100, LAND = 2.44, ZN = ZH - 2.03;
+      for (const sx of [-1, 1]) {
+        const all = span(sx, SX0, SX1), inner = span(sx, SX0, SX0 + 2.2), outer = span(sx, SX1 - 2.2, SX1), spine = span(sx, SX0 + 2.2, SX1 - 2.2);
+        const part = span(sx, HX, SX0), gap = span(sx, SX0, SX1 - 2 * LIFT_OUT.hw), room = span(sx, CXP, SDX);
+        b.deco(FL, Math.min(part[0], all[0]), GY + 0.002, Z0, Math.max(part[1], all[1]), GY + 0.012, Z1);
+        flight(outer, ZA, ZL, GY, G1, false);
+        flight(inner, ZL, ZH, G1, GM, true);
+        flight(outer, ZH, ZL, GM, G2, true);
+        b.box(STONE, spine[0], GY, ZH, spine[1], G2 + 1.1, ZL);
+        for (const g of [G1, G2]) {
+          b.box(STONE, all[0], g - 0.3, ZL, all[1], g, ZL + LAND);
+          b.box(STONE, part[0], g - 0.3, GD[0], part[1], g, GD[1]);
+          rail(b, gap[0], ZL + LAND - 0.08, gap[1], ZL + LAND, g);
+          b.mesh(INDOOR_LAMP, 'sphere', (all[0] + all[1]) / 2, g - 0.7, ZL + LAND / 2, 0.3, 0.3, 0.3);
+        }
+        rail(b, inner[0], ZL - 0.08, inner[1], ZL, G2);
+        b.box(STONE, all[0], GM - 0.3, ZN, all[1], GM, ZH);
+        rail(b, all[0], ZN, all[1], ZN + 0.08, GM);
+        b.mesh(INDOOR_LAMP, 'sphere', (all[0] + all[1]) / 2, GM - 0.7, (ZN + ZH) / 2, 0.3, 0.3, 0.3);
+        b.with({ t: [sx * (SX1 - LIFT_OUT.hw), 0, ZL + LAND] }, () => lift(b, { levels: [
+          { y: GY, ja: '1階 大広間', en: '1F Great Hall' }, { y: G1, ja: '2階 回廊', en: '2F Gallery' }, { y: G2, ja: '3階 回廊', en: '3F Upper gallery' },
+        ] }));
+        b.sign({ k: 'label', text: '2階・3階 回廊', sub: 'Galleries (2F, 3F) — stairs up', fg: '#3a2a20', bg: '#ddd6c6' }, sx * (SX1 - 0.03), GY + 3.0, 0.75, [-sx, 0], 2.0, 0.5);
+        b.zone('passage', span(sx, HX, CXP)[0], GY - 0.2, Z0, span(sx, HX, CXP)[1], GY + EAVE_C, Z1, `${nm} ${sx > 0 ? '東' : '西'}階段ホール`, `${nmEn} — ${sx > 0 ? 'east' : 'west'} stair hall`, false);
+        b.zone('concourse', span(sx, HX - GW, HX)[0], G1 - 0.2, BZ[0], span(sx, HX - GW, HX)[1], G1 + 3, BZ[1], `${nm} 大広間 2階回廊`, `${nmEn} — Great Hall, gallery`, false);
+        // The wing's room.
+        const flank = span(sx, SX1, CXP);
+        b.deco('floor:#c9bfae', flank[0], GY + 0.002, SA[0], flank[1], GY + 0.012, SA[2]);
+        b.deco('floor:#c9bfae', room[0], GY + 0.002, 0.6, room[1], GY + 0.012, D - 0.6);
+        for (const z of [7, 19]) b.mesh(INDOOR_LAMP, 'sphere', sx * (CXP + SDX) / 2, GY + SDH - 0.6, z, 0.36, 0.36, 0.36);
+        const xe = sx * SDX;
+        if (sx > 0) {
+          for (const z of [6.5, 9.5, 12.5, 15.5]) {
+            b.deco(BRASS, xe - 0.2, GY + 1.0, z - 0.8, xe - 0.06, GY + 2.5, z + 0.8);
+            b.deco('glow:#f2e3bd', xe - 0.22, GY + 1.1, z - 0.7, xe - 0.2, GY + 2.4, z + 0.7);
+            b.deco(STONE, xe - 0.5, GY + 0.95, z - 0.85, xe - 0.06, GY + 1.02, z + 0.85);
+          }
+          b.block(xe - 0.5, GY, 5.6, xe, GY + 1.02, 16.4);
+          // (Its header is an enamel plate now: detail pass 3 below.)
+          b.zone('concourse', flank[1], GY - 0.2, 0.6, xe, GY + SDH, D - 0.6, `${nm} きっぷうりば`, `${nmEn} — ticket office`, false);
+        } else {
+          for (const z of [5, 9, 13, 17, 21]) {
+            roadModel(b, 'bench_s', xe + 0.75, GY, z, [1, 0]);
+            b.block(xe + 0.45, GY, z - 0.95, xe + 1.05, GY + 0.5, z + 0.95);
+          }
+          b.sign({ k: 'label', text: '待合室', sub: 'Waiting Room', fg: '#3a2a20', bg: '#ddd6c6' }, xe + 0.03, GY + 3.6, 13, [1, 0], 3.2, 0.7);
+          b.zone('concourse', xe, GY - 0.2, 0.6, flank[0], GY + SDH, D - 0.6, `${nm} 待合室`, `${nmEn} — waiting room`, false);
+        }
+      }
+
+      // ═════════ Detail pass 3: the great hall dressed as a busy terminal of 1914 ═════════
+      // Enamel plates in brass frames (white on deep blue; black on cream for notices; the way out stays yellow) at
+      // every turn of the hall, its stair halls and galleries; the ticket office and the waiting room furnished; a
+      // station map by the doors. Every arrow is worked out from its plate's face and the real place of what it
+      // points to (arr()). Platform numbers, line and place names come from the data.
+      {
+        const line = lineById('AR'), up = line.beyond!.up, dn = line.beyond!.down;
+        const pfUp = platformsFor(ar, line, 'up'), pfDn = platformsFor(ar, line, 'down'), pfAll = [...pfUp, ...pfDn].sort((p, r) => p - r);
+        const pfJa = (n: number[]) => `${n.join('・')}番のりば`, pfEn = (n: number[]) => `Platforms ${n.join('·')}`;
+        const ENAMEL = '#1f3f7a', CREAM = '#efe6cf', INK = '#1b1b1b', WOOD = 'wood:#5b3a26', IRON = 'metal:#2f2a26';
+        type N2 = [number, number];
+        const EN = (text: string, sub: string): SignContent => ({ k: 'label', text, sub, fg: '#ffffff', bg: ENAMEL });
+        const CR = (text: string, sub: string): SignContent => ({ k: 'label', text, sub, fg: INK, bg: CREAM });
+        /** The arrow a reader facing a plate whose face looks along `n` sees for the way `d` (xz): ahead, behind, right or left. */
+        const arr = (n: N2, d: N2) => {
+          const r = d[0] * n[1] - d[1] * n[0], a = -(d[0] * n[0] + d[1] * n[1]);
+          return Math.abs(a) >= Math.abs(r) ? (a > 0 ? '↑' : '↓') : r > 0 ? '→' : '←';
+        };
+        const tx = (s: string, a: string) => (a === '←' ? `← ${s}` : `${s} ${a}`);
+        /** A plate flat on a wall whose face is at (x, z) and looks along `n`: a brass frame 0.02 proud, the enamel on it. */
+        const plate = (ct: SignContent, x: number, y: number, z: number, n: N2, w: number, h: number, o?: SignOpts) => {
+          const ax = Math.abs(n[1]) * (w / 2 + 0.04), az = Math.abs(n[0]) * (w / 2 + 0.04);
+          b.deco(BRASS, Math.min(x, x + n[0] * 0.02) - ax, y - h / 2 - 0.04, Math.min(z, z + n[1] * 0.02) - az, Math.max(x, x + n[0] * 0.02) + ax, y + h / 2 + 0.04, Math.max(z, z + n[1] * 0.02) + az);
+          b.sign(ct, x + n[0] * 0.025, y, z + n[1] * 0.025, n, w, h, o);
+        };
+        /** A double-sided plate on two brass rods hung from `top`: face A looks along `n`, face B the other way. */
+        const hung = (fa: SignContent, fb: SignContent, x: number, y: number, z: number, n: N2, w: number, h: number, top: number) => {
+          const t: N2 = [Math.abs(n[1]), Math.abs(n[0])];
+          const ax = t[0] * (w / 2 + 0.04) + Math.abs(n[0]) * 0.03, az = t[1] * (w / 2 + 0.04) + Math.abs(n[1]) * 0.03;
+          b.deco(BRASS, x - ax, y - h / 2 - 0.04, z - az, x + ax, y + h / 2 + 0.04, z + az);
+          b.sign(fa, x + n[0] * 0.035, y, z + n[1] * 0.035, n, w, h);
+          b.sign(fb, x - n[0] * 0.035, y, z - n[1] * 0.035, [-n[0], -n[1]], w, h);
+          for (const s of [-1, 1]) {
+            const rx = x + t[0] * s * (w / 2 - 0.25), rz = z + t[1] * s * (w / 2 - 0.25);
+            b.deco(BRASS, rx - 0.015, y + h / 2 + 0.04, rz - 0.015, rx + 0.015, top, rz + 0.015);
+          }
+        };
+        const LIFT_Z = ZL + LAND, GDZ = (GD[0] + GD[1]) / 2, CEIL = GY + EAVE_C;
+
+        // ── The rotunda ──
+        // Over the mouth of the central passage (the back wall between its stone lintel and the departures): where it leads.
+        plate(EN(tx(`中央通路　北栄口・中央口（${pfAll.join('・')}番のりば）・駅裏通`, arr([0, -1], [0, 1])), `Central Passage — Hokuei and Central Gates (${line.nameEn}, ${pfEn(pfAll)}) / Ekiura-dōri`),
+          0, GY + BH + 0.88, Z1 - 0.01, [0, -1], 15.6, 0.8);
+        // A clock facing the doors, over the departures' header and under the upper gallery.
+        b.deco(BRASS, -0.85, GY + 14.1, Z1 - 0.03, 0.85, GY + 15.7, Z1 - 0.01);
+        b.sign({ k: 'clock' }, 0, GY + 14.9, Z1 - 0.035, [0, -1], 1.5, 1.5);
+        // Over the middle door, inside: the way out (yellow).
+        plate({ k: 'label', text: tx('出口　駅前広場・バス・タクシー', arr([0, 1], [0, -1])), sub: 'Way out — Station Square / Buses / Taxis', fg: '#1b1f24', bg: '#ffd100' },
+          0, GY + DH + 1.65, Z0 + 0.01, [0, 1], 7.6, 0.8);
+        // West of the doors (the front wall's inner face, over its granite plinth): two notices.
+        plate(CR('お忘れ物のお問い合わせは きっぷうりばへ', 'Lost property — please ask at the Ticket Office'), -(DX + HX) / 2, GY + 2.2, Z0 + 0.01, [0, 1], 3.0, 0.5);
+        plate(CR('構内禁煙', 'No smoking in the station'), -(DX + HX) / 2, GY + 1.5, Z0 + 0.01, [0, 1], 1.4, 0.36);
+        for (const sx of [-1, 1] as const) {
+          const n: N2 = [-sx, 0], into: N2 = [sx, 0], east = sx > 0;
+          // Under the gallery, before each arch into the stair hall: what lies through it; on the back, the way into the hall.
+          const back = EN(tx('大広間　駅前広場・中央通路', arr([sx, 0], [-sx, 0])), 'Great Hall — Station Square / Central Passage');
+          hung(EN(tx('階段　2階 回廊・3階 橋上口', arr(n, into)), 'Stairs — 2F Gallery / 3F Bridge Gate, to the platforms'), back, sx * (HX - 1.0), GY + 3.2, 4.4, n, 2.2, 0.42, G1 - 0.3);
+          hung(EN(tx(east ? 'きっぷうりば・エレベーター' : '待合室・エレベーター', arr(n, into)), east ? 'Ticket Office / Lift' : 'Waiting Room / Lift'), back, sx * (HX - 1.0), GY + 3.2, (PA[1][0] + PA[1][2]) / 2, n, 2.8, 0.42, G1 - 0.3);
+          // On the gallery's edge, beside the old plate: the Bridge Gate is up through these arches.
+          plate(EN(tx(`3階 橋上口　${pfJa(pfAll)}`, arr(n, into)), 'Bridge Gate (3F), to the platforms — stairs and lift through the arches'), sx * (HX - GW), G1 - 0.15, 13.0, n, 4.6, 0.22);
+          // The 2F gallery: its name on the wall, the door to the stair hall signed over it.
+          plate(EN('2階　回廊', '2F — Gallery'), sx * (HX - 0.01), G1 + 1.7, 4.6, n, 1.6, 0.42);
+          plate(EN(tx('階段・エレベーター　3階 橋上口・1階', arr(n, into)), 'Stairs and lift — 3F Bridge Gate / 1F'), sx * (HX - 0.01), G1 + 2.85, GDZ, n, 1.7, 0.42);
+          // The 3F gallery: before its door, hung from the ceiling, the way to the Bridge Gate (south along the gallery).
+          hung(EN(tx(`3階　橋上口　${pfJa(pfAll)}`, arr(into, [0, 1])), `3F — Bridge Gate, to ${pfEn(pfAll)}`),
+            EN(tx('階段・エレベーター　2階・1階', arr(n, into)), 'Stairs and lift — 2F / 1F'), sx * (HX - 1.6), G2 + 3.0, GDZ, into, 2.4, 0.44, CEIL);
+          // Where the side gallery meets the back one: the Bridge Gate along it.
+          plate(EN(tx(`橋上口　${pfJa(pfAll)}`, arr([0, -1], [-sx, 0])), 'Bridge Gate — to the platforms'), sx * 10.0, G2 + 1.75, Z1 - 0.01, [0, -1], 2.6, 0.42);
+          // Either side of the Bridge Gate: which island is which.
+          const pf = east ? pfDn : pfUp, to = east ? dn : up;
+          plate(EN(tx(`${pfJa(pf)}　${to.nameJa}方面`, arr([0, -1], [-sx, 0])), `${pfEn(pf)} for ${to.nameRomaji} — through the Bridge Gate`), sx * 5.0, G2 + 1.75, Z1 - 0.01, [0, -1], 3.0, 0.46);
+        }
+
+        // ── The stair halls: plates at every foot and head, the floor's number over each gallery door ──
+        for (const sx of [-1, 1] as const) {
+          const east = sx > 0, nOut: N2 = [-sx, 0], nPart: N2 = [sx, 0], xo = sx * (SX1 - 0.01), xp = sx * (SX0 + 0.01), xs = sx * (SX0 + 2.2);
+          // 1F, at the stair's foot (the outer wall, under the old plate): the flight climbs south.
+          plate(EN(tx('階段　2階 回廊・3階 橋上口', arr(nOut, [0, 1])), 'Stairs — 2F Gallery / 3F Bridge Gate'), xo, GY + 2.25, 0.75, nOut, 2.0, 0.38);
+          // 1F, on the spine wall facing the arches: the lift and the side room south, the stair's foot north.
+          plate(EN(tx(east ? 'エレベーター・きっぷうりば' : 'エレベーター・待合室', arr(nOut, [0, 1])), east ? 'Lift / Ticket Office' : 'Lift / Waiting Room'), xs, GY + 2.9, 8.5, nOut, 2.4, 0.38);
+          plate(EN(tx('階段　2階 回廊・3階 橋上口', arr(nOut, [0, -1])), 'Stairs — 2F Gallery / 3F Bridge Gate'), xs, GY + 2.4, 8.5, nOut, 2.4, 0.38);
+          // 1F, on the pier between the arches (stair-hall side): the floor's plate.
+          plate(EN('1階　大広間', '1F — Great Hall: Station Square doors / Central Passage'), xp, GY + 3.0, (PA[0][2] + PA[1][0]) / 2, nPart, 1.2, 0.42);
+          // 1F, over the arch into the wing's room.
+          plate(EN(east ? 'きっぷうりば' : '待合室', east ? 'Ticket Office' : 'Waiting Room'), xo, GY + 5.8, (SA[0] + SA[2]) / 2, nOut, 3.0, 0.5);
+          // 2F landing: the floor's plate over the gallery door; on the lift's face the way on up (the inner flight, at
+          // the landing's far side); on the outer wall the way down (the outer flight, back north).
+          plate(EN('2階　回廊', '2F — Gallery of the Great Hall'), xp, G1 + 2.85, GDZ, nPart, 1.9, 0.44);
+          plate(EN(tx('階段　3階 回廊・橋上口', arr([0, -1], [-sx, 0])), 'Stairs up — 3F Upper gallery / Bridge Gate'), sx * (SX1 - LIFT_OUT.hw), G1 + 2.83, LIFT_Z, [0, -1], 2.1, 0.36);
+          plate(EN(tx('階段　1階 大広間・出口', arr(nOut, [0, -1])), 'Stairs down — 1F Great Hall / Way out'), xo, G1 + 1.9, (ZL + LIFT_Z) / 2, nOut, 2.0, 0.38);
+          // The half landing: both flights leave it southwards, the outer one up, the inner one down.
+          plate(EN(tx('上り　3階 回廊・橋上口', arr(nOut, [0, 1])), 'Up — 3F Upper gallery / Bridge Gate'), xo, GM + 1.97, (ZN + ZH) / 2, nOut, 1.8, 0.38);
+          plate(EN(tx('下り　2階 回廊・1階 大広間', arr(nOut, [0, 1])), 'Down — 2F Gallery / 1F Great Hall'), xo, GM + 1.5, (ZN + ZH) / 2, nOut, 1.8, 0.38);
+          // 3F landing: the floor's plate over the gallery door; hung over the landing, the way to it (west of the landing
+          // in the east hall) for those coming up the stair (face south) and out of the lift (face north, the stair down ahead).
+          plate(EN('3階　回廊・橋上口', '3F — Upper gallery: Bridge Gate to the platforms'), xp, G2 + 2.85, GDZ, nPart, 1.9, 0.44);
+          hung(EN(tx('3階 回廊・橋上口', arr([0, -1], [-sx, 0])), 'Upper gallery — Bridge Gate, to the platforms'),
+            EN(`${tx('橋上口', arr([0, 1], [-sx, 0]))}　階段 2階・1階 ${arr([0, 1], [0, -1])}`, 'Bridge Gate / Stairs down to 2F and 1F'),
+            sx * (SX0 + SX1) / 2, G2 + 3.15, (ZL + LIFT_Z) / 2, [0, -1], 3.4, 0.46, CEIL - 0.08);
+        }
+
+        // ── The station map by the doors: the ground floor drawn from the plan above, north up (the reader faces north), 1 : 22 ──
+        {
+          const cx = (DX + HX) / 2, zw = Z0 + 0.01, s = 0.045, yc = GY + 1.9, zc = (D - PROJ_C) / 2;
+          const MX = (x: number) => cx + x * s, MY = (z: number) => yc + (zc - z) * s;
+          b.deco(BRASS, cx - 1.6, GY + 0.95, zw, cx + 1.6, GY + 2.85, zw + 0.02);
+          b.deco(`flat:${CREAM}`, cx - 1.55, GY + 1.0, zw + 0.02, cx + 1.55, GY + 2.8, zw + 0.025);
+          const rect = (col: string, x0: number, z0: number, x1: number, z1: number, layer: number) =>
+            b.deco(`flat:${col}`, MX(Math.min(x0, x1)), MY(Math.max(z0, z1)), zw + 0.025 + 0.002 * layer, MX(Math.max(x0, x1)), MY(Math.min(z0, z1)), zw + 0.027 + 0.002 * layer);
+          const HALL = '#f6f0e0', STAIR = '#9a8f7c', LIFTC = '#6a4c9c';
+          rect('#5a4636', -SDX, -PROJ_C, SDX, D, 0);
+          rect(HALL, -HX, Z0, HX, Z1, 1);
+          rect(HALL, -BX, Z1, BX, D, 1);
+          const p0 = q._pier0[0] + q._pier0[3] / 2, p1 = q._pier1[0] - q._pier1[3] / 2;
+          for (const [a, e] of [[-DX, p0 - q._pier0[3]], [p0, p1], [p1 + q._pier1[3], DX]]) rect(HALL, a, -PROJ_C, e, Z0, 1);
+          for (const sx of [-1, 1]) {
+            const sh = span(sx, SX0, SX1), rm = span(sx, CXP, SDX), pt = span(sx, HX, SX0), fl = span(sx, SX1, CXP), roomCol = sx > 0 ? '#d3deea' : '#dbe6cf';
+            rect('#ece4d2', sh[0], Z0, sh[1], Z1, 1);
+            rect(roomCol, rm[0], 0.6, rm[1], D - 0.6, 1);
+            for (const a of PA) rect('#ece4d2', pt[0], a[0], pt[1], a[2], 1);
+            rect(roomCol, fl[0], SA[0], fl[1], SA[2], 1);
+            const fo = span(sx, SX1 - 2.2, SX1), lf = span(sx, SX1 - 2 * LIFT_OUT.hw, SX1);
+            rect(STAIR, fo[0], ZA, fo[1], ZL, 2);
+            rect(LIFTC, lf[0], LIFT_Z, lf[1], LIFT_Z + LIFT_OUT.d, 2);
+          }
+          rect('#6b4a34', SDX - 0.5, 5.6, SDX, 16.4, 2);
+          rect('#2b2e33', 22.7, D - 1.21, 27.3, D - 0.61, 2);
+          for (const zb of [5.5, 9.0, 12.5, 16.0]) rect('#8a6a4a', -25.6, zb - 0.06, -21.4, zb + 0.48, 2);
+          rect('#ffd100', wx0, wz0, wx1, wz1, 2);
+          const lz = EXIT15.lift.z - SITE_N;
+          rect(LIFTC, EXIT15.lift.x[0], lz - LIFT_OUT.hw, EXIT15.lift.x[1], lz + LIFT_OUT.hw, 2);
+          rect('#d32f2f', cx - 0.4, Z0 + 0.3, cx + 0.4, Z0 + 1.1, 3);
+          const tag = (ja: string, en: string, x: number, z: number, w: number, bg = HALL) =>
+            b.sign({ k: 'label', text: ja, sub: en, fg: INK, bg }, MX(x), MY(z), zw + 0.04, [0, 1], w, 0.09);
+          tag('大広間', 'Great Hall', 0, 9, 0.42);
+          tag('出口 駅前広場', 'Exit — Station Square', 0, 1.2, 0.5);
+          tag('中央通路・のりば', 'Central Passage / Platforms', 0, 23.6, 0.52);
+          tag('きっぷうりば', 'Ticket Office', 23.4, 20.5, 0.38, '#d3deea');
+          tag('待合室', 'Waiting Room', -23.5, 20.5, 0.38, '#dbe6cf');
+          b.sign(EN(`構内図　${nm} 1階`, `Station map — ${nmEn}, ground floor`), cx, GY + 2.68, zw + 0.03, [0, 1], 3.0, 0.18);
+          const key: [string, string, string][] = [
+            [LIFTC, 'エレベーター', 'Lifts'], [STAIR, '階段 2階・3階（橋上口）', 'Stairs to 2F / 3F Bridge Gate'],
+            ['#ffd100', `15番出口 地下鉄 ${st.nameJa}駅`, `Exit 15 — Metro ${st.nameRomaji} Sta.`], ['#d32f2f', '現在地', 'You are here'],
+          ];
+          key.forEach(([col, ja, en], i) => {
+            const x0 = cx - 1.48 + i * 0.75;
+            b.deco(`flat:${col}`, x0, GY + 1.08, zw + 0.027, x0 + 0.08, GY + 1.16, zw + 0.03);
+            b.sign({ k: 'label', text: ja, sub: en, fg: INK, bg: CREAM }, x0 + 0.38, GY + 1.12, zw + 0.035, [0, 1], 0.58, 0.14);
+          });
+        }
+
+        // ── The ticket office (the east room): one counter of four windows, a brass queue rail, the AR's route map ──
+        {
+          const xw = SDX - 0.01, n: N2 = [-1, 0], WIN = [6.5, 9.5, 12.5, 15.5];
+          // The counter's timber front under one stone top (filling between the windows' sills), timber panels between
+          // the windows' brass frames, a fascia over them with each window's number.
+          b.deco(WOOD, SDX - 0.47, GY, 5.62, SDX - 0.06, GY + 0.95, 16.38);
+          b.deco(IRON, SDX - 0.48, GY, 5.6, SDX - 0.06, GY + 0.12, 16.4);
+          for (let i = 0; i + 1 < WIN.length; i++) b.deco(STONE, SDX - 0.5, GY + 0.95, WIN[i] + 0.85, SDX - 0.06, GY + 1.02, WIN[i + 1] - 0.85);
+          for (const [z0, z1] of [[5.6, WIN[0] - 0.8], ...WIN.slice(0, -1).map((z, i) => [z + 0.8, WIN[i + 1] - 0.8]), [WIN[3] + 0.8, 16.4]]) b.deco(WOOD, SDX - 0.2, GY + 1.02, z0, SDX - 0.015, GY + 2.5, z1);
+          b.deco(WOOD, SDX - 0.22, GY + 2.5, 5.6, SDX - 0.015, GY + 2.9, 16.4);
+          WIN.forEach((z, i) => plate(CR(`${i + 1}番窓口`, `Window ${i + 1}`), SDX - 0.22, GY + 2.7, z, n, 0.9, 0.26));
+          plate(EN('きっぷうりば', 'Tickets'), xw, GY + 3.45, 11, n, 4.0, 0.6);
+          // The route map over it: the line's stops in order, the places beyond its ends, the Rapid's stops marked.
+          const order: { ja: string; en: string; id?: string }[] = [
+            { ja: `${up.nameJa}方面`, en: `for ${up.nameRomaji}` },
+            ...line.stops.map((id) => ({ ja: stationById(id).nameJa, en: stationById(id).nameRomaji, id })),
+            { ja: `${dn.nameJa}方面`, en: `for ${dn.nameRomaji}` },
+          ];
+          const zA = 6.7, zB = 15.3, yl = GY + 4.95, step = (zB - zA) / (order.length - 1);
+          b.deco(`flat:${ENAMEL}`, SDX - 0.05, GY + 4.0, 6.0, xw, GY + 5.95, 16.0);
+          b.deco(`flat:${CREAM}`, SDX - 0.06, GY + 4.05, 6.05, SDX - 0.05, GY + 5.62, 15.95);
+          b.sign(EN(`${line.nameJa}　路線図`, `${line.nameEn} — route map`), SDX - 0.055, GY + 5.79, 11, n, 4.4, 0.3);
+          const xm = SDX - 0.063;
+          b.deco(`flat:${line.color}`, xm - 0.003, yl - 0.035, zA + step, xm, yl + 0.035, zB - step);
+          for (const k of [0, 1]) for (let j = 0; j < 3; j++) {
+            const za = k ? zB - step + 0.12 + j * 0.36 : zA + 0.12 + j * 0.36;
+            b.deco(`flat:${line.color}`, xm - 0.003, yl - 0.035, za, xm, yl + 0.035, za + 0.2);
+          }
+          const rapid = line.services?.find((v) => v.skips.length), local = line.services?.find((v) => !v.skips.length);
+          order.forEach((o, i) => {
+            const z = zA + i * step, here = o.id === ar.id;
+            if (o.id) {
+              const r = here ? 0.11 : 0.08;
+              b.deco(here ? 'flat:#c0392b' : 'flat:#ffffff', xm - 0.006, yl - r, z - r, xm - 0.003, yl + r, z + r);
+              if (rapid && !rapid.skips.includes(o.id)) b.deco(`flat:${rapid.color}`, xm - 0.006, yl + 0.17, z - 0.05, xm - 0.003, yl + 0.27, z + 0.05);
+            }
+            b.sign({ k: 'label', text: o.ja, sub: o.en, fg: here ? '#c0392b' : INK, bg: CREAM }, xm - 0.008, yl - 0.36, z, n, 1.12, 0.34);
+          });
+          if (rapid) {
+            b.deco(`flat:${rapid.color}`, xm - 0.006, GY + 4.24, 6.5, xm - 0.003, GY + 4.34, 6.6);
+            b.sign({ k: 'label', text: `${rapid.nameJa} 停車駅`, sub: `${rapid.nameEn} stops`, fg: INK, bg: CREAM }, xm - 0.008, GY + 4.29, 7.35, n, 1.3, 0.2);
+          }
+          if (local) b.sign({ k: 'label', text: `${local.nameJa}は 各駅に停車`, sub: `${local.nameEn} trains stop at every station`, fg: INK, bg: CREAM }, xm - 0.008, GY + 4.29, 9.4, n, 2.0, 0.2);
+          b.deco('flat:#c0392b', xm - 0.006, GY + 4.24, 14.0, xm - 0.003, GY + 4.34, 14.1);
+          b.sign({ k: 'label', text: '当駅', sub: 'This station', fg: INK, bg: CREAM }, xm - 0.008, GY + 4.29, 14.6, n, 0.8, 0.2);
+          // A brass queue rail 2.35 m out from the counter, open at both ends; the queue's plate at its south end.
+          const QX = 25.6, QZ: [number, number] = [5.0, 17.0];
+          b.block(QX - 0.05, GY, QZ[0], QX + 0.05, GY + 1.0, QZ[1]);
+          for (let z = QZ[0]; z <= QZ[1] + 0.01; z += 2) {
+            b.deco(BRASS, QX - 0.025, GY, z - 0.025, QX + 0.025, GY + (z > QZ[1] - 0.01 ? 1.72 : 1.0), z + 0.025);
+            b.deco(IRON, QX - 0.12, GY, z - 0.12, QX + 0.12, GY + 0.03, z + 0.12);
+          }
+          for (const y of [0.48, 0.93]) b.deco(BRASS, QX - 0.015, GY + y, QZ[0], QX + 0.015, GY + y + 0.04, QZ[1]);
+          b.block(QX - 0.7, GY, QZ[1] - 0.03, QX, GY + 1.72, QZ[1] + 0.03);
+          b.deco(BRASS, QX - 0.68, GY + 1.27, QZ[1] - 0.02, QX - 0.025, GY + 1.67, QZ[1] + 0.02);
+          b.sign(CR('こちらにお並びください', 'Please queue here'), QX - 0.35, GY + 1.47, QZ[1] + 0.025, [0, 1], 0.6, 0.34);
+          // Ticket machines against the back wall (no fare chart: the metro's network is another railway's), signed over.
+          b.with({ rot: 2, t: [25.0, 0, D - 0.61] }, () => ticketMachines({ ...c, line, station: ar }, GY, -2.1, 0, 4, false));
+          plate(EN('券売機', 'Ticket machines'), 25.0, GY + 2.45, D - 0.61, [0, -1], 2.0, 0.36);
+        }
+
+        // ── The waiting room (the west room): rows of timber benches facing the departures, a clock, posters, notices ──
+        {
+          /** A timber bench with a back on cast-iron standards, x0 … x1 long, its back at z `zb`, facing south (+z). */
+          const pew = (x0: number, x1: number, zb: number) => {
+            b.block(x0, GY, zb - 0.06, x1, GY + 0.92, zb + 0.48);
+            b.deco(WOOD, x0, GY + 0.42, zb, x1, GY + 0.47, zb + 0.48);
+            b.deco(WOOD, x0, GY + 0.52, zb - 0.06, x1, GY + 0.92, zb);
+            for (const f of [0, 1 / 3, 2 / 3, 1]) {
+              const x = x0 + 0.06 + (x1 - x0 - 0.12) * f;
+              b.deco(IRON, x - 0.03, GY, zb - 0.02, x + 0.03, GY + 0.42, zb + 0.44);
+              b.deco(IRON, x - 0.03, GY + 0.42, zb - 0.05, x + 0.03, GY + 0.92, zb - 0.01);
+            }
+          };
+          for (const zb of [5.5, 9.0, 12.5, 16.0]) pew(-25.6, -21.4, zb);
+          // The departures on the back wall in a timber frame, its enamel header over it.
+          b.deco(WOOD, -25.45, GY + 2.35, D - 0.65, -21.55, GY + 4.05, D - 0.61);
+          b.sign({ k: 'ardep', station: ar.id, line: 'AR' }, -23.5, GY + 3.2, D - 0.655, [0, -1], 3.7, 1.5, { dynamic: true });
+          plate(EN('発車のご案内', 'Departures'), -23.5, GY + 4.45, D - 0.61, [0, -1], 2.4, 0.4);
+          // A clock on the end wall, over the room's name.
+          b.deco(BRASS, -SDX + 0.01, GY + 4.45, 12.4, -SDX + 0.03, GY + 5.65, 13.6);
+          b.sign({ k: 'clock' }, -SDX + 0.035, GY + 5.05, 13, [1, 0], 1.1, 1.1);
+          // Posters: two on the back wall, one on the front wall between the windows.
+          for (const [x, v] of [[-27.3, 2], [-20.4, 7]]) {
+            b.deco(BRASS, x - 0.44, GY + 1.16, D - 0.63, x + 0.44, GY + 2.36, D - 0.61);
+            b.sign({ k: 'poster', v }, x, GY + 1.76, D - 0.635, [0, -1], 0.8, 1.12);
+          }
+          b.deco(BRASS, -23.86, GY + 1.06, 0.61, -22.98, GY + 2.26, 0.63);
+          b.sign({ k: 'poster', v: 4 }, -23.42, GY + 1.66, 0.635, [0, 1], 0.8, 1.12);
+          // Notices on the flank wall's room side.
+          const xf = -CXP - 0.01, nf: N2 = [-1, 0];
+          plate(CR('きっぷうりばは 大広間の東側です', 'The Ticket Office is on the east side of the Great Hall'), xf, GY + 1.9, 5.0, nf, 2.6, 0.4);
+          plate(CR('禁煙', 'No smoking'), xf, GY + 1.9, 9.0, nf, 1.0, 0.36);
+          plate(CR('お忘れ物のないよう ご注意ください', 'Please take all your belongings with you'), xf, GY + 1.9, 13.5, nf, 2.4, 0.4);
+        }
+      }
     }, false);
     reserved.push([bx0, SITE_N - 3, bx1, NEW_N]);
     // The station square. Before the building a paved forecourt, banded, the whole block wide; north of it the
@@ -992,7 +1374,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     const midX: [number, number] = [LOOP.bus[0] + LOOP.hw, LOOP.taxi[1] - LOOP.hw];
     b.deco(PAVE, bx0, GY + 0.002, LOOP.z1, bx1, GY + 0.01, SITE_N);
     for (const [a, e] of [[bx0, LOOP.bus[1] - LOOP.hw], midX, [LOOP.taxi[0] + LOOP.hw, bx1]]) b.deco(PAVE, a, GY + 0.002, SQ_N, e, GY + 0.01, LOOP.z1);
-    for (let x = bx0 + 6; x < bx1 - 2; x += 12) b.deco(BAND, x, GY + 0.01, LOOP.z1 + 1, x + 0.5, GY + 0.014, SITE_N - (Math.abs(x) < 14 ? 2.5 : 1));
+    for (let x = bx0 + 6; x < bx1 - 2; x += 12) b.deco(BAND, x, GY + 0.01, LOOP.z1 + 1, x + 0.5, GY + 0.014, SITE_N - (Math.abs(x) < 19 ? 2.5 : 1));
     b.deco(BAND, bx0 + 1, GY + 0.01, LOOP.z1 + 0.5, bx1 - 1, GY + 0.014, LOOP.z1 + 1);
     b.deco('flat:#d8d2c4', -WAY, GY + 0.01, SQ_N, WAY, GY + 0.016, SITE_N - 2.5);
     // Lamps: two rows across the forecourt, a pair every 12 m down the axis walk.

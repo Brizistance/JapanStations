@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Vector3 } from 'three';
-import { LINES, alongPolyline, destinationOf, diagramRuns, diagramSegment, isUnbuilt, lineById, linesAt, stationById } from '../data/network';
+import { LINES, alongPolyline, destinationOf, diagramRuns, diagramSegment, isUnbuilt, lineById, linesAt, platformFor, stationById } from '../data/network';
 import type { LineDef, StationDef } from '../data/types';
 import { player, where } from '../player/player';
 import { clock, formatClock } from '../sim';
@@ -32,7 +32,7 @@ export function guideStep(): Step | null {
   return memo.step;
 }
 
-export const platformOf = (leg: Extract<Leg, { kind: 'ride' }>) => stationById(leg.from).platforms[leg.line.id][leg.dir === 'down' ? 0 : 1];
+export const platformOf = (leg: Extract<Leg, { kind: 'ride' }>) => platformFor(stationById(leg.from), leg.line, leg.dir, leg.service?.id);
 
 /** What the player has really done since guidance began, for the summary on arriving. */
 const trip = { to: null as string | null, t0: 0, from: '', lines: [] as string[] };

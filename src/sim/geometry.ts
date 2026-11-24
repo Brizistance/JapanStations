@@ -88,7 +88,11 @@ export class LineGeom {
     for (const q of def.profile ?? []) this.profile.push({ s: this.path.project(q.at[0], q.at[1]).s, y: q.y, flat: 40 });
     this.profile.sort((a, b) => a.s - b.s);
     this.stackS = (def.stackAt ?? []).map((id) => this.stopS[def.stops.indexOf(id)]);
+    this.fanS = def.fanAt ? this.stopS[def.stops.indexOf(def.fanAt.station)] : NaN;
   }
+
+  /** Chainage of the station whose tracks are paired by direction (LineDef.fanAt). */
+  readonly fanS: number;
 
   /** Chainages of the stacked stations (LineDef.stackAt). */
   readonly stackS: number[];
@@ -124,13 +128,23 @@ export class LineGeom {
     return P[i].y + (P[i + 1].y - P[i].y) * smooth((s - a) / (b - a));
   }
 
-  /** Signed lateral offset (+ = right of increasing chainage) of a track at chainage s. */
-  lateral(track: Track, s: number): number {
+  /**
+   * Signed lateral offset (+ = right of increasing chainage) of a track at chainage s. `service`: the train's
+   * service type, which decides its track at a station with LineDef.fanAt (the first type's when not given).
+   */
+  lateral(track: Track, s: number, service?: string): number {
     const L = this.def.trackOffset;
     switch (track) {
       case 'down':
       case 'up': {
         const base = track === 'down' ? -L : L;
+        const fan = this.def.fanAt;
+        if (fan) {
+          const d = Math.abs(s - this.fanS);
+          if (d >= fan.far) return base;
+          const at = (fan.lateral[service ?? ''] ?? Object.values(fan.lateral)[0])[track];
+          return at + (base - at) * smooth((d - fan.near) / (fan.far - fan.near));
+        }
         if (!this.stackS.length) return base;
         return base + (STACK_LATERAL - base) * this.stacked(s, STACK_LAT_FAR);
       }
@@ -154,8 +168,8 @@ export class LineGeom {
     return out;
   }
 
-  trackPoint(track: Track, s: number, out?: Vec3Like): Vec3Like {
-    const p = this.point(s, this.lateral(track, s), out);
+  trackPoint(track: Track, s: number, out?: Vec3Like, service?: string): Vec3Like {
+    const p = this.point(s, this.lateral(track, s, service), out);
     p.y += this.dy(track, s);
     return p;
   }
@@ -168,6 +182,14 @@ export class LineGeom {
 
   /** Which side of a train the platform is on, as a sign along local +z. */
   doorSide(trackLateral: number, s = NaN): 1 | -1 {
+    const fan = this.def.fanAt;
+    if (fan && Math.abs(s - this.fanS) < fan.near) {
+      // Each direction's island lies between its service types' tracks.
+      for (const dir of ['down', 'up'] as const) {
+        const at = Object.values(fan.lateral).map((l) => l[dir]);
+        if (at.some((v) => Math.abs(v - trackLateral) < 0.5)) return trackLateral < at.reduce((p, q) => p + q, 0) / at.length ? 1 : -1;
+      }
+    }
     const side = trackLateral < 0 ? -1 : 1;
     let type = this.def.platformType;
     if (this.def.sideAt && Number.isFinite(s)) {

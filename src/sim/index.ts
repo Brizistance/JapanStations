@@ -20,16 +20,16 @@ const mod = (a: number, m: number) => ((a % m) + m) % m;
  * half a host headway after a host train. Its headway must be a whole number of host headways,
  * so the gap is the same for every train.
  */
-function phasedTimetable(geom: LineGeom, host: LineSim, from: string, to: string, skip?: string[]): Timetable {
+function phasedTimetable(geom: LineGeom, host: LineSim, from: string, to: string, skip?: string[], service?: string): Timetable {
   const hS = host.tt.headway;
   if (geom.def.service.headwayS % hS !== 0) throw new Error(`${geom.def.id}: headway must be a multiple of ${host.geom.def.id}'s`);
   const at = (l: LineGeom, id: string) => l.def.stops.indexOf(id);
   const dep = (tt: Timetable, stop: number, dir: 'down' | 'up') => tt.departures.get(`${stop}:${dir}`)!.dep + tt.offset;
   // Down times don't depend on the layover split; up times move one-for-one with padEnd.
-  const base = buildTimetable(geom, { skip, padEnd: { mod: hS, residue: 0 } });
+  const base = buildTimetable(geom, { skip, service, padEnd: { mod: hS, residue: 0 } });
   const offset = mod(dep(host.tt, at(host.geom, from), 'down') + hS / 2 - dep(base, at(geom, from), 'down'), hS);
   const residue = dep(host.tt, at(host.geom, to), 'up') + hS / 2 - offset - dep(base, at(geom, to), 'up');
-  return buildTimetable(geom, { skip, offset, padEnd: { mod: hS, residue } });
+  return buildTimetable(geom, { skip, service, offset, padEnd: { mod: hS, residue } });
 }
 
 /** A line that runs on another line's track (`shares`): phased into the gaps of that line's trains. */
@@ -51,9 +51,9 @@ for (const def of LINES) {
 export const RAIL_NET: LineSim[] = RAIL_LINES.map((def) => {
   const geom = new LineGeom(def);
   const types = def.services ?? [];
-  const sim: LineSim = { geom, tt: buildTimetable(geom, { skip: types[0]?.skips }) };
+  const sim: LineSim = { geom, tt: buildTimetable(geom, { skip: types[0]?.skips, service: types[0]?.id }) };
   const meet = def.servicesMeetAt ?? def.stops[0];
-  sim.services = types.map((type, i) => ({ type, tt: i === 0 ? sim.tt : phasedTimetable(geom, sim, meet, meet, type.skips) }));
+  sim.services = types.map((type, i) => ({ type, tt: i === 0 ? sim.tt : phasedTimetable(geom, sim, meet, meet, type.skips, type.id) }));
   return sim;
 });
 
@@ -116,8 +116,8 @@ const a = { x: 0, y: 0, z: 0 }, b = { x: 0, y: 0, z: 0 };
 export function carPose(geom: LineGeom, st: TrainState, car: number, out: CarPose): CarPose {
   const n = geom.def.service.cars, spec = carOf(geom.def);
   const sc = st.s + (car - (n - 1) / 2) * spec.pitch;
-  geom.trackPoint(st.track, sc - spec.bogie, a);
-  geom.trackPoint(st.track, sc + spec.bogie, b);
+  geom.trackPoint(st.track, sc - spec.bogie, a, st.service);
+  geom.trackPoint(st.track, sc + spec.bogie, b, st.service);
   const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
   out.x = (a.x + b.x) / 2;
   out.y = (a.y + b.y) / 2;

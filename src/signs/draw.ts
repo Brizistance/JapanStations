@@ -3,7 +3,7 @@
 import { temperatureNow, today } from '../sim/climate';
 import { drawWeatherIcon, typhoonNotice } from './weather-icon';
 import { drawCarGuide, drawStrip, drawTimetable, drawWomenOnly } from './boards';
-import { LINES, OPERATOR, STATIONS, destinationOf, diagramRuns, hasPlatform, lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, OPERATOR, STATIONS, destinationOf, diagramRuns, hasPlatform, lineById, linesAt, platformFor, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineDepartures, lineSim, serviceSim } from '../sim';
 import { trainStateAt } from '../sim/timetable';
@@ -2075,7 +2075,7 @@ function drawArDep(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
     text(ctx, en ? dest.nameRomaji : dest.nameJa, W * 0.39, y, rh * 0.56, { color: '#f2f2ee', maxW: W * 0.44 });
     ctx.fillStyle = AR_GREY;
     ctx.fillRect(W * 0.87, y - rh * 0.38, W * 0.11, rh * 0.76);
-    text(ctx, String(st.platforms[line.id][dir === 'down' ? 0 : 1]), W * 0.925, y, rh * 0.6, { align: 'center', color: '#fff' });
+    text(ctx, String(platformFor(st, line, dir, type?.id)), W * 0.925, y, rh * 0.6, { align: 'center', color: '#fff' });
     ctx.fillStyle = '#26292e';
     ctx.fillRect(0, hh + rh * (k + 1) - 1, W, 1);
   });

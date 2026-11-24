@@ -7,7 +7,7 @@
 import type { Dir, LineDef, ServiceType, StationDef } from '../data/types';
 import { RAIL_WORLDS, type StationWorld } from '../stations';
 import { toWorld } from '../world/collision';
-import { RAIL_STATIONS, hasPlatform, lineById } from '../data/network';
+import { RAIL_STATIONS, hasPlatform, lineById, platformsFor, stationById } from '../data/network';
 import { clock, lineDepartures, lineSim } from '../sim';
 import type { Departure } from '../sim/timetable';
 import { input, nearestStation, player, where } from '../player/player';
@@ -195,6 +195,22 @@ export function speakerRows(min: number[], max: number[]): Record<Dir, V3[]> {
 }
 
 function placeRows(w: StationWorld, line: string, station: string) {
+  const def = lineById(line);
+  if (def.fanAt?.station === station) {
+    // An island to each direction (LineDef.fanAt): each direction's speakers over both edges of its own island.
+    const zs = w.frame.zones.filter((z) => z.kind === 'platform' && z.line === line);
+    for (const dir of ['down', 'up'] as Dir[]) {
+      const no = String(platformsFor(stationById(station), def, dir)[0]);
+      const z = zs.find((q) => Array.from(q.ja.matchAll(/\d+/g), (m) => m[0]).includes(no));
+      const r = z ? speakerRows(z.min, z.max) : { down: [], up: [] };
+      rows[dir] = [...r.down, ...r.up].map((p) => toWorld(w.frame, p, [0, 0, 0]) as V3);
+    }
+    chan = { down: 'down', up: 'up' };
+    setSpeakers('shared', []);
+    setSpeakers('down', rows.down);
+    setSpeakers('up', rows.up);
+    return;
+  }
   const b = platformBox(w, line);
   const local = b ? speakerRows(b.min, b.max) : { down: [], up: [] };
   const world = (ps: V3[]) => ps.map((p) => toWorld(w.frame, p, [0, 0, 0]) as V3);
@@ -278,7 +294,7 @@ function tickPassing(pl: LineDef, st: StationDef, key: string) {
     const at = g.stopS[stop], ahead = (at - t.state.s) * (p.dir === 'down' ? 1 : -1), id = `${t.id}:${t.state.phaseIndex}`;
     if (ahead < 0 || ahead > PASS_LEAD_S * Math.max(8, Math.abs(t.state.speed)) || passed.has(id)) continue;
     passed.add(id);
-    const clips = voice(railAnnouncement('pass', st, pl, p.dir, platformNo(st, pl, p.dir), t.service));
+    const clips = voice(railAnnouncement('pass', st, pl, p.dir, platformNo(st, pl, p.dir, t.service.id), t.service));
     announce(chan[p.dir], `${key}:${p.dir}:pass`, clips, { priority: true, short: clips.slice(0, 1) });
     startRun(pl.id, t.index, p.dir, t.service.id, at);
   }
@@ -350,7 +366,7 @@ export function tickStationAudio(dt: number, playing: boolean, cam: { x: number;
     if (!d) continue;
     const status = statusOf(d, now);
     if (status !== 'wait' && status !== 'none') quiet = false;
-    const tag = `${key}:${dir}`, track = platformNo(st!, pl, dir);
+    const tag = `${key}:${dir}`, track = platformNo(st!, pl, dir, d.service?.id);
     let t = tracks.get(dir);
     // On first sight the previous status is the current one, so nothing fires late.
     let prev: Status = t?.status ?? status;

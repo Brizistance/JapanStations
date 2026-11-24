@@ -2,7 +2,7 @@
 // station: its named areas (zones), street exits and lifts. Markers and distances are straight
 // lines to the thing, not a walking path; the signs in the station do the corridor finding.
 
-import { lineById, stationById } from '../data/network';
+import { lineById, platformFor, stationById } from '../data/network';
 import { player, where } from '../player/player';
 import { stationWorld } from '../stations';
 import { stationExits, type StationExit } from '../stations/exits';
@@ -33,7 +33,7 @@ function toggleMark(station: string, key: string) {
  */
 function isGoalZone(zones: Zone[], z: Zone, step: Step | null): boolean {
   if (step?.kind !== 'board' || z.kind !== 'platform' || z.line !== step.leg.line.id) return false;
-  const plat = String(stationById(step.leg.from).platforms[step.leg.line.id][step.leg.dir === 'down' ? 0 : 1]);
+  const plat = String(platformFor(stationById(step.leg.from), step.leg.line, step.leg.dir, step.leg.service?.id));
   const named = (q: Zone) => Array.from(q.ja.matchAll(/\d+/g), (m) => m[0]).includes(plat);
   const own = zones.filter((q) => q.kind === 'platform' && q.line === z.line);
   return own.some(named) ? named(z) : true;

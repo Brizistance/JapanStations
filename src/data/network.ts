@@ -3,7 +3,7 @@
 // Adding a station = add a StationDef, add it to a line's `stops`/`railY`,
 // and give it a spec in src/stations/specs.ts.
 
-import type { LineDef, LineId, Operator, Place, ServicePattern, StationDef, StationId } from './types';
+import type { Dir, LineDef, LineId, Operator, Place, ServicePattern, StationDef, StationId } from './types';
 
 export const OPERATOR: Operator = {
   nameEn: 'Kawaminato Metro',
@@ -1059,6 +1059,14 @@ export const RAIL_LINES: LineDef[] = [
       { id: 'rapid', nameEn: 'Rapid', nameJa: '快速', color: '#d9541e', skips: ['higashi-kawaminato', 'konyahama'] },
     ],
     servicesMeetAt: 'kawaminato',
+    // At Kawaminato the tracks are paired by direction (counting the platforms from the north: 1·2 are not in use):
+    // towards Kirigahara the middle island, 3 the Local and 4 the Rapid; towards Asanagi the south island, 5 the
+    // Rapid and 6 the Local. The Rapids take the two inner tracks. The fans lie on the viaduct's four-track run.
+    fanAt: {
+      station: 'kawaminato', near: 135, far: 295,
+      lateral: { local: { down: -4.3, up: 16.5 }, rapid: { down: 4.3, up: 7.9 } },
+      platforms: { local: [6, 3], rapid: [5, 4] },
+    },
     // In 3D from Miokami to Kawaminato. Through Kita the hub's street builds the viaduct (hub-street.ts):
     // its plot is 190 m either side of the station, and the plain run goes on 300 m beyond.
     // Miokami's platforms take 12 cars (Rapids call); Higashi-Kawaminato's 8 (Locals only).
@@ -1131,7 +1139,7 @@ export const RAIL_STATIONS: StationDef[] = [
     diagram: { x: 790, y: 215, label: 'above' },
     district: 'Kita',
     districtJa: 'キタ',
-    platforms: { AR: [3, 4] }, // the south island; 1·2 on the north island are kept for later lines
+    platforms: { AR: [6, 3] }, // the Local's; the Rapid's are 5 and 4 (the line's fanAt). 1·2 on the north island are kept for later lines
     blurb: "The city's main station: through platforms on the viaduct above Kita, where the railway arrived in 1889.",
     transfer: 'kita-odori',
   },
@@ -1169,6 +1177,17 @@ export const RAIL_STATIONS: StationDef[] = [
 export const ALL_LINES: LineDef[] = [...LINES, ...RAIL_LINES];
 export const ALL_STATIONS: StationDef[] = [...STATIONS, ...RAIL_STATIONS];
 /** Does a line's stop have platforms? Always, but on a line built in 3D only in part (LineDef.built): doors open only where it does. */
+/** The platform a train of a direction leaves from; where a station gives each service type a face of its own (LineDef.fanAt), that type's. */
+export const platformFor = (st: StationDef, line: LineDef, dir: Dir, service?: string): number => {
+  const own = line.fanAt?.station === st.id && service ? line.fanAt.platforms[service] : undefined;
+  return (own ?? st.platforms[line.id])[dir === 'down' ? 0 : 1];
+};
+/** Every platform of a direction there, low number first. */
+export const platformsFor = (st: StationDef, line: LineDef, dir: Dir): number[] => {
+  const i = dir === 'down' ? 0 : 1;
+  return line.fanAt?.station === st.id ? Object.values(line.fanAt.platforms).map((p) => p[i]).sort((a, b) => a - b) : [st.platforms[line.id][i]];
+};
+
 export const hasPlatform = (line: LineDef, stop: number): boolean => !line.built || (line.built.stations ?? []).includes(line.stops[stop]);
 
 /** True for a station that is on the map and in the timetable but not built in 3D yet. */

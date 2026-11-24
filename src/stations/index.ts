@@ -26,17 +26,17 @@ export interface StationWorld {
 // Gate state is asked for many times per tick; cache it per sim time.
 const gateCache = new Map<string, number>();
 let gateCacheTime = -1;
-export function gateOpen(line: string, stop: number, track: 'down' | 'up'): number {
+export function gateOpen(line: string, stop: number, track: 'down' | 'up', service?: string): number {
   if (clock.time !== gateCacheTime) {
     gateCache.clear();
     gateCacheTime = clock.time;
   }
-  const k = `${line}:${stop}:${track}`;
+  const k = `${line}:${stop}:${track}:${service ?? ''}`;
   let v = gateCache.get(k);
   if (v === undefined) {
     // (Every service type's trains: a Local and a Rapid both open the gates.)
     const sim = lineSim(line);
-    v = Math.max(...(sim.services?.length ? sim.services : [{ tt: sim.tt }]).map((sv) => platformDoorOpen(sv.tt, stop, track, clock.time)));
+    v = Math.max(0, ...(sim.services?.length ? sim.services.filter((sv) => !service || sv.type.id === service) : [{ tt: sim.tt }]).map((sv) => platformDoorOpen(sv.tt, stop, track, clock.time)));
     // Through-running lines stop at this line's platforms too (Sumire at Shiokaze platforms).
     const station = lineSim(line).geom.def.stops[stop];
     for (const l of LINES) {
@@ -110,7 +110,7 @@ function place(def: StationDef, build: Build, primary: string, x: number, z: num
     return {
       min: [g.pos[0] - hx, g.pos[1], g.pos[2] - hz],
       max: [g.pos[0] + hx, g.pos[1] + Math.max(1.3, g.height), g.pos[2] + hz],
-      isOpen: () => gateOpen(g.line!, g.stop!, g.track!) > 0.7,
+      isOpen: () => gateOpen(g.line!, g.stop!, g.track!, g.service) > 0.7,
     };
   });
   const frame: Frame = {

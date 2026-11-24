@@ -3,7 +3,7 @@
 // Everything shown is read from the network data, the timetable and the built stations.
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { RAIL_STATIONS, destinationOf, isUnbuilt, lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { RAIL_STATIONS, destinationOf, isUnbuilt, lineById, linesAt, platformFor, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef } from '../data/types';
 import { player, where } from '../player/player';
 import { clock, formatClock, lineDepartures, lineSim } from '../sim';
@@ -154,7 +154,7 @@ function Board() {
     const stop = railLine.stops.indexOf(rail.id);
     for (const dir of ['down', 'up'] as Dir[]) {
       const deps = lineDepartures(lineSim(railLine.id), stop, dir, clock.time, 2);
-      if (deps.length > 1) rows.push({ key: railLine.id + dir, line: railLine, dir, platform: rail.platforms[railLine.id][dir === 'down' ? 0 : 1], deps, type: deps[0].service && `${deps[0].service.nameJa} ${deps[0].service.nameEn}` });
+      if (deps.length > 1) rows.push({ key: railLine.id + dir, line: railLine, dir, platform: platformFor(rail, railLine, dir, deps[0].service?.id), deps, type: deps[0].service && `${deps[0].service.nameJa} ${deps[0].service.nameEn}` });
     }
   } else
   for (const line of own ? [own] : mine ? [mine.line] : linesAt(st.def.id)) {

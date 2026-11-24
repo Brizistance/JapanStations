@@ -54,7 +54,9 @@ describe('main-line phrases', () => {
   });
   it('opens the doors on the left at the side platforms only', () => {
     expect(railCarAnnouncement('soon', ar, 'up', ar.stops.indexOf('miokami'), rapid)[0].text).toContain('左側');
-    expect(railCarAnnouncement('soon', ar, 'down', ar.stops.indexOf('kawaminato'), rapid)[0].text).toContain('右側');
+    // (At Kawaminato the Rapid takes the inner face of its direction's island, the Local the outer one.)
+    expect(railCarAnnouncement('soon', ar, 'down', ar.stops.indexOf('kawaminato'), rapid)[0].text).toContain('左側');
+    expect(railCarAnnouncement('soon', ar, 'down', ar.stops.indexOf('kawaminato'), ar.services![0])[0].text).toContain('右側');
   });
   it('bakes every clip a main-line platform or car can ask for', () => {
     const keys = new Set(allClips().map((c) => c.key));

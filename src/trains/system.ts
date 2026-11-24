@@ -71,7 +71,7 @@ function doorRule(t: TrainRuntime) {
 function place(t: TrainRuntime, snap: boolean) {
   doorRule(t);
   const { geom } = t.sim;
-  t.doorSide = geom.doorSide(geom.lateral(t.state.track, t.state.s), t.state.s);
+  t.doorSide = geom.doorSide(geom.lateral(t.state.track, t.state.s, t.state.service), t.state.s);
   t.cars.forEach((f, c) => {
     const p = f.prev!;
     p.x = f.x; p.y = f.y; p.z = f.z; p.yaw = f.yaw; p.pitch = f.pitch;

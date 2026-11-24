@@ -58,6 +58,8 @@ export interface Timetable {
   arrivals: Map<string, StopTimes>;
   /** The whole timetable runs this many seconds later than its cycle times (phasing against a shared line). */
   offset: number;
+  /** The service type these trains run as, on a line that has them. */
+  service?: string;
 }
 
 export interface TimetableOptions {
@@ -70,6 +72,8 @@ export interface TimetableOptions {
   padEnd?: { mod: number; residue: number };
   /** Stations this service type passes without stopping (never the first or last stop). */
   skip?: string[];
+  /** The service type's id. */
+  service?: string;
 }
 
 const DOOR_OPEN_DELAY = 1.5;
@@ -215,7 +219,7 @@ export function buildTimetable(geom: LineGeom, opts: TimetableOptions = {}): Tim
     departures.set(`0:down`, { arr: layStart.t0, dep: layStart.t1 });
   }
 
-  return { geom, phases, cycle, headway: sv.headwayS, trainCount, departures, arrivals, offset: opts.offset ?? 0 };
+  return { geom, phases, cycle, headway: sv.headwayS, trainCount, departures, arrivals, offset: opts.offset ?? 0, service: opts.service };
 }
 
 const mod = (a: number, m: number) => ((a % m) + m) % m;
@@ -235,6 +239,8 @@ export interface TrainState {
   doorOpen: number;
   /** Cycle time, seconds. */
   tau: number;
+  /** Its service type, on a line that has them (it decides the track at a station with LineDef.fanAt). */
+  service?: string;
 }
 
 function phaseAt(tt: Timetable, tau: number): number {
@@ -260,7 +266,7 @@ export function trainStateAt(tt: Timetable, index: number, time: number): TrainS
   const tau = mod(time - tt.offset - index * tt.headway, tt.cycle);
   const phaseIndex = phaseAt(tt, tau);
   const phase = tt.phases[phaseIndex];
-  const base = { line: tt.geom.def.id, index, phase, phaseIndex, tau, track: phase.track };
+  const base = { line: tt.geom.def.id, index, phase, phaseIndex, tau, track: phase.track, service: tt.service };
   if (phase.kind === 'dwell') {
     return { ...base, s: phase.s, speed: 0, heading: phase.dir === 'down' ? 1 : -1, doorOpen: doorFraction(phase, tau) };
   }

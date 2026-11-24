@@ -617,7 +617,7 @@ export class WorldView {
         v.dispose();
         this.stations.delete(w.def.id);
       } else if (v) {
-        for (const set of v.gates) set.update((g) => gateOpen(g.line!, g.stop!, g.track!));
+        for (const set of v.gates) set.update((g) => gateOpen(g.line!, g.stop!, g.track!, g.service));
       }
     }
 

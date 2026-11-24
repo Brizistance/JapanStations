@@ -65,6 +65,8 @@ export interface GatePart {
   line?: string;
   stop?: number;
   track?: 'down' | 'up';
+  /** Platform gates at a face only one service type's trains use (LineDef.fanAt). */
+  service?: string;
   side?: 1 | -1;
 }
 

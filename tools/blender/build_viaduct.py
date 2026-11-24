@@ -1,6 +1,6 @@
 # Builds the AR Main Line's viaduct through Kita-Ōdōri, in pieces laid end to end along x:
 # brick arch bays with a shop in each face, bays with a walkway through, bays carrying the
-# station's platforms and canopies, and steel girder bridges over the streets.
+# station's platforms, steel girder bridges over the streets, and the station's train shed.
 #
 #   blender --background --python tools/blender/build_viaduct.py -- [--renders <dir>]
 #
@@ -13,14 +13,13 @@
 #   a7 a8 a9     arch bays 7, 8 and 9 m long: a shop under the arch in each face.
 #   s7 s8 s9     the same, shuttered (stores and workshops).
 #   p8           a bay with a public walkway right through it (PASS wide).
-#   st8 stp8     station bays: platforms, canopies; stp8 has the walkway.
+#   st8 stp8     station bays: platforms; stp8 has the walkway.
+#   shed8 shedd8 shedx shedscr   the train shed over the platforms (see shed(), below).
+#   fane fanw    the track fans either side of the station (see fan(), below).
 #   pf_<id>      any of the pieces with the platforms carried on over it (the platforms are 12 cars long).
-#   ho8 he8 hl8 hs8   Kawaminato Station's five middle bays, hollow: brick piers under the tracks and nothing
-#                else below the deck (the game builds the inside: src/stations/kawaminato.ts). ho8: a bay of
-#                the free central passage, an open arch in each face. he8: the passage's east bay, the
-#                bridge door over a glazed arch in its south face. hl8, hs8: the paid concourse, open arches
-#                north, glazed south; hl8 has the lift's hole and the heads of the two platform stairs'
-#                wells (one down the middle of each island), hs8 the wells' feet.
+#   ho… he8 hl… hw… hc…   Kawaminato Station's bays between the two local streets, hollow: brick piers under the
+#                tracks, brick arches sprung between them, and nothing else below the deck (the game builds the
+#                inside: src/stations/kawaminato.ts). They are listed where PIECES is filled, below.
 #   nh8 nc8      the widening's hollow bays beside them: nh8 open to the station building's great hall,
 #                nc8 shut (the building's wing stands against it).
 #   g12 g16 g24  girder bridges: abutments ABUT thick at each end, GC clear under the girders.
@@ -29,6 +28,7 @@
 #                is the new north face; its back stands against the old one, whose own north parapet, wind
 #                screens and wire masts are gone (the old arches' fronts stay, buried between the two).
 
+import math
 import os
 import random
 import sys
@@ -113,9 +113,9 @@ def parapets(p, x0, x1, mat=BRICK, holes=()):
         p.box(CONC, x0, RL - 0.4, z, x1, RL - 0.02, z + 0.25)
 
 
-def platforms(p, x0, x1, holes=(), col=True, bench=True, frame=True, both=False):
-    """Both islands. `holes` are cut in them (stair wells, the lift); col, bench and frame are the south island's
-    (and the other's too where `both`)."""
+def platforms(p, x0, x1, holes=(), col=True, bench=True, frame=True, both=False, beam=True):
+    """Both islands. `holes` are cut in them (stair wells, the lift); col, bench, frame and beam (the lamp rail) are
+    the south island's (and the other's too where `both`)."""
     m = (x0 + x1) / 2
     for k, (a, b_) in enumerate(PF):
         for xa, xb, za, zb in tiles(x0, x1, a, b_, holes):
@@ -126,50 +126,30 @@ def platforms(p, x0, x1, holes=(), col=True, bench=True, frame=True, both=False)
             p.box('flat:#e6b800', x0, RL + 1.1, e, x1, RL + 1.115, e + 0.3)
         for e in (a, b_ - 0.12):
             p.box(WHITE, x0, RL + 1.1, e, x1, RL + 1.112, e + 0.12)
-        # A long canopy of the 1910s down the island's middle (one to each island, each its whole length):
-        # riveted columns with arms out to the eave beams, a low boarded gable on rafters, a valance along
-        # each eave, a glazed lantern on the ridge, lamps hung from the ridge beam.
+        # No roof of its own: the train shed stands over all of it (shed(), below). Down the island's middle a row of
+        # riveted iron standards carries a rail, and the rail the lamps and the sign frames.
         c = (a + b_) / 2
-        GRN, CRM, RF = 'flat:#2f4a3c', 'flat:#e9e2d0', 'flat:#59616c'
-        ea, eb = a - 0.9, b_ + 0.9            # the eaves
-        ye, yr = RL + 4.45, RL + 5.25         # the boards' underside at the eaves and at the ridge
+        GRN, CRM = 'flat:#2f4a3c', 'flat:#e9e2d0'
         if col or not south:
             p.box(GRN, m - 0.14, RL + 1.1, c - 0.14, m + 0.14, RL + 4.5, c + 0.14)
             p.box(GRN, m - 0.22, RL + 1.1, c - 0.22, m + 0.22, RL + 1.5, c + 0.22)
             p.box(GRN, m - 0.2, RL + 3.2, c - 0.2, m + 0.2, RL + 3.32, c + 0.2)
-            for e in (ea + 0.5, eb - 0.5):
-                lo_, hi_ = (c, RL + 3.3), (e, ye - 0.14)
-                poly = [lo_, hi_, (hi_[0], hi_[1] + 0.12), (lo_[0], lo_[1] + 0.14)]
-                p.prism(GRN, poly if e > c else poly[::-1], 'x', m - 0.06, m + 0.06)
-        p.box(GRN, x0, RL + 4.38, c - 0.07, x1, RL + 4.5, c + 0.07)
-        for e, s_ in ((ea, -1), (eb, 1)):
-            eo = e - s_ * 0.5   # the eave beam's line
-            p.box(GRN, x0, ye - 0.14, eo - 0.05, x1, ye - 0.01, eo + 0.05)
-            p.face(RF, [(x0, ye + 0.1, e), (x1, ye + 0.1, e), (x1, yr + 0.1, c), (x0, yr + 0.1, c)], (0, 1, 0))
-            p.face(CRM, [(x0, ye, e), (x1, ye, e), (x1, yr, c), (x0, yr, c)], (0, -1, 0))
-            # The valance: a deep board along the eave, a green rail under it.
-            p.box(CRM, x0, ye - 0.16, min(e, e - s_ * 0.04), x1, ye + 0.12, max(e, e - s_ * 0.04))
-            p.box(GRN, x0, ye - 0.21, min(e, e - s_ * 0.05), x1, ye - 0.16, max(e, e - s_ * 0.05))
-            for cx in rows(x0, x1, 2.0):
-                ei = e - s_ * 0.05
-                poly = [(ei, ye - 0.1), (c, yr - 0.1), (c, yr - 0.005), (ei, ye - 0.005)]
-                p.prism(GRN, poly if e > c else poly[::-1], 'x', cx - 0.03, cx + 0.03)
-        for cx in rows(x0, x1, 2.0):
-            p.box(GRN, cx - 0.04, RL + 4.5, c - 0.04, cx + 0.04, yr, c + 0.04)
-        # The lantern on the ridge.
-        quad(p, 'glassTint', 'f', x0, x1, yr + 0.12, yr + 0.45, c - 0.45)
-        quad(p, 'glassTint', 'b', x0, x1, yr + 0.12, yr + 0.45, c + 0.45)
-        p.box(RF, x0, yr + 0.45, c - 0.6, x1, yr + 0.52, c + 0.6)
-        p.box(GRN, x0, yr + 0.08, c - 0.47, x1, yr + 0.13, c + 0.47)
-        for cx in (m - 0.5, m + 3.5):   # (clear of the sign frame and the boards hung on it)
-            p.box(GRN, cx - 0.015, RL + 4.12, c - 0.015, cx + 0.015, RL + 4.38, c + 0.015)
-            p.box(CRM, cx - 0.2, RL + 4.06, c - 0.2, cx + 0.2, RL + 4.12, c + 0.2)
-            p.box('light', cx - 0.11, RL + 3.88, c - 0.11, cx + 0.11, RL + 4.06, c + 0.11)
-        # A bench and a sign frame hanging from the canopy (the game letters it when the line is built).
+            p.box(GRN, m - 0.2, RL + 4.5, c - 0.2, m + 0.2, RL + 4.58, c + 0.2)
+            for sx in (-1, 1):
+                p.prism(GRN, [(m + sx * 0.14, RL + 3.7), (m + sx * 0.9, RL + 4.38), (m + sx * 0.9, RL + 4.46), (m + sx * 0.14, RL + 3.84)], 'z', c - 0.04, c + 0.04)
+        if beam or not south:
+            p.box(GRN, x0, RL + 4.38, c - 0.07, x1, RL + 4.5, c + 0.07)
+            for cx in (m - 0.5, m + 3.5):   # (clear of the sign frame and the boards hung on it)
+                p.box(GRN, cx - 0.015, RL + 4.12, c - 0.015, cx + 0.015, RL + 4.38, c + 0.015)
+                p.box(CRM, cx - 0.2, RL + 4.06, c - 0.2, cx + 0.2, RL + 4.12, c + 0.2)
+                p.box('light', cx - 0.11, RL + 3.88, c - 0.11, cx + 0.11, RL + 4.06, c + 0.11)
+        # A bench, and a sign frame hanging from the rail (the game letters it).
         if bench or not south:
             p.box('flat:#3f6a8a', m + 1.5, RL + 1.1, c - 0.25, m + 3.1, RL + 1.55, c + 0.25)
         if frame or not south:
             p.box(DARK, m - 3.2, RL + 3.5, c - 0.05, m - 1.4, RL + 4.0, c + 0.05)
+            for cx in (m - 3.0, m - 1.6):
+                p.box(DARK, cx - 0.02, RL + 4.0, c - 0.02, cx + 0.02, RL + 4.38, c + 0.02)
 
 
 def screens(p, x0, x1):
@@ -256,6 +236,26 @@ def hall_piers(p, x0, x1):
             p.box(COPING, a - 0.04, 2.75, c - 0.54, b_ + 0.04, 2.95, c + 0.54)
 
 
+def vaults(p, x0, x1, v):
+    """A hollow bay's brick arches, pier to pier: one along the bay under each track, and across it at both ends
+    one over each wide aisle and a lintel over the narrow one between the two middle tracks. `nox`: the tracks
+    with no arch along (where a floor at +6 passes); `noz`: the (end, aisle) left open across."""
+    yt, nox, noz = RL - 0.85, v.get('nox', ()), v.get('noz', ())
+    for k, c in enumerate(TZ):
+        if k not in nox:
+            arch(p, BRICK, 'f', x0 + 0.35, x1 - 0.35, 4.6, 7.5, yt, c - 0.5, 1.0, 12, BRICK_DK)
+    for end, at in (('L', x0), ('R', x1 - 0.35)):
+        for k in range(len(TZ) - 1):
+            if (end, k) in noz:
+                continue
+            a, b_ = TZ[k] + 0.5, TZ[k + 1] - 0.5
+            if b_ - a > 5:
+                arch(p, BRICK, 'l', a, b_, 4.6, 7.5, yt, at, 0.35, 12, BRICK_DK)
+            else:
+                p.box(BRICK, at, 6.6, a, at + 0.35, yt, b_)
+                p.box(COPING, at - 0.03, 6.45, a, at + 0.38, 6.6, b_)
+
+
 def bay(p, s, v, r):
     w = v['w']
     x0, x1 = -w / 2, w / 2
@@ -294,6 +294,7 @@ def bay(p, s, v, r):
         p.box(BRICK_DK, x0, 0, FACE, x1, HALL_Y, VD - FACE)
     elif kind == 'hall':
         hall_piers(p, x0, x1)
+        vaults(p, x0, x1, v)
     else:
         p.box(BRICK_DK, x0, 0, FACE, x1, RL - 0.85, zb)
     if kind == 'hall':
@@ -308,9 +309,9 @@ def bay(p, s, v, r):
             face_arch(p, s, 'b', VD, x0, x1, 'shut' if fk == 'shop' and r.random() < 0.3 else fk, r)
     parapets(p, x0, x1, holes=holes)
     track(p, x0, x1, holes=holes)
-    wires(p, x0, x1)
+    wires(p, x0, x1, portal=not v.get('st'))   # (in the station the shed's ribs carry the wire)
     if v.get('st'):
-        platforms(p, x0, x1, holes, v.get('col', True), v.get('bench', True), v.get('frame', True), v.get('both', False))
+        platforms(p, x0, x1, holes, v.get('col', True), v.get('bench', True), v.get('frame', True), v.get('both', False), v.get('beam', True))
         screens(p, x0, x1)
 
 
@@ -346,7 +347,7 @@ def girder(p, s, v, r):
         for c in rows(x0 + ABUT, x1 - ABUT, 5.0):
             p.box('light', c - 0.9, GC + 0.52, z - 0.09, c + 0.9, GC + 0.6, z + 0.09)
     track(p, x0, x1, ballast=False)
-    wires(p, x0, x1, portal=w > 14)
+    wires(p, x0, x1, portal=w > 14 and not v.get('st'))
     # Walkways on brackets outside the face girders.
     for z, sgn, _ in fz:
         p.box(STEEL, x0, RL - 0.2, min(z, z + sgn * 0.9), x1, RL - 0.14, max(z, z + sgn * 0.9))
@@ -363,14 +364,26 @@ PIECES = (
     + [dict(id='p8', w=8.0, kind='pass'), dict(id='st8', w=8.0, kind='shop', st=True), dict(id='stp8', w=8.0, kind='pass', st=True)]
     + [dict(id='g%d' % w, w=float(w), kind='girder') for w in (12, 16, 24)]
 )
-# The platforms carried on over the other pieces, and Kawaminato Station's five middle bays.
+# The platforms carried on over the other pieces.
 PIECES += [dict(q, id='pf_' + q['id'], st=True) for q in PIECES if not q.get('st')]
+# Kawaminato Station's hollow bays (kawaminato.ts builds what is inside). Each platform stair is one straight
+# flight in a brick stair house, its well in one bay (hw8). Arches are left out where something passes at their
+# height: the gallery from the bridge's door (he8, hl8, and the joint east of the passage's middle bay), and the
+# stair houses at the joints either side of a well's bay (hw8 itself, and its neighbours hcr8 and hcl8).
+WELL_BAY = dict(w=8.0, kind='hall', faces=('pass', 'glaze'), st=True, both=True, col=False, bench=False, frame=False)
 PIECES += [
-    dict(id='ho8', w=8.0, kind='hall', faces=('pass', 'pass'), st=True),
-    dict(id='he8', w=8.0, kind='hall', faces=('pass', 'bridge'), st=True),
-    dict(id='hl8', w=8.0, kind='hall', faces=('pass', 'glaze'), st=True, both=True, col=False, bench=False, frame=False,
-         holes=[(-3.6, -1.3) + LIFT_Z, (0.4, 4.0) + WELL, (0.4, 4.0) + WELL_M]),
-    dict(id='hs8', w=8.0, kind='hall', faces=('pass', 'glaze'), st=True, holes=[(-4.0, -0.1) + WELL, (-4.0, -0.1) + WELL_M]),
+    dict(id='hop8', w=8.0, kind='hall', faces=('pass', 'pass'), st=True),
+    dict(id='ho8', w=8.0, kind='hall', faces=('pass', 'pass'), st=True, noz=(('R', 2),)),
+    dict(id='he8', w=8.0, kind='hall', faces=('pass', 'bridge'), st=True, nox=(3,), noz=(('L', 2), ('R', 2))),
+    dict(WELL_BAY, id='hl8', holes=[(-3.6, -1.3) + LIFT_Z], nox=(3,), noz=(('L', 2),), beam=False),
+    dict(WELL_BAY, id='hl8w', holes=[(1.3, 3.6) + LIFT_Z], beam=False),
+    dict(WELL_BAY, id='hw8', beam=False, holes=[(-3.5, 4.0) + WELL, (-3.5, 4.0) + WELL_M], noz=(('L', 0), ('L', 2), ('R', 0), ('R', 2))),
+    dict(WELL_BAY, id='hw8w', beam=False, holes=[(-4.0, 3.5) + WELL, (-4.0, 3.5) + WELL_M], noz=(('L', 0), ('L', 2), ('R', 0), ('R', 2))),
+    dict(id='hcr8', w=8.0, kind='hall', faces=('pass', 'glaze'), st=True, bench=False, noz=(('R', 0), ('R', 2))),
+    dict(id='hcl8', w=8.0, kind='hall', faces=('pass', 'glaze'), st=True, noz=(('L', 0), ('L', 2))),
+    # (The same two under the stairs down from the bridge concourse: nothing down the islands' middles.)
+    dict(WELL_BAY, id='hsr8', beam=False, noz=(('R', 0), ('R', 2))),
+    dict(WELL_BAY, id='hsl8', beam=False, noz=(('L', 0), ('L', 2))),
 ]
 # The widening's pieces, and its island carried over each.
 NORTH = [dict(id='n%s%d' % (k, w), w=float(w), kind=kind, north=True) for w in (7, 8, 9) for k, kind in (('a', 'shop'), ('s', 'shut'))]
@@ -378,6 +391,189 @@ NORTH += [dict(id='np8', w=8.0, kind='pass', north=True)] + [dict(id='ng%d' % w,
 NORTH += [dict(q, id='pf_' + q['id'], st=True) for q in NORTH]
 NORTH += [dict(id='nh8', w=8.0, kind='hall', faces=('pass', None), north=True, st=True), dict(id='nc8', w=8.0, kind='hall', faces=('shut', None), north=True, st=True)]
 PIECES += NORTH
+
+
+# ───────────── The train shed (1914): one riveted iron arch over all six tracks ─────────────
+# Its own pieces, laid by the game along the platforms from the widening's north face (z = 0) to the old
+# viaduct's south one (z = SHED_D): shed8, 8 m of roof with a rib at its west end; shedd8, the same where the
+# bridge concourse's doorway comes out of the station building (the roof's foot left off, a flat in its place);
+# shedh8, with no hangers to its rib's wire span (the rib stands in the bridge concourse); shedb8, with no span
+# (its rib stands over the stairs down from the bridge); shedx, the last rib; shedscr, the glazed fan closing each
+# end over the trains.
+SHED_D, SHED_Y, SHED_R, SHED_N = 39.0, 12.85, 19.1, 24   # depth; springing; radius (the feet 0.4 in from each face); segments
+SHED_TZ = [3.4, 12.0, 15.6, 24.2, 27.8, 36.4]
+IRON, IRON_LT, ZINC = 'flat:#2f4a3c', 'flat:#e9e2d0', 'flat:#59616c'
+
+
+def arc(r, k, n=SHED_N):
+    """(z, y) on the shed's arch at radius r, k of n from the north foot."""
+    t = math.pi * k / n
+    return (SHED_D / 2 - r * math.cos(t), SHED_Y + r * math.sin(t))
+
+
+def rib_in(k, n=SHED_N):
+    """The rib's inner chord: 0.35 deep at the feet (the trains pass close), 0.8 at the crown."""
+    return SHED_R - 0.35 - 0.45 * math.sin(math.pi * k / n)
+
+
+def strut(p, x, a, b_, t=0.04, hw=0.04, mat=IRON):
+    """A flat bar from a to b (z, y), 2t deep, 2hw wide along x."""
+    dz, dy = b_[0] - a[0], b_[1] - a[1]
+    L = math.hypot(dz, dy)
+    if L < 1e-6:
+        return
+    nz, ny = -dy / L * t, dz / L * t
+    p.prism(mat, [(a[0] + nz, a[1] + ny), (b_[0] + nz, b_[1] + ny), (b_[0] - nz, b_[1] - ny), (a[0] - nz, a[1] - ny)], 'x', x - hw, x + hw)
+
+
+def rib(p, x, span=True, hang=True):
+    """A lattice arch rib on a leg at each parapet; hung from it, the span that carries the wires (`hang`: its
+    hangers from the rib; under the bridge concourse the deck carries it instead, and over the stairs down from
+    the bridge there is no span at all)."""
+    for z in (0.4, SHED_D - 0.4):
+        p.box(IRON, x - 0.15, RL + 1.05, z - 0.2, x + 0.15, SHED_Y, z + 0.2)
+        p.box(IRON, x - 0.22, RL + 1.05, z - 0.27, x + 0.22, RL + 1.3, z + 0.27)
+    for k in range(SHED_N):
+        for r0, r1 in ((SHED_R, SHED_R), (rib_in(k), rib_in(k + 1))):
+            p.prism(IRON, [arc(r0, k), arc(r1, k + 1), arc(r1 - 0.1, k + 1), arc(r0 - 0.1, k)], 'x', x - 0.15, x + 0.15)
+        strut(p, x, arc(rib_in(k), k), arc(SHED_R - 0.1, k))
+        if k < SHED_N // 2:
+            strut(p, x, arc(rib_in(k), k), arc(SHED_R - 0.1, k + 1))
+        else:
+            strut(p, x, arc(SHED_R - 0.1, k), arc(rib_in(k + 1), k + 1))
+    strut(p, x, arc(rib_in(SHED_N), SHED_N), arc(SHED_R - 0.1, SHED_N))
+    # The wires' span, its droppers to each track's wire, its hangers from the rib.
+    if not span:
+        return
+    ty = RL + 6.3
+    p.box(STEEL, x - 0.03, ty, 0.6, x + 0.03, ty + 0.06, SHED_D - 0.6)
+    for c in SHED_TZ:
+        p.box(STEEL, x - 0.02, RL + 5.05, c - 0.02, x + 0.02, ty, c + 0.02)
+    for z in (7.7, 13.8, 19.5, 25.2, 31.3) if hang else ():
+        t = math.acos((SHED_D / 2 - z) / SHED_R)
+        p.box(STEEL, x - 0.015, ty + 0.06, z - 0.015, x + 0.015, SHED_Y + (SHED_R - 0.9) * math.sin(t), z + 0.015)
+
+
+def roof(p, x0, x1, door=False):
+    """The roof between two ribs: zinc sheeting over each foot, glass above, a raised lantern along the crown."""
+    R, LOW, LAN = SHED_R + 0.06, 3, (SHED_N // 2 - 1, SHED_N // 2)
+
+    def pts(r, k):
+        (za, ya), (zb, yb) = arc(r, k), arc(r, k + 1)
+        return [(x0, ya, za), (x1, ya, za), (x1, yb, zb), (x0, yb, zb)]
+
+    for k in range(SHED_N):
+        if k in LAN or (door and k < LOW):
+            continue
+        t = math.pi * (k + 0.5) / SHED_N
+        out, inn = (0, math.sin(t), -math.cos(t)), (0, -math.sin(t), math.cos(t))
+        if LOW <= k < SHED_N - LOW:
+            p.face('glassTint', pts(R, k), out)
+            p.face('glassTint', pts(R - 0.02, k), inn)
+        else:
+            p.face(ZINC, pts(R, k), out)
+            p.face(IRON_LT, pts(R - 0.05, k), inn)
+    for k in range(SHED_N + 1):   # purlins
+        if door and k < LOW:
+            continue
+        z, y = arc(SHED_R - 0.05, k)
+        p.box(IRON, x0, y - 0.07, z - 0.07, x1, y + 0.07, z + 0.07)
+    n = max(1, int(round((x1 - x0) / 2)))
+    for i in range(1, n):          # glazing bars
+        cx = x0 + (x1 - x0) * i / n
+        for k in range(LOW, SHED_N - LOW):
+            if k not in LAN:
+                p.prism(IRON, [arc(R + 0.03, k), arc(R + 0.03, k + 1), arc(R - 0.06, k + 1), arc(R - 0.06, k)], 'x', cx - 0.025, cx + 0.025)
+    # The lantern: glass sides, a zinc top.
+    (za, ya), (zb, _) = arc(SHED_R, LAN[0]), arc(SHED_R, LAN[1] + 1)
+    top = ya + 1.2
+    for z in (za, zb):
+        for d in (-1, 1):
+            p.face('glassTint', [(x0, ya, z + 0.01 * d), (x1, ya, z + 0.01 * d), (x1, top, z + 0.01 * d), (x0, top, z + 0.01 * d)], (0, 0, d))
+        p.box(IRON, x0, ya - 0.1, z - 0.08, x1, ya + 0.1, z + 0.08)
+        for i in range(n):
+            cx = x0 + (x1 - x0) * i / n
+            p.box(IRON, cx - 0.04, ya, z - 0.04, cx + 0.04, top, z + 0.04)
+    p.box(ZINC, x0, top, za - 0.4, x1, top + 0.1, zb + 0.4)
+    p.face(IRON_LT, [(x0, top - 0.01, za), (x1, top - 0.01, za), (x1, top - 0.01, zb), (x0, top - 0.01, zb)], (0, -1, 0))
+    if door:
+        # Where the bridge concourse's doorway comes out of the building: a flat over it, a cheek at each rib.
+        zf, yf = arc(SHED_R, LOW)
+        p.box(ZINC, x0, yf, 0.0, x1, yf + 0.12, zf + 0.1)
+        p.face(IRON_LT, [(x0, yf - 0.01, 0), (x1, yf - 0.01, 0), (x1, yf - 0.01, zf), (x0, yf - 0.01, zf)], (0, -1, 0))
+        for x in (x0, x1):
+            for k in range(LOW):
+                p.prism(IRON_LT, [(0.0, arc(SHED_R, k)[1]), arc(SHED_R, k), arc(SHED_R, k + 1), (0.0, arc(SHED_R, k + 1)[1])], 'x', x - 0.03, x + 0.03)
+
+
+def screen(p):
+    """An end of the shed: a glazed fan over a transom clear of the wire, a brick pier at each foot."""
+    R, yt = SHED_R, RL + 7.0
+    h = yt - SHED_Y
+    t0 = math.asin(h / R)
+    rim = [(SHED_D / 2 - R * math.cos(t0 + (math.pi - 2 * t0) * i / 24), SHED_Y + R * math.sin(t0 + (math.pi - 2 * t0) * i / 24)) for i in range(25)]
+    for x, hint in ((-0.02, (-1, 0, 0)), (0.02, (1, 0, 0))):
+        p.face('glassTint', [(x, y, z) for z, y in rim], hint)
+    for i in range(24):
+        strut(p, 0, rim[i], rim[i + 1], 0.12, 0.12)
+    p.box(IRON, -0.15, yt - 0.5, 0.4, 0.15, yt, SHED_D - 0.4)
+    c = (SHED_D / 2, yt)
+    for i in range(1, 12):
+        f = math.pi * i / 12
+        s_ = -h * math.sin(f) + math.sqrt(h * h * math.sin(f) ** 2 - h * h + R * R)
+        strut(p, 0, c, (c[0] - s_ * math.cos(f), c[1] + s_ * math.sin(f)), 0.05, 0.06)
+    for rr in (6.0, 12.0):
+        ring = [(c[0] - rr * math.cos(math.pi * i / 24), c[1] + rr * math.sin(math.pi * i / 24)) for i in range(25)]
+        for i in range(24):
+            strut(p, 0, ring[i], ring[i + 1], 0.04, 0.06)
+    for z0, z1 in ((0.1, 0.85), (SHED_D - 0.85, SHED_D - 0.1)):
+        p.box(BRICK, -0.3, RL + 1.05, z0, 0.3, yt, z1)
+        p.box(COPING, -0.36, yt, z0 - 0.06, 0.36, yt + 0.15, z1 + 0.06)
+
+
+def shed(p, v):
+    if v.get('screen'):
+        screen(p)
+    elif v.get('rib'):
+        rib(p, 0.0)
+    else:
+        rib(p, -v['w'] / 2, v.get('span', True), v.get('hang', True))
+        roof(p, -v['w'] / 2, v['w'] / 2, v.get('door', False))
+
+
+PIECES += [dict(id='shed8', w=8.0, kind='shed'), dict(id='shedd8', w=8.0, kind='shed', door=True, hang=False),
+           dict(id='shedh8', w=8.0, kind='shed', hang=False), dict(id='shedb8', w=8.0, kind='shed', span=False),
+           dict(id='shedx', w=1.0, kind='shed', rib=True), dict(id='shedscr', w=1.0, kind='shed', screen=True)]
+
+
+# ───────────── The track fans either side of the station ─────────────
+# Beyond the platforms the running pair fans out to the four tracks of the two islands in use (LineDef.fanAt in
+# src/data/network.ts; LineGeom.lateral in src/sim/geometry.ts draws the same curves for the trains): rails and
+# wire only, laid over the old viaduct's four straight tracks. fane lies east of the station, fanw west.
+FAN_NEAR, FAN_FAR, FAN_MID = 135.0, 295.0, 19.1    # metres from the station's centre; the running line's centre in the piece
+FAN_RUNS = ((16.5, 4.3), (7.9, 4.3), (4.3, -4.3))   # lateral at the station, and out on the running line
+
+
+def fan(p, v):
+    w, sg = FAN_FAR - FAN_NEAR, v['sg']
+    smooth = lambda t: max(0.0, min(1.0, t)) ** 2 * (3 - 2 * max(0.0, min(1.0, t)))
+    n = int(w / 2)
+    for at, out in FAN_RUNS:
+        zc = [FAN_MID - (at + (out - at) * smooth(k / n)) for k in range(n + 1)]
+        xs = [sg * (-w / 2 + w * k / n) for k in range(n + 1)]
+        for k in range(n):
+            xa, xb, za, zb = xs[k], xs[k + 1], zc[k], zc[k + 1]
+            for dz in (-0.535, 0.535):
+                top = [(xa, RL + 0.004, za + dz - 0.035), (xb, RL + 0.004, zb + dz - 0.035), (xb, RL + 0.004, zb + dz + 0.035), (xa, RL + 0.004, za + dz + 0.035)]
+                p.face(RAIL, top, (0, 1, 0))
+                for q0, q1, hint in ((top[0], top[1], (0, 0, -1)), (top[3], top[2], (0, 0, 1))):
+                    p.face(RAIL, [q0, q1, (q1[0], RL - 0.19, q1[2]), (q0[0], RL - 0.19, q0[2])], hint)
+            for y in (RL + 3.95, RL + 5.05):
+                for hint in ((0, 1, 0), (0, -1, 0)):
+                    p.face(DARK, [(xa, y, za - 0.02), (xb, y, zb - 0.02), (xb, y, zb + 0.02), (xa, y, za + 0.02)], hint)
+
+
+PIECES += [dict(id='fane', w=FAN_FAR - FAN_NEAR, kind='fan', sg=1), dict(id='fanw', w=FAN_FAR - FAN_NEAR, kind='fan', sg=-1)]
 
 
 def which(north, lo=False):
@@ -392,6 +588,14 @@ def build_hi(v):
     which(v.get('north'))
     body, signs = Part(), Part()
     signs.body = body
+    if v['kind'] == 'shed':
+        begin(dict(v, d=SHED_D, h=SHED_Y + SHED_R))
+        shed(body, v)
+        return body, signs
+    if v['kind'] == 'fan':
+        begin(dict(v, d=VD, h=RL))
+        fan(body, v)
+        return body, signs
     begin(dict(v, d=VD, h=RL))
     r = random.Random(sum(map(ord, v['id'])))
     (girder if v['kind'] == 'girder' else bay)(body, signs, v, r)

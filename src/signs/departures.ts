@@ -3,7 +3,7 @@
 // trains) drawn one of two ways, by the line's era (board-style.ts): a 3-colour dot-matrix
 // LED or a full-colour LCD. Nothing here invents a time: every time is a timetable time.
 
-import { LINES, OPERATOR, lineById, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, OPERATOR, lineById, linesAt, platformFor, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { clock, formatClock, lineSim } from '../sim';
 import { temperatureNow, today } from '../sim/climate';
@@ -17,7 +17,7 @@ type Ctx = CanvasRenderingContext2D;
 type DepC = Extract<SignContent, { k: 'dep' }>;
 type DepAllC = Extract<SignContent, { k: 'depAll' }>;
 
-export const platformNo = (st: StationDef, line: LineDef, dir: Dir) => st.platforms[line.id][dir === 'down' ? 0 : 1];
+export const platformNo = (st: StationDef, line: LineDef, dir: Dir, service?: string) => platformFor(st, line, dir, service);
 /** Trains in this direction take passengers here (false at the terminus they run to). */
 export const boards = (line: LineDef, st: StationDef, dir: Dir) => terminusOf(line, dir).id !== st.id;
 

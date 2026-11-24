@@ -85,6 +85,14 @@ export interface LineDef {
   inbound?: Dir;
   /** Distance of each track centre from the line centreline, metres. */
   trackOffset: number;
+  /**
+   * A station where each direction has an island of its own and each service type a face of it (Kawaminato on
+   * AR). `lateral`: by service type id, the track each direction's trains of that type take there (as
+   * LineGeom.lateral: + = right of increasing chainage). The tracks fan out from the running pair between `far`
+   * and `near` metres from the station's centre, either side. `platforms`: by service type id, the platform
+   * numbers [down, up]; StationDef.platforms holds the first type's.
+   */
+  fanAt?: { station: StationId; near: number; far: number; lateral: Record<string, Record<Dir, number>>; platforms: Record<string, [number, number]> };
   /** How the trains draw power: a third rail (default) or an overhead wire (pantographs on the cars). */
   power?: 'third' | 'overhead';
   /** Rolling stock, if not the metro's 18 m three-door car (sim/geometry.ts carOf). */

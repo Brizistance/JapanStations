@@ -80,6 +80,11 @@ Invented brands that appear on shop fronts in concourses (`SHOPS` in `src/statio
 | Akitsushima Life Building | 秋津島生命ビル | Head office tower on Kita-Ōdōri, west of the station |
 | Asanagi | あさなぎ | Convenience store chain (teal and cream), named after the Asanagi shore. Not web-checked yet |
 | Hinode Stop | ひのでストップ | Convenience store chain (magenta and navy). Not web-checked yet |
+| Kawaminato-ken | 駅弁 川湊軒 | Ekiben stall inside the gates at Kawaminato Station (AR), east concourse. Web-checked 2026-11-23: no real maker by this name found |
+| Kōka-an | そば・うどん 高架庵 | Standing soba stand under the viaduct, Kawaminato Station east concourse (高架 = viaduct). Web-checked 2026-11-23: none found |
+| Mugi no Kiteki | ベーカリー 麦の汽笛 | Bakery, Kawaminato Station west concourse ("the wheat's steam whistle"). Web-checked 2026-11-23: none found |
+| Hokake-ya | 西海みやげ 帆かけ屋 | Seikai souvenir shop, Kawaminato Station west concourse. Web-checked 2026-11-23: none found |
+| Kissa Tessan | 喫茶 鉄傘 | Coffee kiosk on Kawaminato Station's bridge concourse (鉄傘 = an iron train shed). Web-checked 2026-11-23: none found |
 | Kawaminato-dō Gifts | おみやげ 川湊堂 | Souvenirs |
 | Minamo Drug | ミナモドラッグ | Drugstore |
 | Omusubi Komeya | おむすび こめ屋 | Rice balls and bento |

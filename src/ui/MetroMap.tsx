@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
-import { ALL_LINES, ALL_STATIONS, LINES, RAIL_LINES, RAIL_STATIONS, STATIONS, alongPolyline, destinationOf, diagramPath, diagramRuns, diagramSegment, isUnbuilt, linesAt, stationById } from '../data/network';
+import { ALL_LINES, ALL_STATIONS, LINES, RAIL_LINES, RAIL_STATIONS, STATIONS, alongPolyline, destinationOf, diagramPath, diagramRuns, diagramSegment, isUnbuilt, linesAt, platformFor, platformsFor, stationById } from '../data/network';
 import type { Dir, LineDef, StationDef } from '../data/types';
 import { NET, RAIL_NET, clock, formatClock, lineDepartures, lineSim, type LineDeparture } from '../sim';
 import { CHANGE_S, WALK_S, findRoute, type Leg, type Route } from '../sim/route';
@@ -487,12 +487,13 @@ function TrainDots({ geo, m }: { geo: boolean; m: number }) {
 function Departures({ station }: { station: StationDef }) {
   useTick(1000);
   const lang = useUI((s) => s.lang);
-  const rows: { line: LineDef; dir: Dir; deps: LineDeparture[]; platform: number }[] = [];
+  const rows: { line: LineDef; dir: Dir; deps: LineDeparture[]; platform: string }[] = [];
   for (const line of linesAt(station.id)) {
     const stop = line.stops.indexOf(station.id);
     for (const dir of ['down', 'up'] as Dir[]) {
       const deps = lineDepartures(lineSim(line.id), stop, dir, clock.time, line.services ? 3 : 2);
-      if (deps.length) rows.push({ line, dir, deps, platform: station.platforms[line.id][dir === 'down' ? 0 : 1] });
+      // (Where each service type has a face of its own, the direction's platforms together.)
+      if (deps.length) rows.push({ line, dir, deps, platform: platformsFor(station, line, dir).join('·') });
     }
   }
   return (
@@ -626,7 +627,7 @@ function RoutePanel({ onGo, onGuide, confirm }: { onGo?: (id: string) => void; o
                 );
               }
               const dest = destinationOf(leg.line, leg.dir);
-              const platform = stationById(leg.from).platforms[leg.line.id][leg.dir === 'down' ? 0 : 1];
+              const platform = platformFor(stationById(leg.from), leg.line, leg.dir, leg.service?.id);
               return (
                 <li key={n}>
                   <LineBullet line={leg.line} />

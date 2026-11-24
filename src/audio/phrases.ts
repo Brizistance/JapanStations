@@ -4,7 +4,7 @@
 // male; etiquette and general information always female. Japanese uses kana so the TTS
 // reads invented names right.
 
-import { LINES, RAIL_LINES, STATIONS, destinationOf, hasPlatform, linesAt, stationById, terminusOf } from '../data/network';
+import { LINES, RAIL_LINES, STATIONS, destinationOf, hasPlatform, linesAt, platformFor, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef, ServiceType, StationDef } from '../data/types';
 
 /** F/M: platform voices (inbound/outbound, etiquette/safety). C: the in-car voice. RF/RM/RC: the main line's own three. */
@@ -204,15 +204,22 @@ export const RAIL_NOTICES: Clip[][] = [
 ];
 
 /** The door side at one stop: side platforms at some stops of an island line (LineDef.sideAt). */
-export const railDoorSide = (line: LineDef, stop: number): DoorSide =>
-  line.sideAt?.includes(line.stops[stop]) ? 'left' : line.platformType === 'island' ? 'right' : 'left';
+export const railDoorSide = (line: LineDef, stop: number, dir?: Dir, service?: string): DoorSide => {
+  const fan = line.fanAt;
+  if (fan && fan.station === line.stops[stop] && dir && service && fan.lateral[service]) {
+    // Each direction's island lies between its service types' tracks (right of a down train is +lateral).
+    const at = Object.values(fan.lateral).map((l) => l[dir]), mid = at.reduce((p, q) => p + q, 0) / at.length, own = fan.lateral[service][dir];
+    return (dir === 'down' ? mid > own : mid < own) ? 'right' : 'left';
+  }
+  return line.sideAt?.includes(line.stops[stop]) ? 'left' : line.platformType === 'island' ? 'right' : 'left';
+};
 
 /**
  * In a main-line car. 'next' (just after departure): thanks, the line, type and destination, and the next stop.
  * 'soon' (before the stop): 「まもなく、〇〇、〇〇です。お出口は、左側です。」 and the subway change.
  */
 export function railCarAnnouncement(ev: CarEvent, line: LineDef, dir: Dir, stop: number, service?: ServiceType): Clip[] {
-  const st = stationById(line.stops[stop]), dest = destinationOf(line, dir), side = railDoorSide(line, stop);
+  const st = stationById(line.stops[stop]), dest = destinationOf(line, dir), side = railDoorSide(line, stop, dir, service?.id);
   if (ev === 'next') {
     return [
       clip('RC', `今日も、${AR_JA}をご利用くださいまして、ありがとうございます。この電車は、${line.nameKana}、${typeJa(service)}${dest.nameKana}行きです。`),
@@ -245,8 +252,8 @@ function railClips(out: Map<string, Clip>) {
     line.stops.forEach((id, i) => {
       const st = stationById(id);
       for (const dir of ['down', 'up'] as const) {
-        const track = st.platforms[line.id]?.[dir === 'down' ? 0 : 1];
         for (const type of types) {
+          const track = st.platforms[line.id] && platformFor(st, line, dir, type?.id);
           const calls = !type?.skips.includes(id);
           if (calls) for (const ev of ['next', 'soon'] as const) for (const c of railCarAnnouncement(ev, line, dir, i, type)) out.set(c.key, c);
           if (track === undefined || !hasPlatform(line, i)) continue;

@@ -112,7 +112,7 @@ const inBlocks = (x: number, blocks: [number, number][], m = 1.2) => blocks.some
 export const PSD_FULL_H = 2.5;
 
 /** Platform screen doors along one platform edge: waist-high gates, or full-height glass screens. */
-export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: number, ends: [number, number] = [-PLATFORM_HALF, PLATFORM_HALF], o: { queue?: (x: number) => boolean; paint?: boolean } = {}) {
+export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up', pf: number, ends: [number, number] = [-PLATFORM_HALF, PLATFORM_HALF], o: { queue?: (x: number) => boolean; paint?: boolean; service?: string } = {}) {
   const { b, line } = c;
   const z = zEdge + inward * 0.14;
   const xs = doorXs(line), perCar = carOf(line).doors.length;
@@ -165,7 +165,7 @@ export function psd(c: Ctx, zEdge: number, inward: 1 | -1, track: 'down' | 'up',
       xd, pf + 0.012, zEdge + inward * 1.62, null, 2.7, 1.35, { top: [0, -inward] });
     b.gate({
       x: xd, y: pf, z, along: [1, 0], width: half * 2, height: full ? 2.1 : 1.22, thick: 0.07,
-      mat: 'paint:#f3f2ec', window: full, line: line.id, stop: c.stop, track,
+      mat: 'paint:#f3f2ec', window: full, line: line.id, stop: c.stop, track, service: o.service,
     });
     from = xd + half;
   }
