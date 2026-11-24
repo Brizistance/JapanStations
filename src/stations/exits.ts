@@ -529,7 +529,7 @@ function hubFeatures(): Feature[] {
   return [
     { n: n('澪屋百貨店', 'Mioya Department Store'), x0: -59, x1: 59, side: -1, named: true },
     { n: n('川湊駅（AR線・高架）', 'Kawaminato Station (AR, on the viaduct)'), x0: -60, x1: 60, side: -1, named: true },
-    { n: n('北栄通商店街', 'Hokuei-dōri Shopping Arcade'), x0: -94, x1: 96.5, side: -1, named: true },
+    { n: n('川湊駅前広場', 'Kawaminato Station Square'), x0: -94, x1: 96.5, side: -1, named: true },
     { n: n('ホテル澪屋', 'Hotel Mioya'), x0: -94, x1: -70.75, side: -1, named: true },
     { n: n('浜手ビルヂング', 'Hamate Building'), x0: -150.25, x1: -116, side: -1, named: true },
     { n: n('キタモード', 'Kita Mode'), x0: 70.75, x1: 96.5, side: -1, named: true },
@@ -655,6 +655,8 @@ function derive(id: StationId): StationStreet {
         { num: '12', side: 1, rect: [46, 33 - run, 48.8, 33 - Math.max(0, run - EXIT_OPEN) + 1.2] },
         { num: '13', side: 1, rect: [-62, 55 - run, -59.2, 55 - Math.max(0, run - EXIT_OPEN) + 1.2] },
         { num: '14', side: 1, rect: [59.2, 55 - run, 62, 55 - Math.max(0, run - EXIT_OPEN) + 1.2] },
+        // 15 climbs north from the food floor under the terminal into Kawaminato Station's great hall (kawaminato.ts EXIT15: foot −114, open from −120).
+        { num: '15', side: -1, rect: [10.5, -114 - run, 13.3, -120] },
       ];
       return { kind: 'hub', exits: withNear(hubFeatures(), [...es, ...own]) };
     }

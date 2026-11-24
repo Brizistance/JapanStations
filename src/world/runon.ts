@@ -5,6 +5,7 @@
 // traffic drives in and out along it (traffic/street.ts), far enough off that nobody sees a
 // vehicle appear.
 
+import { inPlot, plotNorth } from './builder';
 import { WORLD_NET } from '../sim';
 import { STATION_WORLDS, type StationWorld } from '../stations';
 import type { LanePart } from './builder';
@@ -41,7 +42,7 @@ function free(w: StationWorld, x: number, z: number, ux: number, uz: number): bo
       if (Math.abs(dx) > 600 || Math.abs(dz) > 600) continue;
       const c = Math.cos(o.frame.yaw), s = Math.sin(o.frame.yaw);
       const lx = dx * c - dz * s, lz = dx * s + dz * c;
-      if (Math.abs(lx) < o.build.plot.x + 30 && Math.abs(lz) < o.build.plot.z + 30) return false;
+      if (inPlot(o.build.plot, lx, lz, 30)) return false;
     }
     for (const q of openTrack()) if (Math.abs(q.x - p[0]) < 40 && Math.abs(q.z - p[2]) < 40) return false;
   }
@@ -53,8 +54,8 @@ const cache = new Map<StationWorld, [number, number][]>();
 export function runOns(w: StationWorld): [number, number][] {
   let out = cache.get(w);
   if (out) return out;
-  const { x: px, z: pz } = w.build.plot;
-  const atEdge = (p: [number, number, number], ux: number) => (Math.abs(ux) > 0.5 ? Math.abs(p[0]) > px - 2 : Math.abs(p[2]) > pz - 2);
+  const { x: px, z: pz } = w.build.plot, pn = plotNorth(w.build.plot);
+  const atEdge = (p: [number, number, number], ux: number) => (Math.abs(ux) > 0.5 ? Math.abs(p[0]) > px - 2 : p[2] > pz - 2 || p[2] < -pn + 2);
   out = w.build.lanes.map((l) => {
     const dx = l.to[0] - l.from[0], dz = l.to[2] - l.from[2], n = Math.hypot(dx, dz) || 1, ux = dx / n, uz = dz / n;
     return [

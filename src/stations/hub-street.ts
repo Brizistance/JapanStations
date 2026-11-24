@@ -3,9 +3,13 @@
 //
 // Frame: +x east, +z south. A grid of 筋 (north–south) and 通 (east–west):
 //
-//   z −160 … −120   the back quarter: Hokuei-dōri arcade (a covered shōtengai, east–west), rows of
-//                   small buildings and alleys either side of it
-//   z −117 … −108   Kōka-dōri, along the viaduct's north face
+//   z −285 … −220   blocks either side of Tokei-suji (x 0), the avenue north from the station square
+//   z −219 … −205   Ekimae-dōri, along the square's north edge
+//   z −205 … −145   Kawaminato Station Square (x −94 … 96.5): a bus loop and a taxi loop off Ekimae-dōri, each
+//                   round a planted island, and a paved forecourt before the building; beyond the wide streets
+//                   either side, a short covered arcade (z −168 … −162) through the block
+//   z −145 … −119   Kawaminato Station's brick building of 1914 (build_kawaeki.py), its great hall on the x 0 axis
+//   z −119 … −106   the viaduct's 1914 widening: two more tracks and a third island (not in use yet)
 //   z −106 … −80    the AR Main Line's viaduct: brick arches, girder bridges over the streets
 //   z −80 … −74     Ekiura-dōri, a service lane between viaduct and terminal
 //   z −74 … −19     the Mioya Terminal Building (x ±59) and the blocks either side of it
@@ -25,19 +29,22 @@
 // build_viaduct.py, build_ring.py, build_kitaarcade.py, build_kitacity.py). Where the game letters
 // one, the place comes from src/stations/anchors/*.ts, written by those scripts.
 
-import { AR_HUB_MODELS, linesAt, stationById } from '../data/network';
+import { AR_HUB_MODELS, RAIL_OPERATOR, linesAt, stationById } from '../data/network';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder, type LanePart, type SignOpts, type V2 } from '../world/builder';
 import type { Anchor, AnchorPt, Anchors } from './anchors/types';
 import { GATE } from './anchors/gate';
 import { KITAARCADE } from './anchors/kitaarcade';
+import { INDOOR_LAMP } from '../render/lamps';
+import { KAWAEKI } from './anchors/kawaeki';
+import { TOKEI } from './anchors/tokei';
 import { KITACITY } from './anchors/kitacity';
 import { KITAFRONT } from './anchors/kitafront';
 import { MIOYA } from './anchors/mioya';
 import { RING } from './anchors/ring';
 import { VIADUCT } from './anchors/viaduct';
 import { GROUND_Y as GY, rail, stairs, vending, type Ctx } from './kit';
-import { MIOYA_GATE, kawaminatoStation, mioyaGate, platformPiece } from './kawaminato';
+import { EXIT15, MIOYA_GATE, exit15Run, kawaminatoStation, mioyaGate, platformPiece } from './kawaminato';
 import { KONBINI, konbini } from './konbini';
 import { LIFT_DOOR, LIFT_DOOR_H, LIFT_OUT, lift } from './lift';
 import { CARS, VEH } from '../traffic/vehicles';
@@ -50,22 +57,27 @@ type Rect = [number, number, number, number];
 type Face = 'n' | 's' | 'e' | 'w';
 type Named = { ja: string; en: string };
 
-/** The stair from Willow Court (B1) up into the grand concourse: its z range. hub.ts builds it and cuts its well. */
-export const HALL_STAIR_Z: [number, number] = [-70, -66];
+/**
+ * The stair from the food floor (B1) up into the grand concourse's lobby. hub.ts builds it and cuts its well. It
+ * stands against the food floor's front wall, its foot beside the doorway from the North Passage (`HALL_DOOR`,
+ * the doorway's x range) and climbs east: its z range, its foot's x, and its run for each metre of rise.
+ */
+export const HALL_STAIR_Z: [number, number] = [-67.4, -64.4];
+export const HALL_STAIR = { foot: 1.8, pitch: 1.5 }, HALL_DOOR: [number, number] = [-8, 1.5];
 /** "Reserved for future line" board. Says what kind of railway, never a service or a time. */
 const RESERVED = (ja: string, en: string): SignContent => ({ k: 'label', text: `将来線予定地　${ja}`, sub: `Reserved for future line — ${en}`, fg: '#1b1f24', bg: '#ffd100' });
 /** Half extents of the hub's plot. */
-export const HUB_PLOT = { x: 190, z: 160 };
+export const HUB_PLOT = { x: 190, z: 160, north: 285 };
 
-const X = HUB_PLOT.x, Z = HUB_PLOT.z;
+const X = HUB_PLOT.x, Z = HUB_PLOT.z, ZN = HUB_PLOT.north;
 /** The avenue's half width, and the building lines either side of it. */
 const AV = 11, FRONT = 19;
 /** A street running north–south: centre, half width of the carriageway, pavement width, lanes each way. */
 interface NS { c: number; half: number; pave: number; name: Named; from: number; to: number }
-const HAM: NS = { c: -105, half: 7, pave: 4, name: { ja: '浜手筋', en: 'Hamate-suji' }, from: -Z, to: Z };
+const HAM: NS = { c: -105, half: 7, pave: 4, name: { ja: '浜手筋', en: 'Hamate-suji' }, from: -ZN, to: Z };
 const YAN: NS = { c: 0, half: 10, pave: 6, name: { ja: '柳筋', en: 'Yanagi-suji' }, from: AV, to: Z };
-const SHI: NS = { c: 105, half: 5.5, pave: 3, name: { ja: '汐見筋', en: 'Shiomi-suji' }, from: -Z, to: Z };
-const CHI: NS = { c: 155, half: 7, pave: 4, name: { ja: '千鳥筋', en: 'Chidori-suji' }, from: -Z, to: Z };
+const SHI: NS = { c: 105, half: 5.5, pave: 3, name: { ja: '汐見筋', en: 'Shiomi-suji' }, from: -ZN, to: Z };
+const CHI: NS = { c: 155, half: 7, pave: 4, name: { ja: '千鳥筋', en: 'Chidori-suji' }, from: -ZN, to: Z };
 const WIDE = [HAM, YAN, SHI, CHI];
 /** The one-way local streets: centre, and the way their traffic goes (−1 north, +1 south). */
 const LOCALS: { c: number; way: 1 | -1; name: Named }[] = [
@@ -77,14 +89,38 @@ const LH = 3.25, LP = 1.5;
 /** East–west streets other than the avenue: centre z, half width, pavement. */
 const MIN = { z: 78, half: 4.5, pave: 3, name: { ja: '南一番通', en: 'Minami-ichiban-dōri' } };
 const NIB = { z: 128, half: 3.25, pave: 1.5, name: { ja: '南二番通', en: 'Minami-niban-dōri' } };
-const KOK = { z: -113, half: 4.5, name: { ja: '高架通', en: 'Kōka-dōri' } };
+/** Ekimae-dōri, along the station square's north edge (it took the place of Kōka-dōri, which ran where the viaduct now widens). */
+const EKI = { z: -212, half: 4.5, pave: 3, name: { ja: '駅前通', en: 'Ekimae-dōri' } };
+/** Tokei-suji: the avenue north from the station square, on Yanagi-suji's axis; it ends at Ekimae-dōri. */
+const TOK: NS = { c: 0, half: 10, pave: 6, name: { ja: '時計筋', en: 'Tokei-suji' }, from: -ZN, to: EKI.z - EKI.half };
+/** Ekimae-dōri's south kerb, and the station square's north edge behind its pavement. */
+const KERB_S = EKI.z + EKI.half, SQ_N = KERB_S + EKI.pave;
+/**
+ * The station square's two loops off Ekimae-dōri's westbound lane, each round a planted island: in by the east
+ * leg, west along the station's side (z0 … z1, the stopping kerb at z1), out by the west leg. Legs by their
+ * centres [in, out], hw either side; buses west of the square's axis, taxis east of it.
+ */
+const LOOP = { z0: -180, z1: -172, hw: 3.5, bus: [-30, -76] as [number, number], taxi: [80, 34] as [number, number] };
+/** Where a bus's middle stands at each bay, and the front of the taxi rank. */
+const BUS_BAYS = [-62, -44], TAXI_K = 46;
+const loopRects = ([i, o]: [number, number]): [number, number, number, number][] => [
+  [o - LOOP.hw, LOOP.z0, i + LOOP.hw, LOOP.z1], [i - LOOP.hw, KERB_S, i + LOOP.hw, LOOP.z0], [o - LOOP.hw, KERB_S, o + LOOP.hw, LOOP.z0],
+  // (The kerb is cut back where a bus swings in and out.)
+  [i + LOOP.hw, KERB_S, i + LOOP.hw + 4, SQ_N], [o - LOOP.hw - 4, KERB_S, o - LOOP.hw, SQ_N],
+];
+/** The two short arcades either side of the square (what is left of Hokuei-dōri's): the walk's north and south edges. */
+const ARC: [number, number] = [-168, -162];
 /** The viaduct (north face, south face), the service lane south of it, the back quarter's building line. */
-const VIA: [number, number] = [-106, -80], LANE_S = -74, BACK = KOK.z - KOK.half - 3;
+const VIA: [number, number] = [-106, -80], LANE_S = -74;
+/** Where the viaduct's north face will stand once it is widened (stage 2), and the building line north of its service pavement. */
+const NEW_N = -119, BACK = NEW_N - 3;
+/** Under the viaduct's bridges: the local streets end there, at the way into the car parks in its arches. */
+const UNDER = (VIA[0] + VIA[1]) / 2;
 /** Kawaminato Station (AR) on the viaduct: its platforms' ends (12 cars; bay joints), and its five middle bays by their centres. */
 const AR_PF: [number, number] = [-125, 127];
-const AR_BAYS: Record<number, string> = { [-8]: 'hw8', 0: 'hm8', 8: 'he8', 16: 'hl8', 24: 'ho8', [-32]: 'stp8', 32: 'stp8' };
-/** The arcade: its north and south edges; the shop rows either side. */
-const ARC: [number, number] = [-144.5, -138.5];
+const AR_BAYS: Record<number, string> = { [-8]: 'ho8', 0: 'ho8', 8: 'he8', 16: 'hl8', 24: 'hs8', [-32]: 'stp8', 32: 'stp8' };
+/** Of those, the hollow ones: kawaminato.ts builds what is inside them and their colliders, under the widening too. */
+const AR_HOLLOW = ['ho8', 'he8', 'hl8', 'hs8'];
 /** Stop lines stand this far outside a street's kerb where another crosses it (a crosswalk lies between). */
 const SL = 5.2;
 /** The footbridge ring and the terminal's terrace: deck level, deck width. */
@@ -143,21 +179,23 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       }
     });
   };
-  const BIZ = ['office', 'zakkyo', 'manshon'], SMALL = ['zakkyo', 'manshon'], NIGHT = ['zakkyo', 'shophouse', 'machi'], LOW = ['shophouse', 'machi'];
+  const BIZ = ['office', 'zakkyo', 'manshon'], SMALL = ['zakkyo', 'manshon'], LOW = ['shophouse', 'machi'];
 
   // ── Ground: asphalt everywhere, pavement over it but for the carriageways and the exit stairs ──
   const carriage: Rect[] = [
     [-X, -AV, X, AV],
     ...WIDE.map((s): Rect => [s.c - s.half, s.from, s.c + s.half, s.to]),
-    ...LOCALS.map((l): Rect => [l.c - LH, KOK.z + KOK.half, l.c + LH, Z]),
-    [-X, MIN.z - MIN.half, X, MIN.z + MIN.half], [-X, NIB.z - NIB.half, X, NIB.z + NIB.half], [-X, KOK.z - KOK.half, X, KOK.z + KOK.half],
+    ...LOCALS.map((l): Rect => [l.c - LH, VIA[0], l.c + LH, Z]),
+    [TOK.c - TOK.half, TOK.from, TOK.c + TOK.half, TOK.to],
+    [-X, MIN.z - MIN.half, X, MIN.z + MIN.half], [-X, NIB.z - NIB.half, X, NIB.z + NIB.half], [-X, EKI.z - EKI.half, X, EKI.z + EKI.half],
+    ...loopRects(LOOP.bus), ...loopRects(LOOP.taxi),
   ];
-  b.slab('asphalt', -X, -Z, X, Z, -0.6, 0, holes);
-  b.slab('paver', -X, -Z, X, Z, 0, GY, [...holes, ...carriage]);
-  b.zone('street', -X, -0.3, -Z, X, 80, Z, '北大通・川湊駅前', 'Kita-Ōdōri — Kawaminato Station district');
-  b.block(-X - 1, -1, -Z - 1, -X, 60, Z + 1);
-  b.block(X, -1, -Z - 1, X + 1, 60, Z + 1);
-  b.block(-X, -1, -Z - 1, X, 60, -Z);
+  b.slab('asphalt', -X, -ZN, X, Z, -0.6, 0, holes);
+  b.slab('paver', -X, -ZN, X, Z, 0, GY, [...holes, ...carriage]);
+  b.zone('street', -X, -0.3, -ZN, X, 80, Z, '北大通・川湊駅前', 'Kita-Ōdōri — Kawaminato Station district');
+  b.block(-X - 1, -1, -ZN - 1, -X, 60, Z + 1);
+  b.block(X, -1, -ZN - 1, X + 1, 60, Z + 1);
+  b.block(-X, -1, -ZN - 1, X, 60, -ZN);
   b.block(-X, -1, Z, X, 60, Z + 1);
   b.out.district = { radius: 620, old: [0, 0], oldRadius: 0, towers: 22 };
 
@@ -166,7 +204,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
   /** Where a north–south street's own paint and trees stop for a crossing: the avenue, the other 通, the viaduct. */
   const crossings = (s: { c: number; from: number; to: number }): [number, number][] => [
     [-AV - 9, AV + 9], [MIN.z - MIN.half - 8, MIN.z + MIN.half + 8], [NIB.z - NIB.half - 3, NIB.z + NIB.half + 3],
-    [KOK.z - KOK.half - 8, KOK.z + KOK.half + 8],
+    [EKI.z - EKI.half - 8, EKI.z + EKI.half + 8],
   ];
   const clearOf = (u: number, spans: [number, number][], m = 0) => !spans.some(([p, q]) => u > p - m && u < q + m);
 
@@ -192,13 +230,13 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
   }
   const lanes0 = b.out.lanes.length;
   roadKit(b, {
-    X, Z, rw: AV, swOut: FRONT, streets: streetsX, seed, name: { ja: st.nameJa, en: st.nameRomaji }, at: { id: st.id, dir }, tees: [1], shared: true, lamp: 'lamp_led', busy: 0.85, taxi: 0.3,
+    X, Z, reach: [ZN, Z], rw: AV, swOut: FRONT, streets: streetsX, seed, name: { ja: st.nameJa, en: st.nameRomaji }, at: { id: st.id, dir }, tees: [1], shared: true, lamp: 'lamp_led', busy: 0.85, taxi: 0.3,
     junctions: [{ ja: '北大通浜手', en: 'Kita-Ōdōri Hamate' }, { ja: '川湊駅前', en: 'Kawaminato Sta.' }, { ja: '北大通汐見', en: 'Kita-Ōdōri Shiomi' }, { ja: '北大通千鳥', en: 'Kita-Ōdōri Chidori' }],
     roads: { main: { ja: '北大通', en: 'Kita-Ōdōri' }, cross: WIDE.map((s) => s.name) },
     flows: [0.5, 0.8, 0.35, 0.5], busX: BUS_X, taxiX: TAXI_AT,
   });
 
-  // ── Minami-ichiban-dōri and Kōka-dōri: two lanes, a signal wherever a street with traffic crosses ──
+  // ── Minami-ichiban-dōri and Ekimae-dōri: two lanes, a signal wherever a street with traffic crosses ──
   let jn = 0;
   /**
    * A signalled junction of a north–south street (centre cx, half width hx; `ways` the headings of
@@ -287,19 +325,30 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
   const minCross = [...WIDE.map((s) => ({ c: s.c, half: s.half, ways: [1, -1] as (1 | -1)[] })), ...LOCALS.map((l) => ({ c: l.c, half: LH, ways: [l.way] }))].sort((p, q) => p.c - q.c);
   minCross.forEach((q, i) => junction(q.c, q.half, q.ways, MIN.z, MIN.half, MIN_NAMES[i]));
   sideRoad(MIN, minCross, 'lamp_shop', 3.2, [[], []]);
-  const kokCross = [HAM, SHI, CHI];
-  const KOK_NAMES: Named[] = [{ ja: '高架通浜手', en: 'Kōka-dōri Hamate' }, { ja: '高架通汐見', en: 'Kōka-dōri Shiomi' }, { ja: '川湊駅北口', en: 'Kawaminato Sta. North' }];
-  kokCross.forEach((s, i) => junction(s.c, s.half, [1, -1], KOK.z, KOK.half, KOK_NAMES[i]));
-  // Kōka-dōri's buses stop at the kerb either side of the arcade's middle (it is too narrow for a taxi rank).
-  const BUS_K: [number, number] = [22, -22];
-  sideRoad(KOK, kokCross, 'lamp_suzuran', 2.6, [[{ at: BUS_K[0] + X, side: 0.8 }], [{ at: X - BUS_K[1], side: 0.8 }]]);
+  const kokCross = [HAM, TOK, SHI, CHI];
+  const KOK_NAMES: Named[] = [{ ja: '駅前通浜手', en: 'Ekimae-dōri Hamate' }, { ja: '川湊駅北口', en: 'Kawaminato Sta. North' }, { ja: '駅前通汐見', en: 'Ekimae-dōri Shiomi' }, { ja: '駅前通千鳥', en: 'Ekimae-dōri Chidori' }];
+  // (Tokei-suji ends here: traffic comes in from the north only, and the square lies to the south.)
+  kokCross.forEach((s, i) => junction(s.c, s.half, s === TOK ? [1] : [1, -1], EKI.z, EKI.half, KOK_NAMES[i], s === TOK ? { n: true, s: false } : undefined));
+  // Ekimae-dōri's eastbound buses stop at its north kerb; westbound, they turn into the square's loop.
+  const BUS_K = 44, ekiLanes = b.out.lanes.length;
+  sideRoad(EKI, kokCross, 'lamp_suzuran', 2.6, [[{ at: BUS_K + X, side: 0.8 }], []]);
+  {
+    // The square's loops: off the westbound lane by a left turn down the east leg, west along the station's
+    // side (buses to a bay, taxis to the rank), up the west leg and back onto the lane by a left turn.
+    const lz = EKI.z + 2.25, zs = LOOP.z1 - 3.2, west = b.out.lanes[ekiLanes + 1];
+    const way = ([i, o]: [number, number]) => [b.pt(i, 0, lz), b.pt(i, 0, zs), b.pt(o, 0, zs), b.pt(o, 0, lz)];
+    west.detours = [
+      ...BUS_BAYS.map((x) => ({ via: way(LOOP.bus), r: 5, rEnds: 9, speed: 4.5, who: 'bus' as const, share: 0.4, halt: b.pt(x, 0, zs) })),
+      { via: way(LOOP.taxi), r: 5, rEnds: 8, speed: 4.5, who: 'taxi' as const, share: 0.5, halt: b.pt(TAXI_K, 0, zs), rank: 4 },
+    ];
+  }
 
   // The wide streets' lanes were laid by the kit with a stop at the avenue only: add the other signals.
   for (const l of b.out.lanes.slice(lanes0)) {
     const dz = l.to[2] - l.from[2];
     if (Math.abs(l.to[0] - l.from[0]) > 0.1 || Math.abs(dz) < 1) continue;
     const uz = Math.sign(dz), more: LanePart['stops'] = [];
-    for (const s of [MIN, KOK]) {
+    for (const s of [MIN, EKI]) {
       const t = (s.z - l.from[2]) * uz;
       if (t - s.half - SL < 6 || t + s.half + SL > Math.abs(dz) - 4) continue;
       more.push({ at: t - s.half - SL - 0.5, axis: 1, exit: t + s.half + SL });
@@ -313,31 +362,32 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     // South of the avenue: in from the plot's edge (northbound) or out to it (southbound), a signal at Minami-ichiban.
     // (Its lanes stop a metre short of the avenue's median: whoever comes out turns left into the near
     // side, whoever goes in has turned left off it. traffic/system.ts works the turns out.)
-    const zs = Z + 1.5, MED = 1.0, kN = KOK.z - KOK.half, tMin = north ? zs - MIN.z : MIN.z - MED;
+    const zs = Z + 1.5, MED = 1.0, kN = UNDER, tMin = north ? zs - MIN.z : MIN.z - MED;
     const minStop = { at: tMin - MIN.half - SL - 0.5, axis: 1 as const, exit: tMin + MIN.half + SL };
     const minor = { speed: 6, use: 'minor' as const, taxi: 0, halts: [] };
     if (north) {
       // South of the avenue: in from the plot's edge, a signal at Minami-ichiban, out onto the avenue.
       trafficLane(b, x, zs, x, MED, { ...minor, flow: 1.6, stops: [minStop, { at: zs - FRONT - 0.6, axis: 0, exit: zs - MED }], dead: true });
-      // North of it: fed by left turns off the avenue, out by a left turn onto Kōka-dōri.
-      trafficLane(b, x, -MED, x, KOK.z - 0.5, { ...minor, flow: 0, stops: [{ at: -MED - (VIA[0] - 0.6), axis: 0, exit: -MED - (KOK.z - 0.5) }], dead: true });
+      // North of it: fed by left turns off the avenue, and in under the viaduct.
+      trafficLane(b, x, -MED, x, UNDER, { ...minor, flow: 0, stops: [] });
     } else {
       trafficLane(b, x, MED, x, zs, { ...minor, flow: 0, stops: [minStop] });
+      // (Nothing feeds it now that the street ends under the viaduct: it stays for whoever is set down there.)
       trafficLane(b, x, kN, x, -MED, { ...minor, flow: 0, stops: [{ at: -FRONT - 0.6 - kN, axis: 0, exit: -MED - kN }], dead: true });
     }
     // Paint and signs: edge lines, 止まれ and a stop sign where it gives way, one-way boards at its ends.
-    for (const [z0, z1] of [[FRONT, MIN.z - MIN.half - 6], [MIN.z + MIN.half + 6, NIB.z - NIB.half], [NIB.z + NIB.half, Z], [VIA[1], -FRONT], [KOK.z + KOK.half + 2.5, VIA[0]]]) {
+    for (const [z0, z1] of [[FRONT, MIN.z - MIN.half - 6], [MIN.z + MIN.half + 6, NIB.z - NIB.half], [NIB.z + NIB.half, Z], [VIA[1], -FRONT]]) {
       for (const e of [-1, 1]) b.deco(WHITE, x + e * (LH - 0.6) - 0.05, 0.004, z0, x + e * (LH - 0.6) + 0.05, 0.01, z1);
     }
     const kerb = x + l.way * (LH + 0.5), far = x - l.way * (LH + 0.5);
-    for (const zm of north ? [FRONT + 0.4, VIA[0] - 0.2] : [-FRONT - 0.4]) {
+    for (const zm of north ? [FRONT + 0.4] : [-FRONT - 0.4]) {
       const s = l.way;
       b.deco(WHITE, x - LH + 0.5, 0.004, Math.min(zm, zm + s * 0.3) - (north ? 0 : 0), x + LH - 0.5, 0.01, Math.max(zm, zm + s * 0.3));
       mark(b, 'stop', x, zm - s * 3.4, [0, s], 2.2, 3.2);
       roadSign(b, 'stop', kerb, zm - s * 1.0, [0, -s]);
     }
     // 一方通行 at the way in, 進入禁止 facing whoever would drive in the wrong way.
-    const inZ = north ? [Z - 6, -FRONT - 3] : [FRONT + 3, VIA[0] - 3 + 0], outZ = north ? [FRONT + 4, VIA[0] - 1.2] : [Z - 6, -FRONT - 4];
+    const inZ = north ? [Z - 6, -FRONT - 3] : [FRONT + 3, VIA[1] + 3], outZ = north ? [FRONT + 4, VIA[1] + 1.2] : [Z - 6, -FRONT - 4];
     for (const z of inZ) {
       roadModel(b, 'signpole', far, GY, z, [0, -l.way]);
       b.block(far - 0.06, GY, z - 0.06, far + 0.06, GY + 2, z + 0.06);
@@ -369,7 +419,9 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
 
   // ── Nothing of the kit's stands in a street's mouth; the avenue's median; its kerb rail ──
   const mouths: Rect[] = [...WIDE.flatMap((s): Rect[] => [[s.c - s.half - 0.3, AV - 0.2, s.c + s.half + 0.3, FRONT + 0.2], ...(s === YAN ? [] : [[s.c - s.half - 0.3, -FRONT - 0.2, s.c + s.half + 0.3, -AV + 0.2] as Rect])]),
-    ...LOCALS.flatMap((l): Rect[] => [[l.c - LH - 1.2, AV - 0.2, l.c + LH + 1.2, FRONT + 0.2], [l.c - LH - 1.2, -FRONT - 0.2, l.c + LH + 1.2, -AV + 0.2]])];
+    ...LOCALS.flatMap((l): Rect[] => [[l.c - LH - 1.2, AV - 0.2, l.c + LH + 1.2, FRONT + 0.2], [l.c - LH - 1.2, -FRONT - 0.2, l.c + LH + 1.2, -AV + 0.2]]),
+    // (The mouths of the square's loops on Ekimae-dōri's south pavement.)
+    ...[LOOP.bus, LOOP.taxi].flatMap(([i, o]): Rect[] => [[i - LOOP.hw - 0.5, KERB_S - 0.3, i + LOOP.hw + 4.5, SQ_N + 0.3], [o - LOOP.hw - 4.5, KERB_S - 0.3, o + LOOP.hw + 0.5, SQ_N + 0.3]])];
   for (const [x0, z0, x1, z1] of mouths) {
     const inside = (v: number[]) => v[0] > x0 && v[0] < x1 && v[2] > z0 && v[2] < z1;
     // (What stands on the ground there goes; signal heads hang over a mouth from poles outside it, and stay.)
@@ -415,13 +467,13 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
   for (const s of WIDE) {
     const kind: TreeKind = s === YAN ? 'willow' : s === SHI ? 'dogwood' : 'zelkova';
     const lamp = s === YAN ? 'lamp_hw' : 'lamp_led';
-    const spans = [...crossings(s), [VIA[0] - 3, VIA[1] + 3] as [number, number]];
+    const spans = [...crossings(s), [NEW_N - 3, VIA[1] + 3] as [number, number]];
     for (const sx of [-1, 1]) {
       const x = s.c + sx * (s.half + 1.5);
       for (let z = s.from + 10; z < s.to - 5; z += 15) {
         if (!clearOf(z, spans, 2) || nearHole(x, z, 4)) continue;
         tree(x, z, kind);
-        if (Math.round(z / 15) % 2 === (sx > 0 ? 0 : 1) && clearOf(z + 7, spans, 2) && !nearHole(x, z + 7, 3)) streetLamp(b, lamp, s.c + sx * (s.half + 0.9), z + 7, [-sx, 0]);
+        if (Math.abs(Math.round(z / 15)) % 2 === (sx > 0 ? 0 : 1) && clearOf(z + 7, spans, 2) && !nearHole(x, z + 7, 3)) streetLamp(b, lamp, s.c + sx * (s.half + 0.9), z + 7, [-sx, 0]);
       }
     }
   }
@@ -436,37 +488,54 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     /** A piece under the platforms is its `pf_` twin (build_viaduct.py); its colliders are the plain piece's. */
     const underPf = (x: number) => x > AR_PF[0] && x < AR_PF[1];
     let pfCount = 0;
+    /** The 1914 widening along the old viaduct's north side (build_viaduct.py n<id>): the piece that stands beside each of the old ones. */
+    const northOf = (base: string) => (base.startsWith('g') ? `n${base}` : base === 'p8' || base === 'stp8' ? 'np8' : base === 'ho8' || base === 'he8' ? 'nh8' : AR_HOLLOW.includes(base) ? 'nc8' : /^[as]\d$/.test(base) ? `n${base}` : 'ns8');
+    const putNorth = (base: string, x: number) => {
+      const nb = northOf(base), id = underPf(x) && VIADUCT[`pf_${nb}`] ? `pf_${nb}` : nb, w = VIADUCT[id].w;
+      b.model('viaduct', id, x, GY, NEW_N, Math.floor(r() * 90));
+      if (nb.startsWith('ng')) {
+        for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * (w / 2 - ABUT)), GY, NEW_N, Math.max(x + e * w / 2, x + e * (w / 2 - ABUT)), 8, VIA[0]);
+        const p = VIADUCT[id].pts.clear_f;
+        if (Math.abs(x) > KAWAEKI.main.w / 2) b.sign({ k: 'label', text: '桁下 4.7m', sub: 'Clearance 4.7 m', fg: '#1f2023', bg: '#e6a700' }, x + p[0], p[1] + GY, NEW_N + p[2], [p[5], p[6]], p[3], p[4]);
+      } else if (nb === 'nh8' || nb === 'nc8') {
+        // The station's passage and concourse: kawaminato.ts.
+      } else if (nb === 'np8') {
+        // The walkway carries on through it.
+        for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * PASS / 2), GY, NEW_N, Math.max(x + e * w / 2, x + e * PASS / 2), 8, VIA[0]);
+        b.block(x - PASS / 2, GY + 3.3, NEW_N, x + PASS / 2, 8, VIA[0]);
+        b.zone('passage', x - PASS / 2, GY - 0.2, NEW_N, x + PASS / 2, GY + 3.2, VIA[0], '高架下 連絡通路', 'Walkway under the tracks');
+      } else b.block(x - w / 2, GY, NEW_N, x + w / 2, 8, VIA[0]);
+    };
     const putPiece = (base: string, x: number) => {
       const id = underPf(x) && VIADUCT[`pf_${base}`] ? `pf_${base}` : base;
       b.model('viaduct', id, x, GY, VIA[0], Math.floor(r() * 90));
       const w = VIADUCT[id].w;
+      putNorth(base, x);
       // Under the platforms: the canopy column at the piece's middle on the south island, and the bench beside it (build_viaduct.py platforms()).
       if (underPf(x)) {
         const pf = GY + 10.1, zc = VIA[0] + 19.1;
         platformPiece(b, x, base, pfCount++);
-        if (base !== 'hw8' && base !== 'he8') b.block(x - 0.14, pf, zc - 0.14, x + 0.14, pf + 3.3, zc + 0.14);
-        if (base !== 'hw8' && base !== 'he8' && base !== 'hm8') b.block(x + 1.5, pf, zc - 0.25, x + 3.1, pf + 0.45, zc + 0.25);
+        if (base !== 'hl8') b.block(x - 0.14, pf, zc - 0.14, x + 0.14, pf + 3.3, zc + 0.14);
+        if (base !== 'hl8') b.block(x + 1.5, pf, zc - 0.25, x + 3.1, pf + 0.45, zc + 0.25);
       }
       if (base.startsWith('g')) {
         for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * (w / 2 - ABUT)), GY, VIA[0], Math.max(x + e * w / 2, x + e * (w / 2 - ABUT)), 8, VIA[0] + VD);
         const g = VIADUCT[id].pts;
-        for (const k of ['clear_f', 'clear_b']) {
+        for (const k of ['clear_b']) {
           const p = g[k];
           b.sign({ k: 'label', text: '桁下 4.7m', sub: 'Clearance 4.7 m', fg: '#1f2023', bg: '#e6a700' }, x + p[0], p[1] + GY, VIA[0] + p[2], [p[5], p[6]], p[3], p[4]);
         }
-      } else if (base === 'he8' || base === 'hl8' || base === 'ho8') {
-        // The station's hall: kawaminato.ts builds what is inside and its colliders.
-      } else if (base === 'hw8') {
-        // Arch shops below the mezzanine's level; the platform stair's well above (kawaminato.ts).
-        b.block(x - w / 2, GY, VIA[0], x + w / 2, 5.85, VIA[0] + VD);
-      } else if (base.includes('p') || base === 'hm8') {
-        // (Under the station's mezzanine the walkway's sides stop at its floor, and its roof is solid up to it.)
-        const top = base === 'hm8' ? 5.85 : 8;
-        if (base === 'hm8') b.block(x - PASS / 2, GY + 3.3, VIA[0], x + PASS / 2, top, VIA[0] + VD);
+      } else if (AR_HOLLOW.includes(base)) {
+        // The station's passage and concourse: kawaminato.ts builds what is inside and its colliders.
+      } else if (base.includes('p')) {
+        const top = 8;
         for (const e of [-1, 1]) b.block(Math.min(x + e * w / 2, x + e * PASS / 2), GY, VIA[0], Math.max(x + e * w / 2, x + e * PASS / 2), top, VIA[0] + VD);
         b.zone('passage', x - PASS / 2, GY - 0.2, VIA[0], x + PASS / 2, GY + 3.2, VIA[0] + VD, '高架下 連絡通路', 'Walkway under the tracks');
-        for (const [z, n] of [[VIA[0] - 0.05, -1], [VIA[1] + 0.05, 1]] as const) {
-          b.sign({ k: 'guide', ja: n < 0 ? '北大通・澪屋・地下鉄' : '北栄通商店街・高架通', en: n < 0 ? 'Kita-Ōdōri / Mioya / Metro' : 'Hokuei-dōri arcade / Kōka-dōri', bg: 'white', arrow: 'up' }, x, GY + 5.9, z, [0, n], 4.6, 0.5);
+        // (North, the station building stands against the viaduct: no walkway comes out there but the station's own passage.)
+        const inEki = Math.abs(x) < KAWAEKI.main.w / 2;
+        for (const [z, n] of [[NEW_N - 0.05, -1], [VIA[1] + 0.05, 1]] as const) {
+          if (n < 0 && inEki) continue; // (there it runs on through the station building: its mouth on the square has the sign)
+          b.sign({ k: 'guide', ja: n < 0 ? '北大通・澪屋・地下鉄' : '川湊駅前広場・駅前通', en: n < 0 ? 'Kita-Ōdōri / Mioya / Metro' : 'Station Square / Ekimae-dōri', bg: 'white', arrow: 'up' }, x, GY + 5.9, z, [0, n], 4.6, 0.5);
         }
       } else b.block(x - w / 2, GY, VIA[0], x + w / 2, 8, VIA[0] + VD);
     };
@@ -571,9 +640,10 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       // The stair down to Willow Court and the metro comes up in the lobby: a rail round its well.
       if (hallStair) {
         const [x0, z0, x1, z1] = hallStair;
+        // (It climbs east: the well is shut at its west end, open at the stair's head.)
         rail(b, x0, z0 - 0.08, x1, z0, GY);
         rail(b, x0, z1, x1, z1 + 0.08, GY);
-        rail(b, x1, z0, x1 + 0.08, z1, GY);
+        rail(b, x0 - 0.08, z0, x0, z1, GY);
         const down: SignContent = { k: 'guide', ja: `地下鉄 ${st.nameJa}駅`, en: `Metro: ${st.nameRomaji} Station`, bg: 'navy', badges: lines, arrow: 'down' };
         for (const n of [-1, 1] as const) {
           const zs = n < 0 ? z0 - 0.09 : z1 + 0.09, xm = (x0 + x1) / 2;
@@ -610,7 +680,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       b.sign({ k: 'label', text: '改札予定位置', sub: 'Future ticket gates', fg: '#1b1f24', bg: '#ffd100' }, (HX - 12) / 2, DECK + 0.012, zBack + 5.4, null, 9, 1.4, { top: [0, -1] });
       mioyaGate(b, DECK, zBack, zBack + 3.2);
       // Ways on: over the lobby's doors, and on the edge of the concourse above, facing the nave.
-      b.sign({ k: 'guide', ja: '駅裏通・川湊駅（AR線）・北栄通商店街', en: 'Ekiura-dōri / Kawaminato Sta. (AR) / Hokuei-dōri arcade', bg: 'white', arrow: 'up' }, 0, GY + 4.1, zBack + 0.52, [0, 1], 9, 0.6);
+      b.sign({ k: 'guide', ja: '駅裏通・川湊駅（AR線）・駅前広場', en: 'Ekiura-dōri / Kawaminato Sta. (AR) / Station Square', bg: 'white', arrow: 'up' }, 0, GY + 4.1, zBack + 0.52, [0, 1], 9, 0.6);
       b.sign({ k: 'guide', ja: `地下鉄 ${st.nameJa}駅・北口`, en: `Metro: ${st.nameRomaji} Station / North Entrance`, bg: 'navy', badges: lines, arrow: 'up' }, 0, DECK - 0.25, zL + 0.1, [0, 1], 8, 0.44);
       b.sign({ k: 'guide', ja: '北大通・柳筋', en: 'Kita-Ōdōri avenue / Yanagi-suji', bg: 'yellow', arrow: 'up' }, 0, DECK - 0.25, zB - 0.1, [0, -1], 6, 0.44);
       b.zone('concourse', -LX, GY - 0.2, zBack, LX, GY + 5.2, zArc, '澪屋 大コンコース', 'Mioya — Grand Concourse', true);
@@ -827,93 +897,278 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     });
   }
 
-  // ═════════════════════════ The back quarter ═════════════════════════
+  // ═════════════════════════ North of the tracks: the station's site, its square, Ekimae-dōri, Tokei-suji ═════════════════════════
+  // (The grand station, Plans/stations/kawaminato-grand.md. Still to come: everything inside the building but its hall.)
   {
-    const blocks = between([HAM, SHI, CHI].map(bl));
-    const [bx0, bx1] = blocks[1]; // the long block the arcade runs through
-    const SD = KITAARCADE.sa.d, K_BACK = ARC[1] + SD + 0.5;
-    // Alleys cut it into short runs: from Kōka-dōri to the arcade, and on north to the plot's edge.
-    const ALLEYS = [-64, -32, 0, 32, 64], AWD = 1.3;
-    const runs = between(ALLEYS.map((x): [number, number] => [x - AWD, x + AWD]), bx0, bx1);
-    for (const x of ALLEYS) {
-      b.deco('flat:#5d5852', x - AWD, GY + 0.002, -Z, x + AWD, GY + 0.012, BACK);
-      b.deco('flat:#3f3b37', x - 0.08, GY + 0.012, -Z, x + 0.08, GY + 0.016, BACK);
-      b.block(x - AWD, GY, -Z, x + AWD, GY + 3, -Z + 0.5);
-      for (const z of [BACK - 5, ARC[0] - 6]) {
-        b.deco('flat:#1b1b1b', x - AWD, GY + 3.5, z - 0.01, x + AWD, GY + 3.52, z + 0.01);
-        b.mesh(x % 64 ? 'glow:#e5533d' : 'glow:#f2c88a', 'cyl', x, GY + 3.2, z, 0.34, 0.4, 0.34);
+    const south = between([HAM, SHI, CHI].map(bl));
+    const [bx0, bx1] = south[1]; // the long block: the station building and its square
+    const EK_N = EKI.z - EKI.half - EKI.pave, SITE_N = -145;
+    // (The viaduct's widening stands on z NEW_N … VIA[0]; a service pavement runs along its new face.)
+    reserved.push([-X, BACK, X, VIA[0]]);
+    // The station building (build_kawaeki.py): 1914 red brick, three domes. Its middle pavilion is the great
+    // hall, hollow from its three arched doors right through to the station's central passage under the tracks
+    // (kawaminato.ts). The wings and the east end pavilion each have a way through at street level, where a
+    // walkway under the tracks comes out behind the building; nothing else of them is entered.
+    const WAY = 4, EKI_HX = KAWAEKI.main.w / 2;
+    piece('kawaeki', KAWAEKI, 'main', 'n', 0, SITE_N, (m) => {
+      const D = m.d, q = m.pts, [CXP, PROJ_C, EX0, PROJ_E] = q._geo;
+      const HX = q._hall[3] / 2, HH = q._hall[4], DX = q._doors[3] / 2, BX = q._back[3] / 2;
+      // Colliders: the wings and end pavilions, but for the ways through them where a walkway under the tracks
+      // comes out behind the building; round the hall, its walls, the door piers and the back wall.
+      const TUN = ['_tun0', '_tun1', '_tun2'].map((k) => q[k]);
+      const solid = (x0: number, x1: number, z0: number, z1: number) => {
+        let e = x0;
+        for (const t of TUN.filter((t) => t[0] > x0 && t[0] < x1 && t[2] <= z0 + 0.01).sort((u, v) => u[0] - v[0])) {
+          b.block(e, GY, z0, t[0] - t[3] / 2, GY + 19, z1);
+          b.block(t[0] - t[3] / 2, GY + t[4], z0, t[0] + t[3] / 2, GY + 19, z1);
+          e = t[0] + t[3] / 2;
+        }
+        b.block(e, GY, z0, x1, GY + 19, z1);
+      };
+      for (const t of TUN) {
+        const [x0, x1, z0] = [t[0] - t[3] / 2, t[0] + t[3] / 2, t[2]];
+        b.deco('floor:#c9bfae', x0, GY + 0.012, z0, x1, GY + 0.018, D);
+        b.sign({ k: 'guide', ja: '駅裏通・北大通・澪屋', en: 'Ekiura-dōri / Kita-Ōdōri / Mioya', bg: 'white', arrow: 'up' }, t[0], GY + 5.55, z0 - 0.02, [0, -1], Math.min(4.2, t[3]), 0.5);
+        b.zone('passage', x0, GY - 0.2, z0, x1, GY + t[4], D, `${stationById('kawaminato').nameJa}駅 通り抜け通路`, `${stationById('kawaminato').nameRomaji} Station — way through to Ekiura-dōri`, false);
       }
-      b.zone('street', x - AWD, GY - 0.2, -Z, x + AWD, GY + 6, BACK, '北栄横丁', 'Hokuei Yokochō', true);
-      reserved.push([x - AWD, -Z, x + AWD, BACK]);
+      for (const sx of [-1, 1]) {
+        solid(Math.min(sx * HX, sx * EKI_HX), Math.max(sx * HX, sx * EKI_HX), 0, D);
+        solid(Math.min(sx * EX0, sx * EKI_HX), Math.max(sx * EX0, sx * EKI_HX), -PROJ_E, 0);
+        b.block(Math.min(sx * HX, sx * CXP), GY, -PROJ_C, Math.max(sx * HX, sx * CXP), GY + HH, 0);
+        b.block(Math.min(sx * DX, sx * CXP), GY, -PROJ_C, Math.max(sx * DX, sx * CXP), GY + HH, -PROJ_C + 1);
+        b.block(Math.min(sx * BX, sx * HX), GY, D - 0.6, Math.max(sx * BX, sx * HX), GY + HH, D);
+      }
+      for (const k of ['_pier0', '_pier1']) b.block(q[k][0] - q[k][3] / 2, GY, -PROJ_C, q[k][0] + q[k][3] / 2, GY + HH, -PROJ_C + 1);
+      b.block(-BX, GY + q._back[4], D - 0.6, BX, GY + HH, D);
+      // The hall: a stone floor with a border, lamps under the ceiling, the station's name and the clock outside.
+      // (Round the well of the metro's Exit 15, which comes up in the hall's south-east corner: hub.ts exit15().)
+      const [wx0, wx1] = EXIT15.x, wz0 = EXIT15.foot - exit15Run(cf) - SITE_N, wz1 = EXIT15.open - SITE_N;
+      for (const [x0, z0, x1, z1] of [[-HX, -PROJ_C, HX, wz0], [-HX, wz0, wx0, D], [wx1, wz0, HX, D], [wx0, wz1, wx1, D]]) b.deco('floor:#cfc8b8', x0, GY + 0.002, z0, x1, GY + 0.012, z1);
+      for (const sx of [-1, 1]) b.deco('flat:#8f6a52', Math.min(sx * (HX - 1.4), sx * (HX - 1.0)), GY + 0.012, -PROJ_C + 1, Math.max(sx * (HX - 1.4), sx * (HX - 1.0)), GY + 0.016, sx > 0 ? wz0 - 0.4 : EXIT15.lift.z - 1.15 - SITE_N - 0.4);
+      const ar = stationById('kawaminato');
+      // Its dress. Globes hung in three rows; a stone dado and a cornice band round the side walls; a paved
+      // round in the floor's middle; benches by the walls. On the west wall the departures, on the east the
+      // ticket office's windows.
+      const STONE = 'flat:#ddd6c6', Z0 = -PROJ_C + 1, Z1 = D - 0.6;
+      for (const z of [7, 14, 21]) for (const x of [-8, 0, 8]) {
+        b.deco('metal:#8a7a52', x - 0.025, GY + HH - 2.4, z - 0.025, x + 0.025, GY + HH, z + 0.025);
+        b.mesh(INDOOR_LAMP, 'sphere', x, GY + HH - 2.7, z, 0.42, 0.42, 0.42);
+      }
+      for (const sx of [-1, 1]) {
+        const xw = sx * HX, xi = sx * (HX - 0.06);
+        b.deco(STONE, Math.min(xw, xi), GY, Z0, Math.max(xw, xi), GY + 1.5, Z1);
+        b.deco(STONE, Math.min(xw, sx * (HX - 0.14)), GY + 1.5, Z0, Math.max(xw, sx * (HX - 0.14)), GY + 1.66, Z1);
+        b.deco(STONE, Math.min(xw, sx * (HX - 0.2)), GY + 7.6, Z0, Math.max(xw, sx * (HX - 0.2)), GY + 8.0, Z1);
+        // (Pilasters at the bays of the ceiling's beams.)
+        for (const z of [3.5, 10.5, 17.5, 24.4]) b.deco(STONE, Math.min(xw, sx * (HX - 0.18)), GY + 1.66, z - 0.45, Math.max(xw, sx * (HX - 0.18)), GY + 7.6, z + 0.45);
+        for (const z of [7]) { // (the south corners hold the metro's Exit 15 and its lift)
+          roadModel(b, 'bench_s', sx * (HX - 0.75), GY, z, [-sx, 0]);
+          b.block(Math.min(sx * (HX - 1.05), sx * (HX - 0.45)), GY, z - 0.95, Math.max(sx * (HX - 1.05), sx * (HX - 0.45)), GY + 0.5, z + 0.95);
+        }
+      }
+      for (const [rr, mat] of [[5.2, 'flat:#8f6a52'], [4.8, 'flat:#e3ddd0'], [2.2, 'flat:#8f6a52'], [1.8, 'flat:#cfc8b8']] as const) {
+        for (let k = -8; k < 8; k++) {
+          const za = (k * rr) / 8, zb = ((k + 1) * rr) / 8, hw = Math.sqrt(Math.max(0, rr * rr - Math.max(za * za, zb * zb)));
+          if (hw > 0.05) b.deco(mat, -hw, GY + 0.012 + (5.3 - rr) * 0.0008, 14 + za, hw, GY + 0.014 + (5.3 - rr) * 0.0008, 14 + zb);
+        }
+      }
+      b.deco('flat:#17181b', -HX + 0.06, GY + 3.0, 11.0, -HX + 0.12, GY + 5.4, 17.0);
+      b.sign({ k: 'ardep', station: ar.id, line: 'AR' }, -HX + 0.13, GY + 4.2, 14, [1, 0], 5.8, 2.1, { dynamic: true });
+      b.sign({ k: 'label', text: '発車のご案内', sub: 'Departures', fg: '#3a2a20', bg: '#ddd6c6' }, -HX + 0.02, GY + 5.9, 14, [1, 0], 4.2, 0.6);
+      for (const z of [12.3, 14, 15.7]) {
+        b.deco('metal:#8a7a52', HX - 0.2, GY + 1.0, z - 0.8, HX - 0.06, GY + 2.5, z + 0.8);
+        b.deco('glow:#f2e3bd', HX - 0.22, GY + 1.1, z - 0.7, HX - 0.2, GY + 2.4, z + 0.7);
+        b.deco(STONE, HX - 0.5, GY + 0.95, z - 0.85, HX - 0.06, GY + 1.02, z + 0.85);
+      }
+      b.sign({ k: 'label', text: 'きっぷうりば・ご案内', sub: 'Tickets and information', fg: '#3a2a20', bg: '#ddd6c6' }, HX - 0.02, GY + 5.9, 14, [-1, 0], 4.6, 0.6);
+      signAt(q.name, { k: 'label', text: `${ar.nameJa}駅`, sub: `${ar.nameRomaji} Station`, fg: '#3a2a20', bg: '#ddd6c6' });
+      b.sign({ k: 'clock' }, q.clock[0], q.clock[1] + GY, q.clock[2], [q.clock[5], q.clock[6]], q.clock[3], q.clock[4]);
+      b.zone('concourse', -HX, GY - 0.2, -PROJ_C + 1, HX, GY + HH, D, `${ar.nameJa}駅 大広間`, `${ar.nameRomaji} Station — Great Hall`, false);
+    }, false);
+    reserved.push([bx0, SITE_N - 3, bx1, NEW_N]);
+    // The station square. Before the building a paved forecourt, banded, the whole block wide; north of it the
+    // two loops round their planted islands, and between them the walk on the axis from the middle door to Tokei-suji.
+    const PAVE = 'flat:#b9b2a4', BAND = 'flat:#8f6a52', loops = [LOOP.bus, LOOP.taxi];
+    const midX: [number, number] = [LOOP.bus[0] + LOOP.hw, LOOP.taxi[1] - LOOP.hw];
+    b.deco(PAVE, bx0, GY + 0.002, LOOP.z1, bx1, GY + 0.01, SITE_N);
+    for (const [a, e] of [[bx0, LOOP.bus[1] - LOOP.hw], midX, [LOOP.taxi[0] + LOOP.hw, bx1]]) b.deco(PAVE, a, GY + 0.002, SQ_N, e, GY + 0.01, LOOP.z1);
+    for (let x = bx0 + 6; x < bx1 - 2; x += 12) b.deco(BAND, x, GY + 0.01, LOOP.z1 + 1, x + 0.5, GY + 0.014, SITE_N - (Math.abs(x) < 14 ? 2.5 : 1));
+    b.deco(BAND, bx0 + 1, GY + 0.01, LOOP.z1 + 0.5, bx1 - 1, GY + 0.014, LOOP.z1 + 1);
+    b.deco('flat:#d8d2c4', -WAY, GY + 0.01, SQ_N, WAY, GY + 0.016, SITE_N - 2.5);
+    // Lamps: two rows across the forecourt, a pair every 12 m down the axis walk.
+    for (const [z, x0] of [[LOOP.z1 + 5, bx0 + 9], [SITE_N - 8, bx0 + 21]]) for (let x = x0; x < bx1 - 6; x += 24) if (Math.abs(x) > WAY + 3) streetLamp(b, 'lamp_led', x, z, [0, 1]);
+    for (let z = SQ_N + 5; z < LOOP.z1; z += 12) for (const sx of [-1, 1]) streetLamp(b, 'lamp_park', sx * (WAY + 1.5), z, [-sx, 0]);
+    for (const [k, [i, o]] of loops.entries()) {
+      // The island: lawn inside a paved border, zelkovas, lamps on the edge that faces the stopping kerb.
+      const ia = o + LOOP.hw, ie = i - LOOP.hw;
+      b.deco('flat:#5f8a4e', ia + 1.5, GY + 0.002, SQ_N + 1.5, ie - 1.5, GY + 0.03, LOOP.z0 - 1.5);
+      for (let x = ia + 5.5; x < ie - 4; x += 9.5) for (const z of [SQ_N + 7, LOOP.z0 - 7]) modelTree(b, 'zelkova', x, z, tn++ % 3 ? 'a' : 'b', GY, false);
+      for (let x = ia + 4; x < ie - 2; x += 10.5) streetLamp(b, 'lamp_park', x, LOOP.z0 - 0.7, [0, 1]);
+      // Paint: a broken line down the carriageway, a stop line where the way out meets Ekimae-dōri; no way in there.
+      for (let x = ia + 3; x < ie - 5; x += 6) b.deco(WHITE, x, 0.004, (LOOP.z0 + LOOP.z1) / 2 - 0.06, x + 3, 0.01, (LOOP.z0 + LOOP.z1) / 2 + 0.06);
+      b.deco(WHITE, o - LOOP.hw + 0.3, 0.004, KERB_S + 0.3, o + LOOP.hw - 0.3, 0.01, KERB_S + 0.6);
+      roadSign(b, 'stop', o + LOOP.hw + 0.5, SQ_N + 1.0, [0, 1], 0.8);
+      roadSign(b, 'noentry', o - LOOP.hw - 0.5, SQ_N + 0.8, [0, -1], 0.66);
+      // (Who may turn in: a board on a pole at the way in, read from Ekimae-dōri.)
+      const px = i + LOOP.hw + 5.2, pz = SQ_N + 0.8;
+      roadModel(b, 'signpole', px, GY, pz, [0, -1]);
+      b.block(px - 0.06, GY, pz - 0.06, px + 0.06, GY + 2.6, pz + 0.06);
+      b.sign({ k: 'label', text: k ? 'タクシー' : 'バス', sub: k ? 'Taxis only' : 'Buses only', fg: '#ffffff', bg: '#0d3b66' }, px, GY + 2.3, pz - 0.07, [0, -1], 1.5, 0.5);
     }
-    // Along Kōka-dōri: low shop-houses, with a capsule hotel and a karaoke tower among them.
-    const SPECIAL: Record<number, [string, (p: Record<string, AnchorPt>) => void]> = {
-      1: ['capsule', (p) => { label(p.name, 'カプセル&サウナ 湯けむり', 'Capsule & Sauna Yukemuri', '#2f4a5a', '#ffffff'); upright(p.vertical, 'サウナ', '#c8102e'); }],
-      4: ['karaoke', (p) => label(p.name, 'カラオケ 歌舟', 'KARAOKE UTABUNE', '#c8102e', '#ffffff')],
+    // Bus bays on the forecourt's kerb: a shelter per bay (open to the kerb), the stop's pole by the bus's front door.
+    const sz = LOOP.z1 + 1.4;
+    const shelter = (bx: number) => {
+      roadModel(b, 'shelter', bx, GY, sz, [0, -1]);
+      b.block(bx - 1.95, GY, sz + 0.65, bx + 1.95, GY + 2.45, sz + 0.75);
+      for (const e of [-1, 1]) b.block(bx + e * 1.9 - 0.05, GY, sz + 0.05, bx + e * 1.9 + 0.05, GY + 2.45, sz + 0.7);
     };
-    runs.forEach(([a, e], i) => {
-      let from = a + 0.2;
-      const sp = SPECIAL[i];
-      if (sp) {
-        const q = KITACITY[sp[0]];
-        piece('kitacity', KITACITY, sp[0], 's', from + q.w / 2, BACK, (m) => sp[1](m.pts));
-        from += q.w + 0.4;
+    for (const [k, at0] of BUS_BAYS.entries()) {
+      const bx = at0 + 2.5;
+      shelter(bx);
+      roadModel(b, 'busstop', bx - 2.7, GY, LOOP.z1 + 0.6, [0, -1]);
+      b.block(bx - 2.78, GY, LOOP.z1 + 0.52, bx - 2.62, GY + 2.6, LOOP.z1 + 0.68);
+      const to = stationById(['midorizaka', 'tsumugibashi'][k]);
+      b.sign({ k: 'label', text: `${k + 1}番のりば ${to.nameJa}方面`, sub: `Bus ${k + 1} — ${to.nameRomaji}`, fg: '#fff', bg: '#0d3b66' }, bx, GY + 2.82, sz - 0.87, [0, -1], 2.4, 0.5);
+    }
+    // The taxi rank: its sign at the front of the queue, a shelter for those waiting.
+    shelter(TAXI_K + 2.5);
+    roadModel(b, 'signpole', TAXI_K - 1.5, GY, LOOP.z1 + 0.6, [0, -1]);
+    b.block(TAXI_K - 1.56, GY, LOOP.z1 + 0.54, TAXI_K - 1.44, GY + 2, LOOP.z1 + 0.66);
+    b.sign({ k: 'label', text: 'タクシーのりば', sub: 'Taxi', fg: '#111', bg: '#ffd100' }, TAXI_K - 1.5, GY + 2.4, LOOP.z1 + 0.55, [0, -1], 2.2, 0.55);
+    b.zone('street', bx0, GY - 0.2, SQ_N, bx1, GY + 40, SITE_N, '川湊駅前広場', 'Kawaminato Station Square', false);
+    reserved.push([bx0, SQ_N, bx1, SITE_N]);
+
+    // Tokei-suji: four lanes painted, a traffic lane each way, trees and lamps; it ends at Ekimae-dōri, facing the station.
+    for (let z = TOK.from + 1; z < TOK.to - 12; z += 6) {
+      for (const x of [-TOK.half / 2, TOK.half / 2]) b.deco(WHITE, x - 0.07, 0.004, z, x + 0.07, 0.01, z + 3);
+      b.deco(YELLOW, -0.08, 0.004, z, 0.08, 0.01, z + 6);
+    }
+    {
+      const z0 = -ZN - 1.5, zEnd = EKI.z - 1.0, lx = TOK.half / 4;
+      // Southbound (keeps to the east): a signal at Ekimae-dōri, then everybody turns left into it.
+      trafficLane(b, lx, z0, lx, zEnd, { speed: 40 / 3.6, flow: 2.2, use: 'all', taxi: 0.25, halts: [], stops: [{ at: EKI.z - EKI.half - SL - 0.5 - z0, axis: 1, exit: zEnd - z0 }], dead: true });
+      // Northbound: fed by left turns off Ekimae-dōri.
+      trafficLane(b, -lx, zEnd, -lx, z0, { speed: 40 / 3.6, flow: 0, use: 'all', taxi: 0.25, halts: [], stops: [] });
+    }
+    for (const sx of [-1, 1]) {
+      const x = sx * (TOK.half + 1.5);
+      for (let z = TOK.from + 10; z < EK_N - 14; z += 15) {
+        tree(x, z, 'camphor');
+        if (Math.abs(Math.round(z / 15)) % 2 === (sx > 0 ? 0 : 1)) streetLamp(b, 'lamp_hw', sx * (TOK.half + 0.9), z + 7, [-sx, 0]);
       }
-      fillRect(from, K_BACK + 0.4, e - 0.2, BACK, 's', LOW);
-      // The arcade's south side: low shops open to it, a pachinko hall and a game centre among them.
-      let x = a + 0.1, k = i * 2;
-      while (e - x >= 6) {
-        const big = e - x >= 12 && (k % 7 === 3);
-        const id = big ? (i % 2 ? 'game' : 'pachi') : `s${'abcde'[k % 5]}`;
-        const w = KITAARCADE[id].w;
-        piece('kitaarcade', KITAARCADE, id, 'n', x + w / 2, ARC[1], (m) => {
-          if (id === 'pachi') label(m.pts.name, 'パーラー 七福', 'PARLOR SHICHIFUKU', '#c8102e', '#ffe9a0');
-          if (id === 'game') label(m.pts.name, 'ゲーム ポンポン', 'GAME PONPON', '#1f5fa8', '#ffffff');
-        });
+    }
+
+    // South of Ekimae-dōri, either side of the square. Through the block beyond Hamate-suji and the one beyond
+    // Shiomi-suji runs a short covered arcade, in line with the forecourt: what is left of Hokuei-dōri's, whose
+    // middle the station building took. The west one ends at a game hall; the east one runs through to Chidori-suji.
+    // On the arcades' north side stand the capsule hotel and the karaoke tower that used to face Kōka-dōri.
+    const NIGHT = ['zakkyo', 'shophouse', 'machi'];
+    const SD = KITAARCADE.sa.d, RB = KITAARCADE.roof.w, zc = (ARC[0] + ARC[1]) / 2, rowN = (SQ_N + ARC[0]) / 2;
+    const arcade = (xa: number, xe: number, x1: number, name: Named, gates: [number, Face][], sp: [string, (p: Record<string, AnchorPt>) => void], n0: number) => {
+      // Its south side: low shops open to it, a pachinko hall among them; behind them rows backing onto the tracks' service pavement.
+      let x = xa + 0.1, k = n0;
+      while (xe - x >= 6) {
+        const id = xe - x >= 12 && k % 7 === 3 ? 'pachi' : `s${'abcde'[k % 5]}`, w = KITAARCADE[id].w;
+        piece('kitaarcade', KITAARCADE, id, 'n', x + w / 2, ARC[1], (m) => { if (id === 'pachi') label(m.pts.name, 'パーラー 七福', 'PARLOR SHICHIFUKU', '#c8102e', '#ffe9a0'); });
         b.out.models[b.out.models.length - 1].seed = k;
         x += w + 0.05;
         k++;
       }
-      // Its north side: taller mixed buildings of bars and small offices, to the plot's edge.
-      fillRect(a + 0.1, -Z + 0.6, e - 0.1, ARC[0], 's', NIGHT);
-    });
-    // The arcade itself: paving, the roof bay by bay, a gate at each end.
-    b.deco('floor:#c9bfae', bx0, GY + 0.002, ARC[0], bx1, GY + 0.014, ARC[1]);
-    for (let x = bx0; x < bx1 - 1; x += 3) b.deco(x % 2 ? 'flat:#b3a892' : 'flat:#8f6a52', x, GY + 0.014, (ARC[0] + ARC[1]) / 2 - 0.5, x + 1.5, GY + 0.018, (ARC[0] + ARC[1]) / 2 + 0.5);
-    const RB = KITAARCADE.roof.w;
-    for (let x = bx0 + RB / 2 + 0.5; x < bx1 - RB / 2; x += RB) {
-      b.model('kitaarcade', 'roof', x, GY, ARC[0], Math.round(x));
-      b.out.models[b.out.models.length - 1].seed = Math.abs(Math.round(x / RB));
-      for (const z of [ARC[0] + 0.14, ARC[1] - 0.14]) b.block(x - 0.12, GY, z - 0.12, x + 0.12, GY + 3, z + 0.12);
+      fillRect(xa + 0.1, ARC[1] + SD + 0.9, xe - 0.1, BACK, 's', SMALL);
+      // Its north side: the special front, then taller mixed buildings of bars and small offices.
+      const q = KITACITY[sp[0]];
+      piece('kitacity', KITACITY, sp[0], 's', xa + 0.2 + q.w / 2, ARC[0], (m) => sp[1](m.pts));
+      fillRect(xa + 0.6 + q.w, rowN + 0.4, xe - 0.1, ARC[0], 's', NIGHT);
+      // The walk itself: paving, the roof bay by bay, a gate at each open end.
+      b.deco('floor:#c9bfae', xa, GY + 0.002, ARC[0], x1, GY + 0.014, ARC[1]);
+      for (let u = Math.ceil(xa); u < x1 - 1; u += 3) b.deco(u % 2 ? 'flat:#b3a892' : 'flat:#8f6a52', u, GY + 0.014, zc - 0.5, u + 1.5, GY + 0.018, zc + 0.5);
+      for (let u = xa + RB / 2 + 0.5; u < x1 - RB / 2 + 0.6; u += RB) {
+        b.model('kitaarcade', 'roof', u, GY, ARC[0], Math.round(u));
+        b.out.models[b.out.models.length - 1].seed = Math.abs(Math.round(u / RB));
+        for (const z of [ARC[0] + 0.14, ARC[1] - 0.14]) b.block(u - 0.12, GY, z - 0.12, u + 0.12, GY + 3, z + 0.12);
+      }
+      for (const [gx, f] of gates) {
+        at(f, gx, zc, () => {
+          b.model('kitaarcade', 'gate', 0, GY, 0, 0);
+          const g = KITAARCADE.gate, hw = g.w / 2 - 0.25;
+          for (const s of [-1, 1]) b.block(s * hw - 0.16, GY, -0.16, s * hw + 0.16, GY + 3, 0.16);
+          for (const key of ['name_f', 'name_b']) label(g.pts[key], name.ja, name.en, '#f4f1e8', '#3f6a5a');
+        });
+      }
+      b.zone('street', xa, GY - 0.2, ARC[0], x1, GY + 9, ARC[1], name.ja, name.en, false);
+      reserved.push([xa, ARC[0], x1, ARC[1]]);
+    };
+    for (const [i, [a, e]] of south.entries()) {
+      if (i === 1) continue;
+      interiors.push([a, SQ_N, e, BACK]);
+      if (i === 0) {
+        // Beyond Hamate-suji: a row facing the square across it, the arcade's mouth between its buildings.
+        const END = -178, ROW = e - 14.5;
+        fillRect(ROW, SQ_N + 0.3, e - 0.3, ARC[0] - 0.2, 'e', BIZ);
+        fillRect(ROW, ARC[1] + 0.2, e - 0.3, BACK, 'e', BIZ);
+        fillRect(a + 0.3, SQ_N, ROW - 0.8, rowN - 0.4, 'n', BIZ);
+        piece('kitaarcade', KITAARCADE, 'game', 'e', END, zc, (m) => { const n = [...m.pts.name] as AnchorPt; n[3] = 5.6; label(n, 'ゲーム ポンポン', 'GAME PONPON', '#1f5fa8', '#ffffff'); });
+        arcade(END, ROW - 0.8, e, { ja: '北栄西商店街', en: 'Hokuei Nishi Shopping Arcade' }, [[e - 0.6, 'w']],
+          ['capsule', (p) => { label(p.name, 'カプセル&サウナ 湯けむり', 'Capsule & Sauna Yukemuri', '#2f4a5a', '#ffffff'); upright(p.vertical, 'サウナ', '#c8102e'); }], 0);
+      } else if (i === 2) {
+        fillRect(a + 0.3, SQ_N, e - 0.3, rowN - 0.4, 'n', BIZ);
+        arcade(a + 0.1, e - 0.1, e, { ja: '北栄東商店街', en: 'Hokuei Higashi Shopping Arcade' }, [[a + 0.6, 'e'], [e - 0.6, 'w']],
+          ['karaoke', (p) => label(p.name, 'カラオケ 歌舟', 'KARAOKE UTABUNE', '#c8102e', '#ffffff')], 4);
+      } else {
+        const mid = (SQ_N + BACK) / 2;
+        fillRect(a + 0.3, mid + 0.4, e - 0.3, BACK, 's', BIZ);
+        fillRect(a + 0.3, SQ_N, e - 0.3, mid - 0.4, 'n', BIZ);
+      }
     }
-    reserved.push([bx0, ARC[0], bx1, ARC[1]]);
-    for (const [a, e] of blocks) interiors.push([a, -Z, e, BACK]);
-    const arcade: Named = { ja: '北栄通商店街', en: 'Hokuei-dōri Shopping Arcade' };
-    for (const [x, f] of [[bx0 + 0.6, 'e'], [bx1 - 0.6, 'w']] as const) {
-      at(f, x, (ARC[0] + ARC[1]) / 2, () => {
-        b.model('kitaarcade', 'gate', 0, GY, 0, 0);
-        const g = KITAARCADE.gate, hw = g.w / 2 - 0.25;
-        for (const s of [-1, 1]) b.block(s * hw - 0.16, GY, -0.16, s * hw + 0.16, GY + 3, 0.16);
-        for (const k of ['name_f', 'name_b']) label(g.pts[k], arcade.ja, arcade.en, '#f4f1e8', '#3f6a5a');
-      });
+    // North of it. Facing the station across the square, and down Tokei-suji either side, blocks of the 1910s–30s
+    // kept to the old 31 m line (build_tokei.py), listed from the avenue's corner outwards; stock rows elsewhere.
+    const FACING: Record<'e' | 'w', [string, string, string][]> = {
+      e: [['railhq', `${RAIL_OPERATOR.nameJa} 本社`, `${RAIL_OPERATOR.nameEn} — Head Office`], ['post', '川湊中央郵便局', 'Kawaminato Central Post Office']],
+      w: [['life', 'みお生命 本館', 'Mio Life — Main Building'], ['chamber', '川湊商工会議所', 'Kawaminato Chamber of Commerce and Industry']],
+    };
+    const AVENUE: Record<'e' | 'w', [string, string, string][]> = {
+      e: [['tk_a', '時計筋ビルヂング', 'Tokei-suji Building'], ['tk_b', '川湊倶楽部', 'Kawaminato Club']],
+      w: [['tk_c', '川湊商船ビル', 'Kawaminato Shōsen Building'], ['tk_d', '北栄会館', 'Hokuei Kaikan']],
+    };
+    const northB = between([HAM, TOK, SHI, CHI].map(bl));
+    for (const [a, e] of northB) {
+      const onTok = Math.abs(a - (TOK.c + TOK.half + TOK.pave)) < 0.1 ? 'w' : Math.abs(e - (TOK.c - TOK.half - TOK.pave)) < 0.1 ? 'e' : null;
+      const rowS = EK_N - 24;
+      if (onTok) {
+        const sg = onTok === 'e' ? -1 : 1, xf = onTok === 'e' ? e : a, D = TOKEI.tk_a.d;
+        const name = (q: Anchor, ja: string, en: string) => label(q.pts.name, ja, en, '#2a2622', '#e8dcc0');
+        let x = xf + sg * 0.3, z = -ZN + 0.8;
+        for (const [id, ja, en] of FACING[onTok]) {
+          const w = TOKEI[id].w;
+          piece('tokei', TOKEI, id, 's', x + sg * w / 2, EK_N, (q) => name(q, ja, en));
+          x += sg * (w + 0.8);
+        }
+        for (const [id, ja, en] of AVENUE[onTok]) {
+          const w = TOKEI[id].w;
+          piece('tokei', TOKEI, id, onTok, xf, z + w / 2, (q) => name(q, ja, en));
+          z += w + 0.8;
+        }
+        if (onTok === 'e') fillRect(a + 0.3, -ZN + 0.6, e - D - 0.8, rowS - 0.8, 's', SMALL);
+        else fillRect(a + D + 0.8, -ZN + 0.6, e - 0.3, rowS - 0.8, 's', SMALL);
+      } else {
+        fillRect(a + 0.3, rowS, e - 0.3, EK_N, 's', BIZ);
+        fillRect(a + 0.3, -ZN + 0.6, e - 0.3, rowS - 0.8, 's', SMALL);
+      }
+      interiors.push([a, -ZN, e, EK_N]);
     }
-    b.zone('street', bx0, GY - 0.2, ARC[0], bx1, GY + 9, ARC[1], arcade.ja, arcade.en, false);
-    // The other blocks north of Kōka-dōri: business rows.
-    for (const [i, [a, e]] of blocks.entries()) if (i !== 1) fillRect(a + 0.3, -Z + 0.6, e - 0.3, BACK, 's', BIZ);
-    // Bus stops on Kōka-dōri, a shelter on its north pavement.
+    // The eastbound bus stop on Ekimae-dōri: a shelter on its north pavement.
     const stopK = (x: number, n: 1 | -1, text: string, sub: string) => {
-      const z = KOK.z - n * (KOK.half + 0.5);
+      const z = EKI.z - n * (EKI.half + 0.5);
       roadModel(b, 'busstop', x, GY, z, [0, n]);
       b.block(x - 0.1, GY, z - 0.1, x + 0.1, GY + 2.2, z + 0.1);
       b.sign({ k: 'label', text, sub, fg: '#1f2023', bg: '#f4f4f0' }, x, GY + 1.5, z + n * 0.05, [0, n], 0.5, 0.82);
     };
-    stopK(BUS_K[0] + 6.5, 1, '川湊駅北口', 'Kawaminato Sta. North · Bus stop');
-    at('s', BUS_K[0] - 2, BACK + 2.9, () => {
+    stopK(BUS_K + 6.5, 1, '川湊駅北口', 'Kawaminato Sta. North · Bus stop');
+    at('s', BUS_K - 2, EK_N + 2.9, () => {
       b.model('kitacity', 'busbay', 0, GY, 0, 0);
       b.block(-5.6, GY, 0.9, 5.6, GY + 2.4, 1.3);
       for (const k of ['stop', 'stopb']) label(KITACITY.busbay.pts[k], '川湊駅北口', 'Kawaminato Sta. North', '#f4f1e8', '#1f2023');
     });
-    stopK(BUS_K[1] - 6.5, -1, '川湊駅北口', 'Kawaminato Sta. North · Bus stop');
   }
 
 
@@ -1093,7 +1348,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     const OUT = 200, CROSS = 100, CW = 3.5;
     type Edge = { c: number; half: number; pave: number; wide: boolean; tree?: TreeKind };
     const roadOut = (alongZ: boolean, s: 1 | -1, q: Edge) => {
-      const lim = alongZ ? Z : X, u0 = s > 0 ? lim : -lim - OUT, u1 = u0 + OUT;
+      const lim = alongZ ? (s > 0 ? Z : ZN) : X, u0 = s > 0 ? lim : -lim - OUT, u1 = u0 + OUT;
       const R = (mat: string, v0: number, v1: number, y0: number, y1: number, a = u0, e = u1) => (alongZ ? b.deco(mat, q.c + v0, y0, a, q.c + v1, y1, e) : b.deco(mat, a, y0, q.c + v0, e, y1, q.c + v1));
       R('asphalt', -q.half, q.half, -0.03, 0.004);
       for (const k of [-1, 1]) R('paver', Math.min(k * q.half, k * (q.half + q.pave)), Math.max(k * q.half, k * (q.half + q.pave)), -0.03, GY);
@@ -1115,7 +1370,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     };
     const pack = (alongZ: boolean, s: 1 | -1, a: number, e: number) => {
       // The ground between two streets beyond the edge: rows fronting each, back to back; a cross street half way out.
-      const lim = alongZ ? Z : X, mid = (a + e) / 2;
+      const lim = alongZ ? (s > 0 ? Z : ZN) : X, mid = (a + e) / 2;
       for (const [d0, d1] of [[0.5, CROSS - CW], [CROSS + CW, OUT]]) {
         const u0 = s > 0 ? lim + d0 : -lim - d1, u1 = s > 0 ? lim + d1 : -lim - d0;
         if (alongZ) {
@@ -1130,12 +1385,12 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       if (alongZ) b.deco('asphalt', a - 20, -0.03, uc - CW, e + 20, 0.004, uc + CW);
       else b.deco('asphalt', uc - CW, -0.03, a - 20, uc + CW, 0.004, e + 20);
     };
-    const wideE = (st2: NS): Edge => ({ c: st2.c, half: st2.half, pave: st2.pave, wide: true, tree: st2 === SHI ? 'dogwood' : 'zelkova' });
+    const wideE = (st2: NS): Edge => ({ c: st2.c, half: st2.half, pave: st2.pave, wide: true, tree: st2 === SHI ? 'dogwood' : st2 === TOK ? 'camphor' : 'zelkova' });
     const localE = (cx: number): Edge => ({ c: cx, half: LH, pave: LP, wide: false });
     const m0 = b.out.models.length;
     // North and south.
     for (const s of [-1, 1] as const) {
-      const through = [HAM, SHI, CHI], locals = s > 0 ? LOCALS.map((q) => q.c) : [];
+      const through = s > 0 ? [HAM, SHI, CHI] : [HAM, TOK, SHI, CHI], locals = s > 0 ? LOCALS.map((q) => q.c) : [];
       for (const q of through) roadOut(true, s, wideE(q));
       for (const cx of locals) roadOut(true, s, localE(cx));
       const corridors = [...through.map(bl), ...(s > 0 ? [...LOCAL_BL, bl(YAN)] : [])];
@@ -1143,21 +1398,21 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       for (const [a, e] of between(corridors)) {
         if (s > 0 && a >= keepOff[0] - 0.1 && e <= keepOff[1] + 0.1) continue; // Tsumugibashi's boulevard
         pack(true, s, a, e);
-        b.clearScenery(a - 9, s > 0 ? Z : -Z - OUT - 2, e + 9, s > 0 ? Z + OUT + 2 : -Z);
+        b.clearScenery(a - 9, s > 0 ? Z : -ZN - OUT - 2, e + 9, s > 0 ? Z + OUT + 2 : -ZN);
       }
     }
     // East and west.
     const ew: Edge[] = [
       { c: 0, half: AV, pave: FRONT - AV, wide: true, tree: 'ginkgo' }, { c: MIN.z, half: MIN.half, pave: MIN.pave, wide: false },
-      { c: NIB.z, half: NIB.half, pave: NIB.pave, wide: false }, { c: KOK.z, half: KOK.half, pave: 2.5, wide: false },
+      { c: NIB.z, half: NIB.half, pave: NIB.pave, wide: false }, { c: EKI.z, half: EKI.half, pave: EKI.pave, wide: false },
     ];
-    const corrEW: [number, number][] = [[BACK, LANE_S], [-FRONT, FRONT], [MIN.z - MIN.half - MIN.pave, MIN.z + MIN.half + MIN.pave], [NIB.z - NIB.half - NIB.pave, NIB.z + NIB.half + NIB.pave]];
+    const corrEW: [number, number][] = [[EKI.z - EKI.half - EKI.pave, EKI.z + EKI.half + EKI.pave], [BACK, LANE_S], [-FRONT, FRONT], [MIN.z - MIN.half - MIN.pave, MIN.z + MIN.half + MIN.pave], [NIB.z - NIB.half - NIB.pave, NIB.z + NIB.half + NIB.pave]];
     for (const s of [-1, 1] as const) {
       for (const q of ew) roadOut(false, s, q);
       // (Ekiura-dōri runs on too, along the viaduct.)
       b.deco('flat:#77736b', s > 0 ? X : -X - OUT, -0.03, VIA[1], s > 0 ? X + OUT : -X, GY + 0.002, LANE_S);
-      for (const [a, e] of between(corrEW, -Z, Z)) pack(false, s, a, e);
-      b.clearScenery(s > 0 ? X : -X - OUT - 2, -Z, s > 0 ? X + OUT + 2 : -X, Z);
+      for (const [a, e] of between(corrEW, -ZN, Z)) pack(false, s, a, e);
+      b.clearScenery(s > 0 ? X : -X - OUT - 2, -ZN, s > 0 ? X + OUT + 2 : -X, Z);
     }
     for (let k = m0; k < b.out.models.length; k++) if (b.out.models[k].kind === 'road' || b.out.models[k].kind === 'trees') b.out.models[k].merge = true;
   }
@@ -1183,7 +1438,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
         item(s.c + sx * (s.half + 0.9), z + r() * 3, false, [sx, 0]);
       }
     }
-    // Drinks machines against blank flanks: beside the viaduct's bridges on Ekiura-dōri, and in the arcade's alleys.
+    // Drinks machines against blank flanks: beside the viaduct's bridges on Ekiura-dōri.
     for (const x of [-120, -90, 76, 118]) {
       for (let k = 0; k < 2 + Math.floor(r() * 2); k++) vending(b, x + k * 1.05, GY, VIA[1] + 0.4, [0, 1], r() < 0.5 ? 'vending' : 'vending2', 'new');
     }
@@ -1194,7 +1449,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
       ? String((q[0] > 0 ? 0 : 4) + (Math.abs(q[0]) > 110 ? 2 : 0) + (q[1] < 0 ? 1 : 2))
       : q[1] < 0 ? '9' : Math.abs(q[0]) < 20 ? '10' : Math.abs(q[0]) < 55 ? (q[0] < 0 ? '11' : '12') : q[0] < 0 ? '13' : '14';
     for (const q of holes) {
-      if (q === hallStair) continue;
+      if (q === hallStair || (Math.abs(q[0] - EXIT15.x[0]) < 0.01 && q[1] < VIA[1])) continue; // (Exit 15 comes up inside Kawaminato Station's great hall: hub.ts exit15())
       const num = NUM(q), avenue = Math.abs(q[1]) < 20 && Math.abs(q[0]) > 60;
       const xm = (q[0] + q[2]) / 2;
       const [px, pz, f]: [number, number, Face] = avenue ? [q[0] - 1.6, (q[1] + q[3]) / 2, 'w'] : num === '9' ? [q[2] + 1.4, q[3] + 2.2, 's']

@@ -2,6 +2,7 @@
 // Imperative on purpose: the scene has thousands of parts that change every frame,
 // so it lives outside React and is mounted once via <primitive>.
 
+import { inPlot as insidePlot, plotNorth } from '../world/builder';
 import * as THREE from 'three';
 import { lineById } from '../data/network';
 import { WORLD_NET, clock } from '../sim';
@@ -259,7 +260,7 @@ function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRo
     if (!d) continue;
     const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
     const toWorld = (lx: number, lz: number) => ({ x: w.frame.x + lx * c + lz * s, z: w.frame.z - lx * s + lz * c });
-    const { x: px, z: pz } = w.build.plot;
+    const { x: px, z: pz } = w.build.plot, pn = plotNorth(w.build.plot);
     const n = Math.ceil(d.radius / 46) + 1;
     for (let i = -n; i <= n; i++) {
       for (let j = -n; j <= n; j++) {
@@ -273,7 +274,7 @@ function districtGrid(inPlot: (x: number, z: number, m: number) => boolean, onRo
         // Where two districts overlap, a block belongs to the nearer station only.
         const own = Math.hypot(w.frame.x - ctr.x, w.frame.z - ctr.z);
         if (STATION_WORLDS.some((o) => o !== w && o.build.district && Math.hypot(o.frame.x - ctr.x, o.frame.z - ctr.z) < own)) continue;
-        const edge = Math.max(Math.abs(lx) - px, Math.abs(lz) - pz);
+        const edge = Math.max(Math.abs(lx) - px, lz < 0 ? -lz - pn : lz - pz);
         // Full models only right behind the plot's own back rows; simplified copies everywhere else (frame rate).
         districtLots.push({ x: ctr.x, z: ctr.z, w, near: edge < 110 });
       }
@@ -382,15 +383,15 @@ function buildBackdrop(): THREE.Group {
   const plots = STATION_WORLDS.map((w) => {
     const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
     const corner = (lx: number, lz: number) => new THREE.Vector2(w.frame.x + lx * c + lz * s, -(w.frame.z - lx * s + lz * c));
-    const { x: px, z: pz } = w.build.plot;
-    return { w, pts: [corner(-px, -pz), corner(px, -pz), corner(px, pz), corner(-px, pz)] };
+    const { x: px, z: pz } = w.build.plot, pn = plotNorth(w.build.plot);
+    return { w, pts: [corner(-px, -pn), corner(px, -pn), corner(px, pz), corner(-px, pz)] };
   });
   const inPlot = (x: number, z: number, m: number) =>
     plots.some(({ w }) => {
       const dx = x - w.frame.x, dz = z - w.frame.z;
       const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
       const lx = dx * c - dz * s, lz = dx * s + dz * c;
-      if (Math.abs(lx) < w.build.plot.x + m && Math.abs(lz) < w.build.plot.z + m) return true;
+      if (insidePlot(w.build.plot, lx, lz, m)) return true;
       return (w.build.clear ?? []).some(([x0, z0, x1, z1]) => lx > x0 - m && lx < x1 + m && lz > z0 - m && lz < z1 + m);
     });
 
@@ -686,7 +687,7 @@ export class WorldView {
       const inPlot = STATION_WORLDS.some((w) => {
         const dx = cam.x - w.frame.x, dz = cam.z - w.frame.z;
         const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
-        return Math.abs(dx * c - dz * s) < w.build.plot.x && Math.abs(dx * s + dz * c) < w.build.plot.z;
+        return insidePlot(w.build.plot, dx * c - dz * s, dx * s + dz * c);
       });
       if (!inPlot) {
         vis = 'street';
@@ -699,7 +700,7 @@ export class WorldView {
         const dx = cam.x - w.frame.x, dz = cam.z - w.frame.z;
         const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
         const lx = dx * c - dz * s, lz = dx * s + dz * c;
-        if (Math.abs(lx) > w.build.plot.x || Math.abs(lz) > w.build.plot.z) continue;
+        if (!insidePlot(w.build.plot, lx, lz)) continue;
         sealed = true;
         far = w.build.holes.every(([x0, z0, x1, z1]) => Math.hypot(Math.max(x0 - lx, 0, lx - x1), Math.max(z0 - lz, 0, lz - z1)) > CULL_RANGE);
         break;

@@ -19,14 +19,16 @@
 //   B2     -12     Yanagisuji island platform (vaulted hall)
 //   B4     -19     Akanesuji island platform; Shiokaze and Sumire beside it
 
-import { linesAt } from '../data/network';
+import { linesAt, stationById } from '../data/network';
 import { HALL_HALF, PLATFORM_HALF } from '../sim/geometry';
 import type { SignContent } from '../signs/content';
 import { rng, type Builder } from '../world/builder';
 import { MIRROR_X, islandUnit, platformStairs, quarterTurns, type Rect } from './build';
 import { CONC_RISE, GROUND_Y, SLAB, ceilingLight, exit, stairs, hall, hallDims, pillar as column, rail, ticketMachines, vending, type Ctx } from './kit';
 import type { HubSpec } from './specs';
-import { HALL_STAIR_Z, HUB_PLOT, hubStreet } from './hub-street';
+import { HALL_DOOR, HALL_STAIR, HALL_STAIR_Z, HUB_PLOT, hubStreet } from './hub-street';
+import { EXIT15, exit15Run } from './kawaminato';
+import { lift } from './lift';
 import { MIOCHIKA } from './anchors/miochika';
 import { BUILDING_MODELS } from './buildings';
 import { fitting } from './fittings';
@@ -389,7 +391,7 @@ function details(h: H) {
   framed('areamap', TX + 0.43, cf + 1.6, 7.2, [1, 0]);
   framed('exits', TX + 0.43, cf + 1.6, -7.6, [1, 0], 2.0, 1.3);
   framed('areamap', -48, cf + 1.6, BAR - 0.03, [0, -1]);
-  framed('stationmap', 14.5, cf + 1.7, FRONT - 0.43, [0, -1]);
+  framed('stationmap', 19.5, cf + 1.7, FRONT - 0.43, [0, -1]);
   framed('areamap', -14.5, cf + 1.7, FRONT - 0.43, [0, -1]);
   if (h.s) framed('areamap', s1 - 0.03, cf + 1.6, SG.gate + 4.5, [-1, 0]);
 
@@ -402,7 +404,7 @@ function details(h: H) {
   };
   board(cx, cf + 4.28, -BAR - 0.43, [0, -1], 3.0, 1.3);
   board(c0 + 0.03, cf + 2.3, -40.5, [1, 0], 2.6, 1.12);
-  board(0, cf + 5.45, FRONT - 0.43, [0, -1], 3.7, 1.6);
+  board((HALL_DOOR[0] + HALL_DOOR[1]) / 2, cf + 5.45, FRONT - 0.43, [0, -1], 3.7, 1.6);
   board(TX - 0.03, cf + 2.1, 5.4, [-1, 0], 2.6, 1.12);
 
   // ── Tactile paving: guide lines down the passages, warning tiles at the gates ──
@@ -486,7 +488,7 @@ function floorLines(h: H) {
   const xh = EA0 + r2((cf - h.pfA) * 1.7), wh = -WA0 - r2((cf - h.pfA) * 1.7);
 
   // From the foot of the stair down from the grand concourse to the food floor's door.
-  bands(h, cf, [[8, -68], [8, -65.2], [0, -65.2], [0, FRONT]], all);
+  bands(h, cf, [[1.2, -65.9], [0, -65.9], [0, FRONT]], all);
   // North Passage and Central Passage, in at the Central Gate.
   bands(h, cf, [[0, FRONT], [0, -60], [SX, -60], [SX, GZ], [GATE_Y + 1.9, GZ]], all);
   bands(h, cf, [[GATE_Y - 1.3, GZ], [7, GZ]], all);
@@ -767,7 +769,7 @@ function concourseLevel(h: H, holes: Rect[]) {
   stoneZ(b, wall, w1, w1 + 0.4, XP, -BAR - 0.4, cf, top);
   stoneX(b, wall, w1, XE + 0.4, XP, XP + 0.4, cf, top, [CP]);
   stoneBox(b, wall, XE, cf, FRONT, XE + 0.4, top, XP);
-  stoneX(b, wall, w0 - 0.4, XE + 0.4, FRONT - 0.4, FRONT, cf, top, [[-8, 8]]);
+  stoneX(b, wall, w0 - 0.4, XE + 0.4, FRONT - 0.4, FRONT, cf, top, [HALL_DOOR]);
   const kz: [number, number] = [KIOSK_Z - KONBINI.kiosk.w / 2, KIOSK_Z + KONBINI.kiosk.w / 2];
   stoneZ(b, wall, c1, c1 + 0.4, XP + 0.4, -BAR - 0.4, cf, tall + 0.5, [kz, [P9 - 4, P9]]);
   b.box(wall, c1, cf + KONBINI.kiosk.h + 0.95, kz[0], c1 + 0.4, tall + 0.5, kz[1]);
@@ -801,7 +803,7 @@ function concourseLevel(h: H, holes: Rect[]) {
   stoneZ(b, PANEL, -IX - 0.4, -IX, HN, FRONT - 0.4, cf, GY, FOOD);
   for (const [a, e] of FOOD) b.box(PANEL, -IX - 0.4, cf + 2.8, a, -IX, GY, e);
   stoneBox(b, PANEL, -IX - 0.4, cf, HN - 0.4, IX + 0.4, GY, HN);
-  b.box(PANEL, -IX, top, FRONT - 0.4, IX, GY - SLAB, FRONT);
+  b.box(PANEL, -IX, top, FRONT - 0.4, IX, GY - SLAB + 0.05, FRONT);
 
   // ── Inside the West Gate: a lobby at the head of the Akanesuji escalators, and three corridors ──
   // The Akanesuji corridor runs along the back rooms (north), the Shiokaze–Sumire corridor
@@ -912,9 +914,9 @@ function concourseLevel(h: H, holes: Rect[]) {
   // ── North Passage: shops both sides, the door to Willow Court in the middle ──
   shopsX(h, w1 + 1, c0 - 1, XP, -1);
   shopsX(h, w0 + 1, -IX - 1, FRONT, 1);
-  shopsX(h, 9, IX, FRONT, 1);
-  for (const s of [-1, 1]) b.deco(GOLD, Math.min(s * 8, s * 8.12), cf, FRONT - 0.42, Math.max(s * 8, s * 8.12), top, FRONT + 0.02);
-  b.deco(GOLD, -8.12, top - 0.12, FRONT - 0.42, 8.12, top, FRONT + 0.02);
+  shopsX(h, HALL_DOOR[1] + 1, IX, FRONT, 1);
+  for (const [x, s] of [[HALL_DOOR[0], -1], [HALL_DOOR[1], 1]]) b.deco(GOLD, Math.min(x, x + s * 0.12), cf, FRONT - 0.42, Math.max(x, x + s * 0.12), top, FRONT + 0.02);
+  b.deco(GOLD, HALL_DOOR[0] - 0.12, top - 0.12, FRONT - 0.42, HALL_DOOR[1] + 0.12, top, FRONT + 0.02);
   // Its east end is held for a passage to a new metro line.
   b.with({ rot: 1 }, () => hoardingX(b, FRONT, XP, cf, -(XE - 3), 1));
   b.sign(reserved('地下鉄新線 連絡通路', 'passage to a new metro line'), XE - 3.14, cf + 1.15, (FRONT + XP) / 2, [-1, 0], 6.4, 1.0);
@@ -957,7 +959,7 @@ function concourseLevel(h: H, holes: Rect[]) {
   hangZ(b, toStation, toMetro, cx, cf + 3.0, XP + 3, 7, 0.56, tall);
   hangZ(b, toStation, toMall, cx, cf + 3.0, -BAR - 3, 7, 0.56, tall);
   // North Passage: either side of the court door, and where the West Passage leaves it.
-  b.hang({ ...toStation, arrow: 'right' }, 11, cf + 2.75, (FRONT + XP) / 2, 5.6, 0.5, { ceil: top, back: { ...toMetro, arrow: 'up' } });
+  b.hang({ ...toStation, arrow: 'right' }, HALL_DOOR[1] + 3, cf + 2.75, (FRONT + XP) / 2, 5.6, 0.5, { ceil: top, back: { ...toMetro, arrow: 'up' } });
   b.hang({ k: 'guide', ja: '西連絡通路・出口 5–8', en: 'West Passage / Exits 5–8', bg: 'yellow', arrow: 'up' }, -11, cf + 2.75, (FRONT + XP) / 2, 5.6, 0.5, { ceil: top, back: { ...toStation, arrow: 'left' } });
   hangZ(b, { k: 'guide', ja: '澪屋・中央通路', en: 'Mioya / Central Passage', bg: 'yellow', arrow: 'up' }, toMall, (w0 + w1) / 2, cf + 2.75, XP + 2, 5.6, 0.5, top);
   hangZ(b, { k: 'guide', ja: '西連絡通路・澪屋', en: 'West Passage / Mioya', bg: 'yellow', arrow: 'up' }, toMall, (w0 + w1) / 2, cf + 2.75, -BAR - 2.5, 5.6, 0.5, top);
@@ -1208,29 +1210,90 @@ function town(h: H) {
 // ───────────────────────── The food floor under the terminal ─────────────────────────
 
 /**
+ * Exit 15 (EXIT15 in kawaminato.ts): from a doorway in the food floor's north wall a stair climbs north, roofed
+ * under Kawaminato Station's central passage, and comes out in the south-east corner of the station building's
+ * great hall. Its lift stands in the hall's south-west corner, at the end of a corridor of its own from the wall.
+ */
+function exit15(h: H) {
+  const { b, c, cf } = h;
+  const E = EXIT15, [xa, xb] = E.x, W = 0.3, rise = GY - cf, run = exit15Run(cf), head = E.foot - run, top = -0.6;
+  const wall = c.style.concWall, floor = c.style.floor, xm = (xa + xb) / 2, ar = stationById('kawaminato');
+  const sy = (z: number) => cf + (rise * (E.foot - z)) / run;
+  const ZW = HN - 0.4; // the north wall's far face
+  // The doorway and a short lobby to the stair's foot.
+  b.carve(xa, cf, ZW - 0.05, xb, cf + 2.8, HN + 0.02); // (through the wall's dado and its brass line too)
+  b.box(floor, xa, cf - 0.5, E.foot, xb, cf, HN);
+  b.with({ rot: 3 }, () => stairs(b, { x0: -E.foot, x1: -head, z0: xa, z1: xb, yLow: cf, yHigh: GY, rails: [false, false], mat: 'flat:#aaa79f' }));
+  b.hole(xa, head, xb, E.open);
+  // Its side walls: to the street's underside where it is roofed, a parapet round the open well.
+  for (const x of [xa - W, xb]) {
+    b.box(wall, x, cf - 0.5, E.open, x + W, top, ZW);
+    b.box(wall, x, cf - 0.5, head, x + W, GY + 1.0, E.open);
+  }
+  // The roof under the passage, stepping up with the stair; the street slab's edge where the open part begins.
+  let za = ZW;
+  for (const zb of [E.foot - 2, E.foot - 4, E.open + W]) { // (the last one stops at the lintel)
+    const yc = Math.min(top - 0.3, sy(zb) + 2.5);
+    b.box('ceil', xa, yc, zb, xb, top, za);
+    b.deco('light', xm - 0.5, yc - 0.04, (za + zb) / 2 - 0.3, xm + 0.5, yc, (za + zb) / 2 + 0.3);
+    za = zb;
+  }
+  b.box(wall, xa - W, Math.min(top - 0.3, sy(E.open) + 2.5), E.open, xb + W, GY + 1.0, E.open + W);
+  // In the great hall: a portal at the stair's head with the metro's sign.
+  for (const x of [xa - W, xb]) b.box('metal:#5d6a72', x + 0.06, GY, head - 0.09, x + W - 0.06, GY + 2.75, head + 0.09);
+  b.box('flat:#17181b', xa - W + 0.06, GY + 2.35, head - 0.07, xb + W - 0.06, GY + 3.05, head + 0.07);
+  for (const n of [-1, 1] as const) b.sign({ k: 'entrance', station: c.station.id, exit: '15' }, xm, GY + 2.7, head + n * 0.08, [0, n], xb - xa, 0.62);
+  // On the food floor: the exit's number over the doorway.
+  b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num: '15', arrow: 'up' }, xm, cf + 3.1, HN + 0.02, [0, 1], 2.6, 0.5);
+  b.sign({ k: 'label', text: `${ar.nameJa}駅（AR線）・駅前広場`, sub: `${ar.nameRomaji} Sta. (AR) / Station Square`, fg: '#1b1f24', bg: '#ffd100' }, xm, cf + 3.7, HN + 0.02, [0, 1], 3.2, 0.5);
+  b.zone('passage', xa, cf - 0.2, E.foot - 2, xb, cf + 3.4, HN, '15番出口 通路', 'Exit 15 passage', false);
+  b.zone('passage', xa, cf - 0.2, head, xb, GY + 2.4, E.foot - 2, '15番出口', 'Exit 15', false);
+
+  // The lift: a corridor from a second doorway in the wall to its door, which looks east on both floors.
+  const [cx0, cx1] = E.lift.hall, [lx0] = E.lift.x, zn = E.lift.z - 1.15, CH = 2.6;
+  b.carve(cx0, cf, ZW - 0.05, cx1, cf + CH, HN + 0.02);
+  b.box(floor, cx0, cf - 0.5, zn, cx1, cf, HN);
+  b.box(wall, cx1, cf - 0.5, zn - W, cx1 + W, cf + CH + 0.5, ZW);
+  b.box(wall, cx0 - W, cf - 0.5, E.lift.z + 1.15, cx0, cf + CH + 0.5, ZW);
+  b.box(wall, lx0, cf - 0.5, zn - W, cx1 + W, cf + CH + 0.5, zn);
+  b.box('ceil', cx0 - W, cf + CH, zn, cx1 + W, cf + CH + 0.5, ZW);
+  for (let z = HN - 2; z > zn + 1; z -= 3.5) b.deco('light', (cx0 + cx1) / 2 - 0.3, cf + CH - 0.04, z - 0.5, (cx0 + cx1) / 2 + 0.3, cf + CH, z + 0.5);
+  b.with({ rot: 1, t: [cx0, 0, E.lift.z] }, () => lift(b, { levels: [
+    { y: cf, ja: `地下1階 地下鉄 ${c.station.nameJa}駅・澪屋 食品館`, en: `B1 Metro ${c.station.nameRomaji} Sta. / Mioya Food Floor` },
+    { y: GY, ja: `1階 ${ar.nameJa}駅 大広間`, en: `1F ${ar.nameRomaji} Sta. — Great Hall` },
+  ] }));
+  b.sign({ k: 'label', text: `エレベーター　${ar.nameJa}駅（AR線）`, sub: `Lift to ${ar.nameRomaji} Sta. (AR)`, fg: '#ffffff', bg: '#1f5fae' }, (cx0 + cx1) / 2, cf + 3.0, HN + 0.02, [0, 1], 2.6, 0.5);
+  b.zone('passage', cx0, cf - 0.2, zn, cx1, cf + CH, HN, '15番出口 エレベーター通路', 'Exit 15 — passage to the lift', false);
+}
+
+
+/**
  * Willow Court at B1, under the Mioya Terminal Building. It used to be the floor of an open well in
  * the old station building; since the district was rebuilt (hub-street.ts) it is closed over by the
- * street and the terminal above, and nothing climbs out of it. The rebuild's last stage replaces B1.
+ * street and the terminal above. Two ways climb out of it: the stair into the terminal's concourse, and Exit 15
+ * (with its lift), through the north wall into Kawaminato Station's great hall (exit15()).
  */
 function court(h: H) {
   const { b, c, cf, lines } = h;
   const st = c.station;
   const top = -0.6;
-  // The stair up into the Mioya building's grand concourse (hub-street.ts builds the hall round its head).
-  const run = r2((GY - cf) * 1.72), SZ = HALL_STAIR_Z;
-  b.with({ rot: 2 }, () => stairs(b, { x0: -run / 2, x1: run / 2, z0: -SZ[1], z1: -SZ[0], yLow: cf, yHigh: GY, mat: 'floor:#cfc6b4' }));
-  b.hole(-run / 2, SZ[0], run / 2, SZ[1]);
-  b.slab('ceil', -IX, HN, IX, FRONT, top - 0.04, top, [[-run / 2, SZ[0], run / 2, SZ[1]]], false);
+  // The stair up into the Mioya building's grand concourse (hub-street.ts builds the hall round its head): against
+  // the front wall, its foot beside the doorway from the North Passage, climbing east along the wall.
+  const SZ = HALL_STAIR_Z, sx0 = HALL_STAIR.foot, sx1 = r2(sx0 + (GY - cf) * HALL_STAIR.pitch);
+  stairs(b, { x0: sx0, x1: sx1, z0: SZ[0], z1: SZ[1], yLow: cf, yHigh: GY, rails: [true, false], mat: 'floor:#cfc6b4' });
+  b.hole(sx0, SZ[0], sx1, SZ[1]);
+  b.slab('ceil', -IX, HN, IX, FRONT, top - 0.04, top, [[sx0, SZ[0], sx1, SZ[1]]], false);
+  exit15(h);
   const up: SignContent = { k: 'guide', ja: '澪屋 大コンコース・川湊駅（AR線）', en: 'Mioya Grand Concourse / Kawaminato Sta. (AR)', bg: 'white', arrow: 'up' };
-  hangZ(b, up, up, run / 2 + 2.2, cf + 2.9, (SZ[0] + SZ[1]) / 2, 4.4, 0.5, top - 0.04);
+  hangZ(b, { ...up, arrow: 'right' }, { ...up, arrow: 'left' }, sx0 - 2.4, cf + 2.9, SZ[0] + 0.3, 4.4, 0.5, top - 0.04);
   shopsZ(h, IX, HN + 1, FRONT - 1, -1);
   shopsZ(h, -IX, HN + 1, FOOD[0][0] - 0.5, 1);
   shopsZ(h, -IX, FOOD[0][1] + 0.5, FOOD[1][0] - 0.5, 1);
   shopsZ(h, -IX, FOOD[1][1] + 0.5, FRONT - 1, 1);
   foodHall(h);
-  b.sign({ k: 'mural', ...c.style.mural }, 0, cf + 2.6, HN + 0.02, [0, 1], 40, 4.0);
+  b.sign({ k: 'mural', ...c.style.mural }, 0.75, cf + 2.6, HN + 0.02, [0, 1], 17.6, 4.0);
   for (let z = -108; z < FRONT - 3; z += 8) for (const x of [-20.5, -7, 6, 18]) ceilingLight(b, x, x + 2.4, z - 0.3, z + 0.3, top - 0.04);
-  b.sign({ k: 'guide', ja: `地下鉄 ${st.nameJa}駅 のりば・みおちか`, en: `Metro: ${st.nameRomaji} Station / Miochika`, bg: 'navy', badges: lines, arrow: 'up' }, 0, cf + H1 + 0.7, FRONT - 0.42, [0, -1], 9, 0.7);
+  b.sign({ k: 'guide', ja: `地下鉄 ${st.nameJa}駅 のりば・みおちか`, en: `Metro: ${st.nameRomaji} Station / Miochika`, bg: 'navy', badges: lines, arrow: 'up' }, (HALL_DOOR[0] + HALL_DOOR[1]) / 2, cf + H1 + 0.7, FRONT - 0.42, [0, -1], 9, 0.7);
 
   // ── The food floor: showcase counters in rows, an aisle down the middle from the stair ──
   let k = 0;

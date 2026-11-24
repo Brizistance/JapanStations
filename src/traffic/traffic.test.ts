@@ -408,4 +408,23 @@ describe('street lanes', () => {
     expect(served.size, 'vehicles that stopped in the rotary').toBeGreaterThan(4);
     expect(round.size, 'vehicles back on the main road').toBeGreaterThan(4);
   }, 120000);
+
+  it('take buses and taxis round the loops of Kawaminato Station Square and back onto Ekimae-dōri', () => {
+    const w = withLanes.find((s) => s.def.id === 'kita-odori')!;
+    const tr = makeTraffic(longLanes(w), 5);
+    const routes = new Set(tr.lanes.flatMap((l) => l.detours.map((d) => d.route)));
+    expect(routes.size, 'detour routes').toBe(3);
+    const round = new Set<Vehicle>(), served = new Set<Vehicle>(), kinds = new Set<string>();
+    run(tr, EIGHT, 900, () => {
+      noOverlap(tr, 'kita-odori');
+      for (const v of tr.list) if (routes.has(v.route)) {
+        if (v.served > 0) served.add(v), kinds.add(family(v.model));
+        if (v.s > v.route.len - 60) round.add(v);
+      }
+    }, 0.1);
+    expect(tr.cleared, 'vehicles cleared from a knot').toBe(0);
+    expect(served.size, 'vehicles that stopped in the square').toBeGreaterThan(4);
+    expect(round.size, 'vehicles back on Ekimae-dōri').toBeGreaterThan(4);
+    expect(kinds.size, 'both buses and taxis').toBe(2);
+  }, 120000);
 });

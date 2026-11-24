@@ -80,6 +80,12 @@ export interface Zone {
   line?: string;
 }
 
+export interface Plot { x: number; z: number; north?: number }
+/** How far a plot reaches north (−z) of its middle. */
+export const plotNorth = (p: Plot): number => p.north ?? p.z;
+/** Is a frame-local point inside a plot, or within `m` of it? */
+export const inPlot = (p: Plot, lx: number, lz: number, m = 0): boolean => Math.abs(lx) < p.x + m && lz < p.z + m && lz > -plotNorth(p) - m;
+
 /** Half extents of the walkable plot around an ordinary station, metres. */
 export const DEFAULT_PLOT = { x: 130, z: 85 };
 
@@ -165,8 +171,8 @@ export interface Build {
   /** Openings in the street surface, as [x0, z0, x1, z1]. */
   holes: [number, number, number, number][];
   spawn: { pos: V3; yaw: number };
-  /** Half extents of the walkable plot (frame-local x and z). */
-  plot: { x: number; z: number };
+  /** Half extents of the walkable plot (frame-local x and z); `north` where it reaches further to −z than to +z. */
+  plot: Plot;
   /** Volumes nobody may be able to walk into (track beds, closed-off shells). Checked by the walk test. */
   keepOut: { min: V3; max: V3; en: string }[];
   /**

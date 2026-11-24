@@ -1,3 +1,4 @@
+import { inPlot as insidePlot } from '../world/builder';
 import { perfStats } from './perf';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
@@ -177,7 +178,7 @@ function World() {
     // Out in the city beyond the nearest station's plot (continued streets, boulevards) AO costs far more than it shows.
     const nw = nearestStation(camera.position.x, camera.position.z).world;
     const ndx = camera.position.x - nw.frame.x, ndz = camera.position.z - nw.frame.z, nc = Math.cos(nw.frame.yaw), ns = Math.sin(nw.frame.yaw);
-    const inPlot = Math.abs(ndx * nc - ndz * ns) < nw.build.plot.x + 10 && Math.abs(ndx * ns + ndz * nc) < nw.build.plot.z + 10;
+    const inPlot = insidePlot(nw.build.plot, ndx * nc - ndz * ns, ndx * ns + ndz * nc, 10);
     if (post.current) post.current.render(under ? gradeFor() : outdoorGrade(atm.day, atm.dusk, atm.direct), dt, state.clock.elapsedTime, SUN, shafts, inPlot || camera.position.y < -1);
     else gl.render(scene, camera);
     perfStats.calls = gl.info.render.calls;

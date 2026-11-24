@@ -115,7 +115,7 @@ function place(def: StationDef, build: Build, primary: string, x: number, z: num
   });
   const frame: Frame = {
     id: def.id, kind: 'station', x, y: 0, z, yaw, pitch: 0,
-    colliders: makeColliders(build), blockers, radius: Math.hypot(build.plot.x, build.plot.z) + 5, zones: build.zones,
+    colliders: makeColliders(build), blockers, radius: Math.hypot(build.plot.x, Math.max(build.plot.z, build.plot.north ?? 0)) + 5, zones: build.zones,
   };
   const c = Math.cos(yaw), sn = Math.sin(yaw);
   const sp = build.spawn.pos;

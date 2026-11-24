@@ -44,7 +44,7 @@ These replace the sketch below where they differ.
 | Tokei-suji (new) | centre 0, half 10, pavement 6 | −285 … −219 | Runs on 200 m past the edge. 31 m cornice either side |
 | Plot's north edge | | −285 | Was −160 |
 
-- **Gates:** Hokuei Gate (北栄口) in the great hall, Central Gate off the passage, Mioya Gate (as today).
+- **Gates** (as built in stage 4b the Hokuei Gate stands just behind the great hall, in the passage's fence, not in the hall): Hokuei Gate (北栄口) in the great hall, Central Gate off the passage, Mioya Gate (as today).
 - **The arcade.** Since none of it lies outside the building, "keep its two ends" becomes: two short covered arcades re-laid from its kit, running east and west from the square's sides at about z −175 (x −190 … −105 and 105 … 190). This differs from what was agreed and needs the owner's yes.
 - **Engineering to settle with the auditor:** the plot is a symmetric half extent today (x 190, z 160); growing only north needs a plot with its own north edge. The service split needs each type its own track pair at this station and a track fan inside the plain run either side (x 190 … 310).
 
@@ -58,12 +58,12 @@ These replace the grid above where they differ. Item 7 changes what the owner ag
 4. **The Mioya Gate keeps a gallery at +6.0** inside the viaduct's south wall, crossing the central passage as a bridge, with its own stairs to the islands. The passage is about 5.6 m clear under that bridge and 7 m elsewhere.
 5. **The plot gets an optional north reach** (not a symmetric 285, which would swallow Tsumugibashi's boulevard end). Readers to change: `stations/index.ts` (frame radius, rail corridors), `builder.ts`, `Scene.tsx`, `world-view.ts`, and every use of `Z` in `hub-street.ts`.
 6. **Ekimae-dōri meets Hamate-suji, Shiomi-suji and Chidori-suji** and runs on past both edges. Nishi-kōji is not carried north (it does not exist north of the viaduct today).
-7. **Platforms by direction, not by type** (proposed). Putting Rapids on one island and Locals on another makes the Rapid cross the Local's opposite track on the flat at both ends. Pairing by direction avoids every crossing and is how JR West's four-track stations work: platform 3 Rapid and 4 Local towards Asanagi on one island, 5 Rapid and 6 Local towards Kirigahara on the other, so you change between Local and Rapid across the platform. Platforms 1·2 stay not in use.
+7. **Platforms by direction, not by type** (owner's yes, 2026-11-23). Putting Rapids on one island and Locals on another makes the Rapid cross the Local's opposite track on the flat at both ends. Pairing by direction avoids every crossing and is how JR West's four-track stations work: platform 3 Rapid and 4 Local towards Asanagi on one island, 5 Rapid and 6 Local towards Kirigahara on the other, so you change between Local and Rapid across the platform. Platforms 1·2 stay not in use.
 8. **The service split is a shared change,** not only the sim: one platform pair per line in `types.ts`, track geometry without a service in `geometry.ts` and `sim/index.ts`, platform gates, the `ardep` board, `departures.ts`, the AR phrases, and about 15 readers after them. Full test suite; `platform.test.ts` pins Rapid up at platform 4 today.
 9. **The track fans are modelled** as new viaduct pieces in `build_viaduct.py` (today every piece bakes straight rails), from the platform ends out to the end of the hub's plain run (about 185 m each side).
 10. **Walkways under the viaduct:** x ±32 and 85 become side doors into the building's ground floor; x −129 and 131 stay open to the back quarter. Their signs lose the arcade and Kōka-dōri.
 11. **The central passage needs a new 24 m bay** in the viaduct models, or 12 piers stand in it. Every viaduct piece grows from 26 m to 39 m deep.
-12. **The new metro exit is Exit 15.** It rises through the north wall of Willow Court's food floor (slab, counters and a mural stand there today), needs its own zone and `exits.ts` entry, and its lift stands at x 8 or more, clear of the Yanagisuji tunnel's crown.
+12. **The new metro exit is Exit 15** (as built it goes through the north wall at x 10.5 … 13.3 and comes up in the great hall's south-east corner). It rises through the north wall of Willow Court's food floor (slab, counters and a mural stand there today), needs its own zone and `exits.ts` entry, and its lift stands at x 8 or more, clear of the Yanagisuji tunnel's crown.
 13. **Tests to expect work in:** `traffic.test.ts` (every hub junction, ten minutes), `exits.test.ts`, `walk.test.ts`, `platform.test.ts`.
 
 Not checked by the auditor: Midorizaka's plot extents, the AR car's width against the islands. Nothing was run.
