@@ -67,6 +67,8 @@ To work on one station, open only its look file and, if needed, its line's theme
 | [docs/station-design.md](docs/station-design.md) (33 KB) | Designing a 3D station or signage |
 | [docs/street-design.md](docs/street-design.md) | Redesigning a station's outside: streets, buildings, road kit, street furniture (the owner's rules) |
 | [docs/station-playbook.md](docs/station-playbook.md) | Before building or rebuilding any station's outside or way in: the fixed procedure, the checks, the traps (or run the `new-station` skill) |
+| [docs/model-library.md](docs/model-library.md) | Before making any building model: every set in `assets/buildings` by theme |
+| [docs/theme-notes.md](docs/theme-notes.md) | A station's theme was researched before: measured sizes and patterns per theme (grep the theme's section) |
 | [docs/station-kit.md](docs/station-kit.md) | Bringing the modelled kit to another station: goals, minimum set, what stays rare, sign-off views (the owner's rules) |
 | [docs/between-stations.md](docs/between-stations.md) | Working on what the ride shows between stations: tunnels by era, trackside, city band (a plan for later, the owner's rules) |
 | [docs/conventions.md](docs/conventions.md) | Adding a station or a line (read those sections only) |
