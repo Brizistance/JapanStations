@@ -22,8 +22,8 @@ The owner hits usage limits fast. These are defaults, not suggestions:
 
 - **Do not read docs or source up front.** Use the code map below to pick the one file a task touches. Never read all of `docs/` or browse `src/` "for context".
 - **Search before reading.** Many files are 30–85 KB. Grep for the symbol, then Read only that range with `offset`/`limit`. Never read a whole file over ~15 KB unless the task truly needs all of it.
-- **No subagents or extra sessions** unless the owner asks, except the one below. They re-read everything.
-- **The `new-station` skill runs the `station-auditor` subagent** (`.claude/agents/station-auditor.md`, decided 2026-11-22): on the plan before building and after each stage, one effort level above the builder, for build errors only. Read-only; not for small fixes outside the skill.
+- **No subagents or extra sessions** unless the owner asks. They re-read everything.
+- **No auditor in the `new-station` skill** (decided 2026-11-25): it slowed the work. Run `station-auditor` only when asked.
 - **After building or changing a station, sign-off is the owner's** (decided 2026-11-21): run the tests, take a few sanity views in the browser, say what was not looked at, and report. The owner walks it and sends screenshots. Run the `station-checker` subagent (`.claude/agents/station-checker.md`) only when asked.
 - **Verify narrowly.** Run `npm run typecheck`, plus only the test file near the change (`npx vitest run <file>`). Run the full suite only for changes to `src/data/`, `src/sim/` or shared station code (`build.ts`, `kit.ts`, `parts.ts`, `specs.ts`).
 - **Reply very short.** What changed and where to look, in a few lines. No code walkthroughs or option surveys.
@@ -66,7 +66,7 @@ To work on one station, open only its look file and, if needed, its line's theme
 | [docs/network.md](docs/network.md) (16 KB) | Touching lines, stations, transfers, numbering, timetable, data format |
 | [docs/station-design.md](docs/station-design.md) (33 KB) | Designing a 3D station or signage |
 | [docs/street-design.md](docs/street-design.md) | Redesigning a station's outside: streets, buildings, road kit, street furniture (the owner's rules) |
-| [docs/station-playbook.md](docs/station-playbook.md) | Before building or rebuilding any station's outside or way in: the fixed procedure, the checks, the traps (or run the `new-station` skill) |
+| [docs/station-playbook.md](docs/station-playbook.md) | Before building or rebuilding any station's outside: read only "The brief" at the top (plot size, two steps, layout types, edges); the rest is reference to grep (or run the `new-station` skill) |
 | [docs/model-library.md](docs/model-library.md) | Before making any building model: every set in `assets/buildings` by theme |
 | [docs/theme-notes.md](docs/theme-notes.md) | A station's theme was researched before: measured sizes and patterns per theme (grep the theme's section) |
 | [docs/station-kit.md](docs/station-kit.md) | Bringing the modelled kit to another station: goals, minimum set, what stays rare, sign-off views (the owner's rules) |

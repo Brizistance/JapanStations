@@ -1,38 +1,54 @@
-# Station rebuild playbook
+# Station brief
 
-The fixed procedure for rebuilding a station's outside and its way in, written after Aizomechō (2026-11-22). Follow the steps in order. The rules for what a street must contain are in [street-design.md](street-design.md); this file is how to build one without the mistakes that cost the owner extra rounds.
+How a station's outside is built (the owner's interview, 2026-11-25; it replaces the longer playbook, its question rounds, its tracks and the auditor). The first section is the whole procedure. Everything under "Reference" is technical help: grep it when a step needs it, do not read it up front. The rules for what a street must contain are in [street-design.md](street-design.md).
 
-Worked example throughout: Aizomechō. Its files are `src/stations/aizomecho-street.ts`, `src/stations/headhouse.ts`, `tools/blender/build_aizome.py` and `tools/blender/build_aizomefront.py`. Open them when a step says "as at Aizomechō"; do not open other stations' files.
+## The brief
 
-## The three mistakes this is here to stop
+**Why.** The city is for inventing, walking, riding and watching grow. There is no finish line and no order: the owner picks the next station. A station is done when its neighbourhood can be walked and reads as a place. The transit is the point and the outside is for exploring: it is where a ride ends, so the exits, the landmark seen from them and the walk back to the train come first, and the outside never takes work from lines, stations and trains.
 
-1. **Layout and placement:** buildings on roads or on each other, pieces facing the wrong way, exits coming up in the wrong place, streets stopping short.
-2. **Walking and colliders:** blocked lanes, invisible walls, models with no collider, floating objects.
-3. **Rules skipped:** plain boxes, bare ground, no lanes, no signals, dark streets at night, stock kits on main streets.
+**What the owner gives:** the theme, the general type of place, the landmark(s), and anything about the station itself. The rest is the builder's to design. Ask only what blocks; no interview rounds.
 
-Each step below ends with the checks that catch them. Do the checks before moving on, not at the end.
+**Boundaries (every new station):**
 
-## The order of work (owner's rule, decided 2026-11-24)
+1. **Fixed plot, about 300 × 250 m:** one main street, one or two back streets, 4–6 blocks. Beyond it is backdrop. Stations built larger before this date stay as they are.
+2. **No joins by default.** Walking from one station's map to the next is its own job, only when the owner asks.
+3. **Models:** whatever the theme needs, library first ([model-library.md](model-library.md)). If stations run long again, this is the first thing to cap.
+4. **A done test, written before building,** in one line: what the owner should be able to stand at, see and walk.
+5. **Ideas past the plot** (joins, extra streets) go on the parking list at the foot of this file, not into the build.
 
-This order overrides any step below that reads differently.
+**Two steps, the owner walks each:**
 
-1. **First question: redo the entire area, or not?** Ask before anything else.
-   - **No:** the outside stays. Ask which parts change and touch only those, with the checks below.
-   - **Yes:** carry on from 2. The outside is started from scratch.
-2. **Measure** (step 1), including the edges shared with neighbouring stations.
-3. **Theme** (asked in the same card as the first question, before measuring). Propose three real Japanese districts or area types that fit the station's place in the city and its neighbours, one recommended. The owner picks or names another.
-4. **Second question: rebuild the whole station, or modify it?** Station means the building, exits, concourse and platforms. Modify follows step 6.
-5. **Plan in chat, the owner's yes, the auditor on the plan.**
-6. **Clear the outside.** Remove every street, building and piece of furniture in the plot, down to bare ground. Keep the exits where they rise until the stage that replaces them, so the tests still pass.
-7. **Stage 1, the station:** build or rebuild it. Stop; the owner walks it.
-8. **Stage 2, the street layout and the landmarks only:** ground, roads, junctions, pavements, kerbs, crossings, signals, lights, the joins at every edge, and the landmarks on their lots. Every other lot stays bare. Stop; the owner walks it.
-9. **Stage 3, the fill:** purpose-built fronts, stock rows and `leftovers()` on the remaining lots. Stop; the owner walks it.
+1. **Streets and landmark:** ground, roads, junctions, pavements, crossings, signals, lights, the edges, the landmark on its lot. Other lots bare.
+2. **The fill:** every other building, yards, furniture.
 
-**A Japanese layout.** The street plan must be one Japan would have for the chosen theme: its block sizes, street widths and hierarchy (arterial, shopping street, back lanes), where the station sits in it, shrine and temple lots, arcades, rail-side strips. Take it from the real district the theme names, and say in the plan what was taken. No generic grid.
+Before step 1, a plan of a few lines in chat (CLAUDE.md rule 4): the layout type, the streets with widths, the landmark's lot, what each of the four edges is, the done test. No plan file, no map drawing unless asked.
 
-**Research first (decided 2026-11-24).** Once the theme is picked, look up the real district it names (maps and photos) and take measured numbers from it: block sizes, street widths, lot frontages, where the station sits. The plan cites them. Take proportions and patterns only; never a real name (CLAUDE.md rule 1).
+**After each step:** typecheck, the tests, a few views in the browser, then a short report that says what was not looked at. Sign-off is the owner's.
 
-**Normal Japanese sizes.** Check every plan against this table; a number outside it needs a reason from the research. Existing rules in street-design.md (the 6.5 m small street) stand.
+### The layout must be one Japan would have, and its own
+
+A generic grid is a failure. The plan names the layout type and what it takes from it, and the type differs from the neighbouring stations on the line. Types to draw on (from general knowledge; measured notes per theme are in [theme-notes.md](theme-notes.md), add to them when a theme is researched):
+
+| Type | What makes it |
+|---|---|
+| Station front (駅前) | A square or bus rotary at the exit, one shopping street leading off it, lanes behind |
+| Shopping-street spine (商店街) | One long narrow street or arcade, short ladder lanes off both sides, the arterial a block away |
+| Old quarter | Narrow lanes that bend, T-junctions and staggered crossings, small irregular blocks, a shrine or temple lot |
+| Temple or shrine town | An approach street (参道) running straight to a gate, shops both sides, quiet lanes round the precinct |
+| Post-war planned grid | Wide 通 and 筋 at right angles, long blocks, corners cut off at junctions |
+| Landfill and port | Superblocks, wide roads with few crossings, yards, a straight sea wall |
+| Rail-side strip | Streets parallel to an embankment or viaduct, underpasses, shops under the arches |
+| Waterside | Streets that follow a river or canal bank, bridges setting where the cross streets fall |
+| Housing estate or new town | Curving loop roads, slabs set back in green, a small shopping centre, footpaths separate from roads |
+| Hillside | Winding slope roads, stairs between them, retaining walls |
+
+Then, for any type:
+
+- **Sizes:** check every number against the table below; one outside it needs a reason.
+- **Height and use fall away from the station.** Tall commercial on the arterial and by the station; mid-rise mixed use one street back; low houses, small shops and workshops in the lanes.
+- **Irregular on purpose.** At least three of: a bent or dead-end lane, an odd-shaped or flag lot, a pocket park, a coin car park, a gap site, a building plainly older or newer than its row.
+- **Everyday things.** A convenience store, a kōban, bicycle parking, a clinic or pharmacy, a bank or post office, vending machines, somewhere to eat by the exits; or say why not.
+- **Nothing is filler.** Every building and street is there for a reason that fits the place.
 
 | Thing | Normal size |
 |---|---|
@@ -47,35 +63,21 @@ This order overrides any step below that reads differently.
 | Mid-rise (pencil building) lot | frontage 6–12 m, depth 15–25 m |
 | Large lot (department store, tower) | 30–60 m a side, on the arterial or the station square |
 
-**Height and use fall away from the station.** Tall commercial on the arterial and by the station; mid-rise mixed use one street back; low houses, small shops and workshops in the lanes. No tower in a lane, no house on the arterial.
+### The edges
 
-**Irregular on purpose.** Each plan names at least three: a bent or dead-end lane, an odd-shaped or flag lot, a pocket park, a coin car park, a gap site, a building plainly older or newer than its row.
+Each of the plot's four sides is decided in the plan as one of two kinds. No street ends at a wall or a row of buildings across it, and no loose scatter of generic buildings shows from the street.
 
-**What every station area has.** The plan ticks off, or says why not: a convenience store, a kōban, bicycle parking, a clinic or pharmacy, a bank or post office, vending machines, and somewhere to eat by the exits.
+- **A real boundary,** where the geography gives one: the sea, a river or canal, a railway embankment, an elevated expressway, a park. The plot ends there and nothing is faked beyond it.
+- **A carried-on street,** on every other side: each street runs on 100–150 m past the edge with kerbs, lane paint and buildings lined up along it, from the same sets as the plot so the district's theme carries over. It is not walked; the walked part ends at a junction, a bend or a low rail, never a wall. The generic backdrop city starts only behind these rows.
+- Where a neighbouring station's outside touches the edge, streets meet on the same centre line, width, pavement and lanes.
 
-**A top-down map before the yes.** With the plan in chat, show a simple 2D map (drawn with the visualize tool until `__sim.plan` exists): streets with widths, lots, landmarks, exits, and the neighbours' streets at each edge. The owner approves the picture.
+### Names and records
 
-**Record the theme.** After the yes, add one line for the station to [worldbuilding.md](worldbuilding.md): its theme, the district it takes after, its landmarks.
+New names are invented and web-checked (CLAUDE.md rule 1), and the station's theme line goes in [worldbuilding.md](worldbuilding.md). Each new model set goes in [model-library.md](model-library.md). New regular buildings are generic by theme; only landmarks are station-specific.
 
-**A top-down view in every stage report**, of the whole area, beside the walking views.
+# Reference
 
-**Two tracks: light and full (decided 2026-11-24).** Round 1 also asks which track, with a recommendation: full for hero stations, interchanges and any station getting a walk-in building or a new theme; light for the rest. The owner's answer decides.
-
-- **Full:** everything in this file.
-- **Light:** no fresh research (use the sizes table and [theme-notes.md](theme-notes.md); if the theme has no notes yet, research it once and save them). One question card: round 2's questions join round 1. When the station is only being modified, stages 1 and 2 are built and walked together, so there are two stops, not three.
-- **On both tracks, never skipped:** measuring, the edges, the top-down map before the yes, the tests, the top-down view in each report.
-
-**Theme notes.** The first time a theme is researched, save what was measured in [theme-notes.md](theme-notes.md): block sizes, street widths, lot frontages, layout patterns, typical buildings. Later stations with that theme read its section instead of researching again, and add only what is new.
-
-**Two interview rounds (decided 2026-11-24).** Round 1, one card: entire area or not, and the theme. Then research. Round 2, one card: whole station or modify, the station building, the landmarks, each with a recommendation from the research. No other question rounds unless something blocks.
-
-**Check the library first.** Before making a model, look in [model-library.md](model-library.md) for a set that fits the theme. New regular buildings are generic: named and built by theme, no station name or station-specific signs in the model; only landmarks are station-specific. Add each new set to the library.
-
-**Auditor runs:** on the plan, after stage 1 and after stage 2. Stage 3 is checked by the overlap tests instead; until those tests exist, the auditor runs on stage 3 too.
-
-**New models are allowed.** Where the kit in `assets/buildings` has nothing that fits the theme or a lot's shape, make new models for it (step 4), for landmarks and for regular buildings alike, rather than forcing a stock piece. List the new sets in the plan.
-
-**Edges.** The area must join its neighbours: every street that reaches a shared edge meets the neighbour's street with the same centre line, width, pavement and lanes, and building heights and types step across the edge rather than jump. The neighbour's outer row (road ends, edge buildings) may be changed to make the two sides meet; list those changes in the plan first. Nothing deeper in the neighbour's plot changes.
+Worked example: Aizomechō (`src/stations/aizomecho-street.ts`, `src/stations/headhouse.ts`, `tools/blender/build_aizome.py`, `tools/blender/build_aizomefront.py`). Where a section below speaks of the auditor, interview rounds or three stages, the brief above overrides it.
 
 ## Step 1: Measure before you plan
 
@@ -87,15 +89,12 @@ Never plan from memory of another station. Get the numbers from the built statio
 - **Other lines through the plot.** Check `src/data/network.ts` for every line and station within 200 m, including ones not in 3D yet, and work out where they fall in the station frame. Aizomechō missed this: the planned AR line crosses the dyers' quarter, found only in stage 3.
 - **The edges.** For each neighbouring station whose outside touches or faces this plot, grep its street file for the streets that reach the shared edge and note each one's centre line, half width, pavement and lanes, and the heights and kinds of its edge buildings. Read only those ranges.
 
-## Step 2: Interview, then a plan with coordinates
+## Step 2: The plan in the street file
 
-- Ask the owner first (street-design.md rule 17 and "How to work"), in the order given in "The order of work": entire area or not, the theme (three proposals), whole station or modify, then the station building and the landmarks. Give a recommended answer to each question.
-- The plan lists every street that reaches an edge with the neighbour's street it meets, and any change to a neighbour's outer row.
-- Then write the plan as the **head comment of the street file**: every street with its centre line, half width, pavement and name; every landmark with its lot. Aizomechō's head comment is the model.
+- Write the plan as the **head comment of the street file**: every street with its centre line, half width, pavement and name; every landmark with its lot. Aizomechō's head comment is the model.
 - Before any geometry, write the **lot table**: for each block, what stands on each of its four edges and how deep. Check by arithmetic that depths on opposite edges do not add up to more than the block. Leftover strips need a use (a lane, a yard): name it.
-- Wait for the owner's yes.
 
-Checks: every street reaches the plot's edge and lines up with the neighbour's street there; every block edge has a row; no two lots share ground; exits rise in a pavement, not in a lot or a carriageway.
+Checks: every street reaches the plot's edge; every block edge has a row; no two lots share ground; exits rise in a pavement, not in a lot or a carriageway.
 
 ## Step 3: The frame, and which way things face
 
@@ -171,7 +170,8 @@ As clean as Aizomechō (the owner's bar for every station, 2026-11-25; walk Aizo
 - [ ] Nothing is filler: every building and street is there for a reason that fits the place, not stock rows packed in to cover ground.
 - [ ] The layout reads at a glance: clear streets, consistent building lines, heights that step down sensibly, an obvious edge to the town.
 - [ ] The build is tidy: no floating pieces, gaps, overlaps, clipped signs or odd joins where things meet.
-- [ ] Past the plot's edge is calm: low-key and plausible, not a wall of busy buildings.
+- [ ] Each edge is a real boundary or a carried-on street in the district's theme (the brief, "The edges"); no street ends at a wall, no loose scatter shows.
+- [ ] The layout is a named Japanese type, unlike the neighbouring stations', not a generic grid.
 
 Layout and placement
 - [ ] No building stands on a carriageway, a pavement exit or another building.
@@ -211,3 +211,7 @@ Decided 2026-11-24: the edge-join test, the overlap tests and the top-down view 
 - **Street-rule tests.** A test per rebuilt station that fails with a plain message when: two building colliders overlap; a building overlaps a carriageway or an exit; a model within reach has no collider; a lane zone is narrower than 1.2 m or unreachable; a street stops short of the plot's edge; two lanes with traffic cross without a stop for each; an exit hole is not on a pavement; a free rectangle over 18 m² is left inside a block; a street has no lamp for more than 30 m.
 - **Top-down plan view.** A dev command (`__sim.plan(id)`) that draws the plot from above in one image: carriageways, pavements, lanes, each building's footprint and face, exits, zones and names. To be looked at after step 5 and attached to the report.
 - **Shared street composer.** The parts every hand-built street repeats (`junction`, `pack` and `row`, the mouth clearing, the kerb rails, `roadOut` and `packOut` past the edge) moved out of `tsumugibashi-street.ts` and `aizomecho-street.ts` into one module, so a new station is a table of streets, blocks and landmarks.
+
+## Parking list (ideas past the plot, not built)
+
+- Umibe-shiyakusho-mae to Kawaminato-kō: the link stops 120 m north of the avenue; the dock side beyond is backdrop.

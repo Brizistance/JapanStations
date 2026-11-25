@@ -6,6 +6,7 @@ import { tsumugiStreet } from './tsumugibashi-street';
 import { aizomeStreet } from './aizomecho-street';
 import { buildCentre } from './wata-centre';
 import { watayaStreet } from './watayamachi-street';
+import { umibeStreet } from './umibe-street';
 import { daigakuStreet } from './daigaku-street';
 import { buildHibarino } from './hibarino';
 import { aobaStreet } from './aobadai-street';
@@ -552,6 +553,7 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further, dir:
   if (spec.adit) buildAdit(c, cf, cw);
   // Aobadai's street is laid out by hand (aobadai-street.ts).
   if (station.id === 'aobadai') aobaStreet(c, spec.surface, STREET_CW, dir, cf);
+  else if (station.id === 'umibe-shiyakusho-mae') umibeStreet(c, spec.surface, STREET_CW);
   else surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
 

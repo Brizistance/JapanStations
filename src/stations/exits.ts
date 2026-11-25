@@ -540,6 +540,23 @@ function daigakuFeatures(): Feature[] {
   ];
 }
 
+/** What stands round Umibe-shiyakusho-mae's exits (umibe-street.ts). */
+function umibeFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: n('川湊市役所', 'Kawaminato City Hall'), x0: 14, x1: 66, side: -1, named: true, reach: 60 },
+    { n: n('川湊市議会', 'City Assembly'), x0: 66, x1: 91, side: -1, named: true, reach: 50 },
+    { n: n('海辺公園', 'Umibe Park'), x0: -148, x1: 148, side: 1, named: true, reach: 40 },
+    { n: n('海辺公園 野外ステージ', 'Open-air Stage'), x0: -100, x1: -60, side: 1, named: true, reach: 60 },
+    { n: n('帆のモニュメント・海の広場', 'Sail Monument, Sea Terrace'), x0: -18, x1: 18, side: 1, named: true, reach: 60 },
+    { n: n('浜木綿筋', 'Hamayū-suji'), x0: -14, x1: 14, side: -1, named: true, reach: 40 },
+    { n: n('川湊第二地方合同庁舎', 'Joint Government Bldg No. 2'), x0: -44, x1: -14, side: -1, named: true, reach: 30 },
+    { n: n('海辺交番', 'Police box'), x0: 54, x1: 61, side: 1, named: true, reach: 30 },
+    { n: KIND.office, x0: -148, x1: 148, side: -1, named: false },
+    { n: KIND.office, x0: -148, x1: 148, side: 1, named: false },
+  ];
+}
+
 /** What stands round Aobadai's exits (aobadai-street.ts). */
 function aobaFeatures(): Feature[] {
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -640,6 +657,7 @@ function derive(id: StationId): StationStreet {
       const cw = spec.width ?? 10;
       // Aobadai's street is not laid out by surface() (aobadai-street.ts): list what stands round its exits.
       if (id === 'aobadai') return { kind: 'hub', exits: withNear(aobaFeatures(), es) };
+      if (id === 'umibe-shiyakusho-mae') return { kind: 'hub', exits: withNear(umibeFeatures(), es) };
       return { kind: 'street', surface: spec.surface, box: [cx0, -cw, cx1, cw], swOut: STREET_CW + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'interchange': {

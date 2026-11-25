@@ -26,3 +26,13 @@ The stations rebuilt before 2026-11-24 were not written up here.
 - Typical buildings and everyday uses: 1960s–80s wholesaler buildings of five to nine floors (tile or mosaic fronts, ribbon windows, showroom at street level, the firm's name in metal letters, a goods door and hand carts); narrow cloth, thread, button and towel shops; trade-only signs; standing soba, kissaten and set-lunch places for the trade; banks at the boulevard corners; newer apartment towers where wholesalers sold up.
 - Model sets that fit (see model-library.md): `tsumugifront`, `tsumugikit` (prewar Senba-style fronts, for the older buildings), `office` (back streets), `machi`, `aizome` (a surviving merchant house). No set yet for postwar wholesaler buildings or the under-viaduct centre.
 - Sources: city.osaka.lg.jp (Senba building-line and Semba Center Building papers), osaka-angenet.jp (Konjakukan notes on the 40-ken block), kansai-u.repo.nii.ac.jp KU-0240 (block, lots, drain).
+
+## Civic axis (after Kobe's city hall quarter, 2026-11-25, first used at Umibe-shiyakusho-mae)
+Written from general knowledge of the place, not measured from maps: check the numbers before leaning on them.
+- Blocks: reclaimed-land office grid, about 75 m × 60 m between two-lane streets.
+- Streets (widths, hierarchy): a six-lane shore avenue (36 m between building lines, 7 m pavements); one boulevard at right angles to it (28 m: four lanes, planted median, bicycle strips, 5 m pavements, street trees) that leads to the city hall and stops at the avenue; two-lane local streets of 10.5 m; 4.75 m service lanes behind the avenue's row.
+- Lots (frontage, depth): 18–30 m frontages, 26–30 m deep; the city hall takes a whole block with an 18 m forecourt.
+- Where the station sits: under the avenue, exits in its pavements, one in front of the city hall's forecourt.
+- Layout patterns and irregularities: the boulevard's axis carried on south of the avenue as a park mall to a sea terrace; the park (lawns, flower beds, fountain, open-air stage, rest house, sea-wall promenade with pines) is the avenue's whole south side; a tower city hall with a low assembly wing; a shrine moved from the old shore, a children's park, coin parking, one apartment block and one low 1960s survivor among the offices.
+- Typical buildings and everyday uses: joint government offices, bureau offices with concrete fins, a telephone exchange with a microwave tower, a bank, insurance and newspaper offices, a business hotel, halls of the licensed professions, post office, pharmacy and clinic, fire station, a lunch room; 31 m cornice on the avenue, 11–24 m behind.
+- Model sets that fit: `civic` (made for it), `umibe` (landmarks), `office`, `manshon` (past the edge).

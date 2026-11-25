@@ -213,7 +213,9 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
   b.slab('paver', -X, -Z, X, Z, 0, GY, [...wellHoles, sea, ...carriage]);
   b.zone('street', -X, -0.3, -Z, X, 80, SEA - 0.4, `${st.nameJa}駅前`, `${st.nameRomaji} — street level`);
   // The plot's edges: walls round the land, the quay rail along the sea (below).
-  b.block(-X - 1, -1, -Z - 1, -X, 60, SEA);
+  // (West: open where the boulevard, the back street and the promenade go on into Umibe-shiyakusho-mae's plot,
+  // which reaches this edge along its arms: umibe-east.ts, 2026-11-25.)
+  for (const [z0, z1] of [[-Z - 1, BACK1], [BACK0, -FRONT], [FRONT, PROM]]) b.block(-X - 1, -1, z0, -X, 60, z1);
   // (East: open along the boulevard, where the arm goes on, and north of it, where Kita-Hatoba's world goes on: hatoba-street.ts.)
   // (South of the boulevard the arm's park goes on east: stage B, 2026-11-24.)
   // (North: open, Tōsen-machi's plot goes on: tosen-street.ts.)
@@ -309,6 +311,26 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
   const zebra = (sx: 1 | -1, x0: number) => [{ at: (0 - x0) * sx - 1.5 - 5, zone: [-1.5, TSU_C0, 1.5, TSU_C1] as [number, number, number, number] }];
   trafficLane(b, -X, TSU.z - 2.25, X, TSU.z - 2.25, { speed: 30 / 3.6, flow: 1.6, use: 'all', taxi: 0.05, halts: [], stops: stopsX(1, -X), yields: zebra(1, -X) });
   trafficLane(b, X, TSU.z + 2.25, -X, TSU.z + 2.25, { speed: 30 / 3.6, flow: 1.6, use: 'all', taxi: 0.05, halts: [], stops: stopsX(-1, X), yields: zebra(-1, X) });
+  // West, the boulevard and the back street go on into Umibe-shiyakusho-mae's streets (umibe-east.ts): their
+  // driven lanes hand their vehicles over at the edge and are fed from there (traffic/street.ts), as east at the arm.
+  for (const l of b.out.lanes.slice(lanes0)) {
+    const dx = l.to[0] - l.from[0], z = l.from[2];
+    if (l.use !== 'all' || Math.abs(l.to[2] - z) > 0.1 || Math.abs(dx) < 1) continue;
+    if (dx < 0 && Math.abs(l.to[0] + X) < 0.5) {
+      l.to = [-X - 20, l.to[1], z];
+      (l.closed ??= []).push('to');
+      l.hand = { station: 'umibe-shiyakusho-mae', at: [-X, l.to[1], z] };
+    } else if (dx > 0 && Math.abs(l.from[0] + X) < 0.5) {
+      const d = 20;
+      l.stops = l.stops.map((q) => ({ ...q, at: q.at + d, exit: q.exit + d }));
+      l.halts = l.halts.map((q) => ({ ...q, at: q.at + d }));
+      l.yields = l.yields?.map((q) => ({ ...q, at: q.at + d }));
+      if (l.avoid) l.avoid = { ...l.avoid, from: l.avoid.from + d, to: l.avoid.to + d };
+      l.from = [-X - 20, l.from[1], z];
+      (l.closed ??= []).push('from');
+      l.fed = 'umibe-shiyakusho-mae';
+    }
+  }
   crosswalk(b, 0, TSU.z, 2 * TSU.half - 0.4, 3, true);
 
   // ── The north-east streets (2026-11-24, north-roads.ts): Tōsen-machi's and Kita-Hatoba's streets are driven as
@@ -874,16 +896,7 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
       else b.deco('asphalt', uc - CW, -0.03, a - 20, uc + CW, 0.004, e + 20);
     };
     // (North: Tōsen-machi, a world of its own, tosen-street.ts.)
-    // West: the boulevard and the back street, rows between them and north of the back street.
-    roadOut(false, -1, { c: 0, half: RW, pave: FRONT - RW, wide: true, tree: 'ginkgo' });
-    roadOut(false, -1, { c: TSU.z, half: TSU.half, pave: TSU.pave, wide: false });
-    for (const [a, e] of [[-Z, BACK1], [BACK0, -FRONT]] as [number, number][]) {
-      packOut(false, -1, a, e, BIZ);
-      b.clearScenery(-X - OUT - 2, a - 9, -X, e + 9);
-    }
-    // (South of the boulevard, west: warehouses on the quay, seen only.)
-    for (const x of [-X - 30, -X - 80, -X - 130]) b.out.models.push({ kind: 'port', id: x % 20 ? 'soko_a' : 'soko_c', pos: b.pt(x, GY, 24), yaw: 0, seed: 0, merge: false });
-    b.clearScenery(-X - OUT - 2, FRONT, -X, SEA);
+    // (West: Umibe-shiyakusho-mae's plot goes on along its arms: umibe-east.ts.)
     // ── The arm (2026-11-24): the boulevard walked on east to the quay, across the quay road and apron and
     // out to the middle of Minatoura-bashi (ARM), where Kon'yahama's world takes over. Its rows north of the
     // boulevard run to the quay's buildings, with a cross street half way; the port's warehouses stand

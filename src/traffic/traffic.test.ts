@@ -517,7 +517,8 @@ describe('Minatoura-bashi: one road through two streets', () => {
     const K = by('kawaminato-ko'), A = by('aizomecho');
     expect(K && A, 'both streets run at the hand-over point').toBeTruthy();
     // The lanes fed from the other street set out nothing of their own while it runs: whatever is on them came over.
-    const fedK = K.sim.lanes.filter((l) => l.part.fed && l.part.use !== 'cycle'), fedA = A.sim.lanes.filter((l) => l.part.fed && l.part.use !== 'cycle');
+    // (Kawaminato-kō's west lanes are fed from Umibe-shiyakusho-mae, which does not run this far east of it.)
+    const fedK = K.sim.lanes.filter((l) => l.part.fed === 'aizomecho' && l.part.use !== 'cycle'), fedA = A.sim.lanes.filter((l) => l.part.fed && l.part.use !== 'cycle');
     expect(fedK.length).toBeGreaterThan(0);
     expect(fedA.length).toBeGreaterThan(0);
     const seenK = new Set<number>(), seenA = new Set<number>();

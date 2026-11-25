@@ -11,6 +11,7 @@ import type { Build, ModelPart, Plot } from '../world/builder';
 import { plotNorth } from '../world/builder';
 import { GROUND_Y } from './kit';
 import { WATA_PLOT, WATA_STAGE, WATA_STREETS, WATA_RESERVED } from './wata-plan';
+import { UMIBE_PLOT, UMIBE_STAGE, UMIBE_STREETS, UMIBE_RESERVED } from './umibe-plan';
 
 export type Rect = [number, number, number, number];
 
@@ -29,6 +30,9 @@ export interface StreetLine {
   pave: number;
   /** Traffic lanes in all. 0: nobody drives it. */
   lanes: number;
+  /** Where the street stops short of the plot's edges (a T junction): from a0 (default the near edge) to a1 (default the far one). */
+  a0?: number;
+  a1?: number;
 }
 
 export interface StreetPlan {
@@ -49,6 +53,10 @@ export const STREET_PLANS: Record<string, StreetPlan> = {
     stage: WATA_STAGE, plot: WATA_PLOT, streets: WATA_STREETS, reserved: WATA_RESERVED,
     overhead: [], walkIn: ['watacentre/hall_e', 'watacentre/hall_w', 'wata/court', 'wata/yashiro', 'wata/tonya'],
   },
+  'umibe-shiyakusho-mae': {
+    stage: UMIBE_STAGE, plot: UMIBE_PLOT, streets: UMIBE_STREETS, reserved: UMIBE_RESERVED,
+    overhead: [], walkIn: ['umibe/shiyakusho'],
+  },
 };
 
 const GY = GROUND_Y;
@@ -59,10 +67,18 @@ const fmt = (r: Rect) => `[${r.map((v) => v.toFixed(1)).join(', ')}]`;
 /** The plot as a rectangle. */
 export const plotRect = (p: Plot): Rect => [-p.x, -plotNorth(p), p.x, p.z];
 
+/** Where a street runs along its own axis: the plot's edges, or its own ends where it stops at a T. */
+export function streetSpan(p: StreetPlan, s: StreetLine): [number, number] {
+  const r = plotRect(p.plot);
+  return s.axis === 'x' ? [s.a0 ?? r[0], s.a1 ?? r[2]] : [s.a0 ?? r[1], s.a1 ?? r[3]];
+}
+
 /** A street's carriageways and pavements, clipped to the plot. */
 export function streetRects(p: StreetPlan, s: StreetLine): { road: Rect[]; pave: Rect[] } {
   const [X0, Z0, X1, Z1] = plotRect(p.plot);
-  const band = (a: number, e: number): Rect => (s.axis === 'x' ? [X0, s.c + a, X1, s.c + e] : [s.c + a, Z0, s.c + e, Z1]);
+  const [u0, u1] = streetSpan(p, s);
+  const band = (a: number, e: number): Rect => (s.axis === 'x' ? [u0, s.c + a, u1, s.c + e] : [s.c + a, u0, s.c + e, u1]);
+  void [X0, Z0, X1, Z1];
   const road = s.mid ? [band(-s.half, -s.mid), band(s.mid, s.half)] : [band(-s.half, s.half)];
   const pave = s.pave ? [band(-s.half - s.pave, -s.half), band(s.half, s.half + s.pave)] : [];
   return { road, pave };
@@ -150,7 +166,7 @@ export function streetProblems(id: string, p: StreetPlan, build: Build): string[
   };
   const lamps = build.models.filter((m) => /lamp|light/.test(m.id));
   for (const s of p.streets) {
-    const [a0, a1] = s.axis === 'x' ? [plot[0], plot[2]] : [plot[1], plot[3]];
+    const [a0, a1] = streetSpan(p, s);
     const at = (u: number, off: number): [number, number] => (s.axis === 'x' ? [u, s.c + off] : [s.c + off, u]);
     const off = s.mid ? (s.mid + s.half) / 2 : 0;
     // 7. The carriageway runs to both edges of the plot.
@@ -169,6 +185,9 @@ export function streetProblems(id: string, p: StreetPlan, build: Build): string[
   for (const a of driven.filter((s) => s.axis === 'x')) for (const c of driven.filter((s) => s.axis === 'z')) {
     const j: Rect = [c.c - c.half, a.c - a.half, c.c + c.half, a.c + a.half];
     if (!hit(j, plot)) continue;
+    // (A street that stops short of the other at a T has no junction with it here.)
+    const [c0, c1] = streetSpan(p, c), [e0, e1] = streetSpan(p, a);
+    if (a.c <= c0 || a.c >= c1 || c.c <= e0 || c.c >= e1) continue;
     for (const l of build.lanes) {
       const dx = l.to[0] - l.from[0], dz = l.to[2] - l.from[2], len = Math.hypot(dx, dz);
       let enter = -1;

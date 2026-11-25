@@ -536,7 +536,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
     surface: {
       seed: 199, roadHalf: 11, cross: [-76, 74], left: 'office', right: 'park', trees: true,
-      parkName: { ja: '市役所前広場', en: 'City Hall Plaza' },
+      parkName: { ja: '海辺公園', en: 'Umibe Park' },
     },
   },
   // ── Nagisa Line, east (on the viaduct) ──
