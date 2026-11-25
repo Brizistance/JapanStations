@@ -70,6 +70,7 @@ Each of the plot's four sides is decided in the plan as one of two kinds. No str
 - **A real boundary,** where the geography gives one: the sea, a river or canal, a railway embankment, an elevated expressway, a park. The plot ends there and nothing is faked beyond it.
 - **A carried-on street,** on every other side: each street runs on 100–150 m past the edge with kerbs, lane paint and buildings lined up along it, from the same sets as the plot so the district's theme carries over. It is not walked; the walked part ends at a junction, a bend or a low rail, never a wall. The generic backdrop city starts only behind these rows.
 - Where a neighbouring station's outside touches the edge, streets meet on the same centre line, width, pavement and lanes.
+- **Every edge transitions well** (owner, 2026-11-25) into the city map around it and toward the neighbouring station: check the plan against the map's geography (water, railway, main roads, where the neighbour lies) and the neighbour's outside, so streets, heights, district character and boundaries carry across without a visible seam. This does not make a walkable join (boundary 2).
 
 ### Names and records
 
