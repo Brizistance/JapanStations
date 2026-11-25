@@ -76,7 +76,8 @@ export function builtRange(geom: LineGeom): [number, number] | null {
   const b = geom.def.built;
   if (!b) return null;
   const a = stopAt(geom, b.from), e = stopAt(geom, b.to);
-  return [Math.min(a, e) - b.stubM, Math.max(a, e) + b.stubM];
+  const toM = b.stubToM ?? b.stubM;
+  return a < e ? [a - b.stubM, e + toM] : [e - toM, a + b.stubM];
 }
 /** Is the line's structure, track and wire drawn by a station's own models here (LineDef.built.modelled)? */
 export const modelled = (geom: LineGeom, s: number): boolean =>

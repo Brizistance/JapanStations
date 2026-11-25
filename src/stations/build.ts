@@ -4,6 +4,8 @@
 
 import { tsumugiStreet } from './tsumugibashi-street';
 import { aizomeStreet } from './aizomecho-street';
+import { buildCentre } from './wata-centre';
+import { watayaStreet } from './watayamachi-street';
 import { daigakuStreet } from './daigaku-street';
 import { buildHibarino } from './hibarino';
 import { aobaStreet } from './aobadai-street';
@@ -126,6 +128,8 @@ export interface GateEnd {
   /** Exit numbers on the −z and +z walls ('' where there is none: see endNums). */
   nums: [string, string];
   exits?: ExitPlan;
+  /** The end wall has a doorway of the composer's own (Watayamachi's stair halls): no mural or bench on it. */
+  endDoor?: boolean;
 }
 
 /** The two gate ends of an interchange-type concourse at ±g: exits 1… from the +x end. */
@@ -154,8 +158,10 @@ function unpaidEnd(c: Ctx, cf: number, cw: number, e: GateEnd, lines: string[], 
   b.box('flat:#e9e4d8', lx, cf, cw - 0.6, lx + 3.2, cf + 1.9, cw);
   b.sign({ k: 'machine', v: 'locker' }, lx + 1.6, cf + 0.95, cw - 0.61, [0, -1], 3.2, 1.9);
   vending(b, lx + 4.3, cf, cw - 0.36, [0, -1], 'vending2');
-  b.sign({ k: 'mural', ...style.mural }, 15.98, cf + 1.55, 0, [-1, 0], Math.min(2 * cw - 6, 16), 2.1);
-  b.box('flat:#3b4046', 15.4, cf, -3, 15.9, cf + 0.42, 3);
+  if (!e.endDoor) {
+    b.sign({ k: 'mural', ...style.mural }, 15.98, cf + 1.55, 0, [-1, 0], Math.min(2 * cw - 6, 16), 2.1);
+    b.box('flat:#3b4046', 15.4, cf, -3, 15.9, cf + 0.42, 3);
+  }
   for (const s of sides) {
     const at = exitAt(e.exits, s), num = e.nums[s > 0 ? 1 : 0];
     // kit.ts exit() climbs +x from x = 0 with its doorway at −4 … 0 on the z = 0 wall.
@@ -836,13 +842,15 @@ function buildInterchange(
   concourse(c, {
     cf, cw: sw, x0: cx0, x1: cx1, holes, pillarZ: dN.island ? islandPillarZ(sw) : 3.4, solids: kiosk ? [[-2.4, -1.4, 2.4, 1.4]] : [], stairs: stairsTo,
     // With a headhouse the −x end has no gates: a doorway in the −z wall leads to the building's stair.
-    ends: spec.headhouse ? twoEnds(29, spec.exits).slice(0, 1) : twoEnds(29, spec.exits),
+    ends: spec.headhouse ? twoEnds(29, spec.exits).slice(0, 1) : spec.centre ? twoEnds(29, spec.exits).map((e) => ({ ...e, endDoor: true })) : twoEnds(29, spec.exits),
     wallGaps: spec.headhouse ? [{ s: -1, x0: HH.gap[0], x1: HH.gap[1] }] : undefined,
     claims: spec.headhouse ? [[HH.gap[0] - 0.6, -sw, HH.gap[1] + 0.6, -sw + 3.2]] : undefined,
     // The street does not move: the exits keep their old places by corridors through the structure.
     ext: outer - sw, footprint: outer, rooms: [...rooms, ...bays],
   });
   if (spec.headhouse) buildHeadhouse(c, cf, sw);
+  // Before the street: the stair halls cut their wells in it.
+  if (spec.centre) buildCentre(c, cf);
   if (kiosk) {
     b.box('flat:#f4f1e6', -2.4, cf, -1.4, 2.4, cf + 2.5, 1.4);
     for (const s of [-1, 1] as const) {
@@ -856,6 +864,7 @@ function buildInterchange(
   if (station.id === 'tsumugibashi') tsumugiStreet(c, spec.surface, outer, other.primaryDir);
   else if (station.id === 'aizomecho') aizomeStreet(c, spec.surface, outer, other.primaryDir);
   else if (station.id === 'daigaku-mae') daigakuStreet(c, spec.surface, outer, other.primaryDir, cf);
+  else if (station.id === 'watayamachi') watayaStreet(c, spec.surface, outer, cf);
   else surface(b, spec.surface, outer, { ja: station.nameJa, en: station.nameRomaji }, { id: station.id, dir: other.primaryDir });
   // Everything below the street here is closed in: the exits (and a rotunda) are the only openings.
   b.out.sealed = true;

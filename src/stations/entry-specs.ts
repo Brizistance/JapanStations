@@ -53,6 +53,13 @@ export interface EntrySpec {
 }
 
 export const ENTRY: Partial<Record<StationId, EntrySpec>> = {
+  // Cotton wholesalers: a cream concrete portal banded in madder, madder mosaic down the stair (exits 1 and 2;
+  // exits 3 and 4 come up inside the wholesale centre's halls, wata-centre.ts).
+  watayamachi: {
+    street: 'portal', frame: '#e6dfcc', trim: '#8c3b35',
+    well: { clad: 'tile:#8c3b35', height: 1.0, stripe: '#f1ece0', lamps: 'strip', rail: '#b0b5ba' },
+    hall: {},
+  },
   // ── Ichō Line ──
   // Harbour warehouses: a brick entrance house, navy tile down, brass rails.
   ikarimachi: {

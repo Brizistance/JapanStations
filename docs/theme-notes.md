@@ -15,4 +15,14 @@ One section per theme, in this shape:
 - Model sets that fit (see model-library.md):
 ```
 
-No themes recorded yet. The stations rebuilt before 2026-11-24 were not written up here.
+The stations rebuilt before 2026-11-24 were not written up here.
+
+## Textile wholesale grid (after Osaka Senba, researched 2026-11-24, first used at Watayamachi)
+- Blocks: 40 ken square, about 72 m a side, on a true grid. Each is split east–west down the middle by a back-lot drain (背割下水), so lots face the east–west streets only and the north–south streets show side walls and few doors.
+- Streets (widths, hierarchy): east–west 通 are the fronts, about 8 m; north–south 筋 were the lesser streets, about 6 m (Osaka city: the quarter is "about 6 m and about 8 m roads"; one university source gives 6 m and 4 m instead). A few 筋 were widened into boulevards in the 1920s–30s (one at 44 m, one at about 22 m). One 80 m east–west avenue was cut through in the 1960s by clearing a row of half blocks; an expressway runs on a viaduct down its middle with a subway beneath.
+- Lots (frontage, depth): originally about 9 m × 36 m (eight to a block face, back to the drain). Today many are merged into 18–27 m frontages for wholesaler buildings; unmerged ones hold pencil buildings or a surviving merchant house.
+- Where the station sits: under the crossing of the wide avenue and a widened 筋; exits in the avenue's pavements and inside the wholesale centre building.
+- Layout patterns and irregularities: a wholesale centre built under the viaduct (about 930 m long in ten linked buildings, one to four floors above ground by the road's slope, two basements, a public passage down its length, the road on its roof); the drain line surviving as a 1–2 m gap or service alley behind the lots; a 1920s tenant office building with a courtyard carts drove into; a shrine precinct filling part of a block; coin car parks on single cleared lots; a merchant house with a kura left between eight-floor buildings.
+- Typical buildings and everyday uses: 1960s–80s wholesaler buildings of five to nine floors (tile or mosaic fronts, ribbon windows, showroom at street level, the firm's name in metal letters, a goods door and hand carts); narrow cloth, thread, button and towel shops; trade-only signs; standing soba, kissaten and set-lunch places for the trade; banks at the boulevard corners; newer apartment towers where wholesalers sold up.
+- Model sets that fit (see model-library.md): `tsumugifront`, `tsumugikit` (prewar Senba-style fronts, for the older buildings), `office` (back streets), `machi`, `aizome` (a surviving merchant house). No set yet for postwar wholesaler buildings or the under-viaduct centre.
+- Sources: city.osaka.lg.jp (Senba building-line and Semba Center Building papers), osaka-angenet.jp (Konjakukan notes on the 40-ken block), kansai-u.repo.nii.ac.jp KU-0240 (block, lots, drain).

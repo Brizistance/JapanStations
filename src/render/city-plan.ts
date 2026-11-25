@@ -10,6 +10,9 @@ import { BUILDING_MODELS } from '../stations/buildings';
 import { structureAt, sampleChainages } from '../world/structure';
 import type { Anchors } from '../stations/anchors/types';
 import { AIZOME } from '../stations/anchors/aizome';
+import { WATACENTRE } from '../stations/anchors/watacentre';
+import { WHOLESALE } from '../stations/anchors/wholesale';
+import { WATA as WATA_ANCHORS } from '../stations/anchors/wata';
 import { AIZOMEFRONT } from '../stations/anchors/aizomefront';
 import { AOBA } from '../stations/anchors/aoba';
 import { AOBAFRONT } from '../stations/anchors/aobafront';
@@ -85,7 +88,7 @@ export function planBuilding(x: number, z: number, yaw: number, w: number, d: nu
 }
 
 const ANCHORS: Record<string, Anchors> = {
-  aizome: AIZOME, aizomefront: AIZOMEFRONT, aoba: AOBA, aobafront: AOBAFRONT, daigaku: DAIGAKU, daigakufront: DAIGAKUFRONT,
+  aizome: AIZOME, watacentre: WATACENTRE, wholesale: WHOLESALE, wata: WATA_ANCHORS, aizomefront: AIZOMEFRONT, aoba: AOBA, aobafront: AOBAFRONT, daigaku: DAIGAKU, daigakufront: DAIGAKUFRONT,
   gate: GATE, hibari: HIBARI, hibarifront: HIBARIFRONT, kawaeki: KAWAEKI, kitaarcade: KITAARCADE, kitacity: KITACITY,
   kitafront: KITAFRONT, konya: KONYA, minato: MINATO, minatofront: MINATOFRONT, miochika: MIOCHIKA, mioya: MIOYA, port: PORT,
   ring: RING, hatoba: HATOBA, tokei: TOKEI, tosen: TOSEN, tsuna: TSUNA, urafront: URAFRONT, kamome: KAMOME, tsumugifront: TSUMUGIFRONT, tsumugikit: TSUMUGIKIT, viaduct: VIADUCT,
@@ -96,7 +99,8 @@ const NOT_BUILDING = /boat|barge|lorry|crane|ferry|teibo|todai|quayrail|bollard|
 /** A model's footprint size, or null if it is not a building (or not known). */
 export function modelSize(kind: string, id: string): { w: number; d: number; h: number } | null {
   const base = id.replace(/_lo$/, '');
-  if (NOT_BUILDING.test(base)) return null;
+  // (Watayamachi's expressway is not a building: no block on the map, no footprint.)
+  if (NOT_BUILDING.test(base) || (kind === 'watacentre' && /^(deck|pier|pier_sea|ramp)$/.test(base))) return null;
   const a = ANCHORS[kind]?.[base] ?? BUILDING_MODELS.find((m) => m.kind === kind && m.id === base);
   if (!a || a.h < 4 || a.w * a.d < 30) return null;
   return a;

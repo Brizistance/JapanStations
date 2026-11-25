@@ -227,6 +227,14 @@ After Kansai suburban junction towns (Ibaraki-shi, Takatsuki): the main road a b
 
 Hibarino's station (hibarino.ts, the owner's picks 2026-11-22): a free passage with the gates off it; the meadow theme (wheat enamel, honey tile, timber slat ceiling and canopy soffits, sky-blue fins, meadow-green kick, skylark murals) reaching the platforms through `StationStyle.platWall` and `canopy`; the Kikyō B1 in that line's lilac.
 
+## Sides that face a street (the owner, 2026-11-25)
+
+A building whose side wall faces a street gets a real front there: an entrance, shop windows or shutters, the firm's boards, pipes and units on the wall. Flat windows on a blank base are not acceptable, on generic sets as much as on landmarks. The `wholesale` set is the worked example (`side_fronts` in `tools/blender/build_wholesale.py`); Aizomechō's fronts are the level to match.
+
+## Wholesale centre under an expressway (Watayamachi, 2026-11-24)
+
+After Osaka's Semba Center Building (city.osaka.lg.jp, SEMBA_CENTER_BUILDING.pdf): ten linked buildings about 930 m long in the middle of an 80 m avenue, one to four floors above ground, the road and the expressway on their roof, a subway beneath. Ours is scaled to a 40 m avenue: two floors, an 18 m strip, halls broken at every cross street. Measured sizes: docs/theme-notes.md.
+
 ## Brick port (Kawaminato-kō, 2026-11-24)
 
 After a redeveloped Meiji–Taishō port (Yokohama's red-brick bonded warehouses, Kobe's and Moji's old customs houses): `minato-street.ts`, models `build_minato.py` and `build_minatofront.py`. The harbour boulevard runs on east over 湊浦橋, a low girder bridge level with the streets, and through the sea wall at Kon'yahama by a **flood gate (陸閘)**: a road opening in a sea wall with a steel leaf that slides shut on wheels along a rail, worked from a panel on site; other kinds are stop logs (角落とし) and lift gates. Sources (search results only, 2026-11-24): MLIT on 陸閘 as openings closed against the sea and open for people and vehicles (mlit.go.jp/common/001123576.pdf); a sliding wheeled gate at both ends of a national-road bridge (soumu.go.jp/main_content/000891184.pdf); Miyagi's design rule that the sill suits the road's level for traffic and evacuation (pref.miyagi.jp/documents/11795/287157.pdf). Models standing on the water past a plot are kept only for kind `minato` and the port cranes (stations/index.ts `place`).

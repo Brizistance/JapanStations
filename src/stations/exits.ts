@@ -10,6 +10,7 @@ import { STACK_DY } from '../sim/geometry';
 import { LINES, linesAt, stationById } from '../data/network';
 import type { LineDef, StationDef, StationId } from '../data/types';
 import { SPECS, type ElevatedSpec } from './specs';
+import { WATA, wataWell } from './wata-plan';
 import type { BlockStyle, SurfaceSpec } from './surface';
 
 export interface Named {
@@ -476,6 +477,17 @@ function tsumugiFeatures(): Feature[] {
   ];
 }
 
+/** What stands round Watayamachi's exits (watayamachi-street.ts, wata-centre.ts). */
+function wataFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    ...WATA.halls.map((h): Feature => ({ n: n(`綿屋町センター街 ${h.num}号館`, `Watayamachi Centre, Hall ${h.num}`), x0: h.x0, x1: h.x1, side: 0, named: true })),
+    { n: n('茜筋', 'Akane-suji'), x0: -11, x1: 11, side: 0, named: true, reach: 40 },
+    { n: KIND.office, x0: -170, x1: 170, side: -1, named: false },
+    { n: KIND.office, x0: -170, x1: 170, side: 1, named: false },
+  ];
+}
+
 /** What stands round Aizomechō's exits (aizomecho-street.ts). */
 function aizomeFeatures(): Feature[] {
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -642,6 +654,13 @@ function derive(id: StationId): StationStreet {
       // Tsumugibashi's street is not laid out by surface() (tsumugibashi-street.ts): list its exits.
       if (id === 'tsumugibashi') return { kind: 'hub', exits: withNear(tsumugiFeatures(), es) };
       if (id === 'daigaku-mae') return { kind: 'hub', exits: withNear(daigakuFeatures(), es) };
+      if (id === 'watayamachi') {
+        // Exits 1 and 2 off the east gates, in the avenue's pavements; 3 and 4 are the stairs up into the
+        // wholesale centre's halls, where their wells open in the hall floors (wata-plan.ts).
+        const cfy = concourseY(id);
+        const own: Omit<StationExit, 'near'>[] = [{ num: WATA.east, side: -1, rect: wataWell(cfy, true) }, { num: WATA.west, side: -1, rect: wataWell(cfy, false) }];
+        return { kind: 'hub', exits: withNear(wataFeatures(), [...es, ...own]) };
+      }
       if (id === 'aizomecho') {
         // Exits 1 and 2 off the east gates; exit 3 is the headhouse on the dyers' street, where its stair's
         // well opens in the hall floor (headhouse.ts HH: gap, foot).

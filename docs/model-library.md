@@ -16,6 +16,7 @@ Written from each script's head comment, not from looking at the models: open th
 | `office` | Business street | Plain 8 to 12 floor mid-rises (three variants) |
 | `manshon` | Residential | Apartment blocks, balconies to the street (three variants) |
 | `tower` | Business centre | 130 to 185 m glass towers on a podium (three variants) |
+| `wholesale` | Textile or other wholesale quarter | Wholesalers' buildings on 34 m deep lots, 9 to 27 m wide, in the styles of Aizomechō's fronts (tiled wholesaler blocks, brick offices, ribbon-window trading offices, finned textile halls, a signboard shop-house): eight main-street variants of 26 to 31 m (`m*`), nine back-street ones of 11 to 23 m (`b*`). Each has a second front down both sides (entrance, shutter, boards), so any of them can stand on a corner |
 | `places` | Any small street | Pocket park, neighbourhood shrine, vending corner and the like |
 | `konbini` | Any | Fittings of a walk-in convenience store |
 | `road` | Any | Signals, sign furniture, vehicles, street furniture |
@@ -30,6 +31,8 @@ Written from each script's head comment, not from looking at the models: open th
 | | `tsuru` | Tsurumatsu | Old town covered shopping street |
 | | `hibari`, `hibarifront` | Hibarino | Covered shopping street; main-road fronts |
 | Prewar business district | `tsumugifront`, `tsumugikit`, `tsumugi`, `exchange` | Tsumugibashi | Senba / Kitahama-style fronts and street pieces; Silk Exchange and rotunda (landmarks) |
+| Textile wholesale grid | `watacentre` | Watayamachi | Wholesale centre halls under an expressway (landmark), the expressway's deck span and portal pier |
+| | `wata` | Watayamachi | Landmarks: courtyard tenant building, cotton merchant's house and kura, weavers' shrine precinct, canal landing steps |
 | Terminal and big-city centre | `city`, `kitacity`, `kitafront`, `gate`, `mioya`, `plaza`, `tokei` | Kita-Ōdōri, Kawaminato Station | City blocks and towers, avenue fronts, Gate Towers, terminal department store, plaza buildings |
 | | `kitaarcade` | Kita-Ōdōri | Arcade behind the viaduct |
 | Harbour and port | `minato`, `minatofront`, `urafront` | Kawaminato-kō | Red-brick port pieces; harbour boulevard fronts |

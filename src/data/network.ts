@@ -1019,7 +1019,14 @@ const AR_HILLS_DIR: [number, number] = [0.97237, -0.23345]; // 13.5° north of e
 // It comes down from the viaduct to street level for Kon'yahama, and crosses Tsumugi-dōri on a level crossing.
 const AR_SHORE_X = A_SUJI_X - 185;
 const AR_W1: [number, number] = [AR_SHORE_X, AR_KITA_Z];
-const AR_W2: [number, number] = [AR_SHORE_X, 234]; // the shore bend
+// (Rerouted 2026-11-25: the line used to bend onto the coast at z 234 and cut across Watayamachi's blocks on a
+// slant. It now runs on due south at street level past Watayamachi's west edge, 15 m beyond its plot as at
+// Aizomechō, over Hyōtan-bori on a bridge and over that town's three east–west streets on level crossings, and
+// bends for Funamidai south of it. Kon'yahama and Funamidai stand where they did.)
+const AR_OLD_BEND: [number, number] = [AR_SHORE_X, 234];
+const AR_W2: [number, number] = [AR_SHORE_X, 1100]; // the bend south of Watayamachi
+/** Watayamachi's streets over the line, in world metres (watayamachi-street.ts: the bank street, the avenue, Kase-dōri). */
+const AR_WATA_XINGS: [number, number][] = [[AR_SHORE_X, 704], [AR_SHORE_X, 800], [AR_SHORE_X, 896]];
 const AR_TSUMUGI_XING: [number, number] = [AR_SHORE_X, 0]; // Tsumugi-dōri (aizomecho-street.ts, z 0)
 const AR_HANADA_XING: [number, number] = [AR_SHORE_X, 95]; // Hanada-dōri (z 95)
 const AR_SHORE_DIR = unit(AR_W1, AR_W2);
@@ -1032,7 +1039,8 @@ const AR_RADIUS = 400, AR_KITA_TURN = 120;
 const AR_WEST_STRAIGHT = 1870 - AR_W1[0] - AR_KITA_TURN * Math.tan(Math.acos(-AR_SHORE_DIR[0]) / 2);
 export const AR_HUB_MODELS = { east: 490, west: 190 + 8 * Math.min(16, Math.floor((AR_WEST_STRAIGHT - 190) / 8)) };
 const AR_COAST_DIR: [number, number] = [0.26892, 0.96316];
-const AR_FUNAMIDAI: [number, number] = along(AR_W2, AR_COAST_DIR, 3370);
+const AR_FUNAMIDAI: [number, number] = along(AR_OLD_BEND, AR_COAST_DIR, 3370);
+const AR_SOUTH_DIR = unit(AR_W2, AR_FUNAMIDAI);
 const AR_UGUISUZAKA: [number, number] = along(AR_E2, AR_HILLS_DIR, 661.9);
 
 export const RAIL_LINES: LineDef[] = [
@@ -1048,11 +1056,15 @@ export const RAIL_LINES: LineDef[] = [
     // street level at Kon'yahama (the bed top just over the road).
     railY: [9.15, 6.5, 9.15, 9.15, 0.25, 9.15],
     // Level with Kawaminato to the end of the viaduct models the hub's street builds, then down to Kon'yahama.
-    profile: [{ at: [1870 - AR_HUB_MODELS.west + 40, AR_KITA_Z], y: 9.15 }],
+    // And level at the street from Kon'yahama to just past Watayamachi's last crossing, before the climb to Funamidai.
+    profile: [{ at: [1870 - AR_HUB_MODELS.west + 40, AR_KITA_Z], y: 9.15 }, { at: [AR_SHORE_X, AR_WATA_XINGS[2][1] + 30], y: 0.25 }],
     brickAt: { after: 'kawaminato', minY: 4 },
     crossings: [
       { station: 'konyahama', at: AR_TSUMUGI_XING, half: 21, name: { ja: '紬通踏切', en: 'Tsumugi-dōri Crossing' } },
       { station: 'konyahama', key: 'konyahama-hanada', at: AR_HANADA_XING, half: 11, name: { ja: '縹通踏切', en: 'Hanada-dōri Crossing' } },
+      { station: 'watayamachi', key: 'watayamachi-sarashi', at: AR_WATA_XINGS[0], half: 8, name: { ja: '晒通踏切', en: 'Sarashi-dōri Crossing' } },
+      { station: 'watayamachi', key: 'watayamachi-momen', at: AR_WATA_XINGS[1], half: 24, name: { ja: '木綿大通踏切', en: 'Momen-ōdōri Crossing' } },
+      { station: 'watayamachi', key: 'watayamachi-kase', at: AR_WATA_XINGS[2], half: 8, name: { ja: '綛通踏切', en: 'Kase-dōri Crossing' } },
     ],
     platformType: 'island',
     sideAt: ['miokami', 'konyahama'], // on the embankment and at street level the platforms stand outside the tracks
@@ -1061,7 +1073,7 @@ export const RAIL_LINES: LineDef[] = [
     // 20 m four-door commuter cars (the metro's are 18 m with three).
     car: { half: 9.75, pitch: 20, bogie: 6.9, doors: [-7.23, -2.41, 2.41, 7.23], model: 'ar-car' },
     alignment: {
-      vertices: [along(AR_UGUISUZAKA, AR_HILLS_DIR, AR_EDGE_M + 200), AR_E2, AR_E1, AR_W1, AR_W2, along(AR_FUNAMIDAI, AR_COAST_DIR, AR_EDGE_M + 200)],
+      vertices: [along(AR_UGUISUZAKA, AR_HILLS_DIR, AR_EDGE_M + 200), AR_E2, AR_E1, AR_W1, AR_W2, along(AR_FUNAMIDAI, AR_SOUTH_DIR, AR_EDGE_M + 200)],
       radius: AR_RADIUS,
       // The turn south at the end of Kita is a sharp one, round the corner of Kurayashiki's plot.
       radii: { 3: AR_KITA_TURN },
@@ -1085,7 +1097,8 @@ export const RAIL_LINES: LineDef[] = [
     // its plot is 190 m either side of the station, and the plain run goes on 300 m beyond.
     // Miokami's platforms take 12 cars (Rapids call); Higashi-Kawaminato's 8 (Locals only).
     built: {
-      from: 'miokami', to: 'konyahama', stubM: 400, stations: ['miokami', 'higashi-kawaminato', 'kawaminato', 'konyahama'],
+      // (Past Kon'yahama the plain line is built on south, past Watayamachi's crossings and round the bend.)
+      from: 'miokami', to: 'konyahama', stubM: 400, stubToM: 1420, stations: ['miokami', 'higashi-kawaminato', 'kawaminato', 'konyahama'],
       modelled: [{ station: 'kawaminato', before: AR_HUB_MODELS.east, after: AR_HUB_MODELS.west }],
       platformHalf: { miokami: 124, konyahama: 84 }, // (Higashi-Kawaminato's island stands between the tracks, clear of the gantries.)
     },
@@ -1163,7 +1176,7 @@ export const RAIL_STATIONS: StationDef[] = [
     nameKana: 'こんやはま',
     nameRomaji: "Kon'yahama",
     numbers: { AR: 'AR-A05' },
-    position: pos(along(AR_W2, AR_SHORE_DIR, -370)),
+    position: pos(along(AR_OLD_BEND, AR_SHORE_DIR, -370)),
     diagram: { x: 610, y: 400, label: 'left' },
     district: 'Merchant quarter',
     districtJa: '商人町',

@@ -83,6 +83,7 @@ Never plan from memory of another station. Get the numbers from the built statio
 
 - **Exits and levels.** Write a throwaway test in `src/stations/` that finds the station in `STATION_WORLDS` and writes `build.holes`, `build.plot`, `build.zones` and `spawn` to a file (vitest hides `console.log`). Delete it afterwards. At Aizomechō this gave the exit holes (x ±43 … 52.6, z ±15.2 … 18), the concourse floor (−6.2) and the platform extents.
 - **The building line.** The exits fix it: the street builder is passed `cw`, and the line is `cw + 5.5`. Throw if it moves, as `aizomeStreet` does.
+- **Water in the plot.** Sample `isWater` (`src/data/geography.ts`) over the whole planned plot on a 4 m grid, and read the `Channel` list for any canal within 200 m. Watayamachi missed a 14 m canal with a 20 × 40 m grid; `geography.test.ts` caught it only after the plot grew.
 - **Other lines through the plot.** Check `src/data/network.ts` for every line and station within 200 m, including ones not in 3D yet, and work out where they fall in the station frame. Aizomechō missed this: the planned AR line crosses the dyers' quarter, found only in stage 3.
 - **The edges.** For each neighbouring station whose outside touches or faces this plot, grep its street file for the streets that reach the shared edge and note each one's centre line, half width, pavement and lanes, and the heights and kinds of its edge buildings. Read only those ranges.
 
@@ -166,6 +167,12 @@ This step is for when the owner chose to modify the station. If they chose a who
 
 ## Before reporting: go down this list
 
+As clean as Aizomechō (the owner's bar for every station, 2026-11-25; walk Aizomechō to compare)
+- [ ] Nothing is filler: every building and street is there for a reason that fits the place, not stock rows packed in to cover ground.
+- [ ] The layout reads at a glance: clear streets, consistent building lines, heights that step down sensibly, an obvious edge to the town.
+- [ ] The build is tidy: no floating pieces, gaps, overlaps, clipped signs or odd joins where things meet.
+- [ ] Past the plot's edge is calm: low-key and plausible, not a wall of busy buildings.
+
 Layout and placement
 - [ ] No building stands on a carriageway, a pavement exit or another building.
 - [ ] Every street and lane runs to the plot's edge or to another street, and carries on past the edge.
@@ -197,6 +204,8 @@ Rules (street-design.md)
 ## Still to build (not done; a later session can build these from here)
 
 Decided 2026-11-24: the edge-join test, the overlap tests and the top-down view are built as the first step of the next station redesign, before its stage 1.
+
+**Built 2026-11-24 (Watayamachi, after its stage 1):** the first three below. A rebuilt station declares its streets as a table (`StreetPlan` in `src/stations/street-plan.ts`, with the stage that is built); `street-rules.test.ts` holds the build to it and to its neighbours' tables at shared edges; `__sim.plan(id)` (`src/dev/plan.ts`) draws the build and the table from above, with broken rules in red. Not checked yet: a model within reach with no collider when it is not a building (only buildings are), and lanes that are unreachable (the walk test covers named zones). The shared street composer is still to build.
 
 - **Edge-join test.** Fails when a street reaching a shared edge does not meet the neighbour's street with the same centre line and width.
 - **Street-rule tests.** A test per rebuilt station that fails with a plain message when: two building colliders overlap; a building overlaps a carriageway or an exit; a model within reach has no collider; a lane zone is narrower than 1.2 m or unreachable; a street stops short of the plot's edge; two lanes with traffic cross without a stop for each; an exit hole is not on a pavement; a free rectangle over 18 m² is left inside a block; a street has no lamp for more than 30 m.

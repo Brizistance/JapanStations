@@ -143,13 +143,13 @@ export interface LineDef {
   beyond?: { up: Place; down: Place; runM: number; diagram: { up: [number, number]; down: [number, number] } };
   /**
    * A line built in 3D only in part: track and trains exist from `from` to `to` and `stubM` metres
-   * past each (trains outside are not drawn). `modelled` = stretches, from `before` metres short of a
+   * past each (`stubToM` past `to`, where that end runs on further; trains outside are not drawn). `modelled` = stretches, from `before` metres short of a
    * station to `after` metres past it (along the stops' order), whose structure, track and wires are
    * drawn by a station's own models instead. `stations` = the stops that have platforms: trains
    * open their doors only there. `platformHalf` = half the length of the platforms a station builds
    * on the swept trackbed itself: the running line's wire gantries leave that length clear.
    */
-  built?: { from: StationId; to: StationId; stubM: number; stations?: StationId[]; modelled?: { station: StationId; before: number; after: number }[]; platformHalf?: Record<StationId, number> };
+  built?: { from: StationId; to: StationId; stubM: number; stubToM?: number; stations?: StationId[]; modelled?: { station: StationId; before: number; after: number }[]; platformHalf?: Record<StationId, number> };
   /** A main line's brick viaduct carries on down to `minY` past `after` (down the line), where elsewhere the embankment takes over at 8.8 m. */
   brickAt?: { after: StationId; minY: number };
   /**

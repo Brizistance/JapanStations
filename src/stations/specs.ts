@@ -67,6 +67,11 @@ export interface InterchangeSpec {
    * concourse has gates at its +x end only, and a paid corridor and stair lead up to the building.
    */
   headhouse?: true;
+  /**
+   * Each gate end also leads on through its end wall to a stair up into a hall of the wholesale centre
+   * that stands over the concourse (Watayamachi, wata-centre.ts).
+   */
+  centre?: true;
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -286,11 +291,15 @@ export const SPECS: Record<StationId, StationSpec> = {
       quayName: { ja: '鴎浜桟橋', en: 'Kamomehama Pier' },
     },
   },
-  // Cotton wholesalers: unbleached-cotton tile with madder-red pillars. Kikyō Line above, Akanesuji
-  // Line crossing below.
+  // Cotton wholesalers (rebuilt 2026-11 after Osaka's Senba): the concourse is the basement arcade of the
+  // wholesale centre under the expressway (wata-centre.ts); the street is watayamachi-street.ts, which reads
+  // only `seed` from `surface`. Kikyō Line above, Akanesuji Line crossing below. Exits 1 and 2 rise in the
+  // avenue's pavements off the east gates; 3 and 4 are the stairs into the centre's halls.
   watayamachi: {
     kind: 'interchange',
     primary: 'K',
+    centre: true,
+    exits: [{ climb: ['back', 'out'] }, { sides: [] }],
     style: {
       wall: 'tile:#f1ece0', concWall: 'tile:#f4f0e6', floor: 'floor:#cfc9bb', pillar: 'tile:#9c2a30',
       accent: '#27344f', mural: { v: 'threads', color: '#b7282e' },
