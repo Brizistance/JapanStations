@@ -52,7 +52,11 @@ export const MID = { x0: -41, x1: 41, cw: 21, g: 25 };
 /** Level of a shared mid-level concourse: halfway between the two platforms. */
 export const midCf = (pfUpper: number, pfLower: number) => Math.round(((pfUpper + pfLower) / 2) * 100) / 100;
 /** mezzDrop: the transfer mezzanine is this far below the upper line's platforms. */
-export const ATRIUM = { mezzDrop: 5.6, exit5: { door: 26, wallZ: 39.85, num: '5' } };
+export const ATRIUM = {
+  mezzDrop: 5.6, exit5: { door: 26, wallZ: 39.85, num: '5' },
+  /** The lift from the harbour gates' lobby up into the ferry terminal (station frame x0, z0, x1, z1; doors to −x). Stage 2, 2026-11-24. */
+  lift: [29.4, 43.0, 31.7, 45.3] as [number, number, number, number],
+};
 /** world/builder.ts DEFAULT_PLOT. */
 export const PLOT = { x: 130, z: 85 };
 /** surface.ts: fixed positions of the street's features (station frame, metres). */
@@ -489,6 +493,24 @@ function aizomeFeatures(): Feature[] {
   ];
 }
 
+/** What stands round Kawaminato-kō's exits (minato-street.ts). The port's places first on the sea side. */
+function minatoFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: n('川湊港フェリーターミナル', 'Ferry Terminal'), x0: 8, x1: 62, side: 1, named: true, reach: 60 },
+    { n: n('川湊煉瓦倉庫 二号館', 'Brick Warehouse No. 2'), x0: -68, x1: -22, side: 1, named: true },
+    { n: n('川湊煉瓦倉庫 一号館', 'Brick Warehouse No. 1'), x0: -126, x1: -82, side: 1, named: true, reach: 50 },
+    { n: n('煉瓦広場', 'Renga Hiroba'), x0: -22, x1: 8, side: 1, named: true },
+    { n: n('港のプロムナード', 'Harbour Promenade'), x0: -130, x1: 130, side: 1, named: true, reach: 40 },
+    { n: n('川湊港湾事務所', 'Port Office'), x0: 86, x1: 130, side: 1, named: true, reach: 40 },
+    { n: n('旧川湊税関', 'Old Customs House'), x0: 85, x1: 125, side: -1, named: true, reach: 50 },
+    { n: n('唐船大路', 'Tōsen-ōji'), x0: -6, x1: 6, side: -1, named: true, reach: 40 },
+    { n: n('桟橋筋', 'Sanbashi-suji'), x0: 69, x1: 81, side: 0, named: true, reach: 50 },
+    { n: n('帆柱筋', 'Hobashira-suji'), x0: -79.5, x1: -70.5, side: 0, named: true, reach: 50 },
+    { n: KIND.office, x0: -130, x1: 130, side: -1, named: false },
+  ];
+}
+
 /** What stands round Daigaku-mae's exits (daigaku-street.ts). The university first on the campus side. */
 function daigakuFeatures(): Feature[] {
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -637,6 +659,8 @@ function derive(id: StationId): StationStreet {
         ...twoEnds(29, cw, run, spec.exits),
         { num, side: 1, rect: [door + Math.max(0, run - EXIT_OPEN), wallZ - 4, door + run, wallZ - 1.2] },
       ];
+      // Kawaminato-kō's street is its own (minato-street.ts): exit 5 comes up inside the ferry terminal.
+      if (id === 'kawaminato-ko') return { kind: 'hub', exits: withNear(minatoFeatures(), es) };
       return { kind: 'street', surface: spec.surface, box: [-45, -cw, 45, cw], swOut: cw + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'hub': {

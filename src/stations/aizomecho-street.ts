@@ -48,6 +48,13 @@ export const AIZOME_PLOT = { x: 170, z: 150 };
 const X = AIZOME_PLOT.x, Z = AIZOME_PLOT.z;
 /** Tsumugi-dōri's half width and its building line (the exits are fitted to it). */
 export const RW = 9, FRONT = 19.5;
+/**
+ * Where Tsumugi-dōri's lanes begin and end west of the inlet, over Minatoura-bashi: world x 565, on Kawaminato-kō's
+ * boulevard short of where its vehicles move over (HAND_X): a few go on there while that street is not running.
+ */
+const BRIDGE_FAR = -505;
+/** Where Tsumugi-dōri's vehicles move between Aizomechō's street and Kawaminato-kō's (world x 762: minato-street.ts HAND_X). */
+const HAND_X = -308;
 /** Kon'yahama's station house, its forecourt and bicycle alley, inside this plot's west edge (rail.ts konyaHouse): x0, z0, x1, z1. */
 export const KONYA_LOT = [-170, -66.5, -149.7, -19.5] as const;
 interface NS { c: number; half: number; pave: number; name: Named; way?: 1 | -1 }
@@ -340,8 +347,25 @@ export function aizomeStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
       if (!road || west[0] > -X + 0.5) continue;
       (l.closed ??= []).push(dx > 0 ? 'from' : 'to');
       if (road === ASA) continue;
-      // (Riders cannot turn into or out of a bicycle lane, and nobody may ride into the sea: Tsumugi-dōri's
-      // two are left empty, ending at the plot's edge.)
+      if (road !== HAN) {
+        // Tsumugi-dōri goes on west over Minatoura-bashi into Kawaminato-kō's boulevard (konyahama-street.ts),
+        // bicycles too, stopping at Hama-dōri's crossroads both ways. Half way along Kawaminato-kō's arm
+        // (HAND_X) its vehicles move over to Kawaminato-kō's street and back (traffic/street.ts); past that
+        // they run on out of sight.
+        const t = (x0: number) => Math.abs(hx - x0);
+        if (dx > 0) {
+          later(l, l.from[0] - BRIDGE_FAR);
+          l.from = [BRIDGE_FAR, l.from[1], l.from[2]];
+          l.stops = [...l.stops, { at: t(BRIDGE_FAR) - hh - SL - 0.5, axis: 0 as const, exit: t(BRIDGE_FAR) + hh + 0.3 }].sort((p, q) => p.at - q.at);
+          l.fed = 'kawaminato-ko';
+        } else {
+          l.to = [BRIDGE_FAR, l.to[1], l.to[2]];
+          l.stops = [...l.stops, { at: t(l.from[0]) - hh - SL - 0.5, axis: 0 as const, exit: t(l.from[0]) + hh + 0.3 }].sort((p, q) => p.at - q.at);
+          l.hand = { station: 'kawaminato-ko', at: [HAND_X, l.from[1], l.from[2]] };
+        }
+        continue;
+      }
+      // (Riders cannot turn into or out of a bicycle lane: Hanada-dōri's two are left empty, ending at the plot's edge.)
       if (l.use === 'cycle') { l.flow = 0; continue; }
       if (dx > 0) {
         later(l, l.from[0] - end);

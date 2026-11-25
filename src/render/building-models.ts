@@ -14,7 +14,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { SignContent } from '../signs/content';
 import { drawSign } from '../signs/draw';
 import { isChain, lum, shopStyle, tone } from '../signs/shop';
-import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, MACHI_NAMES, MACHI_WORDS, SIGN_WORDS, TOWER_NAMES, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
+import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, MACHI_NAMES, MACHI_WORDS, SIGN_WORDS, TOWER_NAMES, TOSEN_NAMES, TOSEN_WORDS, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
 import { SHOPS } from '../stations/surface';
 import { rng, type ModelPart } from '../world/builder';
 import { lit } from './lit';
@@ -34,9 +34,9 @@ interface Proto {
 
 const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique', 'machi'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'miochika', 'tsumugifront', 'tsumugikit', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port'];
+const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'miochika', 'tsumugifront', 'tsumugikit', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port', 'minato', 'minatofront', 'tosen', 'hatoba', 'tsuna', 'urafront', 'kamome'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port'];
+const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port', 'minato', 'minatofront', 'tosen', 'hatoba', 'tsuna', 'urafront', 'kamome'];
 /** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
 const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */
@@ -242,10 +242,10 @@ function tenants(kind: BuildingKind, r: () => number, tier: number) {
       return left.pop()!;
     };
   };
-  const name = bag<Named>(kind === 'boutique' ? BOUTIQUE_NAMES : kind === 'machi' ? MACHI_NAMES : kind === 'yokocho' ? YOKOCHO_NAMES : EVERYONE);
-  const word = bag(kind === 'boutique' ? BOUTIQUE_WORDS : kind === 'machi' ? MACHI_WORDS : kind === 'yokocho' ? YOKOCHO_WORDS : SIGN_WORDS);
+  const name = bag<Named>(kind === 'boutique' ? BOUTIQUE_NAMES : kind === 'machi' ? MACHI_NAMES : kind === 'yokocho' ? YOKOCHO_NAMES : (kind as string) === 'tosen' ? TOSEN_NAMES : EVERYONE);
+  const word = bag(kind === 'boutique' ? BOUTIQUE_WORDS : kind === 'machi' ? MACHI_WORDS : kind === 'yokocho' ? YOKOCHO_WORDS : (kind as string) === 'tosen' ? TOSEN_WORDS : SIGN_WORDS);
   const chain = bag<Named>(CHAIN_SHOPS), tower = bag<Named>(TOWER_NAMES);
-  const own = kind === 'boutique' || kind === 'machi' || kind === 'yokocho';
+  const own = kind === 'boutique' || kind === 'machi' || kind === 'yokocho' || (kind as string) === 'tosen';
   const [lo, hi] = WEAR[kind] ?? [0.05, 0.3];
   const age = lo + r() * (hi - lo);
   const wear = (k = 1) => Math.min(1, Math.max(0, age + (r() - 0.5) * 0.3)) * k;

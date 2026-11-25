@@ -6,13 +6,14 @@ import { inPlot as insidePlot, plotNorth } from '../world/builder';
 import * as THREE from 'three';
 import { lineById } from '../data/network';
 import { WORLD_NET, clock } from '../sim';
-import { STATION_WORLDS, WORLDS, gateOpen, type StationWorld } from '../stations';
+import { DISTRICT_WORLDS, STATION_WORLDS, WORLDS, gateOpen, type StationWorld } from '../stations';
 import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF_W } from '../trains/car';
 import { carOf } from '../sim/geometry';
 import { cellMergedModels, loadBuildingModels, lodModels, updateLod } from './building-models';
 import { headlights, xingLights } from './lamps';
+import { planBuilding, planRect } from './city-plan';
 import { crossingState } from '../signs/departures';
 import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
@@ -32,6 +33,27 @@ import { buildTrack, WIRE_H } from './track';
 import { stretchesOf, stretchRange } from './stretches';
 
 const STATION_IN = 520, STATION_OUT = 680, TRAIN_RANGE = 750;
+/** The same from a street carried on into a neighbour's (update()). */
+const STATION_IN_LINKED = 780, STATION_OUT_LINKED = 940;
+/** A world point in a station's frame (x, z). */
+const frameXZ = (w: StationWorld, x: number, z: number): [number, number] => {
+  const dx = x - w.frame.x, dz = z - w.frame.z, c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
+  return [dx * c - dz * s, dx * s + dz * c];
+};
+/**
+ * How far a station is for mounting it: from its middle less its plot's size over an ordinary plot's; or, where
+ * its plot has arms, from the nearest arm (as from an ordinary plot's edge) if that is nearer.
+ */
+function mountDist(w: StationWorld, x: number, z: number): number {
+  const p = w.build.plot;
+  const core = Math.hypot(p.x, Math.max(p.z, plotNorth(p))) + 5;
+  let d = Math.hypot(w.frame.x - x, w.frame.z - z) - (core - BASE_RADIUS);
+  if (p.arms) {
+    const [lx, lz] = frameXZ(w, x, z);
+    for (const [x0, z0, x1, z1] of p.arms) d = Math.min(d, Math.hypot(Math.max(x0 - lx, 0, lx - x1), Math.max(z0 - lz, 0, lz - z1)) + BASE_RADIUS - 5);
+  }
+  return d;
+}
 /**
  * How near an opening to the sky (an exit stair, a rotunda) you must be for the other side of the
  * street slab to be drawn. Beyond it nothing of the other side shows through a stair mouth.
@@ -261,6 +283,7 @@ function backdropModels(): THREE.Group {
       // Close to the street area the full models stand (seen from the pavement); simplified ones beyond.
       // Blocks next to where you can walk go in detail cells; the rest is one simplified mesh (memory).
       (lot.near ? parts : farParts).push({ kind: m.kind, id: `${m.id}_lo`, pos: [lot.x + fx * off - bx * front, -0.03, lot.z + fz * off - bz * front], yaw, seed: 0 });
+      planBuilding(lot.x + fx * off - bx * front, lot.z + fz * off - bz * front, yaw, m.w, m.d);
     };
     if (!old && r() < (d.towers ? 0.2 : 0.06) && far > 190 && towers < (d.towers ?? 4)) {
       const m = pick(of('tower'));
@@ -283,6 +306,10 @@ function backdropModels(): THREE.Group {
     }
   }
   // Detail cells: the blocks near the camera full, the rest simplified (updateLod).
+  for (const m of bandParts) {
+    const b = BUILDING_MODELS.find((q) => q.kind === m.kind && q.id === m.id.replace(/_lo$/, ''));
+    if (b) planBuilding(m.pos[0], m.pos[2], m.yaw, b.w, b.d);
+  }
   parts.push(...bandParts);
   const { group, rest } = lodModels(parts);
   // In grid cells, not one city-wide mesh: cells behind the camera or past the fog are skipped (cull()).
@@ -427,7 +454,7 @@ function cityBand(inPlot: (x: number, z: number, m: number) => boolean) {
 function buildBackdrop(): THREE.Group {
   const group = new THREE.Group();
   // Plot rectangles in world space.
-  const plots = STATION_WORLDS.map((w) => {
+  const plots = [...STATION_WORLDS, ...DISTRICT_WORLDS].map((w) => {
     const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
     const corner = (lx: number, lz: number) => new THREE.Vector2(w.frame.x + lx * c + lz * s, -(w.frame.z - lx * s + lz * c));
     const { x: px, z: pz } = w.build.plot, pn = plotNorth(w.build.plot);
@@ -460,7 +487,11 @@ function buildBackdrop(): THREE.Group {
     }
   }
   // The ground, the sea, the river and the canals with their embankments (render/water.ts).
-  group.add(...buildLandAndWater(plots.map((p) => p.pts.map((v) => [v.x, -v.y] as [number, number])), cuts));
+  const arms = WORLDS.flatMap((w) => (w.build.plot.arms ?? []).map(([x0, z0, x1, z1]) => {
+    const c = Math.cos(w.frame.yaw), s = Math.sin(w.frame.yaw);
+    return ([[x0, z0], [x1, z0], [x1, z1], [x0, z1]] as [number, number][]).map(([lx, lz]): [number, number] => [w.frame.x + lx * c + lz * s, w.frame.z - lx * s + lz * c]);
+  }));
+  group.add(...buildLandAndWater(plots.map((p) => p.pts.map((v) => [v.x, -v.y] as [number, number])), cuts, arms));
 
   // Roads that run on past a plot's edge (world/runon.ts): paved, and kept clear of buildings.
   const roads = STATION_WORLDS.map((w) => ({ w, strips: runOnStrips(w) })).filter((s) => s.strips.length);
@@ -496,6 +527,11 @@ function buildBackdrop(): THREE.Group {
       for (let u = alongX ? rx0 : rz0; u + 3 < (alongX ? rx1 : rz1); u += 6) {
         parts.push(alongX ? { mat: 'flat:#e9e9e4', min: [u, 0.004, mid - 0.07], max: [u + 3, 0.01, mid + 0.07], solid: false } : { mat: 'flat:#e9e9e4', min: [mid - 0.07, 0.004, u], max: [mid + 0.07, 0.01, u + 3], solid: false });
       }
+    }
+    // (On the city mini-map: the run-on roads and their pavements.)
+    for (const p of parts) {
+      const kind = p.mat === 'asphalt' ? 'road' : p.mat === 'paver' ? 'pave' : null;
+      if (kind) planRect(kind, w.frame.x, w.frame.z, w.frame.yaw, p.min[0], p.min[2], p.max[0], p.max[2]);
     }
     for (const [mat, list] of groupBy(parts)) {
       const paving = new THREE.Mesh(boxesToGeometry(list, SKY_ENV), getMaterial(mat));
@@ -558,6 +594,7 @@ function buildBackdrop(): THREE.Group {
       if (onRoad(x, z, dw ? 26 : 20)) continue;
       if (dw) continue; // laid out on the station's own grid below (districtGrid)
       boxes.push({ mat, min: [x - w / 2, -0.03, z - d / 2], max: [x + w / 2, h, z + d / 2], solid: false });
+      planRect('block', 0, 0, 0, x - w / 2, z - d / 2, x + w / 2, z + d / 2);
     }
   }
   districtGrid(dry, onRoad, (x, z) => band.near(x, z, 66), openDistAt);
@@ -662,16 +699,20 @@ export class WorldView {
     const fast = this.fastTimer <= 0;
     if (fast) this.fastTimer = 1 / 15;
     xingLights.length = 0;
+    // On a street carried on into a neighbour's (a plot with arms: Kawaminato-kō's boulevard over Minatoura-bashi)
+    // the stations along it are seen from further off, so the road's far end is not blank land.
+    const linked = WORLDS.some((w) => w.build.plot.arms && insidePlot(w.build.plot, ...frameXZ(w, cam.x, cam.z)));
+    const IN = linked ? STATION_IN_LINKED : STATION_IN, OUT = linked ? STATION_OUT_LINKED : STATION_OUT;
     for (const w of WORLDS) {
-      const d = Math.hypot(w.frame.x - cam.x, w.frame.z - cam.z) - (w.frame.radius - BASE_RADIUS);
+      const d = mountDist(w, cam.x, cam.z);
       const v = this.stations.get(w.def.id);
       if (v && fast && d < FAST_RANGE) redrawLive(v.cache, true);
-      if (!v && d < STATION_IN && !mounted) {
+      if (!v && d < IN && !mounted) {
         const nv = mountStation(w);
         this.stations.set(w.def.id, nv);
         this.root.add(nv.group);
         mounted = true;
-      } else if (v && d > STATION_OUT) {
+      } else if (v && d > OUT) {
         this.root.remove(v.group);
         v.dispose();
         this.stations.delete(w.def.id);

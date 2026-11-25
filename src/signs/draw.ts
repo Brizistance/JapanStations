@@ -502,6 +502,104 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       ctx.fillRect(0, (j / 14) * H, W, H / 60);
     }
     ctx.globalAlpha = 1;
+  } else if (c.v === 'harbour') {
+    // Kawaminato-kō (2026-11-24): the old harbour in a poster's flat colours: a dusk sky, the brick warehouses
+    // along the quay with their arched doors, two cranes, a steamer with a red-banded funnel, the lighthouse on
+    // the breakwater, gulls; the sea in the given colour.
+    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.62);
+    sky.addColorStop(0, '#f3d9a8');
+    sky.addColorStop(1, '#e9a978');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f7ecd2';
+    ctx.beginPath();
+    ctx.arc(W * 0.7, H * 0.5, H * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    // Cranes behind the warehouses.
+    ctx.strokeStyle = '#4a3a36';
+    ctx.lineWidth = Math.max(2, H * 0.012);
+    for (const cx of [W * 0.14, W * 0.36]) {
+      ctx.beginPath();
+      ctx.moveTo(cx, H * 0.58);
+      ctx.lineTo(cx, H * 0.2);
+      ctx.lineTo(cx + W * 0.09, H * 0.24);
+      ctx.moveTo(cx, H * 0.24);
+      ctx.lineTo(cx - W * 0.03, H * 0.3);
+      ctx.moveTo(cx + W * 0.07, H * 0.235);
+      ctx.lineTo(cx + W * 0.07, H * 0.36);
+      ctx.stroke();
+    }
+    // The warehouse row: red brick, arched doors in cream.
+    const qy = H * 0.62;
+    for (let k = 0; k < 4; k++) {
+      const x0 = W * (0.02 + k * 0.12), w = W * 0.11, h = H * (0.22 + (k % 2) * 0.04);
+      ctx.fillStyle = k % 2 ? '#9a4f3a' : '#8a4232';
+      ctx.fillRect(x0, qy - h, w, h);
+      ctx.fillStyle = '#4b5157';
+      ctx.beginPath();
+      ctx.moveTo(x0 - w * 0.03, qy - h);
+      ctx.lineTo(x0 + w / 2, qy - h - H * 0.05);
+      ctx.lineTo(x0 + w * 1.03, qy - h);
+      ctx.fill();
+      ctx.fillStyle = '#efe0bf';
+      for (let d = 0; d < 3; d++) {
+        const dx = x0 + w * (0.14 + d * 0.29), dw = w * 0.16;
+        ctx.fillRect(dx, qy - h * 0.55, dw, h * 0.55);
+        ctx.beginPath();
+        ctx.arc(dx + dw / 2, qy - h * 0.55, dw / 2, Math.PI, 0);
+        ctx.fill();
+      }
+    }
+    // The breakwater and its lighthouse.
+    ctx.fillStyle = '#6e6a62';
+    ctx.fillRect(W * 0.78, qy - H * 0.02, W * 0.22, H * 0.03);
+    ctx.fillStyle = '#f4f1e8';
+    ctx.fillRect(W * 0.9, qy - H * 0.22, W * 0.025, H * 0.2);
+    ctx.fillStyle = '#c8402a';
+    ctx.fillRect(W * 0.9, qy - H * 0.16, W * 0.025, H * 0.03);
+    ctx.fillRect(W * 0.895, qy - H * 0.25, W * 0.035, H * 0.03);
+    // The sea, and the quay's edge.
+    ctx.fillStyle = col;
+    ctx.fillRect(0, qy, W, H - qy);
+    ctx.fillStyle = '#d8cdb4';
+    ctx.fillRect(0, qy, W * 0.52, H * 0.03);
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#ffffff';
+    for (let k = 0; k < 18; k++) ctx.fillRect(((k * 0.37) % 1) * W, qy + H * (0.08 + ((k * 0.53) % 1) * 0.3), W * 0.06, H * 0.008);
+    ctx.globalAlpha = 1;
+    // The steamer: a black hull with a red boot top, white upperworks, a funnel with a red band, two masts.
+    const sx = W * 0.56, sy = qy + H * 0.1, sw = W * 0.26;
+    ctx.fillStyle = '#1f2326';
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - H * 0.08);
+    ctx.lineTo(sx + sw, sy - H * 0.08);
+    ctx.lineTo(sx + sw * 0.94, sy);
+    ctx.lineTo(sx + sw * 0.05, sy);
+    ctx.fill();
+    ctx.fillStyle = '#8a2a20';
+    ctx.fillRect(sx + sw * 0.04, sy - H * 0.018, sw * 0.9, H * 0.018);
+    ctx.fillStyle = '#f4f1e8';
+    ctx.fillRect(sx + sw * 0.3, sy - H * 0.14, sw * 0.38, H * 0.06);
+    ctx.fillStyle = '#1f2326';
+    ctx.fillRect(sx + sw * 0.46, sy - H * 0.25, sw * 0.07, H * 0.11);
+    ctx.fillStyle = '#c8402a';
+    ctx.fillRect(sx + sw * 0.46, sy - H * 0.22, sw * 0.07, H * 0.03);
+    ctx.fillRect(sx + sw * 0.15, sy - H * 0.3, Math.max(1, W * 0.003), H * 0.22);
+    ctx.fillRect(sx + sw * 0.82, sy - H * 0.28, Math.max(1, W * 0.003), H * 0.2);
+    ctx.fillStyle = '#1f2326';
+    ctx.fillRect(sx + sw * 0.15, sy - H * 0.3, Math.max(1, W * 0.003), H * 0.22);
+    ctx.fillRect(sx + sw * 0.82, sy - H * 0.28, Math.max(1, W * 0.003), H * 0.2);
+    // Gulls.
+    ctx.strokeStyle = '#3a3330';
+    ctx.lineWidth = Math.max(1.5, H * 0.008);
+    for (let k = 0; k < 7; k++) {
+      const gx = W * (0.3 + ((k * 0.41) % 1) * 0.6), gy = H * (0.1 + ((k * 0.29) % 1) * 0.25), gs = H * 0.025;
+      ctx.beginPath();
+      ctx.moveTo(gx - gs, gy);
+      ctx.quadraticCurveTo(gx - gs / 2, gy - gs * 0.6, gx, gy);
+      ctx.quadraticCurveTo(gx + gs / 2, gy - gs * 0.6, gx + gs, gy);
+      ctx.stroke();
+    }
   } else if (c.v === 'waves') {
     // Seigaiha wave scales.
     ctx.fillStyle = '#f4f8fb';

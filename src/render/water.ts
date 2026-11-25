@@ -104,10 +104,12 @@ function finish(pos: number[], uv: number[]): THREE.BufferGeometry {
 
 /**
  * The ground, the water and the embankments. `plots` are the station plots (convex, world x/z),
- * `cuts` the track's open cuts: neither gets ground or water.
+ * `cuts` the track's open cuts: neither gets ground or water. `arms`: plots' arms (world/builder.ts),
+ * which keep their ground and water but get no embankment cope (a street walks over the quay's edge there).
  */
-export function buildLandAndWater(plots: Poly[], cuts: Poly[]): THREE.Object3D[] {
-  const plotCut = plots.map(cutter);
+export function buildLandAndWater(plots: Poly[], cuts: Poly[], arms: Poly[] = []): THREE.Object3D[] {
+  const plotCut = plots.map(cutter), armCut = arms.map(cutter);
+  const inArm = (x: number, z: number) => armCut.some((c) => x > c.x0 - 1 && x < c.x1 + 1 && z > c.z0 - 1 && z < c.z1 + 1 && inPoly(c.pts, x, z));
   const channels = CHANNELS.flatMap((c) => channelPieces(c.pts, c.width));
   const pinPlot = (x: number, z: number) => plotCut.some((c) => x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1 && inPoly(c.pts, x, z));
 
@@ -147,7 +149,7 @@ export function buildLandAndWater(plots: Poly[], cuts: Poly[]): THREE.Object3D[]
       const p: Pt = [a[0] + (b[0] - a[0]) * (i / n), a[1] + (b[1] - a[1]) * (i / n)];
       const q: Pt = [a[0] + (b[0] - a[0]) * ((i + 1) / n), a[1] + (b[1] - a[1]) * ((i + 1) / n)];
       const m: Pt = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-      if (pinPlot(m[0], m[1]) || beach(m[0], m[1])) continue;
+      if (pinPlot(m[0], m[1]) || beach(m[0], m[1]) || inArm(p[0], p[1]) || inArm(q[0], q[1]) || inArm(m[0], m[1])) continue;
       const left: Pt = [m[0] - tz * 1.2, m[1] + tx * 1.2], right: Pt = [m[0] + tz * 1.2, m[1] - tx * 1.2];
       const wl = isWater(...left), wr = isWater(...right);
       if (wl && wr) {

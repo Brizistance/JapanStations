@@ -29,11 +29,14 @@ import {
   type Ctx, type StationStyle,
 } from './kit';
 import { lookFor } from './looks';
+import { minatoStreet } from './minato-street';
 import type { ConcInfo, StairInfo } from './looks/types';
 import type { AtriumSpec } from './specs';
 import { surface } from './surface';
 import { themeFor } from './themes';
 import { wayfindAtrium } from './wayfinding';
+import { lift } from './lift';
+import { GROUND_Y } from './kit';
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 /** Concourse half width (as at the stock interchange, so exits 1–4 stay where they were). */
@@ -240,7 +243,16 @@ export function buildAtrium(c: Ctx, spec: AtriumSpec, other: Other) {
   b.box(ceilMat, -GX - 0.4, top, CW, -VX, top + 0.5, GZ1 + 0.4);
   b.box(ceilMat, VX, top, CW, GX + 0.4, top + 0.5, HZ0);
   b.box(ceilMat, -VX, top, VZ0, VX, top + 0.5, GZ1 + 0.4);
-  b.box(ceilMat, VX, top, HZ0 - 0.4, HX1 + 0.4, top + 0.5, GZ1 + 0.4);
+  // (Cut for the lift up into the ferry terminal, Kawaminato-kō only.)
+  const LIFT_R = station.id === 'kawaminato-ko' ? ATRIUM.lift : null;
+  b.slab(ceilMat, VX, HZ0 - 0.4, HX1 + 0.4, GZ1 + 0.4, top, top + 0.5, LIFT_R ? [[LIFT_R[0], LIFT_R[1], LIFT_R[2], LIFT_R[3]]] : []);
+  if (LIFT_R) {
+    // The lift: its doors to the lobby (−x), from the harbour gates up to the terminal's floor.
+    b.with({ rot: 3, t: [LIFT_R[0], 0, (LIFT_R[1] + LIFT_R[3]) / 2] }, () => lift(b, {
+      levels: [{ y: cf, ja: '港改札', en: 'Harbour gates' }, { y: GROUND_Y, ja: 'フェリーターミナル', en: 'Ferry terminal' }],
+      mat: 'metal:#3d5560',
+    }));
+  }
   b.box(wall, -GX - 0.4, cf, CW, -GX, top, GZ1 + 0.4);
   b.box(wall, -GX, cf, GZ1, HX1 + 0.4, top, GZ1 + 0.4);
   b.box(wall, GX, cf, CW, GX + 0.4, top, HZ0 - 0.4);
@@ -294,7 +306,28 @@ export function buildAtrium(c: Ctx, spec: AtriumSpec, other: Other) {
     }
     // The atrium's roof over the void.
     for (let z = CW + 1.5; z + 2.4 < VZ1; z += 4.5) for (const x of [-VX / 2, VX / 2]) ceilingLight(b, x - 0.22, x + 0.22, z, z + 2.4, top);
+    // (Stage 3, 2026-11-24.) The gallery's south wall, on the sea side: the harbour mural, a steel frame round it,
+    // and life rings on the gallery's outer walls.
+    if (station.id === 'kawaminato-ko') {
+      // (Two panels, either side of the gallery's exit board and station map at x −4.6 … 0 (wayfinding.ts), and
+      // clear of the harbour gates' office at HG − 3.)
+      for (const [mx0, mx1] of [[-GX + 1.2, -5.2], [0.6, HG - 3.4]]) {
+        if (mx1 - mx0 < 3) continue;
+        b.deco('metal:#2e3f48', mx0 - 0.12, cf + 0.48, GZ1 - 0.04, mx1 + 0.12, cf + 2.72, GZ1);
+        b.sign({ k: 'mural', v: 'harbour', color: '#1d4f7a' }, (mx0 + mx1) / 2, cf + 1.6, GZ1 - 0.05, [0, -1], mx1 - mx0, 2.1);
+      }
+      b.sign({ k: 'label', text: '川湊港 明治の港', sub: 'Kawaminato harbour in the Meiji years', fg: '#efe6cf', bg: '#2a2622' }, -GX + 2.6, cf + 0.3, GZ1 - 0.05, [0, -1], 2.4, 0.3);
+      for (const [x, z, nx] of [[-GX, 20, 1], [-GX, 38, 1], [GX, 22, -1]] as [number, number, number][]) {
+        const xw = x + nx * 0.03, R = 0.34, T = 0.09, y = cf + 1.7;
+        b.deco('flat:#c8402a', xw - 0.03, y + R - T, z - R, xw + 0.03, y + R, z + R);
+        b.deco('flat:#c8402a', xw - 0.03, y - R, z - R, xw + 0.03, y - R + T, z + R);
+        b.deco('flat:#f4f1e8', xw - 0.03, y - R + T, z - R, xw + 0.03, y + R - T, z - R + T);
+        b.deco('flat:#f4f1e8', xw - 0.03, y - R + T, z + R - T, xw + 0.03, y + R - T, z + R);
+      }
+    }
   });
 
-  surface(b, spec.surface, CW, { ja: station.nameJa, en: station.nameRomaji });
+  // Kawaminato-kō's own streets (the 2026-11 rebuild); the stock street for any other atrium.
+  if (station.id === 'kawaminato-ko') minatoStreet(c, spec.surface, CW, other.primaryDir);
+  else surface(b, spec.surface, CW, { ja: station.nameJa, en: station.nameRomaji });
 }

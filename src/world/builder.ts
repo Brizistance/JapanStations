@@ -82,11 +82,25 @@ export interface Zone {
   line?: string;
 }
 
-export interface Plot { x: number; z: number; north?: number }
+export interface Plot {
+  x: number;
+  z: number;
+  north?: number;
+  /**
+   * Strips walked beyond the rectangle (x0, z0, x1, z1, frame-local): a street carried on to meet a
+   * neighbour's (Kawaminato-kō's boulevard out to Minatoura-bashi, 2026-11-24).
+   */
+  arms?: [number, number, number, number][];
+}
 /** How far a plot reaches north (−z) of its middle. */
 export const plotNorth = (p: Plot): number => p.north ?? p.z;
 /** Is a frame-local point inside a plot, or within `m` of it? */
-export const inPlot = (p: Plot, lx: number, lz: number, m = 0): boolean => Math.abs(lx) < p.x + m && lz < p.z + m && lz > -plotNorth(p) - m;
+export const inPlot = (p: Plot, lx: number, lz: number, m = 0): boolean =>
+  (Math.abs(lx) < p.x + m && lz < p.z + m && lz > -plotNorth(p) - m) ||
+  (p.arms ?? []).some(([x0, z0, x1, z1]) => lx > x0 - m && lx < x1 + m && lz > z0 - m && lz < z1 + m);
+/** How far from its middle a plot reaches, arms and all. */
+export const plotReach = (p: Plot): number =>
+  Math.max(Math.hypot(p.x, Math.max(p.z, plotNorth(p))), ...(p.arms ?? []).map(([x0, z0, x1, z1]) => Math.hypot(Math.max(-x0, x1), Math.max(-z0, z1))));
 
 /** Half extents of the walkable plot around an ordinary station, metres. */
 export const DEFAULT_PLOT = { x: 130, z: 85 };
@@ -97,6 +111,19 @@ export interface MeshPart {
   pos: V3; // centre
   size: V3; // full extents
   open?: boolean;
+}
+
+/**
+ * A flat-topped prism on any polygon (frame x, z), y0 … y1: a road, a pavement or paint laid at an angle
+ * the boxes cannot take (a diagonal avenue, a round plaza; 2026-11-24). Visual only: what is walked on is
+ * laid as boxes (stations/poly.ts). Its top's texture runs along `uvYaw` (radians, as a model's yaw).
+ */
+export interface PolyPart {
+  mat: string;
+  pts: [number, number][];
+  y0: number;
+  y1: number;
+  uvYaw?: number;
 }
 
 /** A Blender-built model placed in the scene (render/building-models.ts). Visual only. */
@@ -144,6 +171,22 @@ export interface LanePart {
   gates?: { at: number; line: string; station: string }[];
   /** The lane ends inside the plot (a side street meeting a main road): everybody turns off it at its last junction. */
   dead?: boolean;
+  /**
+   * A road carried on into a neighbour's street (Kawaminato-kō's boulevard and Aizomechō's Tsumugi-dōri over
+   * Minatoura-bashi, 2026-11-24): past the point `at` (this frame) its vehicles move over to `station`'s lane
+   * through that point, while that street runs (traffic/street.ts).
+   */
+  hand?: { station: string; at: V3 };
+  /** Fed from `station`'s street (its `hand` lanes): while that street runs, no vehicle sets out from this lane's start. */
+  fed?: string;
+  /** May turn into, or be turned into from, a lane crossing it at any angle, not only square (a diagonal avenue: traffic/system.ts turnsOf). */
+  angled?: boolean;
+  /**
+   * A vehicle that has turned onto this lane chooses again here where to go (a turn further along it, or on to
+   * its end): a district's streets, where most lanes end at a T, are driven through one turn after another
+   * and left by a lane that is not `chain` (traffic/system.ts).
+   */
+  chain?: boolean;
   /** Ends where the road stops at the plot's edge (a T junction past it, the railway's fence): it does not run on past them (world/runon.ts). */
   closed?: ('from' | 'to')[];
   /**
@@ -172,6 +215,8 @@ export interface Build {
   gates: GatePart[];
   zones: Zone[];
   meshes: MeshPart[];
+  /** Flat polygons at any angle (visual only). */
+  polys?: PolyPart[];
   /** Openings in the street surface, as [x0, z0, x1, z1]. */
   holes: [number, number, number, number][];
   spawn: { pos: V3; yaw: number };
@@ -194,6 +239,8 @@ export interface Build {
   clear?: [number, number, number, number][];
   /** Level crossings' gate arms, which swing up and down with the crossing (roads.ts levelCrossing). */
   arms?: ArmPart[];
+  /** How far from the frame's point anything solid of it reaches (vehicles on lanes far out: collision/near). */
+  reach?: number;
   /** Level crossings' warning lamps, which light the street red at night while they flash. */
   xingLamps?: { pos: V3; line: string; key: string; left: boolean }[];
 }
@@ -265,6 +312,13 @@ export class Builder {
       min: [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])],
       max: [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])],
     });
+  }
+
+  /** True if the box (current frame) reaches into any protected volume: for parts that should be left out whole rather than trimmed. */
+  protects(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+    const p = this.pt(x0, y0, z0), q = this.pt(x1, y1, z1);
+    const a: V3 = [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])], c: V3 = [Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])];
+    return this.kept.some((k) => a[0] < k.max[0] && c[0] > k.min[0] && a[1] < k.max[1] && c[1] > k.min[1] && a[2] < k.max[2] && c[2] > k.min[2]);
   }
 
   /**
@@ -407,6 +461,13 @@ export class Builder {
     const part: BoxPart = { mat, min, max, solid: solid && mat !== 'deco' };
     if (this.isOpen) part.open = true;
     this.out.boxes.push(part);
+  }
+  /** A flat polygon (frame x, z points) from y0 to y1, at any angle: visual only (PolyPart). */
+  poly(mat: string, pts: [number, number][], y0: number, y1: number, uvYaw?: number) {
+    if (pts.length < 3) return;
+    const w = pts.map(([x, z]): [number, number] => { const p = this.pt(x, 0, z); return [p[0], p[2]]; });
+    const d = this.dir([Math.sin(uvYaw ?? 0), Math.cos(uvYaw ?? 0)]);
+    (this.out.polys ??= []).push({ mat, pts: w, y0: y0 + this.m.t[1], y1: y1 + this.m.t[1], uvYaw: uvYaw === undefined ? undefined : Math.atan2(d[0], d[1]) });
   }
   /** Visual only. */
   deco(mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {

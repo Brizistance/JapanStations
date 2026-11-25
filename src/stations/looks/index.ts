@@ -9,6 +9,7 @@ import { look as hyotanbori } from './hyotanbori';
 import { look as ikarimachi } from './ikarimachi';
 import { look as kaiseicho } from './kaiseicho';
 import { look as kamomehama } from './kamomehama';
+import { look as kawaminatoKo } from './kawaminato-ko';
 import { look as kitaOdori } from './kita-odori';
 import { look as kurayashiki } from './kurayashiki';
 import { look as midorizaka } from './midorizaka';
@@ -28,7 +29,7 @@ import { withEntry } from '../entry';
 const LOOKS: Record<string, StationLook> = {
   aizomecho, aobadai, 'daigaku-mae': daigakuMae, hoshimine, hyotanbori, kamomehama, kurayashiki, tomyobori, tsumugibashi, tsurumatsu,
   seiryodai, 'shiosai-koen': shiosaiKoen, tsukimizaka, yamabukidai, 'minato-center': minatoCenter,
-  ikarimachi, 'todai-dori': todaiDori, minamihorie, kaiseicho, midorizaka, 'kita-odori': kitaOdori,
+  ikarimachi, 'todai-dori': todaiDori, minamihorie, kaiseicho, midorizaka, 'kita-odori': kitaOdori, 'kawaminato-ko': kawaminatoKo,
 };
 
 /** True for a station with a look file of its own (not the default look). */

@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { BoxPart, MeshPart, V3 } from '../world/builder';
+import type { BoxPart, MeshPart, PolyPart, V3 } from '../world/builder';
 
 /** How a build is lit. */
 export type EnvMode =
@@ -68,6 +68,54 @@ export function boxesToGeometry(boxes: BoxPart[], mode: EnvMode): THREE.BufferGe
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   g.setAttribute('aEnv', new THREE.BufferAttribute(env, 2));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.computeBoundingSphere();
+  return g;
+}
+
+/** Flat-topped prisms on polygons (PolyPart): the top (texture along its uvYaw) and the sides. */
+export function polysToGeometry(polys: PolyPart[], mode: EnvMode): THREE.BufferGeometry | null {
+  if (!polys.length) return null;
+  const pos: number[] = [], nor: number[] = [], uv: number[] = [], env: number[] = [], idx: number[] = [];
+  const e = (y: number) => (mode.kind === 'sky' ? 1 : mode.kind === 'station' ? skyAt(y) : 0);
+  for (const p of polys) {
+    let pts = p.pts;
+    // Counter-clockwise seen from above (+y): with +x east and +z south that is a negative signed area in x, z.
+    let area = 0;
+    for (let i = 0; i < pts.length; i++) { const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length]; area += ax * bz - bx * az; }
+    if (area > 0) pts = [...pts].reverse();
+    const c = Math.cos(p.uvYaw ?? 0), s = Math.sin(p.uvYaw ?? 0);
+    const base = pos.length / 3;
+    for (const [x, z] of pts) {
+      pos.push(x, p.y1, z); nor.push(0, 1, 0); env.push(e(p.y1), 0);
+      // (u across the run, v along it.)
+      uv.push(x * c - z * s, x * s + z * c);
+    }
+    const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, -z)), []);
+    for (const [a, b, d] of tris) {
+      // (Facing up: (b − a) × (d − a) has a positive y.)
+      const [ax, az] = pts[a], [bx, bz] = pts[b], [dx, dz] = pts[d];
+      if ((bz - az) * (dx - ax) - (bx - ax) * (dz - az) > 0) idx.push(base + a, base + b, base + d);
+      else idx.push(base + a, base + d, base + b);
+    }
+    if (p.y1 - p.y0 > 1e-4) {
+      for (let i = 0; i < pts.length; i++) {
+        const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length], L = Math.hypot(bx - ax, bz - az);
+        if (L < 1e-5) continue;
+        // (Outward: the points run anticlockwise seen from above.)
+        const nx = -(bz - az) / L, nz = (bx - ax) / L, v0 = pos.length / 3;
+        for (const [x, y, z, u] of [[ax, p.y0, az, 0], [bx, p.y0, bz, L], [bx, p.y1, bz, L], [ax, p.y1, az, 0]]) {
+          pos.push(x, y, z); nor.push(nx, 0, nz); uv.push(u, y); env.push(e(y), 0);
+        }
+        idx.push(v0, v0 + 1, v0 + 2, v0, v0 + 2, v0 + 3);
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nor), 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
+  g.setAttribute('aEnv', new THREE.BufferAttribute(new Float32Array(env), 2));
+  g.setIndex(idx);
   g.computeBoundingSphere();
   return g;
 }

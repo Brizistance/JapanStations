@@ -219,6 +219,76 @@ describe('traffic', () => {
     expect(tr.cleared).toBe(0);
   });
 
+  it('turns between a diagonal side street and the main road, at any angle (angled lanes)', () => {
+    // The side street comes in at 30° off square (a diagonal avenue meeting the boulevard): in on the left, out on the right.
+    const S = 120, stop = (axis: 0 | 1) => [{ at: S - 12, axis, exit: S + 12 }];
+    const dx = 0.5, dz = 0.866; // the way out, away from the main road
+    const inFrom: [number, number] = [-2 * dz + dx * S, 2 * dx + dz * S], tIn = (inFrom[1] + 2.6) / dz;
+    const outFrom: [number, number] = [2 * dz, -2 * dx], sOut = (-2.6 - outFrom[1]) / dz;
+    const parts = [
+      lane({ from: [-S, 0, -2.5], to: [S, 0, -2.5], stops: stop(0) }), lane({ from: [S, 0, 2.5], to: [-S, 0, 2.5], stops: stop(0) }),
+      lane({ from: [inFrom[0], 0, inFrom[1]], to: [inFrom[0] - dx * tIn, 0, -2.6], flow: 5, use: 'general', dead: true, angled: true,
+        stops: [{ at: inFrom[1] / dz - 12, axis: 1, exit: inFrom[1] / dz + 12 }] }),
+      lane({ from: [outFrom[0] + dx * sOut, 0, -2.6], to: [outFrom[0] + dx * S, 0, outFrom[1] + dz * S], flow: 0, use: 'general', angled: true }),
+    ];
+    const tr = makeTraffic(parts, 21);
+    expect(tr.lanes[2].turns.length).toBe(2);
+    expect(tr.lanes[0].turns.length + tr.lanes[1].turns.length).toBeGreaterThan(0);
+    // Each turn's arc joins its lanes without a jump or a kink.
+    for (const l of tr.lanes) for (const t of l.turns) {
+      const ps = t.route.pieces, arc = ps[1], last = ps[2];
+      const [ex, ez] = routePoint(t.route, arc.start + arc.len - 1e-6);
+      expect(Math.hypot(ex - last.x, ez - last.z)).toBeLessThan(0.05);
+      const [ax, az] = routePoint(t.route, arc.start + arc.len - 0.01);
+      expect((last.x - ax) * last.hz - (last.z - az) * last.hx).toBeCloseTo(0, 2);
+    }
+    let out = 0, onto = 0;
+    const seen = new Set<Vehicle>();
+    run(tr, EIGHT, 600, () => {
+      noOverlap(tr, 'angled tee');
+      for (const v of tr.list) {
+        if (v.origin.index === 2) expect(v.route.turn).not.toBeNull();
+        if (seen.has(v) || !v.route.turn || v.s < v.route.turn.arc1) continue;
+        seen.add(v);
+        if (v.origin.index === 2) onto++;
+        else out++;
+      }
+    });
+    expect(onto).toBeGreaterThan(10);
+    expect(out).toBeGreaterThan(2);
+    expect(tr.cleared).toBe(0);
+  });
+
+  it('drives through a district of chain lanes one turn after another and back out', () => {
+    // A main road (the way in and out), up a side street, along a back road, down another side street to the main road again.
+    const st = (at: number, axis: 0 | 1) => ({ at, axis, exit: at + 24 });
+    const parts = [
+      lane({ from: [-150, 0, -2.5], to: [150, 0, -2.5], stops: [st(98, 0), st(178, 0)] }),
+      lane({ from: [150, 0, 2.5], to: [-150, 0, 2.5], stops: [st(98, 0), st(178, 0)] }),
+      lane({ from: [-42, 0, 2.6], to: [-42, 0, -83], flow: 0, use: 'general', dead: true, chain: true, stops: [st(70, 1)] }),
+      lane({ from: [-45, 0, -82.5], to: [42.6, 0, -82.5], flow: 0, use: 'general', dead: true, chain: true, stops: [st(73, 0)] }),
+      lane({ from: [42, 0, -83], to: [42, 0, 3], flow: 0, use: 'general', dead: true, chain: true, stops: [st(68.5, 1)] }),
+    ];
+    const tr = makeTraffic(parts, 33);
+    const been = new Map<Vehicle, Set<number>>();
+    let round = 0;
+    run(tr, EIGHT, 900, () => {
+      noOverlap(tr, 'chain');
+      for (const v of tr.list) {
+        const s = been.get(v) ?? new Set<number>();
+        been.set(v, s);
+        s.add(v.origin.index);
+        // Up the side street, along the back road, down the other side street, back on the main road.
+        if (s.has(2) && s.has(3) && s.has(4) && v.lane && v.lane.index < 2 && !s.has(-1)) {
+          s.add(-1);
+          round++;
+        }
+      }
+    }, 0.1);
+    expect(round).toBeGreaterThan(3);
+    expect(tr.cleared).toBe(0);
+  });
+
   it('pulls a bus in to the kerb at its stop and back into its lane', () => {
     const tr = makeTraffic([lane({ use: 'bus', flow: 6, halts: [{ at: 100, side: 2.3 }] })], 3);
     let stood = 0, back = 0;
@@ -314,7 +384,8 @@ describe('street lanes', () => {
         if (l.use === 'minor') continue;
         // A lane and one going the other way on the same road: this one lies to the left of the other.
         const dx = l.to[0] - l.from[0], dz = l.to[2] - l.from[2], n = Math.hypot(dx, dz);
-        const opp = w.build.lanes.find((o) => o.use !== 'minor' && (o.to[0] - o.from[0]) * dx + (o.to[2] - o.from[2]) * dz < 0
+        // (Going the other way on the same road: near enough opposite, not a street crossing it at a slant.)
+        const opp = w.build.lanes.find((o) => o.use !== 'minor' && (o.to[0] - o.from[0]) * dx + (o.to[2] - o.from[2]) * dz < -0.95 * n * Math.hypot(o.to[0] - o.from[0], o.to[2] - o.from[2])
           && Math.abs((o.from[0] - l.from[0]) * dz - (o.from[2] - l.from[2]) * dx) / n < 30);
         if (!opp) continue;
         // Left of the direction (dx, dz), seen from above with x east and z south, is (dz, −dx).
@@ -335,8 +406,15 @@ describe('street lanes', () => {
         const x0 = Math.min(l.from[0], l.to[0]), x1 = Math.max(l.from[0], l.to[0]);
         const z0 = Math.min(l.from[2], l.to[2]), z1 = Math.max(l.from[2], l.to[2]);
         const alongX = x1 - x0 > z1 - z0;
-        // The lane's corridor, short of the plot's edge walls.
-        const hit = alongX ? hits(x0 + 1.5, z0 - half, x1 - 1.5, z1 + half, y) : hits(x0 - half, z0 + 1.5, x1 + half, z1 - 1.5, y);
+        // The lane's corridor, short of the plot's edge walls (a diagonal lane: felt along its line).
+        let hit: ReturnType<typeof hits>;
+        if (l.angled) {
+          const n = Math.hypot(l.to[0] - l.from[0], l.to[2] - l.from[2]);
+          for (let s = 1.5; s < n - 1.5 && !hit; s += 1) {
+            const x = l.from[0] + ((l.to[0] - l.from[0]) * s) / n, z = l.from[2] + ((l.to[2] - l.from[2]) * s) / n;
+            hit = hits(x - half, z - half, x + half, z + half, y);
+          }
+        } else hit = alongX ? hits(x0 + 1.5, z0 - half, x1 - 1.5, z1 + half, y) : hits(x0 - half, z0 + 1.5, x1 + half, z1 - 1.5, y);
         if (hit) expect.fail(`${w.def.id}: lane ${l.from} → ${l.to} runs into a box at ${hit.min} … ${hit.max}`);
         // The bays by the kerb, as wide as a bus or a taxi.
         for (const [route, wide] of [[busRoute, 1.3], [rankRoute, 0.95]] as const) {
@@ -426,5 +504,38 @@ describe('street lanes', () => {
     expect(served.size, 'vehicles that stopped in the square').toBeGreaterThan(4);
     expect(round.size, 'vehicles back on Ekimae-dōri').toBeGreaterThan(4);
     expect(kinds.size, 'both buses and taxis').toBe(2);
+  }, 120000);
+});
+
+describe('Minatoura-bashi: one road through two streets', () => {
+  it('moves vehicles between Kawaminato-kō’s street and Aizomechō’s half way along the arm, both ways', async () => {
+    const { streets, updateTraffic } = await import('./street');
+    const cam = { x: 600, z: 0 };
+    let t = EIGHT;
+    updateTraffic(t, cam, null, true);
+    const by = (id: string) => streets.find((s) => s.world.def.id === id)!;
+    const K = by('kawaminato-ko'), A = by('aizomecho');
+    expect(K && A, 'both streets run at the hand-over point').toBeTruthy();
+    // The lanes fed from the other street set out nothing of their own while it runs: whatever is on them came over.
+    const fedK = K.sim.lanes.filter((l) => l.part.fed && l.part.use !== 'cycle'), fedA = A.sim.lanes.filter((l) => l.part.fed && l.part.use !== 'cycle');
+    expect(fedK.length).toBeGreaterThan(0);
+    expect(fedA.length).toBeGreaterThan(0);
+    const seenK = new Set<number>(), seenA = new Set<number>();
+    for (let i = 0; i < 3000; i++) {
+      t += 0.1;
+      updateTraffic(t, cam, null, true);
+      for (const v of K.sim.list) if (fedK.includes(v.origin)) seenK.add(v.id);
+      for (const v of A.sim.list) if (fedA.includes(v.origin)) seenA.add(v.id);
+      expect(fedK.every((l) => l.muted) && fedA.every((l) => l.muted)).toBe(true);
+    }
+    expect(seenK.size, 'vehicles that came over westbound').toBeGreaterThan(3);
+    expect(seenA.size, 'vehicles that came over eastbound').toBeGreaterThan(3);
+    // Nothing piles up where they move over: none stands on a hand lane past its point.
+    for (const s of [K, A]) for (const l of s.sim.lanes) {
+      const h = l.part.hand;
+      if (!h) continue;
+      const at = (h.at[0] - l.part.from[0]) * l.ux + (h.at[2] - l.part.from[2]) * l.uz;
+      expect(s.sim.list.filter((v) => v.lane === l && v.ls > at + 1).length, `${s.world.def.id} lane ${l.index} past its hand-over`).toBeLessThan(2);
+    }
   }, 120000);
 });

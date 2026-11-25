@@ -244,7 +244,7 @@ export const SPECS: Record<StationId, StationSpec> = {
     primary: 'N',
     style: {
       wall: 'panel:#cfdbe3', concWall: 'panel:#e3ebf0', floor: 'floor:#c9d0d4', pillar: 'panel:#cfdbe3',
-      accent: '#0d6fa4', mural: { v: 'waves', color: '#1673c9' },
+      accent: '#0d6fa4', mural: { v: 'harbour', color: '#1d4f7a' },
     },
     surface: { seed: 61, roadHalf: 8, cross: [-74], left: 'warehouse', right: 'sea' },
   },

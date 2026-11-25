@@ -142,6 +142,8 @@ export interface Lane {
   pending: Vehicle | null;
   sinceBus: number;
   rand: () => number;
+  /** Fed from a neighbour's street just now (LanePart.fed): nothing sets out from its start. */
+  muted: boolean;
 }
 
 export interface Traffic {
@@ -213,7 +215,21 @@ function beside(a: Lane, lanes: Lane[]): { lane: Lane; off: number }[] {
 /** A bus lane or a bicycle lane: nobody turns out of or into one. */
 const kerbside = (l: Lane) => l.part.use === 'bus' || l.part.use === 'cycle';
 
-/** The turns out of lane `a`: into every lane that crosses it just after one of its stop lines. */
+/** Where the lines of lanes a and b cross: distance along a (t) and along b (u) from their starts; null if near parallel. */
+function crossing(a: Lane, b: Lane): { t: number; u: number } | null {
+  const det = a.ux * b.uz - a.uz * b.ux;
+  if (Math.abs(det) < 1e-6) return null;
+  const dx = b.part.from[0] - a.part.from[0], dz = b.part.from[2] - a.part.from[2];
+  return { t: (dx * b.uz - dz * b.ux) / det, u: (dx * a.uz - dz * a.ux) / det };
+}
+/** Where lane o's line meets lane b's, as a distance along o (any angle). */
+const meetAt = (o: Lane, b: Lane) => crossing(o, b)?.t ?? NaN;
+
+/**
+ * The turns out of lane `a`: into every lane that crosses it just after one of its stop lines. Square
+ * junctions only, unless one of the two lanes is `angled` (a diagonal avenue, 2026-11-24): then at any
+ * angle wider than about 25°, round an arc tangent to both lanes.
+ */
 function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
   const out: Turn[] = [];
   if (kerbside(a)) return out;
@@ -221,10 +237,12 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
   const leftmost = !mine.some((s) => s.off < -0.5), rightmost = !mine.some((s) => s.off > 0.5);
   for (const b of lanes) {
     // (Nor between levels: an expressway over a junction is not a turning.)
-    if (kerbside(b) || Math.abs(a.ux * b.ux + a.uz * b.uz) > 0.1 || Math.abs(a.part.from[1] - b.part.from[1]) > 2) continue;
-    const dx = b.part.from[0] - a.part.from[0], dz = b.part.from[2] - a.part.from[2];
+    const dot = a.ux * b.ux + a.uz * b.uz, angled = !!(a.part.angled || b.part.angled);
+    if (kerbside(b) || Math.abs(dot) > (angled ? 0.9 : 0.1) || Math.abs(a.part.from[1] - b.part.from[1]) > 2) continue;
     // Where the two cross: t along a, u along b.
-    const t = dx * a.ux + dz * a.uz, u = -(dx * b.ux + dz * b.uz);
+    const x = crossing(a, b);
+    if (!x) continue;
+    const { t, u } = x;
     if (t <= 0 || t > a.len + 0.5 || u < 0 || b.len - u < 15) continue;
     const stop = [...a.part.stops].reverse().find((s) => s.at < t);
     // Into a small street from the main road: a left turn anywhere along the block, no stop line needed.
@@ -237,20 +255,25 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
     // Turn from the lane on that side into the lane on that side: nobody cuts across a lane going the same way.
     const theirs = beside(b, lanes).filter((s) => !kerbside(s.lane));
     if (left ? !leftmost || theirs.some((s) => s.off < -0.5) : !rightmost || theirs.some((s) => s.off > 0.5)) continue;
-    const r = Math.min(left ? R_LEFT : R_RIGHT, stop ? t - stop.at - 0.5 : R_LEFT, b.len - u - 6);
+    // The angle turned, and how far before and after the crossing the arc meets the lanes (k = r at a square junction).
+    const phi = Math.acos(Math.max(-1, Math.min(1, dot))), tk = Math.tan(phi / 2);
+    const r = Math.min(left ? R_LEFT : R_RIGHT, (stop ? t - stop.at - 0.5 : angled ? Math.min(R_LEFT, t) : R_LEFT) / tk, (b.len - u - 6) / tk);
     if (r < 3.5) continue;
-    const first = line(0, a, 0, t - r);
+    const k = r * tk;
+    const first = line(0, a, 0, t - k);
     const sx = first.x + a.ux * first.len, sz = first.z + a.uz * first.len;
-    const cx = sx + b.ux * r, cz = sz + b.uz * r, a0 = Math.atan2(sz - cz, sx - cx);
+    // The centre lies r to the side of a it turns to (b's part square to a).
+    const nx = b.ux - dot * a.ux, nz = b.uz - dot * a.uz, nl = Math.hypot(nx, nz);
+    const cx = sx + (nx / nl) * r, cz = sz + (nz / nl) * r, a0 = Math.atan2(sz - cz, sx - cx);
     const w = -Math.sin(a0) * a.ux + Math.cos(a0) * a.uz > 0 ? 1 : -1;
-    const arcLen = (Math.PI / 2) * r;
+    const arcLen = phi * r;
     const arc: Piece = { start: first.len, len: arcLen, x: sx, z: sz, hx: a.ux, hz: a.uz, cx, cz, r, a0, w, lane: null, from: 0 };
-    const last = line(first.len + arcLen, b, u + r, b.len);
+    const last = line(first.len + arcLen, b, u + k, b.len);
     const route: Route = {
       pieces: [first, arc, last], len: last.start + last.len, turn: null, dwell: [0, 0], merge: null, enter: null, yields: [],
       // (A level crossing on either lane still holds a car that will turn off later, or has turned in.)
-      gates: [...(a.part.gates ?? []).filter((g) => g.at < t - r), ...(b.part.gates ?? []).filter((g) => g.at > u + r).map((g) => ({ ...g, at: g.at - (u + r) + last.start }))],
-      stops: [...a.part.stops.filter((s) => s.at < t - r), ...b.part.stops.filter((s) => s.at > u + r).map((s) => ({ at: s.at - (u + r) + last.start, axis: s.axis, exit: s.exit - (u + r) + last.start }))],
+      gates: [...(a.part.gates ?? []).filter((g) => g.at < t - k), ...(b.part.gates ?? []).filter((g) => g.at > u + k).map((g) => ({ ...g, at: g.at - (u + k) + last.start }))],
+      stops: [...a.part.stops.filter((s) => s.at < t - k), ...b.part.stops.filter((s) => s.at > u + k).map((s) => ({ at: s.at - (u + k) + last.start, axis: s.axis, exit: s.exit - (u + k) + last.start }))],
       halts: [],
     };
     // A right turn crosses the lanes coming the other way: it waits short of the middle of the road.
@@ -263,7 +286,7 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
         const off = ox * -a.uz + oz * a.ux;
         if (off <= 0 || off > 40) continue;
         // Where lane o meets lane b's line.
-        const at = (b.part.from[0] - o.part.from[0]) * o.ux + (b.part.from[2] - o.part.from[2]) * o.uz;
+        const at = angled ? meetAt(o, b) : (b.part.from[0] - o.part.from[0]) * o.ux + (b.part.from[2] - o.part.from[2]) * o.uz;
         if (at < 0 || at > o.len) continue;
         oncoming.push({ lane: o, at, same: false });
         near = Math.min(near, off);
@@ -271,7 +294,7 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
     } else {
       for (const s of beside(a, lanes)) {
         if (s.off > -0.5) continue;
-        const at = (b.part.from[0] - s.lane.part.from[0]) * s.lane.ux + (b.part.from[2] - s.lane.part.from[2]) * s.lane.uz;
+        const at = angled ? meetAt(s.lane, b) : (b.part.from[0] - s.lane.part.from[0]) * s.lane.ux + (b.part.from[2] - s.lane.part.from[2]) * s.lane.uz;
         if (at >= 0 && at <= s.lane.len) oncoming.push({ lane: s.lane, at, same: true });
       }
     }
@@ -281,7 +304,7 @@ function turnsOf(a: Lane, lanes: Lane[]): Turn[] {
     if (near < Infinity) {
       // As far round the arc as a car's front right corner stays on its own side of the road.
       const room = near / 2 - 0.25;
-      for (let th = 0; th < Math.PI / 2; th += 0.04) {
+      for (let th = 0; th < phi; th += 0.04) {
         if (r * (1 - Math.cos(th)) + 2.25 * Math.sin(th) + 0.86 * Math.cos(th) > room) break;
         turn.hold = first.len + r * th;
       }
@@ -298,7 +321,7 @@ export function makeTraffic(parts: LanePart[], seed: number): Traffic {
     const rand = rng(seed * 31 + index * 977 + 5);
     const lane: Lane = {
       index, part, len, ux: dx / len, uz: dz / len, straight: null as unknown as Route, turns: [], busRoute: null, rankRoute: null, rank: 0, detours: [],
-      next: part.flow > 0 ? rand() * (60 / part.flow) : Infinity, pending: null, sinceBus: rand() * BUS_EVERY, rand,
+      next: part.flow > 0 ? rand() * (60 / part.flow) : Infinity, pending: null, sinceBus: rand() * BUS_EVERY, rand, muted: false,
     };
     lane.straight = { pieces: [line(0, lane, 0, len)], len, stops: part.stops, halts: [], dwell: [0, 0], merge: null, enter: null, yields: part.yields ?? [], gates: part.gates ?? [], turn: null };
     const round = part.avoid && aside(lane, part.avoid.from, part.avoid.to, -part.avoid.side);
@@ -550,6 +573,39 @@ function pickRoute(tr: Traffic, lane: Lane, model: string, heavy: boolean): Rout
   return lane.straight;
 }
 
+/**
+ * Round its arc and onto a `chain` lane: choose again there (LanePart.chain), from the turns still ahead of it
+ * on this lane, as a vehicle setting out on it would; or on to the lane's end.
+ */
+function rechain(v: Vehicle) {
+  const lane = v.lane!, ls = v.ls, ahead = lane.turns.filter((t) => t.arc0 > ls + 12);
+  let route = lane.straight;
+  if (lane.part.dead) {
+    if (ahead.length) route = ahead[Math.floor(lane.rand() * ahead.length)].route;
+  } else if (!v.heavy) {
+    for (let i = 0; i < ahead.length && route === lane.straight;) {
+      let j = i;
+      while (j < ahead.length && ahead[j].at - ahead[i].at < 25) j++;
+      const u = lane.rand();
+      let edge = 0;
+      for (let k = i; k < j; k++) {
+        edge += ahead[k].share;
+        if (u < edge) {
+          route = ahead[k].route;
+          break;
+        }
+      }
+      i = j;
+    }
+  }
+  v.route = route;
+  v.origin = lane;
+  v.s = ls;
+  v.served = route.halts.filter((h) => h < ls).length;
+  v.wait = 0;
+  place(v);
+}
+
 function place(v: Vehicle) {
   const p = poseAt(v.route, v.s);
   v.x = pose.x; v.z = pose.z; v.hx = pose.hx; v.hz = pose.hz;
@@ -568,6 +624,23 @@ function create(tr: Traffic, lane: Lane, model = pickModel(lane, tr.time), way?:
   };
   place(v);
   return v;
+}
+
+/**
+ * Take over a vehicle from a neighbour's street (LanePart.hand): `v` as it is there, set down on `lane`
+ * at lane distance `ls`, going straight on. False (and nothing changes) while that place is not free.
+ */
+export function adopt(tr: Traffic, lane: Lane, v: Vehicle, ls: number): boolean {
+  const route = family(v.model) === 'bus' && lane.busRoute ? lane.busRoute : lane.straight;
+  const n: Vehicle = {
+    ...v, id: tr.ids, route, origin: lane, lane, ls, s: ls, served: route.halts.filter((h) => h < ls).length,
+    dwell: 0, jam: 0, wait: 0, blink: 0, y: lane.part.from[1],
+  };
+  place(n);
+  for (const o of tr.list) if (roomTo(n, o, 0.3) < 0.5 || roomTo(o, n, 0.3) < 0.5) return false;
+  tr.ids++;
+  tr.list.push(n);
+  return true;
 }
 
 // ── Keeping clear of each other ──
@@ -879,6 +952,8 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
         v.wait = 0;
       }
     }
+    // Round the turn and onto a lane it goes on choosing from.
+    if (turn && v.route === route && v.s > turn.arc1 + 0.5 && v.lane?.part.chain) rechain(v);
   }
   // Off the far end of the plot; or stuck in a knot nobody can leave.
   for (let n = list.length - 1; n >= 0; n--) {
@@ -895,7 +970,7 @@ export function stepTraffic(tr: Traffic, dt: number, time: number, walker: Walke
     const part = lane.part;
     lane.next -= dt * busy;
     lane.sinceBus += dt * busy;
-    if (lane.next > 0) continue;
+    if (lane.next > 0 || lane.muted) continue;
     const v = (lane.pending ??= create(tr, lane));
     let free = Infinity;
     for (const o of list) free = Math.min(free, roomTo(v, o, 0.5));

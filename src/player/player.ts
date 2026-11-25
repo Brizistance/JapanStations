@@ -1,12 +1,12 @@
 // Player state and per-tick movement. Plain module state (not React): the render
 // loop mutates it every frame and the HUD samples it a few times a second.
 
-import { RAIL_WORLDS, STATION_WORLDS, WORLDS, hostedPlace, stationWorld } from '../stations';
+import { DISTRICT_WORLDS, RAIL_WORLDS, STATION_WORLDS, WORLDS, hostedPlace, stationWorld } from '../stations';
 import { builtRange } from '../world/structure';
 import { trainOfFrame, trains, type TrainRuntime } from '../trains/system';
 import { carry, stepBody, zoneAt, type Body, type Frame } from '../world/collision';
 import { rideLifts } from '../world/lifts';
-import type { Zone } from '../world/builder';
+import { inPlot, type Zone } from '../world/builder';
 import { HOME_STATION } from '../data/network';
 import type { StationWorld } from '../stations';
 
@@ -45,6 +45,8 @@ let carriedOff = false;
 export const where = {
   station: null as StationWorld | null,
   zone: null as Zone | null,
+  /** The district (no station) the player is walking in: Tōsen-machi … (stations/index.ts DISTRICT_WORLDS). */
+  district: null as { ja: string; en: string } | null,
   train: null as TrainRuntime | null,
 };
 
@@ -77,6 +79,12 @@ function allFrames(): Frame[] {
 
 export function nearestStation(x: number, z: number): { world: StationWorld; dist: number } {
   let best = STATION_WORLDS[0], bd = Infinity;
+  // (A plot's arm reaches out towards a neighbour: on it, its own station is the one, however near the other's middle.)
+  for (const s of STATION_WORLDS) {
+    if (!s.build.plot.arms) continue;
+    const f = s.frame, dx = x - f.x, dz = z - f.z, c = Math.cos(f.yaw), sn = Math.sin(f.yaw);
+    if (inPlot(s.build.plot, dx * c - dz * sn, dx * sn + dz * c)) return { world: s, dist: Math.hypot(dx, dz) };
+  }
   for (const s of STATION_WORLDS) {
     const d = Math.hypot(s.frame.x - x, s.frame.z - z);
     if (d < bd) {
@@ -158,13 +166,22 @@ export function tickPlayer(dt: number) {
     where.zone = z;
     if (!where.train) player.lastStation = r.def.id;
   }
-  if (!where.zone && near.dist < near.world.frame.radius) {
+  if (!where.zone && near.dist < Math.max(near.world.frame.radius, near.world.frame.reach ?? 0)) {
     const z = zoneAt(near.world.frame, b.pos);
     if (z) {
       where.station = near.world;
       where.zone = z;
       if (!where.train) player.lastStation = near.world.def.id;
     }
+  }
+  // In a district (Tōsen-machi …): its zone only. It is not a station, so where.station and lastStation stay as they are.
+  where.district = null;
+  if (!where.zone) for (const d of DISTRICT_WORLDS) {
+    const f = d.frame, dx = b.pos[0] - f.x, dz = b.pos[2] - f.z, c = Math.cos(f.yaw), sn = Math.sin(f.yaw);
+    if (!inPlot(d.build.plot, dx * c - dz * sn, dx * sn + dz * c, 1)) continue;
+    where.zone = zoneAt(f, b.pos);
+    where.district = { ja: d.def.nameJa, en: d.def.nameRomaji };
+    break;
   }
   // Safety net: fell out of the world.
   if (b.pos[1] < -60) onFall.go(player.lastStation);

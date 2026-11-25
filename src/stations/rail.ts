@@ -345,7 +345,8 @@ export function konyahama(): Build {
   const D = P + 4.9, BX = 1.3, LZ = ZO + 0.2;
   const STEEL = 'metal:#5b6670', GREEN = 'metal:#3f5a4c', FACE = 'concrete', ROOF = 'metal:#7a4a3a', TIMBER = 'wood:#5b4433', CREAM = 'paint:#e9dfc6', WIRE = 'trackside:#8f969c';
   // The plot takes in the shore west of the line (konyahama-street.ts) and the house east of it: +x is south, +z west.
-  b.out.plot = { x: 156, z: 72, north: 36 };
+  // (And an arm west over the east half of Minatoura-bashi, to the middle where Kawaminato-kō's arm meets it: konyahama-street.ts.)
+  b.out.plot = { x: 156, z: 72, north: 36, arms: [[126, 70, 146, 96]] };
   // (The spawn is in the station house's ticket hall: konyaHouse.)
   const gapsOf = (s: -1 | 1): [number, number][] => (s < 0 ? [[FB - 0.6, FB + 0.6], [HOUSE[0], H]] : [[FB - 0.6, FB + 0.6], WICKET]);
   const fenceRuns = (s: -1 | 1): [number, number][] => {

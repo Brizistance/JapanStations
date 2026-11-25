@@ -11,8 +11,11 @@ import type { V3, Zone } from '../world/builder';
 import { Bi } from './Bi';
 import type { Step } from '../sim/guide';
 import { guideStep } from './Guide';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { CHANNELS, BASINS, LAND } from '../data/geography';
+import { PLAN_STATIONS, planNear, planRails, type PlanKind } from '../render/city-plan';
 import { useUI } from './store';
+import { useMapTab } from './CityMap';
 
 const exitCache = new Map<string, StationExit[]>();
 const exitsOf = (id: string) => exitCache.get(id) ?? (exitCache.set(id, stationExits(id)), exitCache.get(id)!);
@@ -93,7 +96,10 @@ export function MiniMap() {
   const [big, setBig] = useState(false);
   useFrames();
   const st = where.station;
-  if (!on || !st || where.train) return null;
+  if (!on || where.train) return null;
+  // Outdoors at street level, the city; down in a station (or in its halls and on its platforms), its plan.
+  const indoors = !!where.zone && where.zone.kind !== 'street';
+  if (!st || (!indoors && player.body.pos[1] > -1.5)) return <CityMap onOpen={() => (useMapTab.getState().set('city'), useUI.getState().setMap(true))} />;
   const R = big ? FAR : NEAR;
   const me: V3 = [0, 0, 0];
   toLocal(st.frame, player.body.pos, me);
@@ -186,6 +192,100 @@ export function MiniMap() {
         })}
         <path d="M0 -4.6 L3.4 3.4 L0 1.6 L-3.4 3.4 Z" fill="#fff" stroke="#16191d" strokeWidth={0.7} transform={`scale(${R / NEAR})`} />
       </svg>
+      <div className="hud-mini-foot">
+        <span>{zone ? <Bi ja={zone.ja} en={zone.en} /> : null}</span>
+        <kbd>P</kbd>
+      </div>
+    </div>
+  );
+}
+
+const PLAN_FILL: Record<PlanKind, string> = { green: '#2f4636', pave: '#3c434c', road: '#525b66', block: '#16191d' };
+const LAND_FILL = '#2a2f35', WATER = '#1f4766';
+/** Metres from the player to the rim of the city map. */
+const CITY_NEAR = 75;
+
+/**
+ * The city mini-map, outdoors at street level: water and land, streets, pavements, green and the
+ * buildings' footprints (render/city-plan.ts), the railways above ground in their lines' colours and
+ * the stations' names, turned so that the way the player faces is up.
+ */
+function CityMap({ onOpen }: { onOpen: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const R = CITY_NEAR;
+  const [x, , z] = player.body.pos, yaw = player.yaw;
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), size = Math.round(cv.clientWidth * dpr);
+    if (!size) return;
+    if (cv.width !== size) { cv.width = size; cv.height = size; }
+    const g = cv.getContext('2d')!, h = size / 2, k = h / R;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, size, size);
+    g.save();
+    g.beginPath(); g.arc(h, h, h, 0, Math.PI * 2); g.clip();
+    g.fillStyle = WATER; g.fillRect(0, 0, size, size);
+    g.translate(h, h); g.scale(k, k); g.rotate(yaw); g.translate(-x, -z);
+    const poly = (pts: number[][] | number[], fill: string) => {
+      g.beginPath();
+      if (typeof pts[0] === 'number') {
+        const f = pts as number[];
+        g.moveTo(f[0], f[1]);
+        for (let i = 2; i < f.length; i += 2) g.lineTo(f[i], f[i + 1]);
+      } else (pts as number[][]).forEach(([px, pz], i) => (i ? g.lineTo(px, pz) : g.moveTo(px, pz)));
+      g.closePath(); g.fillStyle = fill; g.fill();
+    };
+    for (const l of LAND) poly(l.pts, LAND_FILL);
+    for (const b of BASINS) poly(b.pts, WATER);
+    g.strokeStyle = WATER; g.lineJoin = 'round'; g.lineCap = 'round';
+    for (const c of CHANNELS) {
+      g.lineWidth = c.width;
+      g.beginPath();
+      c.pts.forEach(([px, pz], i) => (i ? g.lineTo(px, pz) : g.moveTo(px, pz)));
+      g.stroke();
+    }
+    const near = planNear(x, z, R * 1.5);
+    for (const s of near) poly(s.pts, PLAN_FILL[s.kind]);
+    for (const [w, dark] of [[5, true], [2.4, false]] as const) {
+      for (const r of planRails()) {
+        g.lineWidth = (w * dpr) / k;
+        g.strokeStyle = dark ? '#0e1013' : r.color;
+        g.beginPath();
+        for (let i = 0; i < r.pts.length; i += 2) (i ? g.lineTo(r.pts[i], r.pts[i + 1]) : g.moveTo(r.pts[i], r.pts[i + 1]));
+        g.stroke();
+      }
+    }
+    g.restore();
+    // Station names, upright.
+    const c = Math.cos(yaw), sn = Math.sin(yaw);
+    g.textAlign = 'center';
+    for (const st of PLAN_STATIONS) {
+      const dx = st.x - x, dz = st.z - z;
+      if (Math.hypot(dx, dz) > R * 0.95) continue;
+      const sx = h + (dx * c - dz * sn) * k, sy = h + (dx * sn + dz * c) * k;
+      g.beginPath(); g.arc(sx, sy, 4.5 * dpr, 0, Math.PI * 2);
+      g.fillStyle = '#fff'; g.fill(); g.lineWidth = 2 * dpr; g.strokeStyle = '#16191d'; g.stroke();
+      g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(14,16,19,0.85)'; g.fillStyle = '#fff';
+      g.font = `800 ${11 * dpr}px system-ui, sans-serif`;
+      g.strokeText(st.ja, sx, sy - 8 * dpr); g.fillText(st.ja, sx, sy - 8 * dpr);
+      g.font = `700 ${8 * dpr}px system-ui, sans-serif`;
+      g.strokeText(st.en, sx, sy + 15 * dpr); g.fillText(st.en, sx, sy + 15 * dpr);
+    }
+  });
+  // North on the rim: world −z, turned as the map is.
+  const S = 46, nx = Math.sin(yaw) * S * 0.9, ny = -Math.cos(yaw) * S * 0.9;
+  const zone = where.zone;
+  return (
+    <div className="hud-mini hud-city" onClick={onOpen} title="クリックで地図を開く Click to open the city map">
+      <div className="hud-city-face">
+        <canvas ref={ref} />
+        <svg viewBox={`${-S} ${-S} ${S * 2} ${S * 2}`} style={{ '--u': 1 } as React.CSSProperties}>
+          <circle r={S - 0.6} fill="none" stroke="#16191d" strokeWidth={1.2} />
+          <text x={nx} y={ny} dy="0.36em" className="n">N</text>
+          <path d="M0 -4.6 L3.4 3.4 L0 1.6 L-3.4 3.4 Z" fill="#fff" stroke="#16191d" strokeWidth={0.7} />
+        </svg>
+      </div>
       <div className="hud-mini-foot">
         <span>{zone ? <Bi ja={zone.ja} en={zone.en} /> : null}</span>
         <kbd>P</kbd>

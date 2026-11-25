@@ -155,8 +155,10 @@ function World() {
     const k = Math.min(1, dt * 3);
     fog.color.lerp(under ? DARK : SKY, k);
     (scene.background as THREE.Color).copy(fog.color);
-    fog.near += ((under ? 70 : atm.fogNear) - fog.near) * k;
-    fog.far += ((under ? 520 : atm.fogFar) - fog.far) * k;
+    // (In a room above ground (a 'concourse' zone at street level: a terminal, a restaurant, a church) the haze outside stays outside.)
+    const indoor = !under && useUI.getState().mode === 'play' && where.zone?.kind === 'concourse';
+    fog.near += ((under ? 70 : indoor ? Math.max(60, atm.fogNear) : atm.fogNear) - fog.near) * k;
+    fog.far += ((under ? 520 : indoor ? Math.max(420, atm.fogFar) : atm.fogFar) - fog.far) * k;
 
     const near = nearestStation(camera.position.x, camera.position.z).world.frame;
     const light = lighting.current;

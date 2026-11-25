@@ -3,7 +3,7 @@
 
 import { player } from '../player/player';
 import { perfStats } from '../render/perf';
-import { stationWorld } from '../stations';
+import { DISTRICT_WORLDS, stationWorld } from '../stations';
 import { useUI } from '../ui/store';
 import { FILL_SPOTS } from '../stations/fill';
 import { crossingTest } from '../signs/departures';
@@ -17,7 +17,8 @@ export type View = { label: string; pos: V3; yaw: number; pitch: number };
 export function look(id: string, l: V3, yaw = 0, pitch = 0) {
   const w = stationWorld(id);
   const c = Math.cos(w.frame.yaw), sn = Math.sin(w.frame.yaw);
-  if (useUI.getState().mode !== 'play') useUI.getState().start(id);
+  // (A district is no station: start at the one it adjoins, then move.)
+  if (useUI.getState().mode !== 'play') useUI.getState().start(w.frame.kind === 'station' && !DISTRICT_WORLDS.includes(w) ? id : 'kawaminato-ko');
   const b = player.body;
   b.pos = [w.frame.x + l[0] * c + l[2] * sn, l[1] + 0.05, w.frame.z - l[0] * sn + l[2] * c];
   b.vy = 0;

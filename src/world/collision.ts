@@ -33,6 +33,8 @@ export interface Frame extends Pose {
   blockers: Blocker[];
   /** Bounding radius in the xz plane. */
   radius: number;
+  /** How far its blockers reach, where further than `radius`: its street's vehicles on a road carried on past its plot (traffic/street.ts). */
+  reach?: number;
   zones: Zone[];
   /** Car interior, local AABB: a player inside is carried with the frame. */
   inside?: { min: V3; max: V3 };
@@ -210,7 +212,8 @@ const l: V3 = [0, 0, 0], w: V3 = [0, 0, 0];
 
 const near = (f: Frame, p: V3) => {
   const dx = p[0] - f.x, dz = p[2] - f.z;
-  return dx * dx + dz * dz < (f.radius + 2) * (f.radius + 2);
+  const r = Math.max(f.radius, f.reach ?? 0) + 2;
+  return dx * dx + dz * dz < r * r;
 };
 
 /**

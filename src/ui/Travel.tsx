@@ -3,7 +3,7 @@
 // new view are prepared out of sight), then fade back in.
 
 import { useEffect, useState } from 'react';
-import { linesAt, stationById } from '../data/network';
+import { ALL_STATIONS, linesAt, stationById } from '../data/network';
 import { clearInput, teleport } from '../player/player';
 import { NumberBadge } from './MetroMap';
 import { useUI } from './store';
@@ -52,7 +52,8 @@ export function Travel() {
     };
   }, [travel]);
 
-  if (!shown) return null;
+  // (Only a station is travelled to: a district id here is a mistake upstream, not a crash.)
+  if (!shown || !ALL_STATIONS.some((s) => s.id === shown.id)) return null;
   const st = stationById(shown.id);
   const lines = linesAt(shown.id);
   return (

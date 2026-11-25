@@ -6,12 +6,15 @@ import type { StationDef } from '../data/types';
 import { RAIL_NET, clock, lineSim } from '../sim';
 import { builtRange, halfWidth } from '../world/structure';
 import { platformDoorOpen } from '../sim/timetable';
-import { inPlot, type Build, type V3 } from '../world/builder';
+import { inPlot, plotReach, type Build, type V3 } from '../world/builder';
 import { isWater } from '../data/geography';
 import { makeColliders, type Blocker, type Frame } from '../world/collision';
 import { buildStation } from './build';
 import { KAWAMINATO_SPAWN } from './kawaminato';
 import { higashiKawaminato, konyahama, miokami } from './rail';
+import { TOSEN_FRAME, TOSEN_NAMES, tosenMachi } from './tosen-street';
+import { KAMOME_FRAME, KAMOME_NAME, kamomeGaOka } from './kamome-street';
+import { HATOBA_FRAME, HATOBA_NAME, kitaHatoba } from './hatoba-street';
 import { SPECS } from './specs';
 
 export interface StationWorld {
@@ -114,6 +117,8 @@ function place(def: StationDef, build: Build, primary: string, x: number, z: num
     const [lx, , lz] = m.pos;
     // (Afloat, below the ground: a moored boat.)
     if (inPlot(build.plot, lx, lz) || m.pos[1] < -0.5) return true;
+    // (Placed on the water on purpose: Minatoura-bashi, the breakwater's lighthouse, the cranes across the harbour.)
+    if (m.kind === 'minato' || (m.kind === 'port' && m.id === 'crane')) return true;
     return !wet(lx, lz) && !wet(lx + Math.sin(m.yaw) * 10, lz + Math.cos(m.yaw) * 10);
   });
   const blockers: Blocker[] = build.gates.map((g) => {
@@ -126,7 +131,9 @@ function place(def: StationDef, build: Build, primary: string, x: number, z: num
   });
   const frame: Frame = {
     id: def.id, kind: 'station', x, y: 0, z, yaw, pitch: 0,
-    colliders: makeColliders(build), blockers, radius: Math.hypot(build.plot.x, Math.max(build.plot.z, build.plot.north ?? 0)) + 5, zones: build.zones,
+    colliders: makeColliders(build), blockers, radius: Math.hypot(build.plot.x, Math.max(build.plot.z, build.plot.north ?? 0)) + 5,
+    // (A plot's arms are solid and walked out to their ends: collision/near.)
+    reach: build.plot.arms || build.reach ? Math.max(build.plot.arms ? plotReach(build.plot) + 5 : 0, build.reach ?? 0) : undefined, zones: build.zones,
   };
   const sp = build.spawn.pos;
   return {
@@ -145,8 +152,22 @@ export const RAIL_WORLDS: StationWorld[] = ([['miokami', miokami], ['higashi-kaw
   const { geom } = RAIL_NET[0], s = geom.stopS[geom.def.stops.indexOf(id)], o = geom.path.pointAt(s);
   return place(stationById(id), build(), geom.def.id, o.x, o.z, geom.yawAt(s));
 });
+/**
+ * The north districts (2026-11-24): streets with no station, each a world of its own that mounts by distance
+ * like a station's. Their def is a stand-in (an id and names only): never a station, so never where.station,
+ * a teleport or a route's end (player.ts keeps them to zones).
+ */
+const districtDef = (id: string, ja: string, en: string, x: number, z: number): StationDef => ({
+  id, nameJa: ja, nameKana: '', nameRomaji: en, numbers: {}, position: { x, y: z }, diagram: { x: 0, y: 0 },
+  district: en, districtJa: ja, platforms: {}, blurb: '',
+});
+export const DISTRICT_WORLDS: StationWorld[] = [
+  place(districtDef('tosen-machi', TOSEN_NAMES.district.ja, TOSEN_NAMES.district.en, TOSEN_FRAME.x, TOSEN_FRAME.z), tosenMachi(), 'district', TOSEN_FRAME.x, TOSEN_FRAME.z, 0),
+  place(districtDef('kita-hatoba', HATOBA_NAME.ja, HATOBA_NAME.en, HATOBA_FRAME.x, HATOBA_FRAME.z), kitaHatoba(), 'district', HATOBA_FRAME.x, HATOBA_FRAME.z, 0),
+  place(districtDef('kamome-ga-oka', KAMOME_NAME.ja, KAMOME_NAME.en, KAMOME_FRAME.x, KAMOME_FRAME.z), kamomeGaOka(), 'district', KAMOME_FRAME.x, KAMOME_FRAME.z, 0),
+];
 /** Every world there is to stand in. */
-export const WORLDS: StationWorld[] = [...STATION_WORLDS, ...RAIL_WORLDS];
+export const WORLDS: StationWorld[] = [...STATION_WORLDS, ...RAIL_WORLDS, ...DISTRICT_WORLDS];
 /**
  * A railway station built inside another station's plot (Kawaminato in Kita-Ōdōri's): the world it
  * stands in, and a place on its platform in that world's frame (where a teleport there lands).

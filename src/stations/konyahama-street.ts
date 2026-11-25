@@ -34,6 +34,7 @@ import { rng, type Builder } from '../world/builder';
 import type { Anchor, AnchorPt, Anchors } from './anchors/types';
 import { KONYA } from './anchors/konya';
 import { PORT } from './anchors/port';
+import { MINATO } from './anchors/minato';
 import { SEA_Y } from '../data/geography';
 import { AIZOME_PLOT, FRONT, HAN, KONYA_LOT, RW } from './aizomecho-street';
 import { GROUND_Y as GY } from './kit';
@@ -56,6 +57,15 @@ const BLOCK_E = -200, ROW_A = -214, ROW_B = -212;
 const LANES = [-195, -150, -95, -60];
 const LANE_HALF = 1.5;
 const SENTO_Z = -134;
+/**
+ * Minatoura-bashi (2026-11-24): the road from Kawaminato-kō over the inlet and the beach, through the sea
+ * wall's flood gate onto Tsumugi-dōri. Its carriageway's half width and its pavements' outer edge (the deck's).
+ */
+const BR_RW = 7, BR_W = MINATO.bridge.d / 2;
+/** Kawaminato-kō's arm along its boulevard over the quay (minato-street.ts): its half width; and where the two worlds meet, mid-bridge. */
+const ARM_W = 19.5, SEAM = SHORE.far + 23;
+/** The dyers' steps over the sea wall, moved north of the bridge: their middle and half width. */
+const STEPS_Z = -19, STEPS_HW = 3.5;
 
 /** Run `fn` with `b` (in Kon'yahama's own frame) turned and moved into Aizomechō's street frame. */
 export function inAizome(b: Builder, fn: () => void) {
@@ -87,39 +97,45 @@ export function konyaStreet(b: Builder) {
 function port(b: Builder) {
   const r = rng(2611);
   const EDGE = SHORE.far, APRON = EDGE - 15, ROAD = APRON - 12, FRONT_X = ROAD - 2;
-  const Z0 = -486, Z1 = 50;
+  // (North of the bridge the quay is Shiomi's, redeveloped as a promenade: shiomi-street.ts, 2026-11-24. Only the south stretch is drawn here.)
+  const Z0 = ARM_W, Z1 = 50;
   const put = (id: string, face: Face, x: number, y: number, z: number, merge = false) =>
     b.with({ ...FRAME[face], t: [x, 0, z] }, () => {
       if (!merge) return b.model('port', id, 0, y, 0, 0);
       const d = b.dir([0, -1]);
       b.out.models.push({ kind: 'port', id, pos: b.pt(0, y, 0), yaw: Math.atan2(-d[0], -d[1]), seed: 0, merge: true });
     });
-  // The apron in concrete, rail lines for the cranes, the quay road with its centre line.
-  b.deco('flat:#b9b3a6', APRON, -0.05, Z0, EDGE - 0.6, 0.0, Z1);
-  for (const x of [EDGE - 1.5, EDGE - 10.5]) b.deco('flat:#55575a', x - 0.06, 0.0, Z0, x + 0.06, 0.02, Z1);
-  b.deco('asphalt', ROAD, -0.05, Z0, APRON, 0.0, Z1);
-  for (let z = Z0 + 2; z + 3 < Z1; z += 6) b.deco('flat:#e9e9e4', (ROAD + APRON) / 2 - 0.07, 0.0, z, (ROAD + APRON) / 2 + 0.07, 0.006, z + 3);
-  b.deco('flat:#a9a49a', FRONT_X, -0.05, Z0, ROAD, 0.1, Z1);
+  // The apron in concrete, rail lines for the cranes, the quay road with its centre line: north and south of
+  // Minatoura-bashi's road, whose crossing of them (|z| < ARM_W) Kawaminato-kō's world walks and draws (minato-street.ts).
+  const cut = (z0: number, z1: number) => z1 > -BR_W - 10 && z0 < BR_W + 10;
+  for (const [za, ze] of [[ARM_W, Z1]]) {
+    b.deco('flat:#b9b3a6', APRON, -0.05, za, EDGE - 0.6, 0.0, ze);
+    for (const x of [EDGE - 1.5, EDGE - 10.5]) b.deco('flat:#55575a', x - 0.06, 0.0, za, x + 0.06, 0.02, ze);
+    b.deco('asphalt', ROAD, -0.05, za, APRON, 0.0, ze);
+    for (let z = za + 2; z + 3 < ze; z += 6) b.deco('flat:#e9e9e4', (ROAD + APRON) / 2 - 0.07, 0.0, z, (ROAD + APRON) / 2 + 0.07, 0.006, z + 3);
+    b.deco('flat:#a9a49a', FRONT_X, -0.05, za, ROAD, 0.1, ze);
+  }
   // The row: the harbour office at the north end, then warehouses and sheds with lanes between.
   const row = ['soko_a', 'shed_a', 'soko_b', 'soko_c', 'shed_b', 'soko_a', 'soko_b', 'shed_a', 'soko_c', 'shed_b', 'soko_a'];
   let z = Z0 + 2;
-  put('office', 'e', FRONT_X, 0, z + PORT.office.w / 2);
-  z += PORT.office.w + 8;
   for (let k = 0; z < Z1 - 20; k++) {
     const id = row[k % row.length], w = PORT[id].w;
     if (z + w > Z1) break;
+    if (cut(z, z + w)) {
+      z = BR_W + 10;
+      continue;
+    }
     put(id, 'e', FRONT_X, 0, z + w / 2);
     z += w + 6 + Math.round(r() * 4);
   }
   // On the apron: the cranes (legs astride their rails), lamps along its back, bollards along the edge.
-  for (const zc of [-330, -150]) put('crane', 'e', EDGE - 9.5, 0, zc);
-  for (let zz = Z0 + 10; zz < Z1; zz += 30) put('quaylamp', 'e', APRON + 0.5, 0, zz, true);
-  for (let zz = Z0 + 6; zz < Z1; zz += 15) put('bollard', 'e', EDGE + 0.4, 0, zz, true);
+  for (let zz = Z0 + 10; zz < Z1; zz += 30) if (Math.abs(zz) > BR_W + 1) put('quaylamp', 'e', APRON + 0.5, 0, zz, true);
+  for (let zz = Z0 + 6; zz < Z1; zz += 15) if (Math.abs(zz) > BR_W + 1) put('bollard', 'e', EDGE + 0.4, 0, zz, true);
   // Moored along the edge, afloat at the sea's level (data/geography.ts SEA_Y), and lorries parked at the road's side.
-  for (const [id, zz] of [['boat_a', -400], ['barge', -250], ['boat_b', -205], ['boat_a', -60], ['barge', 10]] as const) {
+  for (const [id, zz] of [['barge', 36]] as const) {
     put(id, 'e', EDGE + (id === 'barge' ? 3.9 : 2.3), SEA_Y, zz);
   }
-  for (const zz of [-440, -372, -290, -170, -96, -20]) put(r() < 0.5 ? 'lorry_a' : 'lorry_b', 'e', ROAD + 1.6, 0, zz + r() * 10);
+  for (const zz of [30]) put(r() < 0.5 ? 'lorry_a' : 'lorry_b', 'e', ROAD + 1.6, 0, zz + r() * 10);
 }
 
 function shore(b: Builder) {
@@ -166,7 +182,12 @@ function shore(b: Builder) {
   b.slab('asphalt', kerbE, -RW, BLOCK_E, RW, -0.6, 0, []);
   b.slab('asphalt', kerbE, HAN.z - HAN.half, BLOCK_E, HAN.z + HAN.half, -0.6, 0, [], false);
   ground('paver', kerbE, blockW, -0.6, GY, mouths);
-  ground('paver', wallE, kerbW, -0.6, GY);
+  ground('paver', wallE, kerbW, -0.6, GY, [[wallE - 0.1, -BR_RW, kerbW + 0.1, BR_RW]]);
+  // Minatoura-bashi's causeway over the beach, from the walked edge to Hama-dōri through the flood gate.
+  b.slab('asphalt', SHORE.beach, -BR_RW, kerbW, BR_RW, -0.6, 0, []);
+  for (const s of [-1, 1]) b.slab('paver', SHORE.beach, Math.min(s * BR_RW, s * BR_W), wallE, Math.max(s * BR_RW, s * BR_W), -0.6, GY, []);
+  b.deco('asphalt', SHORE.water, -0.6, -BR_RW, SHORE.beach, 0, BR_RW);
+  for (const s of [-1, 1]) b.deco('paver', SHORE.water, -0.6, Math.min(s * BR_RW, s * BR_W), SHORE.beach, GY, Math.max(s * BR_RW, s * BR_W));
   b.slab('paver', blockW, -FRONT, BLOCK_E, -RW, -0.6, GY, []);
   b.slab('paver', blockW, RW, BLOCK_E, FRONT, -0.6, GY, []);
   b.slab('paver', blockW, HAN.z - HAN.half - HAN.pave, BLOCK_E, HAN.z - HAN.half, -0.6, GY, [], false);
@@ -188,15 +209,34 @@ function shore(b: Builder) {
     b.block(LINE - tracks - 0.6, -0.6, -RW - 2.5, LINE + tracks + 0.6, Math.max(0.02, ry - 0.03), RW + 2.5);
   }
   // The sea wall, the beach and the water.
-  b.block(wallW, -0.6, WALK_N, wallE, GY + 2.3, -3.5);
-  b.block(wallW, -0.6, 3.5, wallE, GY + 2.3, WALK_S);
-  b.slab(SAND, SHORE.beach, WALK_N, wallW, WALK_S, -0.6, 0.0, []);
+  b.block(wallW, -0.6, WALK_N, wallE, GY + 2.3, STEPS_Z - STEPS_HW);
+  b.block(wallW, -0.6, STEPS_Z + STEPS_HW, wallE, GY + 2.3, -BR_W);
+  b.block(wallW, -0.6, BR_W, wallE, GY + 2.3, WALK_S);
+  b.slab(SAND, SHORE.beach, WALK_N, wallW, WALK_S, -0.6, 0.0, [[SHORE.beach - 0.1, -BR_W, wallW + 0.1, BR_W]]);
   b.slab(SAND, SHORE.water + 4, SHORE.z0, wallW, WALK_N, -0.6, 0.0, [], false);
   b.slab(SAND, SHORE.water + 4, WALK_S, wallW, SHORE.z1, -0.6, 0.0, [], false);
-  b.deco(SAND, SHORE.water + 4, -0.6, WALK_N, SHORE.beach, 0.0, WALK_S);
+  for (const [za, ze] of [[WALK_N, -BR_W], [BR_W, WALK_S]]) b.deco(SAND, SHORE.water + 4, -0.6, za, SHORE.beach, 0.0, ze);
   b.deco(WET, SHORE.water, -1.5, SHORE.z0, SHORE.water + 4, -0.01, SHORE.z1); // down into the sea (SEA_Y)
   // (The inlet beyond, its far quay and the sea are the backdrop's: render/water.ts, data/geography.ts.)
-  b.zone('street', SHORE.beach + 0.3, -0.3, WALK_N + 1, wallW - 0.2, 6, WALK_S - 1, '紺屋浜', 'Kon’yahama beach', true);
+  b.zone('street', SHORE.beach + 0.3, -0.3, WALK_N + 1, wallW - 0.2, 6, -BR_W - 1.2, '紺屋浜', 'Kon’yahama beach', true);
+  b.zone('street', SHORE.beach + 0.3, -0.3, -BR_W + 0.3, wallE - 0.2, 6, BR_W - 0.3, '湊浦橋（紺屋浜側）', 'Minatoura-bashi — the causeway over the beach', true);
+  // Rails along the causeway's sides: the beach drops away below them (the pocket south of it is not walked).
+  for (const s of [-1, 1]) {
+    const z = s * (BR_W - 0.05);
+    b.block(SHORE.beach, GY, z - 0.05, wallW, GY + 1.1, z + 0.05);
+    for (let x = SHORE.beach; x + MINATO.quayrail.w <= wallW + 0.01; x += MINATO.quayrail.w)
+      b.out.models.push({ kind: 'minato', id: 'quayrail', pos: b.pt(x + MINATO.quayrail.w / 2, GY, z), yaw: 0, seed: 0, merge: true });
+  }
+  // The bridge itself, over the inlet to the far quay (build_minato.py: its deck at the street's level).
+  b.with({ t: [(SHORE.far + SHORE.water) / 2 - 0.5, 0, 0] }, () => b.model('minato', 'bridge', 0, 0, 0, 0));
+  // Its east half walked from here (the west half from Kawaminato-kō's arm): invisible floors on its deck, its rails.
+  b.block(SEAM - 1, -0.4, -BR_RW, SHORE.beach, 0, BR_RW);
+  for (const s of [-1, 1]) {
+    const z0 = Math.min(s * BR_RW, s * BR_W), z1 = Math.max(s * BR_RW, s * BR_W);
+    b.block(SEAM - 1, -0.4, z0, SHORE.beach, GY, z1);
+    b.block(SEAM - 1, GY, s * (BR_W - 0.05) - 0.05, SHORE.beach, GY + 1.1, s * (BR_W - 0.05) + 0.05);
+  }
+  b.zone('street', SEAM - 1, -0.5, -BR_W, SHORE.beach + 0.3, 6, BR_W, '湊浦橋', 'Minatoura-bashi');
   b.zone('street', wallE + 0.2, -0.3, WALK_N + 1, kerbW - 0.2, 6, -RW - 4, '浜通 遊歩道', 'Hama-dōri — the sea wall promenade', true);
 
   // The edge of what is walked: north across the shore and the line's fence, south along Tsumugi-dōri's
@@ -204,7 +244,8 @@ function shore(b: Builder) {
   // ground past the crossing (the lane on its east side ends at the station house).
   b.block(SHORE.beach - 0.3, -1, WALK_N - 0.3, FW, 60, WALK_N);
   b.block(SHORE.beach - 0.3, -1, WALK_S, -X, 60, WALK_S + 0.3);
-  b.block(SHORE.beach - 0.3, -1, WALK_N, SHORE.beach, 60, WALK_S);
+  b.block(SHORE.beach - 0.3, -1, WALK_N, SHORE.beach, 60, -BR_W);
+  b.block(SHORE.beach - 0.3, -1, BR_W, SHORE.beach, 60, WALK_S);
   b.block(FW - 0.3, -1, WALK_N, FW, 60, -220);
   b.block(FW - 0.3, -1, -52, FW, 60, -FRONT - 0.3);
   b.block(FW - 0.3, -1, -FRONT - 0.3, -175.9, 60, -FRONT); // (east of it, the station's forecourt: rail.ts konyaHouse)
@@ -227,7 +268,7 @@ function shore(b: Builder) {
     for (const s of [-1, 1]) b.deco('flat:#b9b3a6', kerbE, 0, s * RW - 0.15, BLOCK_E, GY + 0.01, s * RW + 0.15);
     for (const x of [kerbE + 6, kerbE + 21]) for (const s of [-1, 1]) modelTree(b, 'zelkova', x, s * (RW + 1.5), 'b', GY, false);
     for (const s of [-1, 1]) roadModel(b, 'lamp_led', kerbE + 14, GY, s * (RW + 0.8), [0, -s]);
-    tee(b, 0, RW, { ja: '紺屋浜', en: 'Kon’yahama' }, true);
+    tee(b, 0, RW, { ja: '紺屋浜', en: 'Kon’yahama' }, true, BR_RW);
     tee(b, HAN.z, HAN.half, { ja: '縹浜', en: 'Hanada-hama' }, false);
     // Hanada-dōri's short stretch (seen only).
     for (const s of [-1, 1]) b.deco('flat:#b9b3a6', kerbE, 0, HAN.z + s * HAN.half - 0.15, BLOCK_E, GY + 0.01, HAN.z + s * HAN.half + 0.15);
@@ -259,10 +300,21 @@ function shore(b: Builder) {
 
   // ═════════════════════════ The sea wall and the steps over it ═════════════════════════
   {
-    for (let z = -3.5; z - 6 >= SHORE.z0; z -= 6) merged(['seawall_a', 'seawall_b', 'seawall_c'][Math.abs(Math.round(z / 6)) % 3], 'e', wallE, z - 3);
-    for (let z = 3.5; z + 6 <= SHORE.z1; z += 6) merged(['seawall_a', 'seawall_b', 'seawall_c'][Math.abs(Math.round(z / 6)) % 3], 'e', wallE, z + 3);
+    const wall = (z: number) => merged(['seawall_a', 'seawall_b', 'seawall_c'][Math.abs(Math.round(z / 6)) % 3], 'e', wallE, z);
+    // North of the flood gate to the steps (one bay), north of the steps on; south of the gate on.
+    for (let z = -BR_W; z - 6 >= STEPS_Z + STEPS_HW - 0.01; z -= 6) wall(z - 3);
+    for (let z = STEPS_Z - STEPS_HW; z - 6 >= SHORE.z0; z -= 6) wall(z - 3);
+    for (let z = BR_W; z + 6 <= SHORE.z1; z += 6) wall(z + 3);
+    // The flood gate (陸閘), its leaf rolled back south along the wall on the promenade side.
+    at('e', (wallE + wallW) / 2, 0, () => {
+      b.model('minato', 'rikko', 0, GY, 0, 0);
+      const R = MINATO.rikko, hw = R.w / 2;
+      for (const s of [-1, 1]) b.block(s * (hw + 0.6) - 0.6, GY, -0.6, s * (hw + 0.6) + 0.6, GY + 3.4, 0.6);
+      b.block(hw + 1.2, GY, -1.5, hw + 1.2 + R.w, GY + 2.45, -1.2);
+      if (R.pts.name) signAt(R.pts.name, { k: 'label', text: '紺屋浜陸閘', sub: 'Kon’yahama flood gate · keep clear', fg: '#1f2023', bg: '#e9e2d2' });
+    });
     // The steps: a flight up from the promenade, a landing on the wall, a flight down to the beach.
-    piece('seasteps', 'e', wallE, 0, (a) => {
+    piece('seasteps', 'e', wallE, STEPS_Z, (a) => {
       const hw = a.w / 2, sw = hw - 1, run = 14 * 0.3, top = GY + 2.3, P = a.pts;
       for (const s of [-1, 1]) b.block(Math.min(s * sw, s * hw), -0.6, 0, Math.max(s * sw, s * hw), GY + 3.1, a.d);
       b.ramp(-sw, 0, sw, run, GY, top, [0, 1]);
@@ -273,7 +325,7 @@ function shore(b: Builder) {
       b.zone('street', -sw + 0.2, GY - 0.2, 0.2, sw - 0.2, top + 3, a.d - 0.2, '紺屋浜 洗い場跡の石段', 'The dyers’ steps over the sea wall', true);
     }, false);
     // The drying frame on the beach, north of the steps; a few boats drawn up.
-    piece('dryframe', 'e', wallW - 6, -9, () => {
+    piece('dryframe', 'e', wallW - 6, STEPS_Z - 10, () => {
       b.block(-3.1, 0, 0.3, 3.1, 6.2, 1.0);
     }, false);
   }
@@ -346,8 +398,11 @@ function shore(b: Builder) {
   }, false);
 }
 
-/** A signalled T junction where an east–west street meets Hama-dōri from the east, at z `cz`. */
-function tee(b: Builder, cz: number, hz: number, name: Named, walked: boolean) {
+/**
+ * A signalled T junction where an east–west street meets Hama-dōri from the east, at z `cz`; with `west`
+ * (the half width of a road going on west: Minatoura-bashi) a crossroads.
+ */
+function tee(b: Builder, cz: number, hz: number, name: Named, walked: boolean, west?: number) {
   const cx = SHORE.c, hx = SHORE.half, flat = true;
   // Across Hama-dōri, north and south of the junction; across the street, east of it.
   for (const sz of [-1, 1] as const) {
@@ -369,6 +424,16 @@ function tee(b: Builder, cz: number, hz: number, name: Named, walked: boolean) {
     const zs = cz - sz * (hz + SL);
     b.deco(WHITE, Math.min(cx, cx + sz * (hx - 0.2)), 0.004, Math.min(zs, zs - sz * 0.35), Math.max(cx, cx + sz * (hx - 0.2)), 0.01, Math.max(zs, zs - sz * 0.35));
     shortSignal(b, cx + sz * (hx + 1.5), cz + sz * (hz + 1.9), [0, sz], 1, name);
+  }
+  if (west !== undefined) {
+    // The west leg: a crosswalk on the promenade, eastbound traffic's stop line and its signal across the junction.
+    const xw = cx - hx - 1.75;
+    crosswalk(b, xw, cz, 2 * west - 0.4, 2.6, true);
+    pedSignal(b, xw - 1.0, cz - west - 0.6, [0, 1], 1, { flat });
+    pedSignal(b, xw - 1.0, cz + west + 0.6, [0, -1], 1, { flat });
+    const xe = cx - hx - SL;
+    b.deco(WHITE, xe - 0.35, 0.004, cz - west + 0.2, xe, 0.01, cz);
+    vehicleSignal(b, cx + hx + 1.9, cz - hz - 1.5, [1, 0], hz + 1.5 - hz / 2, 0, name, { style: 'new', back: false });
   }
   if (walked) {
     roadModel(b, 'sigbox', cx + hx + 2.6, GY, cz - hz - 3.4, [0, 1]);

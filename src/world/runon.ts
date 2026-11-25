@@ -7,7 +7,7 @@
 
 import { inPlot, plotNorth } from './builder';
 import { WORLD_NET } from '../sim';
-import { STATION_WORLDS, type StationWorld } from '../stations';
+import { DISTRICT_WORLDS, STATION_WORLDS, type StationWorld } from '../stations';
 import type { LanePart } from './builder';
 import { toWorld } from './collision';
 import { crossingsOf, sampleChainages, structureAt } from './structure';
@@ -38,7 +38,8 @@ function free(w: StationWorld, x: number, z: number, ux: number, uz: number): bo
   const p: [number, number, number] = [0, 0, 0];
   for (let d = 8; d <= RUN_ON + 16; d += 8) {
     toWorld(w.frame, [x + ux * d, 0, z + uz * d], p);
-    for (const o of STATION_WORLDS) {
+    // (A district's streets are its own: no road runs on into one.)
+    for (const o of [...STATION_WORLDS, ...DISTRICT_WORLDS]) {
       if (o === w) continue;
       const dx = p[0] - o.frame.x, dz = p[2] - o.frame.z;
       if (Math.abs(dx) > 600 || Math.abs(dz) > 600) continue;

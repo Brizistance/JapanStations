@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import type { Build, GatePart } from '../world/builder';
-import { boxesToGeometry, groupBy, meshesToGeometry, skyAt, type EnvMode } from './geometry';
+import { boxesToGeometry, groupBy, meshesToGeometry, polysToGeometry, skyAt, type EnvMode } from './geometry';
 import { dropLod, isLo, lodModels, mergedModels } from './building-models';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
@@ -79,6 +79,13 @@ function makeStatic(build: Build, mode: EnvMode): THREE.Group {
     for (const [mat, list] of groupBy(separateCoplanar(boxes))) add(boxesToGeometry(list, mode), mat, layer);
     const meshes = build.meshes.filter((p) => (station ? layerOf(p.pos[1] - p.size[1] / 2, p.pos[1] + p.size[1] / 2, p.open) : 'both') === layer);
     for (const [mat, parts] of groupBy(meshes)) add(meshesToGeometry(parts, mode), mat, layer);
+  }
+  // Polygons laid at an angle (roads, paint, a plaza): all at the street.
+  const polys = build.polys ?? [];
+  if (polys.length) {
+    const by = new Map<string, typeof polys>();
+    for (const p of polys) (by.get(p.mat) ?? by.set(p.mat, []).get(p.mat)!).push(p);
+    for (const [mat, list] of by) add(polysToGeometry(list, mode), mat, station ? layerOf(Math.min(...list.map((p) => p.y0)), 1) : 'both');
   }
   // Blender-built models, merged: one mesh per material for the full models (they cast shadows),
   // one for the simplified copies (too far back for contact shading or their shadows to show).

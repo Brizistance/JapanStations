@@ -110,6 +110,15 @@ export const MACHI_NAMES: { ja: string; en: string }[] = [
   { ja: 'お好み焼 ひろ', en: 'Okonomiyaki Hiro' }, { ja: '喫茶 灯台', en: 'Kissa Tōdai' }, { ja: '電器 カワデン', en: 'Kawaden Electric' },
   { ja: '美容室 ルナ', en: 'Salon Luna' }, { ja: '鍼灸 やすらぎ', en: 'Yasuragi Acupuncture' }, { ja: '定食 いちょう', en: 'Teishoku Ichō' },
 ];
+/** Tōsen-machi's Chinatown (build_tosen.py): names for its blade boards, words for its tall ones. */
+export const TOSEN_NAMES: { ja: string; en: string }[] = [
+  { ja: '中華料理 海龍', en: 'Kairyū Chinese Cuisine' }, { ja: '点心 福満楼', en: 'Fukumanrō Dim Sum' }, { ja: '豚まん 老福記', en: 'Rōfukuki Pork Buns' },
+  { ja: '中国茶 青竹堂', en: 'Seichikudō Chinese Tea' }, { ja: '上海小籠包 華月', en: 'Kagetsu Xiaolongbao' }, { ja: '北京ダック 金鳳', en: 'Kinpō Peking Duck' },
+  { ja: '漢方 寿康堂', en: 'Jukōdō Herbal Medicine' }, { ja: '中華菓子 月餅屋', en: 'Geppeiya Mooncakes' }, { ja: '刀削麺 長江', en: 'Chōkō Knife-cut Noodles' },
+  { ja: '中華雑貨 唐船屋', en: 'Tōsenya Chinese Goods' }, { ja: '四川料理 紅辣', en: 'Kōratsu Sichuan' }, { ja: '粥 白雲', en: 'Hakuun Congee' },
+  { ja: '食材 泰和行', en: 'Taiwakō Grocers' }, { ja: '占い 天命館', en: 'Tenmeikan Fortunes' }, { ja: '飲茶 翠園', en: 'Suien Yum Cha' },
+];
+export const TOSEN_WORDS = ['点心', '飲茶', '小籠包', '中華料理', '北京ダック', '中国茶', '漢方', '豚まん', '刀削麺', '月餅', '粥', '占い'];
 export const MACHI_WORDS = ['理容', '薬', '酒', 'たばこ', '不動産', '喫茶', 'お好み焼', 'クリーニング', '鍼灸', '定食', '美容室', '質'];
 export const BOUTIQUE_WORDS = ['カフェ', '雑貨', '古着', '家具', '花', '紅茶', '器', 'パン'];
 export const YOKOCHO_WORDS = ['焼鳥', 'スナック', 'おでん', 'バー', '串焼', '立呑み', '酒場', '餃子', 'ホルモン', 'もつ焼', '小料理', 'カラオケ'];

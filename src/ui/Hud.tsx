@@ -3,6 +3,7 @@
 // Everything shown is read from the network data, the timetable and the built stations.
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { CityMap, useMapTab } from './CityMap';
 import { RAIL_STATIONS, destinationOf, isUnbuilt, lineById, linesAt, platformFor, stationById, terminusOf } from '../data/network';
 import type { Dir, LineDef } from '../data/types';
 import { player, where } from '../player/player';
@@ -62,7 +63,10 @@ function Clock() {
 /** The station name sign: numbers, name, and on a platform the stations either side, as on a platform name board. */
 function StationSign() {
   const st = where.station, zone = where.zone;
-  if (!st) return <div className="hud-sign hud-name"><div className="hud-name-main"><div className="hud-name-text"><Two ja="駅間" en="Between stations" /></div></div></div>;
+  if (!st) {
+    const d = where.district;
+    return <div className="hud-sign hud-name"><div className="hud-name-main"><div className="hud-name-text">{d ? <Two ja={d.ja} en={d.en} /> : <Two ja="駅間" en="Between stations" />}</div></div></div>;
+  }
   const lines = linesAt(st.def.id), line = platformLine();
   const i = line ? line.stops.indexOf(st.def.id) : -1;
   const prev = line && i > 0 ? stationById(line.stops[i - 1]) : null;
@@ -251,6 +255,9 @@ export function Hud() {
     if (mapOpen) setSelected(where.station?.def.id ?? player.lastStation);
   }, [mapOpen]);
   const clear = !mapOpen && !settingsOpen && !paused && !pickerOpen;
+  const tab = useMapTab((t) => t.tab), setTab = useMapTab((t) => t.set);
+  // (Choosing a destination shows its route: on the route map.)
+  const city = tab === 'city' && !mapPick && !preview;
   return (
     <div className="hud">
       {!hudHidden && (
@@ -297,10 +304,17 @@ export function Hud() {
           <div className="map-wrap sheet" onClick={(e) => e.stopPropagation()}>
             <div className="map-card">
               <div className="card-title">
-                {mapPick ? <Bi ja="行き先をえらぶ" en="Choose a destination · click a station or search, check the route, then confirm" /> : <Bi ja="路線図" en="Route map · select a station to travel there" />}
-                <button className="btn small" onClick={() => setMap(false)}><Bi ja="とじる" en="Close (M)" /></button>
+                {mapPick ? <Bi ja="行き先をえらぶ" en="Choose a destination · click a station or search, check the route, then confirm" /> : (
+                  <span className="map-tabs">
+                    <button className={`btn small${city ? ' on' : ''}`} onClick={() => setTab('city')}><Bi ja="都市" en="City" /></button>
+                    <button className={`btn small${city ? '' : ' on'}`} onClick={() => setTab('route')}><Bi ja="路線図" en="Route map" /></button>
+                  </span>
+                )}
+                <button className="btn small" onClick={() => setMap(false)}><Bi ja="とじる" en="Close (M · Esc)" /></button>
               </div>
-              <MetroMap selected={selected} onSelect={(id) => (mapPick && !isUnbuilt(id) && id !== hereId() ? setPreview(id) : setSelected(id))} here={where.station?.def.id ?? null} />
+              {city
+                ? <CityMap selected={selected} onSelect={setSelected} />
+                : <MetroMap selected={selected} onSelect={(id) => (mapPick && !isUnbuilt(id) && id !== hereId() ? setPreview(id) : setSelected(id))} here={where.station?.def.id ?? null} />}
             </div>
             <StationPanel id={selected} onGo={goTo} onGuide={guide} onPreview={setPreview} confirm={!!preview} />
           </div>
