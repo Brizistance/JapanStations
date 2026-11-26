@@ -385,8 +385,11 @@ describe('street lanes', () => {
         // A lane and one going the other way on the same road: this one lies to the left of the other.
         const dx = l.to[0] - l.from[0], dz = l.to[2] - l.from[2], n = Math.hypot(dx, dz);
         // (Going the other way on the same road: near enough opposite, not a street crossing it at a slant.)
+        // (…and alongside it somewhere: their stretches along the road overlap, not two streets end to end.)
+        const along = (p: number[]) => (p[0] * dx + p[2] * dz) / n;
         const opp = w.build.lanes.find((o) => o.use !== 'minor' && (o.to[0] - o.from[0]) * dx + (o.to[2] - o.from[2]) * dz < -0.95 * n * Math.hypot(o.to[0] - o.from[0], o.to[2] - o.from[2])
-          && Math.abs((o.from[0] - l.from[0]) * dz - (o.from[2] - l.from[2]) * dx) / n < 30);
+          && Math.abs((o.from[0] - l.from[0]) * dz - (o.from[2] - l.from[2]) * dx) / n < 30
+          && Math.min(along(o.from), along(o.to)) < along(l.to) - 1 && Math.max(along(o.from), along(o.to)) > along(l.from) + 1);
         if (!opp) continue;
         // Left of the direction (dx, dz), seen from above with x east and z south, is (dz, −dx).
         const side = ((l.from[0] - opp.to[0]) * dz - (l.from[2] - opp.to[2]) * dx) / n;

@@ -105,6 +105,11 @@ const armAt = (a: number, t: number) => smooth((t - a - ARM_DELAY) / ARM_DOWN);
  */
 export function crossingState(lineId: string, stationId: string, now: number): { on: boolean; arm: number; down: boolean; up: boolean } {
   if (crossingTest.force !== null) return { on: crossingTest.force, arm: crossingTest.force ? 1 : 0, down: crossingTest.force, up: false };
+  // A bascule bridge's barriers (line 'bascule', the bridge's key) follow its opening, not a train.
+  if (lineId === BASCULE_LINE) {
+    const s = basculeState(now);
+    return { on: s.on, arm: s.arm, down: false, up: false };
+  }
   const line = LINES.find((l) => l.id === lineId) ?? RAIL_LINES.find((l) => l.id === lineId);
   const xing = line?.crossings?.find((c) => (c.key ?? c.station) === stationId);
   if (line && xing) {
@@ -123,6 +128,25 @@ export function crossingState(lineId: string, stationId: string, now: number): {
   }
   const on = crossingAtStation(lineId, stationId, now);
   return { on, arm: on ? 1 : 0, down: false, up: false };
+}
+
+// ── Bascule bridges (潮見大橋, shiomi-street.ts): the same bell, lamps and barrier arms as a level crossing ──
+
+/** The `line` a bascule bridge's barriers, lamps and traffic gates name (their `key` is the bridge's). */
+export const BASCULE_LINE = 'bascule';
+/**
+ * One opening every BASCULE_EVERY s of sim time, from BASCULE_AT s into the cycle: the bell and lamps from 0 s,
+ * the barriers down by 14 s, the leaves rising from 20 s to 45 s, open while a boat passes, down again by 120 s,
+ * the barriers up and the bell stopped by 130 s.
+ */
+export const BASCULE_EVERY = 1200, BASCULE_AT = 300;
+export function basculeState(now: number): { on: boolean; arm: number; leaf: number } {
+  if (crossingTest.force !== null) return { on: crossingTest.force, arm: crossingTest.force ? 1 : 0, leaf: crossingTest.force ? 1 : 0 };
+  const p = (((now - BASCULE_AT) % BASCULE_EVERY) + BASCULE_EVERY) % BASCULE_EVERY;
+  if (p > 130) return { on: false, arm: 0, leaf: 0 };
+  const arm = p < 120 ? smooth((p - 6) / 8) : smooth(1 - (p - 120) / 6);
+  const leaf = p < 70 ? smooth((p - 20) / 25) : smooth(1 - (p - 95) / 25);
+  return { on: true, arm, leaf };
 }
 
 function crossingAtStation(lineId: string, stationId: string, now: number): boolean {

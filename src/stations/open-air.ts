@@ -21,10 +21,12 @@ import type { ElevatedSpec } from './specs';
 import { OPEN_AIR } from './exits';
 import { car, tree, PLOT_X, PLOT_Z } from './surface';
 import { wayfindElevated } from './wayfinding';
+import { buildShiomi } from './shiomi';
 
 export function buildOpenAir(c: Ctx, spec: ElevatedSpec) {
   if (spec.layout === 'cutting') c.b.open(() => buildCutting(c, spec));
   else if (spec.layout === 'seaside') buildSeaside(c, spec);
+  else if (spec.layout === 'headhouse') buildShiomi(c, spec);
   else buildTerminus(c, spec);
 }
 

@@ -16,7 +16,7 @@ import { streets } from '../traffic/street';
 import type { StationWorld } from '../stations';
 import { toWorld } from '../world/collision';
 import { RAIL_LINES } from '../data/network';
-import { crossingActive } from '../signs/departures';
+import { BASCULE_LINE, crossingActive } from '../signs/departures';
 import { audioLive, loopAt, playAt, type PosLoopHandle } from './engine';
 
 const VOICES = 3, REACH = 70;
@@ -38,6 +38,30 @@ class Source {
 /** Every level crossing, where its bells hang (on the masts, over the road's centre line here). */
 const XINGS = RAIL_LINES.flatMap((l) => (l.crossings ?? []).map((c) => ({ line: l.id, station: c.key ?? c.station, at: [c.at[0], 2.6, c.at[1]] as V3 })));
 const bells = XINGS.map(() => new Source(28));
+/** A bascule bridge's bells (the level-crossing bell, at each barrier), found from its warning lamps (Build.xingLamps). */
+const bascule = new WeakMap<StationWorld, { at: V3; key: string; src: Source }[]>();
+function basculeBells(w: StationWorld) {
+  let list = bascule.get(w);
+  if (!list) {
+    const byGate = new Map<string, { at: V3; key: string }>();
+    for (const l of w.build.xingLamps ?? []) {
+      if (l.line !== BASCULE_LINE) continue;
+      const k = `${l.key}:${Math.round(l.pos[2] / 10)}`;
+      if (!byGate.has(k)) {
+        const at: V3 = [0, 0, 0];
+        toWorld(w.frame, l.pos, at);
+        byGate.set(k, { at, key: l.key });
+      }
+    }
+    list = [...byGate.values()].map((g) => {
+      const src = new Source(28);
+      src.at = g.at;
+      return { ...g, src };
+    });
+    bascule.set(w, list);
+  }
+  return list;
+}
 
 const voices = Array.from({ length: VOICES }, () => ({ src: new Source(), on: null as Passing | null }));
 const idle = new Source(), wetRoad = new Source(), calls = [new Source(), new Source()];
@@ -143,6 +167,19 @@ export function tickTrafficAudio(cam: { x: number; y: number; z: number }, under
     else {
       bells[i].at = x.at;
       bells[i].play('xing-bell', 1, 2.0);
+    }
+  }
+
+  const seen = new Set<StationWorld>();
+  for (const s of streets) {
+    if (seen.has(s.world)) continue;
+    seen.add(s.world);
+    for (const g of basculeBells(s.world)) {
+      const d = Math.hypot(g.at[0] - cam.x, g.at[1] - cam.y, g.at[2] - cam.z);
+      if (under || d > 260 || !crossingActive(BASCULE_LINE, g.key, time)) g.src.play(null);
+      else {
+        g.src.play('xing-bell', 1, 2.0);
+      }
     }
   }
 

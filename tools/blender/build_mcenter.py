@@ -27,6 +27,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kitakit import *  # noqa: E402,F401,F403
 from build_road import tube  # noqa: E402
+from detailkit import *  # noqa: E402,F401,F403
 
 GLASS_T = 'flat:#41667f'     # the tower's blue glass
 WHITE_S = 'flat:#eef0ee'     # white steel and panels
@@ -297,13 +298,66 @@ BHW, BHD, BHH = 16.0, 22.0, 41.0
 
 
 def bhotel(p):
-    grid(p, -BHW / 2, BHW / 2, 0.0, BHD, 4.6, BHH, 'flat:#e7e3da', fh=3.0, bay=2.6, ww=1.6, wh=1.5, sill=0.9)
-    p.box('flat:#e7e3da', -BHW / 2, 0, 0.0, BHW / 2, 4.6, BHD)
-    p.box(GLASS_T, -BHW / 2 + 0.8, 0.2, -0.05, BHW / 2 - 0.8, 4.2, 0.0)
-    p.box(DARK, -1.2, 0, -0.08, 1.2, 2.6, -0.04)
-    p.box('flat:#2a3a52', -BHW / 2, BHH, 0.0, BHW / 2, BHH + 1.2, BHD)
+    """Tiled body with a navy stripe up the sign corner; every room a framed window with sheer curtains and the
+    louvred vent of its air conditioner beside it; floor bands; a stone-and-glass lobby under a lit canopy; the
+    escape stair and service doors behind; roof plant, a tank and the sign frame on top."""
+    r = random.Random(77)
+    WALL, BAND, NAVY_H, STONE_H = 'flat:#e7e3da', 'flat:#cfc8b8', 'flat:#2a3a52', 'flat:#8e8b84'
+    G, FH, NF = 4.6, 3.0, 12
+    x0, x1 = -BHW / 2, BHW / 2
+    p.box(WALL, x0, G, 0.0, x1, BHH, BHD)
+    # The navy stripe up the corner the blade sign hangs from, and a band of it at the top.
+    p.box(NAVY_H, x1 - 1.4, G, -0.12, x1 + 0.12, BHH, 1.4)
+    p.box(NAVY_H, x0 - 0.1, BHH - 1.6, -0.12, x1 + 0.12, BHH, BHD + 0.1)
+    for k in range(NF):
+        y = G + k * FH
+        p.box(BAND, x0, y - 0.12, -0.08, x1 - 1.4, y + 0.12, 0.0)
+        if y + FH > BHH - 1.6:
+            continue
+        for c in rows(x0 + 0.6, x1 - 1.8, 2.75):
+            fwin(p, r, 'f', c - 0.75, c + 0.55, y + 0.75, y + 2.35, 0.0, ALU_DK, GLASS_L, mull=False, curtain=True)
+            # the room's AC vent: a louvred panel flush beside the window
+            wb(p, 'flat:#d6d2c6', 'f', c + 0.7, c + 1.15, y + 0.9, y + 2.2, 0.0, 0.0, 0.05)
+            for j in range(6):
+                wb(p, 'flat:#b9b4a6', 'f', c + 0.72, c + 1.13, y + 1.0 + j * 0.2, y + 1.06 + j * 0.2, 0.0, 0.05, 0.08)
+    # Sides: rooms down the long walls, the vents, pipes; the back: the escape stair and service doors.
+    for face, at in (('l', x0), ('r', x1)):
+        for k in range(NF):
+            y = G + k * FH
+            fbands(p, BAND, face, 0.0, BHD, [y], at)
+            if y + FH > BHH - 1.6:
+                continue
+            for c in rows(1.8, BHD - 1.0, 2.75):
+                fwin(p, r, face, c - 0.6, c + 0.6, y + 0.75, y + 2.35, at, ALU_DK, GLASS_L, mull=False)
+        pipe(p, face, BHD - 0.3, 0.0, BHH, at)
+    side_wall(p, r, 'b', x0 + 0.4, x1 - 4.6, BHD, G, NF - 1, FH, WALL, None, kind='hotel', bay=2.75)
+    ext_stair(p, 'b', x1 - 4.2, x1 - 0.4, BHD, BHH - 1.6, FH)
+    service_back(p, x0, x1 - 4.4, BHD, G, r)
+    meters(p, 'l', BHD - 3.0, x0, 3)
+    # The lobby: a stone base, framed glass, the doors, a lit canopy, two planters and a menu stand.
+    p.box(STONE_H, x0, 0, 0.0, x1, G, BHD)
+    p.box(STONE_H, x0, G - 0.5, -0.2, x1, G, 0.0)
+    p.box('windowDim', x0 + 0.8, 0.3, -0.06, x1 - 0.8, G - 0.7, -0.02, col='flat:#9fb6c2')
+    for c in rows(x0 + 0.8, x1 - 0.8, 1.8) + [x0 + 0.8, x1 - 0.8]:
+        p.box(ALU, c - 0.05, 0.3, -0.12, c + 0.05, G - 0.7, -0.05)
+    p.box(ALU, x0 + 0.8, 2.6, -0.12, x1 - 0.8, 2.7, -0.05)
+    p.box('light', x0 + 1.2, 2.75, 1.4, x1 - 1.2, 2.8, 4.0)          # the lobby's lit ceiling seen through the glass
+    p.box('flat:#5e5f5c', -2.0, 0, -0.08, 2.0, 2.4, -0.06)
+    p.box(GLASS_L, -1.8, 0.05, -0.1, 1.8, 2.35, -0.08)
+    p.box(ALU, -0.03, 0, -0.14, 0.03, 2.4, -0.09)
+    p.box(NAVY_H, -4.5, 3.4, -2.6, 4.5, 3.75, 0.0)
+    p.box('light', -4.2, 3.36, -2.4, 4.2, 3.4, -0.2)
+    for xp in (-4.3, 4.3):
+        p.box(ALU, xp - 0.05, 0, -2.5, xp + 0.05, 3.4, -2.4)
+    for xp in (-6.2, 5.0):
+        p.box(STONE_H, xp, 0, -1.0, xp + 1.2, 0.6, -0.2)
+        p.box(HEDGE, xp + 0.1, 0.6, -0.9, xp + 1.1, 1.1, -0.3)
+    p.box('flat:#2b2b28', 2.6, 0, -1.4, 3.2, 1.1, -1.25)
+    # The roof: parapet, plant, the tank, and the frame of the roof sign.
+    roof_kit(p, r, x0, x1, 0.0, BHD, BHH, NAVY_H, cap='flat:#e7e3da', units=5)
+    roof_frame(p, 'roof', x0 + 2.0, x1 - 2.0, BHH + 1.0, 0.8, 2.6, col='flat:#2a3a52')
     mark('blade', BHW / 2 - 0.6, 24.0, -0.9, 1.4, 14.0, (0, -1))
-    mark('name', 0.0, 4.9, -0.2, 9.0, 0.8)
+    mark('name', 0.0, 4.9 - 0.75, -0.25, 9.0, 0.6)
 
 
 # The old warehouse: a 1920s two-storey red-brick store kept from the port, now a cafe and hall.
@@ -708,6 +762,9 @@ PB_STYLES = [
     dict(wall='flat:#c9d0d3', acc='flat:#3d4a55', kind='panel', tile='flat:#b3bcc0'),
     dict(wall='flat:#e2d6c4', acc='flat:#9a6b45', kind='glass', tile='flat:#cdbfa6'),
     dict(wall='flat:#d2cfc8', acc='flat:#6d7a5a', kind='panel', tile='flat:#bdb9b0'),
+    dict(wall='flat:#b9876a', acc='flat:#efe7dc', kind='solid', tile='flat:#8f624b'),   # brown tile, cream trim
+    dict(wall='flat:#dfe6df', acc='flat:#2f5e6e', kind='glass', tile='flat:#b2bcb4'),   # pale green, teal
+    dict(wall='flat:#efe9df', acc='flat:#b0553a', kind='panel', tile='flat:#c9b9a2'),   # white, terracotta
 ]
 DOORS = ['flat:#6b4a3a', 'flat:#2f4a6e', 'flat:#7a1f24', 'flat:#3d5a54', 'flat:#8d8a82', 'flat:#c9a227']
 LAUNDRY = ['flat:#f2efe6', 'flat:#c7d6e6', 'flat:#e6c7cf', 'flat:#d9e3c5', 'flat:#f0d9a8', 'flat:#9fb7c2']
@@ -794,7 +851,8 @@ def pb_street(p, rng, st, face, a0, a1, at, nf, top_set=False, depth=1.4):
 def pb_roof(p, rng, x0, x1, z0, z1, H, st, core=None, solar=False):
     """Roof: a parapet, the lift's machine room over the core, a water tank, an antenna, condensers, solar panels."""
     for a, b, c, d in ((x0, z0, x1, z0 + 0.2), (x0, z1 - 0.2, x1, z1), (x0, z0, x0 + 0.2, z1), (x1 - 0.2, z0, x1, z1)):
-        p.box(st['acc'], a, H, b, c, H + 0.9, d)
+        p.box(st['tile'], a, H, b, c, H + 0.9, d)
+    p.box(st['acc'], x0 - 0.02, H + 0.75, z0 - 0.02, x1 + 0.02, H + 0.9, z0 + 0.22)
     p.box('flat:#8f8d86', x0 + 0.2, H, z0 + 0.2, x1 - 0.2, H + 0.04, z1 - 0.2)
     cx = core if core is not None else (x0 + x1) / 2
     p.box(st['tile'], cx - 2.0, H, z1 - 4.6, cx + 2.0, H + 3.0, z1 - 0.6)
@@ -844,7 +902,10 @@ def pb_ground(p, rng, x0, x1, zf, st, lobby=0.0, drive=None):
     for a, b in segs:
         if b - a < 2:
             continue
-        p.box(GLASS_T, a, 0.3, zf - 0.05, b, 3.4, zf)
+        p.box('windowDim', a, 0.3, zf - 0.05, b, 3.4, zf, 'flat:#9fb6c2')
+        p.box(ALU, a, 2.55, zf - 0.09, b, 2.63, zf - 0.04)
+        for c in rows(a, b, 1.5):
+            p.box(ALU, c - 0.03, 0.3, zf - 0.09, c + 0.03, 3.4, zf - 0.04)
         for c in rows(a, b, 3.0) + [a, b]:
             p.box(st['tile'], c - 0.14, 0, zf - 0.12, c + 0.14, PB_G, zf)
     p.box(st['acc'], x0, 3.5, zf - 0.14, x1, PB_G - 0.2, zf)
@@ -896,14 +957,16 @@ def pbar(p, W, nf, si, seed, drive=False):
     for c in (core - 2.25, core + 2.1):
         p.box(st['tile'], c, 0, zb, c + 0.15, H + 0.6, PB_D + 0.95)
     # Ends: windows in tile surrounds, a bay window up the middle on the tall blocks.
-    grid(p, x0, x1, zf, zb, PB_G, H, st['wall'], fh=PB_FH, bay=3.0, ww=1.0, wh=1.2, sill=1.0, which='lr', body=False, frame=FRAME)
+    side_wall(p, rng, 'l', zf + 0.4, zb - 0.4, x0, PB_G, nf, PB_FH, st['wall'], st['acc'], band=st['tile'], bay=2.9)
+    side_wall(p, rng, 'r', zf + 0.4, zb - 0.4, x1, PB_G, nf, PB_FH, st['wall'], st['acc'], band=st['tile'], bay=2.9)
     if nf >= 10:
         for s in (-1, 1):
             xs = x1 if s > 0 else x0
             p.box(st['tile'], min(xs, xs + s * 0.6), PB_G, 5.0, max(xs, xs + s * 0.6), H - 1.0, 8.2)
             for k in range(nf):
                 y = PB_G + k * PB_FH
-                p.box(WINDOW, min(xs + s * 0.6, xs + s * 0.62), y + 0.9, 5.3, max(xs + s * 0.6, xs + s * 0.62), y + 2.3, 7.9)
+                p.box(ALU, min(xs + s * 0.6, xs + s * 0.62), y + 0.84, 5.24, max(xs + s * 0.6, xs + s * 0.62), y + 2.36, 7.96)
+                p.box(WINDOW_LIT if p.lit.random() < LIT_SHARE else WINDOW_DARK, min(xs + s * 0.62, xs + s * 0.64), y + 0.9, 5.3, max(xs + s * 0.62, xs + s * 0.64), y + 2.3, 7.9, GLASS_L)
     for c in (x0 + 0.1, x1 - 0.1):
         p.cyl('flat:#8d8a82', (c, H / 2, zb - 0.3), 1, 0.05, H, seg=6, caps=False)
     pb_roof(p, rng, x0, x1, zf if not top_set else zf + 2.0, zb, H, st, core=core, solar=si % 3 == 2)
@@ -918,8 +981,12 @@ def pcorner(p, nf, si, seed):
     H = PB_G + nf * PB_FH
     p.box(st['wall'], x0 + i, PB_G, z0 + i, x1, H, z1)
     p.box(st['tile'], x0 + i, 0, z0 + i, x1, PB_G, z1)
-    p.box(GLASS_T, x0 + i + 0.4, 0.3, z0 + i - 0.05, x1 - 0.6, 3.4, z0 + i)
-    p.box(GLASS_T, x0 + i - 0.05, 0.3, z0 + i + 0.4, x0 + i, 3.4, z1 - 0.6)
+    p.box('windowDim', x0 + i + 0.4, 0.3, z0 + i - 0.05, x1 - 0.6, 3.4, z0 + i, 'flat:#9fb6c2')
+    p.box('windowDim', x0 + i - 0.05, 0.3, z0 + i + 0.4, x0 + i, 3.4, z1 - 0.6, 'flat:#9fb6c2')
+    for c in rows(x0 + i + 0.4, x1 - 0.6, 1.5):
+        p.box(ALU, c - 0.03, 0.3, z0 + i - 0.09, c + 0.03, 3.4, z0 + i - 0.04)
+    for c in rows(z0 + i + 0.4, z1 - 0.6, 1.5):
+        p.box(ALU, x0 + i - 0.09, 0.3, c - 0.03, x0 + i - 0.04, 3.4, c + 0.03)
     p.box(st['acc'], x0 + i - 0.14, 3.5, z0 + i - 0.14, x1, PB_G - 0.2, z0 + i)
     p.box(st['acc'], x0 + i - 0.14, 3.5, z0 + i, x0 + i, PB_G - 0.2, z1)
     # A corner shop's canopy on the ground floor.
@@ -929,7 +996,8 @@ def pcorner(p, nf, si, seed):
     pb_street(p, rng, st, 'l', z0 + i, z1, x0 + i, nf)
     # The corner itself: a glazed bay rising the full height.
     p.box('glassTint', x0 - 0.2, PB_G, z0 - 0.2, x0 + 1.6, H, z0 + 1.6)
-    grid(p, x0 + i, x1, z0 + i, z1, PB_G, H, st['wall'], fh=PB_FH, bay=3.0, ww=1.0, wh=1.2, sill=1.0, which='rb', body=False, frame=FRAME)
+    side_wall(p, rng, 'r', z0 + i + 0.4, z1 - 0.4, x1, PB_G, nf, PB_FH, st['wall'], st['acc'], band=st['tile'], bay=2.9)
+    side_wall(p, rng, 'b', x0 + i + 0.4, x1 - 0.4, z1, PB_G, nf, PB_FH, st['wall'], None, band=st['tile'], bay=2.9)
     for c in (x1 - 0.3,):
         p.cyl('flat:#8d8a82', (c, H / 2, z1 + 0.08), 1, 0.05, H, seg=6, caps=False)
     pb_roof(p, rng, x0 + i, x1, z0 + i, z1, H, st, core=x1 - 3.5, solar=False)
@@ -943,13 +1011,18 @@ def pcorner_fn(nf, k):
     return lambda p: pcorner(p, nf, k, 300 + k * 11 + nf)
 
 
+def pb_lo(W, nf, si, d=PB_D):
+    st = PB_STYLES[si % len(PB_STYLES)]
+    return dict(wall=st['wall'], W=W, D=d, H=PB_G + nf * PB_FH, y0=PB_G, nf=nf, fh=PB_FH, cap=st['tile'], base=st['tile'], band=WHITE_S, z0=0.0)
+
+
 PB_VARIANTS = []
 for _k, (_W, (_nf, _t)) in enumerate([(W, h) for W in (16, 20, 24, 28, 32) for h in ((8, 'l'), (12, 'h'))]):
-    PB_VARIANTS.append(dict(id='pb%d%s' % (_W, _t), w=float(_W), d=PB_D + 1.0, h=PB_G + _nf * PB_FH + 6.0, fn=pbar_fn(float(_W), _nf, _k), gap=6.0))
+    PB_VARIANTS.append(dict(id='pb%d%s' % (_W, _t), w=float(_W), d=PB_D + 1.0, h=PB_G + _nf * PB_FH + 6.0, fn=pbar_fn(float(_W), _nf, _k), gap=6.0, lo=pb_lo(float(_W), _nf, _k)))
 for _k, (_nf, _t) in enumerate(((8, 'l'), (12, 'h'))):
-    PB_VARIANTS.append(dict(id='pg%s' % _t, w=24.0, d=PB_D + 1.0, h=PB_G + _nf * PB_FH + 6.0, fn=pbar_fn(24.0, _nf, _k + 1, True), gap=6.0))
+    PB_VARIANTS.append(dict(id='pg%s' % _t, w=24.0, d=PB_D + 1.0, h=PB_G + _nf * PB_FH + 6.0, fn=pbar_fn(24.0, _nf, _k + 1, True), gap=6.0, lo=pb_lo(24.0, _nf, _k + 1)))
 for _k, (_nf, _t) in enumerate(((10, 'l'), (14, 'h'))):
-    PB_VARIANTS.append(dict(id='pc%s' % _t, w=14.0, d=14.0, h=PB_G + _nf * PB_FH + 3.4, fn=pcorner_fn(_nf, _k + 2), gap=6.0))
+    PB_VARIANTS.append(dict(id='pc%s' % _t, w=14.0, d=14.0, h=PB_G + _nf * PB_FH + 3.4, fn=pcorner_fn(_nf, _k + 2), gap=6.0, lo=pb_lo(14.0, _nf, _k + 2, d=14.0)))
 
 
 # ── The north waterfront (2026-11-25): a barrier at the courtyard car parks' drive-throughs, the two towers of flats
@@ -1038,7 +1111,7 @@ VARIANTS = [
     dict(id='hotel', w=HTW, d=HTD, h=HTH + 2.0, fn=hotel, gap=12.0),
     dict(id='office', w=OFW, d=OFD, h=OFH + 2.0, fn=office, gap=12.0),
     dict(id='resi', w=RSW, d=RSD, h=RSH + 3.0, fn=resi, gap=12.0),
-    dict(id='bhotel', w=BHW, d=BHD, h=BHH + 1.2, fn=bhotel, gap=12.0),
+    dict(id='bhotel', w=BHW, d=BHD, h=BHH + 1.2, fn=bhotel, gap=12.0, lo=dict(wall='flat:#e7e3da', W=BHW, D=BHD, H=BHH, y0=4.6, nf=12, fh=3.0, cap='flat:#2a3a52', base='flat:#8e8b84')),
     dict(id='soko', w=SKW, d=SKD, h=SKH + 0.6, fn=soko, gap=12.0),
     dict(id='sculpt', w=4.4, d=2.8, h=4.7, fn=sculpt, gap=3.0),
     dict(id='buoy', w=0.9, d=0.3, h=2.1, fn=buoy, gap=2.0),
@@ -1073,7 +1146,7 @@ def build_hi(v):
 
 
 def build_lo(v):
-    return None
+    return lo_slab(**v['lo']) if 'lo' in v else None
 
 
 if __name__ == '__main__':

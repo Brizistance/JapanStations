@@ -172,7 +172,7 @@ export const LINES: LineDef[] = [
     color: '#ee7b1a',
     type: 'metro',
     stops: ['shiomi', 'nishi-yunagi', 'yunagihama', 'kurayashiki', 'kita-odori', 'daigaku-mae', 'tomyobori', 'sakurazutsumi', 'hanamizuki', 'shin-sakuragawa', 'uminomori', 'asanagi', 'shirasunahama'],
-    railY: [-10, -11, -10, -11, -20.5, -18.5, -14, -12, -13, -12, -10, -5.2, 5.5],
+    railY: [-5.6, -11, -10, -11, -20.5, -18.5, -14, -12, -13, -12, -10, -5.2, 5.5],
     platformType: 'island',
     // Side platforms at Uminomori, where the Ichō Line's atrium opens beside them (stations/atrium.ts).
     sideAt: ['uminomori'],

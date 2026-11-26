@@ -14,6 +14,7 @@ import { WATA_PLOT, WATA_STAGE, WATA_STREETS, WATA_RESERVED } from './wata-plan'
 import { UMIBE_PLOT, UMIBE_STAGE, UMIBE_STREETS, UMIBE_RESERVED } from './umibe-plan';
 import { SHINSHIO_PLOT, SHINSHIO_STAGE, SHINSHIO_STREETS, SHINSHIO_RESERVED } from './shinshio-plan';
 import { MC_PLOT, MC_STAGE, MC_STREETS, MC_RESERVED } from './minatocenter-plan';
+import { SHIOMI_PLOT, SHIOMI_STAGE, SHIOMI_STREETS, SHIOMI_RESERVED } from './shiomi-plan';
 
 export type Rect = [number, number, number, number];
 
@@ -66,6 +67,10 @@ export const STREET_PLANS: Record<string, StreetPlan> = {
   'minato-center': {
     stage: MC_STAGE, plot: MC_PLOT, streets: MC_STREETS, reserved: MC_RESERVED,
     overhead: [], walkIn: ['mcenter/wheel', 'mcenter/tower'],
+  },
+  shiomi: {
+    stage: SHIOMI_STAGE, plot: SHIOMI_PLOT, streets: SHIOMI_STREETS, reserved: SHIOMI_RESERVED,
+    overhead: [], walkIn: [],
   },
 };
 

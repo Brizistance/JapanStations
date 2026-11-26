@@ -239,10 +239,36 @@ export interface Build {
   clear?: [number, number, number, number][];
   /** Level crossings' gate arms, which swing up and down with the crossing (roads.ts levelCrossing). */
   arms?: ArmPart[];
+  /** A bascule bridge's leaves, which lift with its opening (signs/departures.ts basculeState). */
+  leaves?: LeafPart[];
+  /** Where a bascule bridge's barriers stop people on foot while it is open (`key`: the bridge's). */
+  barriers?: { min: V3; max: V3; key: string }[];
   /** How far from the frame's point anything solid of it reaches (vehicles on lanes far out: collision/near). */
   reach?: number;
   /** Level crossings' warning lamps, which light the street red at night while they flash. */
   xingLamps?: { pos: V3; line: string; key: string; left: boolean }[];
+  /** Lights that flash by night (a lighthouse): `period` s, lit for the first `on` s of it, a ball of radius `r`. */
+  flashers?: { pos: V3; period: number; on: number; r: number; col: string }[];
+  /** Boats that pass through a bascule bridge `key` while it is open (world-view): along `from` → `to` (frame x, z) at
+   *  waterline `y`, in turns each way; one of `ids` (models, length along x, bow +x) each opening. */
+  boats?: { key: string; from: [number, number]; to: [number, number]; y: number; ids: [string, string][] }[];
+  /** Things put out only at times (world/timed.ts): festival stalls in a row, each at `pos` facing `face`. */
+  stalls?: { pos: V3; face: V2; w: number; kind: number; when: 'festival' }[];
+}
+
+/**
+ * A bascule bridge's leaf: hinged at `pivot` (the top of its deck at the hinge), lying along `along` (horizontal, towards
+ * its tip) when down, `len` long and `width` wide; it lifts by up to `lift` radians with the bridge `key`'s opening.
+ * `paint`: bands across the leaf (local z, from its centre line; + is the left of `along`) painted on its footways.
+ */
+export interface LeafPart {
+  pivot: V3;
+  along: V2;
+  len: number;
+  width: number;
+  lift: number;
+  key: string;
+  paint?: { z0: number; z1: number; mat: string }[];
 }
 
 /** A level crossing's gate arm: pivoted at `pivot`, lying along `along` (horizontal) when down. */

@@ -110,9 +110,10 @@ export interface ElevatedSpec {
    * viaduct runs into a ridge; a station building level with the platforms on the ridge, an
    * underpass to the far platform and the valley entrance (Takanodai). 'railhead': a temporary
    * terminus with a concourse bridging the tracks past the platform ends and a deck to the
-   * new-town plaza (Izumigaoka).
+   * new-town plaza (Izumigaoka). 'headhouse': an island in a short open cutting under a wave canopy, a head
+   * house on a deck over its west end, an east hall over the tunnel mouth (Shiomi, shiomi.ts).
    */
-  layout?: 'cutting' | 'terminus' | 'seaside' | 'arcade' | 'hillside' | 'railhead';
+  layout?: 'cutting' | 'terminus' | 'seaside' | 'arcade' | 'hillside' | 'railhead' | 'headhouse';
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -681,12 +682,12 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
   },
   // ── Shiokaze Line, west ──
-  // Landfill tip facing the open bay: sand-white panels, waves, promenade.
+  // Landfill tip facing the open bay (rebuilt 2026-11-25, shiomi.ts): an open-cut island terminus under a white
+  // wave canopy, a glazed head house over the cutting's west end facing the plaza and the aquarium, an east hall
+  // over the tunnel mouth. Sand-white panels, the waves mural, harbour-blue steel.
   shiomi: {
-    kind: 'underground',
-    concourse: [-20, 34],
-    gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    kind: 'elevated',
+    layout: 'headhouse',
     style: {
       wall: 'panel:#efe9df', concWall: 'panel:#f4f0e9', floor: 'floor:#d2ccc2', pillar: 'panel:#3d5f7a',
       accent: '#ee7b1a', mural: { v: 'waves', color: '#3d7fa8' },

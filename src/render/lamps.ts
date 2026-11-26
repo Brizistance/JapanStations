@@ -129,7 +129,10 @@ let reach = RANGE;
  * Beyond the furthest light kept, an even city-light level takes over (lit.ts, `uCity`), so far
  * streets are lit too without a pool each.
  */
+/** How dark it is now (0 day … 1 night), for things that light only by night (world-view flashers). */
+export const nightLevel = { v: 0 };
 export function updateLamps(cam: THREE.Vector3, night: number, max: number, dt: number) {
+  nightLevel.v = night;
   if (night < 0.02) {
     shared.uLampCount.value = 0;
     shared.uCity.value.x = 0;
