@@ -446,7 +446,7 @@ export function wayfindConcourse(i: ConcInfo): void {
   const segW = narrow ? 2.2 : 2.4;
   const maxSegs = narrow ? 3 : 4;
   const lines = linesAt(station.id).map((l) => l.id);
-  const exitsOf = (end: number) => exitList(i.exits.filter((e) => e.end === end).map((e) => e.num));
+  const exitsOf = (end: number) => exitList([...i.exits.filter((e) => e.end === end).map((e) => e.num), ...(i.ends[end]?.endNum ? [i.ends[end].endNum!] : [])]);
   const hyp = (p: V2, q: V2) => Math.hypot(p[0] - q[0], p[1] - q[1]);
   const clamp = (v: number, lo: number, hi: number) => (lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi));
 
@@ -777,12 +777,14 @@ export function wayfindConcourse(i: ConcInfo): void {
     const fare = fares.find((s) => (s.pos[0] - e.g) * hx > 0 && Math.abs(s.pos[0] - e.g) < 12 && Math.abs(s.pos[2]) < cw + 0.5);
     const facesAt = (x: number, z: number) => {
       const front: Seg[] = doors.map((d) => ({ c: { k: 'exits', station: station.id, only: [d.num] }, to: [(d.x0 + d.x1) / 2 - x, d.s * cw - z] }));
+      // (An exit through the end wall: straight on.)
+      if (e.endNum) front.push({ c: { k: 'exits', station: station.id, only: [e.endNum] }, to: [hx, 0] });
       const back: Seg[] = [{ c: { k: 'guide', ja: 'のりば', en: 'To trains', bg: 'navy', badges: lines }, to: [-hx, 0] }];
       if (fare) back.push({ c: { k: 'picto', v: 'tickets', label: true }, to: [fare.pos[0] - x, fare.pos[2] - z] });
       return { front, back };
     };
     const cands = around(x, 0, [0, 0.8, -0.8, 1.6], [0, -1.2, 1.2]).filter(([cx]) => (cx - e.g) * hx > 3.5 && (cx - e.g) * hx < 8.5);
-    if (doors.length) placeHang(b, sp, { n: [-hx, 0], y, h, segW: narrow ? 2.1 : 2.4, front: [], back: [], ceil, at: facesAt, onPlace: claim }, cands);
+    if (doors.length || e.endNum) placeHang(b, sp, { n: [-hx, 0], y, h, segW: narrow ? 2.1 : 2.4, front: [], back: [], ceil, at: facesAt, onPlace: claim }, cands);
   });
 
   // ── 6. Boards on the walls: exits, station map and area map in each unpaid hall; exits and
@@ -922,8 +924,9 @@ export function wayfindExit(e: ExitInfo): void {
   // Foot of the stair, facing people coming down: the way to the gates, with this station's lines.
   // On the stair face of the bulkhead above the stair foot (the kit's exit sign is on its back).
   const lines = linesAt(station.id).map((l) => l.id);
-  b.sign({ k: 'guide', ja: '改札・のりば', en: 'Ticket gates / Trains', bg: 'navy', badges: lines }, 0.02, cf + 2.95, ext + 2.6, [1, 0], 2.4, 0.42, { arrow: [0, -1] });
-  b.protect(0, cf + 2.65, ext + 1.25, 0.6, cf + 3.25, ext + 3.95);
+  // (On the stair face of the plate the kit hangs below the lobby's ceiling: at cf + 2.95 it stood inside the ceiling.)
+  b.sign({ k: 'guide', ja: '改札・のりば', en: 'Ticket gates / Trains', bg: 'navy', badges: lines }, -0.29, cf + 2.45, ext + 2.6, [1, 0], 2.4, 0.42, { arrow: [0, -1] });
+  b.protect(-0.3, cf + 2.15, ext + 1.25, 0.3, cf + 2.75, ext + 3.95);
   if (ext > 8) {
     // A long corridor (z = 0 … ext, 4 m wide, ceiling at cf + 2.5): halfway along, a sign hanging
     // across it, just under the ceiling and clear of its light. Going out (walking +z): the exit

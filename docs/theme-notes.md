@@ -27,6 +27,16 @@ The stations rebuilt before 2026-11-24 were not written up here.
 - Model sets that fit (see model-library.md): `tsumugifront`, `tsumugikit` (prewar Senba-style fronts, for the older buildings), `office` (back streets), `machi`, `aizome` (a surviving merchant house). No set yet for postwar wholesaler buildings or the under-viaduct centre.
 - Sources: city.osaka.lg.jp (Senba building-line and Semba Center Building papers), osaka-angenet.jp (Konjakukan notes on the 40-ken block), kansai-u.repo.nii.ac.jp KU-0240 (block, lots, drain).
 
+## Fish market town (after Tokyo's Tsukiji outer market and Kansai fishing-port markets, researched 2026-11-25, first used at Shinshio)
+- Blocks: a few small blocks of shops (Tsukiji: 400–500 shops) in the corner between two arterials and the wholesale market; blocks cut by narrow lanes into pieces of roughly 30–50 m.
+- Streets (widths, hierarchy): an arterial on the landward side; one shop street into the market's gate; lanes and alleys of 2.5–4 m between them, many under shop awnings; a market service road along the hall's landward loading side for trucks.
+- Lots (frontage, depth): shop-houses of 3–6 m frontage, two or three floors, shop below and the family above; back-to-back rows about 15 m deep.
+- Where the station sits: under the arterial or the shop street, exits on its pavements by the shops.
+- Layout patterns and irregularities: the wholesale hall is one long low shed (100–200 m) on the quay, an apron to the boats on one side and truck bays on the other; ice plants and cold stores beside it; a fishermen's shrine by the water; covered alleys, dead-end lanes, tiny eateries tucked in the alleys.
+- Typical buildings and everyday uses: fish, dried goods, knife, tableware and pickles shops; seafood-bowl and sushi counters for the trade at dawn; a fisheries co-op office; cold-storage warehouses of four to six windowless floors; newer flats where land was sold; trucks, styrofoam boxes, turret trucks and hand carts.
+- Model sets that fit (see model-library.md): `ichiba` (market shop-houses, cold stores, ice plant), `shinshio` (its hall, ferry terminal, shrine), `shophouse`, `machi` (back rows), `manshon` (flats).
+- Sources: gotokyo.org and tsukiji.or.jp guides (narrow lanes, small shops, owners living above), wikipedia Tsukiji Market (shop count, location between two avenues); the Fisheries Agency's landing-shed guideline (jfa.maff.go.jp index-245, role of the 荷さばき所; no sizes in the snippets). Sizes above are general knowledge, not measured.
+
 ## Civic axis (after Kobe's city hall quarter, 2026-11-25, first used at Umibe-shiyakusho-mae)
 Written from general knowledge of the place, not measured from maps: check the numbers before leaning on them.
 - Blocks: reclaimed-land office grid, about 75 m × 60 m between two-lane streets.
@@ -36,3 +46,14 @@ Written from general knowledge of the place, not measured from maps: check the n
 - Layout patterns and irregularities: the boulevard's axis carried on south of the avenue as a park mall to a sea terrace; the park (lawns, flower beds, fountain, open-air stage, rest house, sea-wall promenade with pines) is the avenue's whole south side; a tower city hall with a low assembly wing; a shrine moved from the old shore, a children's park, coin parking, one apartment block and one low 1960s survivor among the offices.
 - Typical buildings and everyday uses: joint government offices, bureau offices with concrete fins, a telephone exchange with a microwave tower, a bank, insurance and newspaper offices, a business hotel, halls of the licensed professions, post office, pharmacy and clinic, fire station, a lunch room; 31 m cornice on the avenue, 11–24 m behind.
 - Model sets that fit: `civic` (made for it), `umibe` (landmarks), `office`, `manshon` (past the edge).
+
+## Bay new town (after Yokohama's Minato Mirai 21, researched 2026-11-25, first used at Minato Center)
+Measured where a source is named; the rest is general knowledge of the place, not measured from maps.
+- Blocks: superblocks of 100–160 m on the landfill, each a whole development (a tower on a podium, a hall, a hotel); few cross streets, no back lanes inside the blocks.
+- Streets (widths, hierarchy): a six-lane bay avenue (36–40 m between building lines, 7 m pavements with double tree rows); four-lane 筋 at right angles with 5 m pavements; a pedestrian park mall (the Grand Mall type) of about 20 m parallel to the shore, crossing the 筋 at signals; raised pedestrian decks at the second floor (about +7 m) linking towers across the avenue.
+- Heights: towers inland and at the station, stepping down toward the water (the district's landscape guideline keeps the waterfront low); halls 18–20 m (Pacifico Yokohama's exhibition hall: about 20,000 m², 19 m to the ceiling).
+- Where the station sits: under the avenue; one way in is a tall glass atrium inside a tower's podium, running from the third basement to the fourth floor (Queen's Square's Station Core, about 40 m high; its mall about 300 m long through three towers).
+- Layout patterns and irregularities: the waterfront is all park and promenade with a pier; one big Ferris wheel by the water; forecourt plazas and sunken plazas in front of towers; a surviving older port building kept among the new ones; coin parking on plots not yet developed.
+- Typical buildings and everyday uses: glass office towers, a hotel, an exhibition and convention hall, a shopping mall in the podiums, a konbini and cafés in office bases, a kōban by the station, bicycle parking, residential towers on the north side.
+- Model sets that fit: `tower`, `office`, `manshon` (back streets, past the edge); landmarks and avenue fronts need a new set.
+- Sources: Yokohama city MM21 pages (landscape guidelines exist, revised 2023; no numbers in the snippets); a lighting firm's Queen's Square page (atrium about 40 m, mall 300 m); Wikipedia and venue listings for Pacifico Yokohama (hall 20,000 m², 19 m ceiling).

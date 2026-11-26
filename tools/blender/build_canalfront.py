@@ -177,16 +177,17 @@ def build_hi(v):
 
 
 def build_lo(v):
+    # (Faces stand 0.25 m or more off the wall: seen from 200–500 m the depth buffer must still part them.)
     rng = random.Random(v['seed'])
     p = Part()
     x0, x1, D = -v['w'] / 2, v['w'] / 2, v['d']
     ys = levels(v)
     H = ys[-1]
     p.box(v['wall'], x0, 0, 0, x1, H + PARAPET, D)
-    p.box(WINDOW_LIT, x0 + 0.3, 0.5, -0.03, x1 - 0.3, G0 - 0.4, 0)
+    lo_band(p, x0 + 0.3, 0.5, -0.25, x1 - 0.3, G0 - 0.4, 0)
     for y in ys[:-1]:
-        p.box(WINDOW_LIT, x0 + 0.3, y + 0.8, -0.03, x1 - 0.3, y + FH - 0.35, 0)
-        sign(p, rng.choice(SIGN_COLOURS), x0 + 0.5, y - 0.25, -0.07, x1 - 0.5, y + 0.6, -0.03, glyphs=False)
+        lo_band(p, x0 + 0.3, y + 0.8, -0.25, x1 - 0.3, y + FH - 0.35, 0)
+        sign(p, rng.choice(SIGN_COLOURS), x0 + 0.5, y - 0.25, -0.45, x1 - 0.5, y + 0.6, -0.25, glyphs=False)
     sign(p, rng.choice(SIGN_COLOURS), x0 + 0.05, G0 + 0.4, -1.15, x0 + 0.29, H - 0.4, -0.2, glyphs=False)
     if v['big'] == 'roof':
         sign(p, rng.choice(SIGN_COLOURS), x0, H + 1.6, 0.35, x1, H + 4.9, 0.5, glyphs=False)

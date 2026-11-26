@@ -42,6 +42,8 @@ function rainMaterial(): THREE.ShaderMaterial {
       uniform sampler2D uRainMap;
       uniform vec4 uRainBox;
       varying float vAlpha;
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       void main() {
         vec3 vel = uVel * aSpeed;
         vec3 head = position * uBox + uOff * aSpeed;
@@ -68,12 +70,15 @@ function rainMaterial(): THREE.ShaderMaterial {
         float band = 0.5 + 0.5 * sin( dot( head.xz, uWindDir ) * 0.16 - uTime * 3.0 + sin( across * 0.07 + uTime * 0.4 ) * 2.5 );
         vAlpha *= mix( 1.0, 0.25 + 1.5 * band * band, uGust );
         gl_Position = show > 0.5 ? projectionMatrix * viewMatrix * vec4( wp, 1.0 ) : vec4( 2.0, 2.0, 2.0, 1.0 );
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor;
       varying float vAlpha;
+      #include <logdepthbuf_pars_fragment>
       void main() {
+        #include <logdepthbuf_fragment>
         gl_FragColor = vec4( uColor, vAlpha );
       }
     `,
@@ -106,6 +111,8 @@ function sprayMaterial(): THREE.ShaderMaterial {
       uniform sampler2D uRainMap;
       uniform vec4 uRainBox;
       varying float vAlpha;
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       void main() {
         // Each speck lives a fraction of a second, then lands somewhere new.
         float clock = uTime * ( 1.6 + aSeed ) + aSeed * 17.0;
@@ -123,12 +130,15 @@ function sprayMaterial(): THREE.ShaderMaterial {
         vAlpha = uAmount * show * ( 1.0 - life ) * ( 1.0 - smoothstep( 0.6, 1.0, far ) );
         gl_PointSize = clamp( 26.0 / max( 1.0, -mv.z ), 1.0, 3.5 );
         gl_Position = show > 0.5 ? projectionMatrix * mv : vec4( 2.0, 2.0, 2.0, 1.0 );
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor;
       varying float vAlpha;
+      #include <logdepthbuf_pars_fragment>
       void main() {
+        #include <logdepthbuf_fragment>
         gl_FragColor = vec4( uColor, vAlpha );
       }
     `,
@@ -160,6 +170,8 @@ function debrisMaterial(): THREE.ShaderMaterial {
       uniform vec4 uRainBox;
       varying float vAlpha;
       varying float vSeed;
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       void main() {
         vec3 head = position * uBox + uOff * ( 0.6 + 0.8 * aSeed );
         head.y += sin( uTime * ( 1.3 + aSeed * 2.0 ) + aSeed * 60.0 ) * 0.9;
@@ -181,13 +193,16 @@ function debrisMaterial(): THREE.ShaderMaterial {
         vSeed = aSeed;
         gl_PointSize = clamp( ( 70.0 + 90.0 * aSeed ) / max( 1.0, -mv.z ), 1.5, 9.0 ) * turn;
         gl_Position = show > 0.5 ? projectionMatrix * mv : vec4( 2.0, 2.0, 2.0, 1.0 );
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uLight;
       varying float vAlpha;
       varying float vSeed;
+      #include <logdepthbuf_pars_fragment>
       void main() {
+        #include <logdepthbuf_fragment>
         vec2 c = gl_PointCoord - 0.5;
         if ( abs( c.x ) + abs( c.y ) * 1.6 > 0.5 ) discard;
         // Mostly leaves, some paper and plastic.

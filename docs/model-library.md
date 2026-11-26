@@ -12,6 +12,7 @@ Written from each script's head comment, not from looking at the models: open th
 |---|---|---|
 | `machi` | Small central streets | Low mixed buildings, two to five floors |
 | `shophouse` | Shōtengai | Shop-houses (four variants) and the arcade roof |
+| `ichiba` | Fish-market town | Market shop-houses 18 m deep (open fish stalls, seafood-bowl counters, glass-fronted dried goods, an old timber house, shop with flats); placed by hand: two cold stores and an ice plant |
 | `zakkyo` | Nightlife, station fronts | Narrow multi-tenant blocks with stacked signs (three variants) |
 | `office` | Business street | Plain 8 to 12 floor mid-rises (three variants) |
 | `manshon` | Residential | Apartment blocks, balconies to the street (three variants) |
@@ -36,6 +37,8 @@ Written from each script's head comment, not from looking at the models: open th
 | | `wata` | Watayamachi | Landmarks: courtyard tenant building, cotton merchant's house and kura, weavers' shrine precinct, canal landing steps |
 | Terminal and big-city centre | `city`, `kitacity`, `kitafront`, `gate`, `mioya`, `plaza`, `tokei` | Kita-Ōdōri, Kawaminato Station | City blocks and towers, avenue fronts, Gate Towers, terminal department store, plaza buildings |
 | | `kitaarcade` | Kita-Ōdōri | Arcade behind the viaduct |
+| Fish market town | `shinshio` | Shinshio | Landmarks: the wholesale fish hall (monitor roof, open to the quay, office at its west end), the ferry terminal and its pontoon, the harbour shrine |
+| Bay new town | `mcenter` | Minato Center | Landmarks: Minato Center Tower (175 m, podium round the station's code-built atrium), the exhibition hall, the Ferris wheel; fill: a bay hotel bowed to the street (100 m), a 62 m glass office on a stone podium, a 102 m residential tower, a 12-storey business hotel, a 1920s red-brick warehouse; props: the forecourt's wave sculpture, sea-wall lifebuoys, pier telescopes; peninsula: the point's lookout, the marina clubhouse, yachts, the water-bus and its terminal, the convention centre, the resort hotel |
 | Civic axis | `umibe` | Umibe-shiyakusho-mae | Landmarks: the city hall (tower with a walk-in lobby, assembly wing, forecourt pieces), and the park's sail monument, open-air stage, flower-bed crest and rest house |
 | Harbour and port | `minato`, `minatofront`, `urafront` | Kawaminato-kō | Red-brick port pieces; harbour boulevard fronts |
 | | `port`, `konya` | Kon'yahama | East quay brick sheds; shore pieces |

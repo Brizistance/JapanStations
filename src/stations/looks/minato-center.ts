@@ -1,116 +1,112 @@
-// Station look: Minato Center (N-01), the Nagisa Line's western terminus under the bay business
-// district. Outside the gates the concourse is the basement of the Minato Center tower: a polished
-// stone floor, gold-banded ceiling, a row of basement shops and a food hall on both walls, the
-// tower's lift lobby, and a sunken garden whose skylight lets daylight down through the plaza.
-// On the platforms, the end of the line is marked at the buffer end.
+// Station look: Minato Center (N-01), the Nagisa Line's western terminus under the bay new town (rebuilt
+// 2026-11-25; restyled the same day to match the atrium). The concourse, the stairs, Exit 1's corridor and the
+// platforms take the atrium's language (minatocenter-atrium.ts): white enamel walls with a Nagisa-blue line, a
+// ceiling of white fins in a slow wave with light lines between them, round white columns with a blue band, digital
+// posters, and an LED portal at the gate line. The bay mural stays on the platforms' buffer-end wall.
 
 import { defaultLook } from './default';
+import { exitDado, posterRow, roundPillar } from './parts';
 import type { ConcInfo, StationLook } from './types';
 
-const STONE = 'floor:#e6e1d6';
-const GOLD = 'metal:#b8963e';
-const SHOPS = [
-  { ja: 'ベイサイド ベーカリー', en: 'Bayside Bakery', bg: '#f3e2b8', fg: '#6b3a12' },
-  { ja: '港寿司', en: 'Minato Sushi', bg: '#1d2a3a', fg: '#f4efe2' },
-  { ja: 'カフェ 汐見', en: 'Café Shiomi', bg: '#2f4a3a', fg: '#f2d38a' },
-  { ja: 'みなと書房', en: 'Minato Books', bg: '#7a2a12', fg: '#fff3d6' },
-  { ja: 'デリ タワーキッチン', en: 'Tower Kitchen Deli', bg: '#ffffff', fg: '#1673c9' },
-  { ja: 'ドラッグ ベイ', en: 'Drug Bay', bg: '#1f6f8b', fg: '#fff' },
-  { ja: 'ラーメン 灯台', en: 'Ramen Tōdai', bg: '#c0392b', fg: '#fff' },
-  { ja: '花の店 しおかぜ', en: 'Shiokaze Florist', bg: '#e9f2e4', fg: '#2e6b35' },
-];
+const BLUE = '#1673c9', WHITE = 'paint:#f8f8f6', ENAMEL = 'paint:#eef1f3';
+type Span = [number, number];
 
-/** The tower basement: everything on the unpaid side of one gate line. */
-function basement(i: ConcInfo, g: number, n: 1 | -1) {
-  const { b, cf, cw, clear } = i;
-  const top = cf + clear;
-  const xa = Math.min(g, g + 16 * n), xb = Math.max(g, g + 16 * n);
-  // Polished stone floor with a gold inlay line where the tower begins.
-  b.deco(STONE, xa, cf + 0.003, -cw, xb, cf + 0.006, cw);
-  b.deco(GOLD, g + n * 1.2 - 0.04, cf + 0.006, -cw, g + n * 1.2 + 0.04, cf + 0.009, cw);
-  // Gold bands across the ceiling.
-  for (let x = xa + 1; x < xb; x += 2) b.deco(GOLD, x - 0.05, top - 0.08, -cw, x + 0.05, top, cw);
+/** True if u lies in none of the spans (grown by m). */
+const clear = (u: number, spans: Span[], m = 0) => !spans.some(([p, q]) => u > p - m && u < q + m);
 
-  // The tower's lift lobby: the first wall stretch with room, nearest the end wall.
-  let lifts = false;
-  for (const s of [1, -1] as const) {
-    if (lifts) break;
-    for (let k = 15.2; k >= 4 && !lifts; k -= 0.4) {
-      const x0 = Math.min(g + n * k, g + n * (k - 4.4)), x1 = x0 + 4.4;
-      const r: [number, number, number, number] = [x0, s > 0 ? cw - 0.5 : -cw, x1, s > 0 ? cw : -cw + 0.5];
-      if (!i.free(...r)) continue;
-      i.claim(...r);
-      const z = s * (cw - 0.02);
-      b.deco('panel:#2a2f36', x0, cf, Math.min(z, s * cw), x1, top - 0.1, Math.max(z, s * cw));
-      for (const dx of [1.1, 3.3]) {
-        b.deco('metal:#c9ccd0', x0 + dx - 0.55, cf, Math.min(s * (cw - 0.05), z), x0 + dx + 0.55, cf + 2.2, Math.max(s * (cw - 0.05), z));
-        b.deco('metal:#8e9399', x0 + dx - 0.01, cf, Math.min(s * (cw - 0.06), z), x0 + dx + 0.01, cf + 2.2, Math.max(s * (cw - 0.06), z));
-        b.deco('glow:#ffd98a', x0 + dx - 0.12, cf + 2.32, Math.min(s * (cw - 0.06), z), x0 + dx + 0.12, cf + 2.42, Math.max(s * (cw - 0.06), z));
-      }
-      b.sign({ k: 'label', text: 'ミナトセンタータワー エレベーター 1F–42F', sub: 'Minato Center Tower — lifts to the lobby and offices', fg: '#f4e7c2', bg: '#1d2a3a' },
-        (x0 + x1) / 2, cf + 2.62, s * (cw - 0.07), [0, -s], 4.2, 0.36);
-      lifts = true;
-    }
-  }
-
-  // Basement shops on both walls wherever there is room.
-  let k = 0;
-  for (const s of [1, -1] as const) {
-    for (let d = 1.6; d + 3.1 <= 16; d += 0.4) {
-      const x0 = Math.min(g + n * d, g + n * (d + 3.1)), x1 = x0 + 3.1;
-      const r: [number, number, number, number] = [x0, s > 0 ? cw - 0.6 : -cw, x1, s > 0 ? cw : -cw + 0.6];
-      if (!i.free(...r, 0.05)) continue;
-      i.claim(...r);
-      const shop = SHOPS[(k++ + (s > 0 ? 0 : 3)) % SHOPS.length];
-      const z = s * (cw - 0.03), lo = (a: number) => Math.min(a, s * cw), hi = (a: number) => Math.max(a, s * cw);
-      b.deco('glassDark', x0 + 0.15, cf + 0.1, lo(z), x1 - 0.15, cf + 2.3, hi(z));
-      b.deco('glow:#fff4dc', x0 + 0.15, cf + 2.3, lo(s * (cw - 0.04)), x1 - 0.15, cf + 2.4, hi(s * (cw - 0.04)));
-      b.deco(`flat:${shop.bg}`, x0, cf + 2.4, lo(s * (cw - 0.05)), x1, top - 0.1, hi(s * (cw - 0.05)));
-      b.sign({ k: 'shop', ...shop }, (x0 + x1) / 2, cf + 2.68, s * (cw - 0.06), [0, -s], 2.8, 0.42);
-      for (const x of [x0, x1 - 0.08]) b.deco(GOLD, x, cf, lo(s * (cw - 0.05)), x + 0.08, top - 0.1, hi(s * (cw - 0.05)));
-      // A display counter inside the glass.
-      b.deco('wood:#a07a52', x0 + 0.3, cf, lo(s * (cw - 0.02)), x1 - 0.3, cf + 0.9, hi(s * (cw - 0.02)));
-      d += 3.1;
-    }
-  }
-
-  // The sunken garden: a planter under the skylight, mid-hall, if there is room.
-  for (const off of [8, 7, 9, 6, 10]) {
-    const xc = g + n * off, zc = 0;
-    if (!i.free(xc - 1.6, zc - 1.6, xc + 1.6, zc + 1.6, 0.6)) continue;
-    i.claim(xc - 1.6, zc - 1.6, xc + 1.6, zc + 1.6);
-    b.box('floor:#5b5f66', xc - 1.6, cf, zc - 1.6, xc + 1.6, cf + 0.45, zc + 1.6);
-    b.deco('flat:#4a3b2c', xc - 1.45, cf + 0.45, zc - 1.45, xc + 1.45, cf + 0.48, zc + 1.45);
-    for (let q = 0; q < 18; q++) {
-      const a = q * 2.1, rr = 0.25 + (q % 5) * 0.22, px = xc + Math.cos(a) * rr, pz = zc + Math.sin(a) * rr, h = 1.6 + (q % 4) * 0.25;
-      b.deco('flat:#6f8f3a', px - 0.03, cf + 0.48, pz - 0.03, px + 0.03, cf + 0.48 + h, pz + 0.03);
-      b.deco('leaf2', px - 0.2, cf + 0.48 + h - 0.5, pz - 0.2, px + 0.2, cf + 0.48 + h, pz + 0.2);
-    }
-    // Skylight: a deep daylit well in the ceiling, gold-rimmed.
-    b.deco('glow:#eef6ff', xc - 1.8, top - 0.02, zc - 1.8, xc + 1.8, top, zc + 1.8);
-    for (const [p, q, r2, t] of [[xc - 1.9, zc - 1.9, xc + 1.9, zc - 1.8], [xc - 1.9, zc + 1.8, xc + 1.9, zc + 1.9], [xc - 1.9, zc - 1.8, xc - 1.8, zc + 1.8], [xc + 1.8, zc - 1.8, xc + 1.9, zc + 1.8]]) {
-      b.deco(GOLD, p, top - 0.3, q, r2, top, t);
-    }
-    b.sign({ k: 'label', text: 'サンクンガーデン', sub: 'Sunken garden — open to the plaza above', fg: '#1d2a3a', bg: '#f4efe2' }, xc, cf + 0.25, zc - 1.62, [0, -1], 2.4, 0.32);
-    break;
-  }
-}
+/** The ceiling's fin depth at (x, z): a slow, shallow wave (kept above the hung signs, which reach cf + 2.86). */
+const finDrop = (x: number, z: number) => 0.04 + 0.08 * (0.5 + 0.5 * Math.sin(x * 0.32 + z * 0.15));
 
 export const look: StationLook = {
   ...defaultLook,
+  finishes: { wall: ENAMEL, floor: 'floor:#d4d9dc', ceil: 'paint:#f2f3f1', pillar: WHITE },
+  posters: false,
+
+  pillar(i, x, z, y0, y1) {
+    roundPillar(i, x, z, y0, y1, { mat: WHITE, band: BLUE, bandY: i.cf + 1.15, half: 0.42 });
+  },
+
+  lights(i: ConcInfo) {
+    const { b, cf, clear: h, x0, x1, cw } = i, top = cf + h;
+    // White fins running along the hall, 0.9 m apart, broken at the gate lines, the stairwells and the pillars; a light
+    // line in every third gap.
+    const gates: Span[] = i.ends.map((e): Span => [e.g - 2.8, e.g + 2.8]);
+    // (Kept 1 m off the long walls: the shop and room signs stand 0.6 m out from them.)
+    for (let z = -cw + 1.0, k = 0; z < cw - 0.9; z += 0.9, k++) {
+      const wells = i.stairwells.filter(({ footprint: f }) => z > f[1] - 0.3 && z < f[3] + 0.3).map(({ footprint: f }): Span => [f[0] - 0.3, f[2] + 0.3]);
+      const pil = i.pillars.filter(([, pz]) => Math.abs(pz - z) < 0.6).map(([px]): Span => [px - 0.55, px + 0.55]);
+      const gaps = [...gates, ...wells, ...pil];
+      for (let x = x0 + 0.3; x < x1 - 0.3; x += 1.5) {
+        const e = Math.min(x + 1.5, x1 - 0.3);
+        if (!clear((x + e) / 2, gaps, 0.75)) continue;
+        b.deco(WHITE, x, top - finDrop(x + 0.75, z), z - 0.035, e, top, z + 0.035);
+        if (k % 3 === 1) b.deco('light', x, top - 0.02, z + 0.4, e, top, z + 0.5);
+      }
+    }
+    // Over the gate lines: an LED ribbon across the ceiling.
+    for (const e of i.ends) {
+      b.deco('glow:#7cc4ff', e.g - 1.6, top - 0.015, -cw, e.g - 1.3, top, cw);
+      b.deco('glow:#7cc4ff', e.g + 1.3, top - 0.015, -cw, e.g + 1.6, top, cw);
+    }
+  },
 
   concourse(i) {
-    defaultLook.concourse?.(i);
-    for (const e of i.ends) basement(i, e.g, e.hi ? 1 : -1);
+    // (Dressed as a new hall, with a pale accent: a white enamel dado and no old pipes and battens, to match the atrium.)
+    defaultLook.concourse?.({ ...i, era: Math.max(i.era, 2015), style: { ...i.style, wall: ENAMEL, concWall: ENAMEL, pillar: WHITE, accent: '#dfe5ea' } });
+    const { b, cf, cw, x0, x1, clear: h } = i, top = cf + h;
+    for (const s of [-1, 1] as const) {
+      const gaps = i.openings.filter((o) => o.s === s).map((o): Span => [o.x0, o.x1]);
+      const face = s > 0 ? cw : -cw, d = s > 0 ? -1 : 1;
+      // The blue line at hand height, broken by every opening (the walls themselves are white enamel: specs.ts).
+      let from = x0;
+      for (const [a, e] of [...gaps.sort((p, q) => p[0] - q[0]), [x1, x1] as Span]) {
+        if (a - from > 0.5) b.deco(`paint:${BLUE}`, from, cf + 1.05, Math.min(face, face + d * 0.015), a, cf + 1.15, Math.max(face, face + d * 0.015));
+        from = Math.max(from, e);
+      }
+      // Digital posters along the paid side's walls.
+      posterRow(i, s, i.paid[0] + 2, i.paid[1] - 2, { digital: true, pitch: 6 });
+      // The gate line's portal: tall LED strips on both walls either side of it.
+      for (const e of i.ends) for (const dx of [-1.45, 1.45]) {
+        const x = e.g + dx;
+        b.deco('light', x - 0.04, cf + 0.25, Math.min(face, face + d * 0.03), x + 0.04, top - 0.05, Math.max(face, face + d * 0.03));
+      }
+    }
+  },
+
+  exit(e) {
+    // White enamel with a blue line, as the concourse (no tiled dado); light lines down the corridor's ceiling.
+    exitDado(e, { mat: WHITE, top: 1.05, cap: `paint:${BLUE}` });
+    const { b, cf, ext } = e;
+    if (ext > 0.5) for (let z = 0.6; z < ext - 0.5; z += 2.4) b.deco('light', -2.3, cf + 2.48, z, -1.7, cf + 2.5, z + 1.6);
   },
 
   platform(h) {
-    // The buffer end (−x, where the line ends): a name board over each platform's end barrier.
-    const x = -h.P + 1.6;
+    const { b, pf, wallZ, H, P } = h;
+    // The band along both walls, and the bay mural across the buffer-end wall (−x, where the line ends).
+    for (const s of [-1, 1] as const) {
+      for (const [a, e] of h.wallRuns(s)) {
+        const z0 = s > 0 ? wallZ - 0.02 : -wallZ, z1 = s > 0 ? wallZ : -wallZ + 0.02;
+        b.deco(`paint:${BLUE}`, a, pf + 2.2, z0, e, pf + 2.42, z1);
+        b.deco('paint:#9ec3e6', a, pf + 2.46, z0, e, pf + 2.5, z1);
+      }
+    }
+    b.sign({ k: 'mural', v: 'skyline', color: BLUE }, -H + 0.04, pf + 1.9, 0, [1, 0], Math.min(2 * wallZ - 2, 14), 2.4);
+    // Continuous light lines over each platform, in white trays, broken where a stair or a hung sign's mount is.
+    for (const s of [-1, 1]) {
+      const z = h.island ? s * 1.2 : (s * (h.pe + wallZ)) / 2;
+      for (let x = -P + 1; x < P - 1; x += 2) {
+        if (h.blocked(x, x + 2, 0.2)) continue;
+        const y = h.ceilAt(x + 1);
+        b.deco(WHITE, x, y - 0.06, z - 0.18, x + 2, y, z + 0.18);
+        b.deco('light', x + 0.05, y - 0.075, z - 0.08, x + 1.95, y - 0.06, z + 0.08);
+      }
+    }
+    // The end-of-line board over each platform's end barrier.
+    const x = -P + 1.6;
     for (const s of [-1, 1]) {
       const z = h.island ? 0 : (s * (h.pe + h.wallZ)) / 2;
-      h.b.hang({ k: 'label', text: '渚線 終点 みなとセンター', sub: 'Minato Center — end of the Nagisa Line', fg: '#fff', bg: '#1673c9' },
-        x, h.pf + 2.6, z, 3.6, 0.52, { ceil: h.ceilAt(x) });
+      h.b.hang({ k: 'label', text: '渚線 終点 みなとセンター', sub: 'Minato Center — end of the Nagisa Line', fg: '#fff', bg: BLUE },
+        x, pf + 2.6, z, 3.6, 0.52, { ceil: h.ceilAt(x) });
       if (h.island) break;
     }
   },

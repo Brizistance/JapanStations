@@ -35,7 +35,7 @@ import { konbini } from './konbini';
 import { roadModel, roadName, streetLamp } from './roads';
 import { crosswalk } from './surface';
 import { modelTree } from './trees';
-import { UMIBE_EAST as E, UMIBE_PLOT, UMIBE_STREETS } from './umibe-plan';
+import { UMIBE_EAST as E, UMIBE_STREETS } from './umibe-plan';
 
 type Rect = [number, number, number, number];
 type Named = { ja: string; en: string };
@@ -85,7 +85,8 @@ const SHOPS: Named[] = [
 ];
 
 export function umibeEast(c: Ctx, h: EastKit) {
-  const { b } = c, GY = GROUND_Y, N = UMIBE_PLOT.north;
+  // (The arms keep the plot's old north edge: the plot itself reaches the dock since 2026-11-25.)
+  const { b } = c, GY = GROUND_Y, N = 120;
   const { r, at, signAt } = h;
   const AV = UMIBE_STREETS.find((s) => s.en.startsWith('Umibe'))!, URA = UMIBE_STREETS.find((s) => s.en.startsWith('Hamachidori'))!;
   const X0 = E.x0, X1 = E.x1, M = E.mid, [L1, L2] = E.locals, T = E.tsu;

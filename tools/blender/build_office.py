@@ -171,6 +171,7 @@ def build_hi(v):
 
 
 def build_lo(v):
+    # (Faces stand 0.25 m or more off the wall: seen from 200–500 m the depth buffer must still part them.)
     p = Part()
     x0, x1, D = -v['w'] / 2, v['w'] / 2, v['d']
     ys = levels(v)
@@ -179,12 +180,12 @@ def build_lo(v):
     p.box(v['trim'] if curtain else v['wall'], x0, 0, 0, x1, H + PARAPET, D)
     m = 0 if curtain else 0.6
     for y in ys[:-1]:
-        p.box(v.get('glass', CURTAIN) if curtain else WINDOW, x0 + m, y + (0.4 if curtain else 0.9), -0.03, x1 - m, y + FH - 0.5, 0)
+        (p.box if curtain else lo_band)(v.get('glass', CURTAIN) if curtain else p, x0 + m, y + (0.4 if curtain else 0.9), -0.25, x1 - m, y + FH - 0.5, 0)
         if curtain:
-            p.box(v['wall'], x0, y - 0.55, -0.03, x1, y + 0.4, 0)
-        p.box(WINDOW_LIT, x0 - 0.03, y + 0.9, 2.0, x0, y + FH - 0.5, D - 2.0)
-    p.box(LOBBY, x0 + 0.4, 0.3, -0.03, x1 - 0.4, G0 - 1.2, 0)
-    p.box(v['base'], x0, G0 - 1.2, -0.04, x1, G0 - 0.5, 0)
+            p.box(v['wall'], x0, y - 0.55, -0.25, x1, y + 0.4, 0)
+        lo_band(p, x0 - 0.25, y + 0.9, 2.0, x0, y + FH - 0.5, D - 2.0)
+    p.box(LOBBY, x0 + 0.4, 0.3, -0.25, x1 - 0.4, G0 - 1.2, 0)
+    p.box(v['base'], x0, G0 - 1.2, -0.28, x1, G0 - 0.5, 0)
     if v['shop']:
         sign(p, v['shop'], x0 + 0.05, G0 + 0.6, -1.0, x0 + 0.3, G0 + 0.6 + 2 * FH, -0.1, glyphs=False)
     p.box(LOUVRE, x0 + v['w'] * 0.3, H + PARAPET, D * 0.45, x1 - 1.2, H + 3.7, D - 1.5)

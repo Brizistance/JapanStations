@@ -44,6 +44,8 @@ export interface UndergroundSpec {
   transfer?: true;
   /** A lift you can ride between an island platform and the concourse, its doors facing −x at this x (Aobadai). */
   platLift?: { x: number };
+  /** Minato Center: the +x end wall opens onto the atrium's low hall (minatocenter-atrium.ts). */
+  mcAtrium?: true;
   style: StationStyle;
   surface: SurfaceSpec;
 }
@@ -508,16 +510,20 @@ export const SPECS: Record<StationId, StationSpec> = {
     },
   },
   // ── Nagisa Line, west (under the bay) ──
-  // The line's western terminus. Bay business district: glass-blue panels, skyline mural; the
-  // unpaid hall is the Minato Center tower's basement (looks/minato-center.ts), so it runs wide.
+  // The line's western terminus, rebuilt 2026-11-25 (bay new town after Minato Mirai). One wide gate line at the
+  // east end faces the atrium: its end wall is open onto a low hall under the avenue that opens north into the
+  // tall glass atrium on the tower's forecourt (minatocenter-atrium.ts), whose escalators are Exit 2. Exit 1
+  // comes up in the avenue's south pavement, toward the Baywalk.
   'minato-center': {
     kind: 'underground',
-    concourse: [-20, 34],
+    concourse: [-14, 40],
     width: 12,
     gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    stairs: [{ x: 2, up: 1 }],
+    exits: [{ sides: [1] }],
+    mcAtrium: true,
     style: {
-      wall: 'panel:#dbe6ee', concWall: 'panel:#eaf0f4', floor: 'floor:#cdd3d8', pillar: 'panel:#9fb3c2',
+      wall: 'paint:#eef1f3', concWall: 'paint:#eef1f3', floor: 'floor:#d4d9dc', pillar: 'paint:#f8f8f6',
       accent: '#1673c9', mural: { v: 'skyline', color: '#1673c9' },
     },
     surface: { seed: 197, roadHalf: 11, cross: [-76], left: 'office', right: 'sea', waterfront: 'promenade', trees: true,
@@ -749,19 +755,20 @@ export const SPECS: Record<StationId, StationSpec> = {
   },
 
   // ══ Network expansion, stage 2: the Kikyō Line ══
-  // Bay-front terminus: slate-blue tile, gulls over the fish-market quay.
+  // Fish-market terminus (rebuilt 2026-11-25): white-glazed market tile, indigo pillars, a big-catch flag
+  // mural. A gate end each way: Exit 1 north to the outer market, Exit 2 south to the market hall's gate.
+  // The street is shinshio-street.ts, which reads only `seed` from `surface`.
   shinshio: {
     kind: 'underground',
-    concourse: [-20, 34],
-    gates: ['hi'],
-    stairs: [{ x: -2, up: 1 }],
+    concourse: [-56, 40],
+    gates: ['lo', 'hi'],
+    stairs: [{ x: -14, up: -1 }, { x: 0, up: 1 }],
+    exits: [{ sides: [-1] }, { sides: [1] }],
     style: {
-      wall: 'tile:#c9d3dc', concWall: 'tile:#e8edf1', floor: 'floor:#cbcfd2', pillar: 'tile:#7b4fa8',
-      accent: '#7b4fa8', mural: { v: 'gulls', color: '#4b3a78' },
+      wall: 'tile:#e4e0d4', concWall: 'tile:#eeeee9', floor: 'floor:#b9bdbb', pillar: 'tile:#1d2f55',
+      accent: '#c22a20', mural: { v: 'catch', color: '#3d6fae' },
     },
-    surface: { seed: 281, roadHalf: 9, cross: [-74], left: 'warehouse', right: 'sea', trees: true,
-      quayName: { ja: '新潮魚市場', en: 'Shinshio Fish Market' },
-    },
+    surface: { seed: 281, roadHalf: 9, cross: [], left: 'warehouse', right: 'sea' },
   },
   // Hillside houses and a shrine wood: lilac panels, the line's own bellflower mural.
   higashigaoka: {

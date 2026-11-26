@@ -410,7 +410,7 @@ const CABINET = 'flat:#24272b';
  * Placed from the lot's position, not from the street's random stream, so nothing else moves.
  */
 function frontSigns(b: Builder, m: BuildingModel, x: number, z0: number, tier: number) {
-  if (!['zakkyo', 'shophouse', 'office', 'machi', 'yokocho'].includes(m.kind) || m.w < 4.5) return;
+  if (!['zakkyo', 'shophouse', 'office', 'machi', 'yokocho', 'ichiba'].includes(m.kind) || m.w < 4.5) return;
   const q = rng(Math.abs(Math.round(x * 131 + z0 * 17 + m.w * 7)) + 3);
   const shops = m.kind !== 'office';
   const wear = shops ? 0.15 + q() * 0.5 : 0.05;

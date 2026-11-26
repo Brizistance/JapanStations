@@ -502,17 +502,22 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
     { z: -edgeZ, dir: 'down' },
     { z: edgeZ, dir: 'up' },
   ];
-  for (const x of [-49, -27, 27, 49]) {
+  // (A direction sign that would hang through a car number, as at ±49 m on the Nagisa Line's side platforms, moves in
+  // past it: they hang in the same plane on side platforms.)
+  const carXs = Array.from({ length: line.service.cars }, (_, k) => (k - (line.service.cars - 1) / 2) * carOf(line).pitch + 2.9);
+  for (const x0 of [-49, -27, 27, 49]) {
+    const w = island ? 3.3 : 4.2;
+    const near = island ? undefined : carXs.find((cx) => Math.abs(cx - x0) < w / 2 + 0.45);
+    const x = near === undefined ? x0 : near - Math.sign(x0) * (w / 2 + 0.45);
     if (inBlocks(x, o.blocks, 2)) continue;
     for (const sd of sides) {
-      const w = island ? 3.3 : 4.2;
       const zc = island ? sd.z * 0.98 : sd.z;
       b.hang({ k: 'dir', station: station.id, line: line.id, dir: sd.dir }, x, signY, zc, w, 0.46, { ceil: hangCeil(x) });
     }
   }
   // Car numbers hung over each platform edge, between a car's second and third doors.
   for (let k = 0; k < line.service.cars; k++) {
-    const x = (k - (line.service.cars - 1) / 2) * carOf(line).pitch + 2.9;
+    const x = carXs[k];
     if (inBlocks(x, o.blocks, 1.2)) continue;
     const women = line.service.womenOnly?.car === k + 1;
     for (const s of [-1, 1]) {
@@ -524,6 +529,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
   }
   // Printed boards: the timetable, the line's strip map and the car guide. On an island they stand
   // back to back down the middle between the benches; on side platforms they hang on the wall.
+  const boardAt: number[] = [];
   {
     const cars = line.service.cars;
     const stairCars = [...new Set(o.blocks.map(([a, e]) => Math.min(cars, Math.max(1, Math.round((a + e) / 2 / carOf(line).pitch + (cars - 1) / 2) + 1))))].sort((p, q) => p - q);
@@ -533,6 +539,7 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       (dir) => ({ k: 'strip', line: line.id, station: station.id, dir }),
       () => ({ k: 'carguide', line: line.id, station: station.id, stairs: stairCars }),
     ];
+    boardAt.push(...spots);
     spots.forEach((x, i) => {
       const make = boards[i], bw = i === 0 ? 1.7 : 2.5, bh = i === 0 ? 1.5 : 1.15, y0 = pf + (i === 0 ? 0.55 : 0.8);
       for (const sd of sides) {
@@ -567,6 +574,8 @@ export function hall(c: Ctx, o: HallOpts): HallDims {
       if (!island && inBlocks(x, o.blocks, 1.5)) continue;
       if (o.elevated && !isName) continue;
       if (inGap(s, x)) continue;
+      // (A poster never goes over a printed board hung on the same wall.)
+      if (!isName && !island && boardAt.some((bx) => Math.abs(bx - x) < 2.4)) continue;
       if (isName) b.sign({ k: 'name', station: station.id, line: line.id }, x, pf + 1.75, s * nameZ, [0, -s], 2.7, 0.9, { arrow: [1, 0] });
       else b.sign({ k: 'poster', v: poster++ }, x, pf + 1.65, s * nameZ, [0, -s], 1.8, 1.2);
     }
@@ -724,7 +733,7 @@ export function gateLine(c: Ctx, cf: number, cw: number, lines: string[], clear 
     b.deco(i % 3 === 0 ? 'glow:#e53935' : 'glow:#32c86a', 0.78, cf + 0.72, z - 0.06, 0.81, cf + 0.86, z + 0.06);
   }
   // Fences either side.
-  b.box('metal:#c4c8cc', -0.05, cf, edge, 0.05, cf + 1.15, oz);
+  b.box('metal:#c4c8cc', -0.05, cf, edge, 0.05, cf + 1.15, oz - 0.06);
   b.box('metal:#c4c8cc', -0.05, cf, -cw, 0.05, cf + 1.15, -edge);
   b.deco('glass', -0.02, cf + 1.15, -cw, 0.02, cf + 1.9, -edge);
   // Station office.
@@ -826,7 +835,9 @@ export function exit(c: Ctx, cf: number, num: string, ext = 0) {
   });
   b.with({ t: [0, 0, ext] }, () => {
     // Signs inside.
-    b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num, arrow: 'up' }, -0.31, cf + 2.95, 2.6, [-1, 0], 2.4, 0.42);
+    // (Below the lobby's ceiling, on a plate over the stair's mouth: at cf + 2.95 it stood inside the ceiling.)
+    b.deco('flat:#22262b', -0.36, cf + 2.2, 1.3, -0.3, cf + 2.7, 3.9);
+    b.sign({ k: 'guide', ja: '出口', en: 'Exit', bg: 'yellow', num, arrow: 'up' }, -0.37, cf + 2.45, 2.6, [-1, 0], 2.4, 0.42);
     if (!thru) b.sign({ k: 'poster', v: num.charCodeAt(0) + station.id.length }, -2, cf + 1.5, 3.98, [0, -1], 1.2, 1.7);
     b.zone('passage', -4, cf - 0.2, 0, run, GY + 2.4, 4.0, `${num}番出口`, `Exit ${num}`);
   });

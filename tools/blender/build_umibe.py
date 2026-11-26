@@ -12,6 +12,7 @@
 #   bandshell   the open-air stage
 #   kadan       the flower-bed crest at the head of the park's mall
 #   kyukeijo    the park's rest house (a kiosk café and the toilets)
+#   renga       the red-brick seafood hall on the dock quay, walked into (2026-11-25)
 
 import math
 import os
@@ -223,12 +224,90 @@ def kyukeijo(p):
     mark('toilet', 4.05, 2.6, 0.72, 2.6, 0.5)
 
 
+# ── The red-brick seafood hall on the dock quay (2026-11-25): a Meiji bonded warehouse turned into a fish shop and a
+# seafood restaurant, walked into. Its walls are outside faces only, with real openings at the two quay doors and the
+# lane door; the inside is built in code (umibe-street.ts). Same build as the port's warehouses (build_port.py).
+R_BRICK = 'flat:#8b4a37'
+R_BRICK_D = 'flat:#6e3a2b'
+R_STONE = 'flat:#c9c1b0'
+R_ROOF = 'flat:#5b5f62'
+R_IRON = 'flat:#2a2d30'
+RW, RD, RH, RRISE = 44.0, 22.0, 9.0, 3.2
+R_BAYS = 8
+R_DOORS = (-8.25, 8.25)          # quay doors (centres), 3.4 x 3.6
+R_BACK = -2.75                   # the lane door (centre), 2.2 x 2.6
+R_DW, R_DH, R_BW, R_BH = 3.4, 3.6, 2.2, 2.6
+
+
+def renga(p):
+    hw = RW / 2
+    bw = RW / R_BAYS
+
+    def wall(face, at, a0, a1, gaps):
+        """An outside wall from a0 to a1 at `at`, with door openings (centre, width, height)."""
+        cuts = sorted(gaps)
+        x = a0
+        for c, w, h in cuts:
+            quad(p, R_BRICK, face, x, c - w / 2, 0, RH, at)
+            quad(p, R_BRICK, face, c - w / 2, c + w / 2, h, RH, at)
+            x = c + w / 2
+        quad(p, R_BRICK, face, x, a1, 0, RH, at)
+
+    wall('f', 0.0, -hw, hw, [(c, R_DW, R_DH) for c in R_DOORS])
+    wall('b', RD, -hw, hw, [(R_BACK, R_BW, R_BH)])
+    wall('l', -hw, 0.0, RD, [])
+    wall('r', hw, 0.0, RD, [])
+    # The door reveals: brick returns through the wall's thickness, so the openings read as deep.
+    for c, w, h, z0, z1 in [(c, R_DW, R_DH, 0.0, 0.45) for c in R_DOORS] + [(R_BACK, R_BW, R_BH, RD - 0.45, RD)]:
+        p.box(R_BRICK_D, c - w / 2 - 0.02, 0, z0, c - w / 2, h, z1)
+        p.box(R_BRICK_D, c + w / 2, 0, z0, c + w / 2 + 0.02, h, z1)
+        p.box(R_STONE, c - w / 2 - 0.3, h, -0.12 if z0 == 0 else RD, c + w / 2 + 0.3, h + 0.45, 0.0 if z0 == 0 else RD + 0.12)
+    # Gable ends, the roof.
+    for x0, x1 in ((-hw - 0.02, -hw), (hw, hw + 0.02)):
+        p.prism(R_BRICK, [(0, RH), (RD / 2, RH + RRISE), (RD, RH)], 'x', x0, x1)
+    ov = 0.5
+    p.prism(R_ROOF, [(-ov, RH - 0.1), (RD / 2, RH + RRISE), (RD + ov, RH - 0.1), (RD + ov, RH + 0.05), (RD / 2, RH + RRISE + 0.18), (-ov, RH + 0.05)], 'x', -hw - ov, hw + ov)
+    # Stone bands and pilasters on the outside faces only.
+    for y0, y1 in ((0, 0.6), (RH / 2 - 0.15, RH / 2 + 0.15), (RH - 0.45, RH - 0.15)):
+        p.box(R_STONE, -hw - 0.06, y0, -0.06, hw + 0.06, y1, 0.0) if y0 else None
+        p.box(R_STONE, -hw - 0.06, y0, RD, hw + 0.06, y1, RD + 0.06) if y0 else None
+        p.box(R_STONE, -hw - 0.06, y0, 0.0, -hw, y1, RD)
+        p.box(R_STONE, hw, y0, 0.0, hw + 0.06, y1, RD)
+    for k in range(R_BAYS + 1):
+        x = -hw + k * bw
+        for z0, z1 in ((-0.22, 0.0), (RD, RD + 0.22)):
+            p.box(R_BRICK_D, x - 0.35, 0.6 if not any(abs(x - c) < R_DW / 2 + 0.4 for c in R_DOORS) else R_DH + 0.45, z0, x + 0.35, RH - 0.45, z1)
+    # Windows: lit panes in iron frames on both floors, but not over the doors' openings.
+    for k in range(R_BAYS):
+        cx = -hw + (k + 0.5) * bw
+        for y in (1.3, RH / 2 + 0.8):
+            if y < 2 and any(abs(cx - c) < R_DW for c in R_DOORS):
+                continue
+            for dx in (-0.9, 0.9):
+                p.box(R_IRON, cx + dx - 0.5, y, -0.09, cx + dx + 0.5, y + 1.5, -0.01)
+                quad(p, WINDOW, 'f', cx + dx - 0.42, cx + dx + 0.42, y + 0.06, y + 1.44, -0.1)
+                if y > 2:
+                    p.box(R_IRON, cx + dx - 0.5, y, RD + 0.01, cx + dx + 0.5, y + 1.5, RD + 0.09)
+                    quad(p, WINDOW, 'b', cx + dx - 0.42, cx + dx + 0.42, y + 0.06, y + 1.44, RD + 0.1)
+    # Canopies over the quay doors, lamps over them, the name board between.
+    for c in R_DOORS:
+        p.box(R_IRON, c - 2.4, R_DH + 0.6, -1.8, c + 2.4, R_DH + 0.72, 0.0)
+        p.box('light', c - 0.2, R_DH + 0.45, -1.2, c + 0.2, R_DH + 0.6, -0.8)
+    p.box(R_IRON, -5.0, R_DH + 1.0, -0.14, 5.0, R_DH + 2.2, -0.02)
+    mark('name', 0, R_DH + 1.6, -0.15, 9.6, 1.0)
+    mark('_hall', 0, 0, RD / 2, RW, RD)
+    mark('_doorw', R_DOORS[0], 0, 0, R_DW, R_DH)
+    mark('_doore', R_DOORS[1], 0, 0, R_DW, R_DH)
+    mark('_back', R_BACK, 0, RD, R_BW, R_BH, (0, 1))
+
+
 VARIANTS = [
     dict(id='shiyakusho', w=W, d=D, h=TOP + 5.2, fn=shiyakusho, gap=20.0),
     dict(id='monument', w=8.0, d=6.0, h=15.0, fn=monument, gap=10.0),
     dict(id='bandshell', w=16.0, d=9.0, h=7.0, fn=bandshell, gap=10.0),
     dict(id='kadan', w=10.6, d=10.3, h=2.0, fn=kadan, gap=10.0),
     dict(id='kyukeijo', w=14.0, d=8.0, h=4.4, fn=kyukeijo, gap=10.0),
+    dict(id='renga', w=RW, d=RD, h=RH + RRISE + 0.2, fn=renga, gap=10.0),
 ]
 
 

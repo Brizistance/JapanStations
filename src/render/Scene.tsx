@@ -22,7 +22,7 @@ import { LampDots, updateLamps } from './lamps';
 import { Lighting } from './lighting';
 import { lineGrade, outdoorGrade, UNDERGROUND, WARM_HUB, type Grade } from './grade';
 import { needsPost } from './graphics';
-import { treeGust, treeWind } from './building-models';
+import { setBackdropDetail, treeGust, treeWind } from './building-models';
 import { Post } from './post';
 import { ssrWet } from './ssr';
 import { Rain } from './weather';
@@ -96,6 +96,9 @@ function World() {
     post.current?.apply(fx);
     lighting.current?.setDetail(fx.hq);
     lighting.current?.setClouds(fx.clouds);
+    // Full backdrop buildings far out on High and Ultra (and a custom mix with shadows on); simplified on Low.
+    const preset = useUI.getState().graphics.preset;
+    setBackdropDetail(preset === 'custom' ? fx.shadows : preset !== 'low');
   }, [fx, wantPost]);
   useEffect(() => {
     post.current?.setSize(size.width, size.height);
@@ -334,7 +337,7 @@ function Controls() {
 export function Scene() {
   const scale = useUI((s) => s.graphics.fx.scale);
   return (
-    <Canvas dpr={[1, scale]} camera={{ fov: 72, near: 0.08, far: 3200 }} gl={{ antialias: true }}>
+    <Canvas dpr={[1, scale]} camera={{ fov: 72, near: 0.08, far: 3200 }} gl={{ antialias: true, logarithmicDepthBuffer: true }}>
       <World />
       <Controls />
     </Canvas>

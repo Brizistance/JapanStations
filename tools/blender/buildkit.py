@@ -538,6 +538,28 @@ def acu(p, x, y, z, out=-1):
     p.box(DARK, x + 0.1, y + 0.08, z, x + 0.62, y + 0.62, z + out * 0.01)
 
 
+def lo_band(p, x0, y0, z0, x1, y1, z1, pane=1.6, gap=0.35):
+    """A band of windows on a simplified (lo) copy: separate panes, each lit at night by share (WINDOW), on a dark
+    frame set 10 cm back, so a far building shows single lit windows instead of one glowing strip."""
+    along_x = abs(x1 - x0) >= abs(z1 - z0)
+    a0, a1 = (min(x0, x1), max(x0, x1)) if along_x else (min(z0, z1), max(z0, z1))
+    # The frame: the band's full extent, recessed from its outer face (the face away from the wall).
+    if along_x:
+        fz0, fz1 = (min(z0, z1) + 0.1, max(z0, z1)) if min(z0, z1) < 0 else (min(z0, z1), max(z0, z1) - 0.1)
+        p.box(DARK, x0, y0, fz0, x1, y1, fz1)
+    else:
+        fx0, fx1 = (min(x0, x1) + 0.1, max(x0, x1)) if min(x0, x1) < max(x0, x1) - 0.12 and abs(min(x0, x1)) > abs(max(x0, x1)) else (min(x0, x1), max(x0, x1) - 0.1)
+        p.box(DARK, fx0, y0, z0, fx1, y1, z1)
+    n = max(1, int((a1 - a0 + gap) / (pane + gap)))
+    w = (a1 - a0 - gap * (n - 1)) / n
+    for i in range(n):
+        u0 = a0 + i * (w + gap)
+        if along_x:
+            p.box(WINDOW, u0, y0 + 0.05, z0, u0 + w, y1 - 0.05, z1)
+        else:
+            p.box(WINDOW, x0, y0 + 0.05, u0, x1, y1 - 0.05, u0 + w)
+
+
 def render_views(scene, out, kind, span, height):
     cam_data = bpy.data.cameras.new('preview')
     cam = bpy.data.objects.new('preview', cam_data)

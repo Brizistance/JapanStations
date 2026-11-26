@@ -35,6 +35,9 @@ import { CARS, VEH, family } from '../traffic/vehicles';
 import { rng, type LanePart } from '../world/builder';
 import { CIVIC as V } from './anchors/civic';
 import { UMIBE as U } from './anchors/umibe';
+import { PORT } from './anchors/port';
+import { ICHIBA } from './anchors/ichiba';
+import { SEA_Y } from '../data/geography';
 import { BUILDING_MODELS } from './buildings';
 import type { AnchorPt } from './anchors/types';
 import type { Ctx } from './kit';
@@ -53,6 +56,8 @@ type Named = { ja: string; en: string };
 type Face = 'n' | 's' | 'e' | 'w';
 type St = (typeof UMIBE_STREETS)[number];
 const X = UMIBE_PLOT.x, Z = UMIBE_PLOT.z, N = UMIBE_PLOT.north;
+/** The dock: its quay wall, the quay road's south kerb, and the back lane behind the quay row (z0, z1). */
+const QW = -160, QL = -152, LANE_Z: [number, number] = [-128, -124];
 /** The avenue's old building line, which the pavement exits are fitted to (the structure's edge + 5.5). */
 const FRONT = 17.5;
 const BARE = 'flat:#8d877b', WHITE = 'flat:#e9e9e4', YELLOW = 'flat:#e6a700', STONE = 'flat:#cfcdc6', LANE = 'tile:#8f8a80', BLUE = 'flat:#3f78b5';
@@ -95,7 +100,8 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   const wells: Rect[] = b.out.holes.map(([x0, z0, x1, z1]): Rect => [x0 - 0.05, z0 - 0.05, x1 + 0.05, z1 + 0.05]);
   const carriage: Rect[] = [
     [-X, -AV.half, X, AV.half], [-X, URA.c - URA.half, X, URA.c + URA.half],
-    ...NS.map((s): Rect => [s.c - s.half, -N, s.c + s.half, -AV.half]),
+    ...NS.map((s): Rect => [s.c - s.half, QL, s.c + s.half, -AV.half]),
+    [-120, QW + 0.4, X, QL],
   ];
   b.slab('asphalt', -X, -N, X, Z, -0.6, 0, wells);
   b.slab(BARE, -X, -N, X, Z, 0, GY, [...wells, ...carriage]);
@@ -103,7 +109,7 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   pave(-X, AVN, X, -AV.half);
   pave(-X, AV.half, X, -AVN);
   pave(-X, URN, X, URS);
-  for (const s of NS) pave(s.c - s.half - s.pave, -N, s.c + s.half + s.pave, AVN);
+  for (const s of NS) pave(s.c - s.half - s.pave, QL, s.c + s.half + s.pave, AVN);
   b.zone('street', -X, -0.3, -N, X, 120, Z, `${sta.nameJa}駅前`, `${sta.nameRomaji} — street level`);
   b.block(-X - 1, -1, -N - 1, -X, 60, Z + 1);
   // (East, north of the sea: open, the plot's arms go on to Kawaminato-kō: umibe-east.ts.)
@@ -143,17 +149,17 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   // The boulevard: two lanes each way, the median (planted between the junctions), a blue bicycle strip at each kerb.
   const MED: [number, number] = [URS + 12, AVN - 10];
   for (const s of [-1, 1]) {
-    dash('z', s * 4.25, -N, AVN, boxZ);
-    line('z', s * 7.55, -N, AVN, boxZ);
-    line('z', s * 8.25, -N, AVN, boxZ, BLUE, 0.55);
-    line('z', s * 1.0, -N, AVN, [...boxZ, [MED[0] - 3, MED[1] + 3]], YELLOW, 0.05);
+    dash('z', s * 4.25, QL, AVN, boxZ);
+    line('z', s * 7.55, QL, AVN, boxZ);
+    line('z', s * 8.25, QL, AVN, boxZ, BLUE, 0.55);
+    line('z', s * 1.0, QL, AVN, [...boxZ, [MED[0] - 3, MED[1] + 3]], YELLOW, 0.05);
   }
   b.box(STONE, -1.0, 0, MED[0], 1.0, 0.22, MED[1]);
   b.deco('grass', -0.8, 0.22, MED[0] + 0.2, 0.8, 0.26, MED[1] - 0.2);
   for (let z = MED[0] + 3; z < MED[1] - 2; z += 5.5) modelTree(b, z % 11 < 5.5 ? 'azalea' : 'dogwood', 0, z, 'b', 0.24);
   // The two-lane streets: a dashed centre line.
   dash('x', URA.c, -X, X, boxX);
-  for (const s of [MIO, TOD]) dash('z', s.c, -N, AVN, boxZ);
+  for (const s of [MIO, TOD]) dash('z', s.c, QL, AVN, boxZ);
 
   // ═════════════════════════ Junctions and lanes ═════════════════════════
   const inPlot = (x: number, z: number) => x > -X + 0.5 && x < (z < 52 ? E.x1 : X) - 0.5 && z > -N + 0.6 && z < Z - 0.5;
@@ -240,14 +246,14 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   }
   // (A 筋 ends at the avenue: its southbound lanes turn off there; its northbound ones are fed by turns.)
   for (const x of [2.6, 5.9]) {
-    lane(mid, x, -N, x, 6.5, { dead: true });
-    lane({ ...mid, flow: 0 }, -x, -1, -x, -N, { closed: ['to'] });
+    lane(mid, x, QL + 0.5, x, 6.5, { dead: true });
+    lane({ ...mid, flow: 0 }, -x, -1, -x, QL + 0.5, { dead: true });
   }
   for (const s of [MIO, TOD]) {
-    lane(small, s.c + 1.6, -N, s.c + 1.6, 6.5, { dead: true });
-    lane({ ...small, flow: 0 }, s.c - 1.6, -1, s.c - 1.6, -N, { closed: ['to'] });
+    lane(small, s.c + 1.6, QL + 0.5, s.c + 1.6, 6.5, { dead: true });
+    lane({ ...small, flow: 0 }, s.c - 1.6, -1, s.c - 1.6, QL + 0.5, { dead: true });
   }
-  for (const ln of b.out.lanes) if (Math.abs(ln.from[2] - -N) < 0.1) ln.closed = ['from'];
+  // (The 筋 end at the quay road, which is walked, not driven: their lanes start and end there.)
   // (The back street ends at the 筋 where the avenue narrows.)
   lane(small, -X, URA.c - 1.6, E.mid.c + 3.5, URA.c - 1.6, { dead: true }, [...NS, E.locals[0], E.mid]);
   lane({ ...small, flow: 0 }, E.mid.c + 3.5, URA.c + 1.6, -X, URA.c + 1.6, {}, [...NS, E.locals[0], E.mid]);
@@ -268,7 +274,7 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     const s = k % 2 ? 1 : -1;
     streetLamp(b, 'lamp_led', x, s * (AV.half + 0.7), [0, -s]);
   });
-  lampAt(-N, -AV.half, carrZ).forEach((z, k) => {
+  lampAt(QL, -AV.half, carrZ).forEach((z, k) => {
     const s = k % 2 ? 1 : -1;
     streetLamp(b, 'lamp_led', s * (HAM.half + 0.7), z, [-s, 0]);
   });
@@ -276,7 +282,7 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     const e = k % 2 ? 1 : -1;
     streetLamp(b, 'lamp_small', x, URA.c + e * (URA.half + 0.45), [0, -e]);
   });
-  for (const s of [MIO, TOD]) lampAt(-N, -AV.half, carrZ).forEach((z, k) => {
+  for (const s of [MIO, TOD]) lampAt(QL, -AV.half, carrZ).forEach((z, k) => {
     const e = k % 2 ? 1 : -1;
     streetLamp(b, 'lamp_small', s.c + e * (s.half + 0.45), z, [-e, 0]);
   });
@@ -299,7 +305,7 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   }
   // Camphors along the avenue, ginkgos down the boulevard.
   for (let x = -X + 18; x < X - 4; x += 18) if (clearOf(x, nsCorr, 7) && clearOf(x, EXITS, 2) && clearOf(x, BUS, 1)) for (const s of [-1, 1]) modelTree(b, 'camphor', x, s * (AV.half + 1.9), 'b', GY, true);
-  for (let z = -N + 12; z < AVN - 6; z += 12) if (clearOf(z, ewCorr, 6)) for (const s of [-1, 1]) modelTree(b, 'ginkgo', s * (HAM.half + 1.5), z, 'b', GY, true);
+  for (let z = LANE_Z[1] + 6; z < AVN - 6; z += 12) if (clearOf(z, ewCorr, 6)) for (const s of [-1, 1]) modelTree(b, 'ginkgo', s * (HAM.half + 1.5), z, 'b', GY, true);
   roadName(b, -HAM.half - HAM.pave - 2, AVN + 0.6, [0, 1], short(AV));
   roadName(b, HAM.half + HAM.pave + 2, -AVN - 0.6, [0, -1], short(AV));
   roadName(b, HAM.half + HAM.pave - 0.6, AVN - 8, [-1, 0], short(HAM));
@@ -307,7 +313,7 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   roadName(b, HAM.half + HAM.pave + 2, URS - 0.4, [0, -1], short(URA));
   for (const s of [MIO, TOD]) {
     roadName(b, s.c + s.half + s.pave - 0.4, AVN - 6, [-1, 0], short(s));
-    roadSign(b, 'speed30', s.c + s.half + 0.5, -N + 10, [0, -1], 0.6);
+    roadSign(b, 'speed30', s.c + s.half + 0.5, QL + 10, [0, -1], 0.6);
   }
   for (const sx of [-1, 1]) roadSign(b, 'speed30', sx * (X - 10), URA.c - sx * (URA.half + 0.5), [-sx, 0], 0.6);
   // A bus stop each way on the avenue; buses stop in the kerb lane.
@@ -733,8 +739,8 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     let from = -X;
     for (const [p, q] of [...nsCorr, [X, X] as [number, number]]) {
       if (p - from > 2) {
-        b.deco('flat:#8a8378', from, GY + 0.002, -N, p, GY + 0.012, YARD);
-        b.box('flat:#b3ac9c', from, GY, -N, p, GY + 1.7, -N + 0.3);
+        b.deco('flat:#8a8378', from, GY + 0.002, LANE_Z[1], p, GY + 0.012, YARD);
+        b.box('flat:#b3ac9c', from, GY, LANE_Z[1], p, GY + 1.7, LANE_Z[1] + 0.3);
         b.box('flat:#b3ac9c', from, GY, YARD - 0.15, p, GY + 1.7, YARD);
       }
       from = q;
@@ -788,28 +794,125 @@ export function umibeStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       }
       b.clearScenery(s > 0 ? X : -X - OUT - 2, -N - 40, s > 0 ? X + OUT + 2 : -X, 60);
     }
-    // North: the three 筋 run on 38 m to the dock's quay road; rows between them.
-    const NO = 38;
-    for (const q of NS) {
-      b.deco('asphalt', q.c - q.half, -0.03, -N - NO, q.c + q.half, 0.004, -N);
-      for (const k of [-1, 1]) b.deco('paver', Math.min(q.c + k * q.half, q.c + k * (q.half + q.pave)), -0.03, -N - NO, Math.max(q.c + k * q.half, q.c + k * (q.half + q.pave)), GY, -N);
-      lampOut(q.c + q.half + 0.6, -N - 14, [-1, 0], q.half > 5);
-      lampOut(q.c - q.half - 0.6, -N - 30, [1, 0], q.half > 5);
-    }
-    b.deco('asphalt', -X - 40, -0.03, -N - NO - 7, X + 40, 0.004, -N - NO);
-    b.deco(STONE, -X - 40, -0.03, -N - NO - 9, X + 40, 0.35, -N - NO - 7.6);
+    // ── The dock quay (walked since 2026-11-25) ──
+    // The Shinshio dock's south quay, its wall at z −160 from x −120 east (data/geography.ts: west of that the
+    // landfill goes on north as the dock's west quay). The three 筋 end at the quay road; along it the dock's working
+    // side faces Shinshio across the water: seafood eateries, a transit shed and the harbour office, the red-brick
+    // seafood hall (walked into) and its neighbour warehouse, another warehouse and an eatery. Behind them their
+    // yards, then a back lane along the rear yards of the civic rows.
+    const DOCK_W = -120;
+    b.deco('asphalt', DOCK_W, -0.03, QW + 0.4, X, 0.004, QL);
+    b.deco(STONE, DOCK_W, -0.03, QW, X, GY + 0.35, QW + 0.4);
+    b.deco('flat:#9e9b93', -X, GY + 0.002, -N, DOCK_W, GY + 0.012, LANE_Z[0]);
+    b.zone('street', DOCK_W, -0.3, QW + 0.4, X, 8, QL, '海辺岸壁', 'Umibe Quay');
+    b.zone('street', -X, -0.3, -N, DOCK_W, 8, LANE_Z[0], '船溜西岸壁', 'Dock west quay');
+    // (The plot's north edge west of the dock runs through the west quay, which goes on north: a low rail.)
+    b.box('metal:#7d858a', -X, GY, -N, DOCK_W, GY + 0.9, -N + 0.08);
+    // Chain and bollards along the edge, the dock's lamps on the landward side, boats alongside.
+    b.deco('metal:#5d666c', DOCK_W, GY + 0.45, QW + 0.42, X, GY + 0.49, QW + 0.5);
+    for (let x = DOCK_W + 6; x < X; x += 13) roadModel(b, 'bollard', x, GY, QW + 0.6, [0, -1]);
+    for (let x = DOCK_W + 14; x < X; x += 30) streetLamp(b, 'lamp_led', x, QL - 0.6, [0, -1]);
+    for (const [id, x] of [['boat_a', -60], ['boat_b', 40], ['boat_a', 118]] as [string, number][]) at('n', x, QW - 4.2, () => b.model('port', id, 0, SEA_Y, 0, 0));
     {
-      let from = -X;
-      for (const [p, q] of [...nsCorr, [X, X] as [number, number]]) {
-        const a = from + 0.2, e = p - 0.2, m = (a + e) / 2;
-        if (e - a > 12) {
-          fillRect(a, -N - NO + 0.3, m - 0.4, -N - 0.4, 'w', 1);
-          fillRect(m + 0.4, -N - NO + 0.3, e, -N - 0.4, 'e', 1);
+      type Pc = ['port' | 'ichiba' | 'umibe', string];
+      const anchors = { port: PORT, ichiba: ICHIBA, umibe: U };
+      const EAT = [n('海鮮食堂 船溜', 'Funadamari Seafood Diner'), n('浜焼き まるかつ', 'Marukatsu Beach Grill'), n('寿司 ゆりかもめ', 'Sushi Yurikamome'), n('鯛めし 湊屋', 'Minatoya Tai-meshi')];
+      let eat = 0;
+      /** One building on the quay, front on the quay road facing the water; its yard behind it to the back lane. */
+      const dock = ([kind, id]: Pc, x0: number) => {
+        const a = anchors[kind][id], x1 = x0 + a.w;
+        at('n', x0 + a.w / 2, QL + 0.3, () => {
+          b.model(kind, id, 0, GY, 0, 7);
+          if (kind === 'ichiba') signAt([0, 2.75, -1.45, a.w - 0.6, 0.22, 0, -1], { k: 'label', text: EAT[eat % EAT.length].ja, fg: '#ffffff', bg: '#1d2f55' });
+          if (kind !== 'umibe') b.block(-a.w / 2, GY, 0, a.w / 2, GY + a.h, a.d);
+        });
+        if (kind === 'ichiba') eat++;
+        const back = QL + 0.3 + a.d;
+        if (LANE_Z[0] - back > 1.2) {
+          b.deco('flat:#8a8378', x0, GY + 0.002, back, x1, GY + 0.012, LANE_Z[0]);
+          b.zone('street', x0 + 0.1, -0.3, back + 0.1, x1 - 0.1, 6, LANE_Z[0], '裏庭', `Yard behind ${id}`, true);
+          for (let x = x0 + 1; x < x1 - 1.5; x += 3.1) b.box(x % 2 < 1 ? 'flat:#3b78b8' : 'flat:#9c7a52', x, GY, back + 0.4, x + 1.3, GY + 0.6 + (Math.round(x) % 3) * 0.3, back + 1.5);
         }
-        from = q;
+        return x1 + 0.6;
+      };
+      const rows: [number, Pc[]][] = [
+        [DOCK_W + 0.3, [['ichiba', 'c'], ['ichiba', 'h'], ['ichiba', 'a']]],
+        [MIO.c + MIO.half + MIO.pave + 0.2, [['port', 'shed_b'], ['port', 'office'], ['ichiba', 'c'], ['ichiba', 'h'], ['ichiba', 'a']]],
+        [HAM.c + HAM.half + HAM.pave + 0.2, [['umibe', 'renga'], ['port', 'soko_b']]],
+        [TOD.c + TOD.half + TOD.pave + 0.2, [['port', 'soko_a'], ['ichiba', 'c']]],
+      ];
+      for (const [x0, list] of rows) {
+        let x = x0;
+        for (const pc of list) x = dock(pc, x);
       }
+      // The seafood hall: walls round its inside, the floor, the restaurant at the west end, the fish shop at the
+      // east, lights; its quay doors and its lane door are the openings in the model.
+      const H = HAM.c + HAM.half + HAM.pave + 0.2 + U.renga.w / 2, a = U.renga, P = a.pts, hw = a.w / 2, d = a.d, T = 0.4;
+      at('n', H, QL + 0.3, () => {
+        signAt(P.name, { k: 'label', text: '浜辺赤煉瓦 海鮮館', sub: 'Hamabe Red Brick Seafood Hall', fg: '#f1e6c8', bg: '#3a2a22' });
+        const gapsF = [P._doorw, P._doore].map((q): [number, number] => [q[0] - q[3] / 2, q[0] + q[3] / 2]);
+        const gapsB: [number, number][] = [[P._back[0] - P._back[3] / 2, P._back[0] + P._back[3] / 2]];
+        const wallX = (z0: number, z1: number, gaps: [number, number][], h: number) => {
+          let x = -hw;
+          for (const [p, q] of [...gaps, [hw, hw] as [number, number]]) {
+            if (p - x > 0.05) b.box('flat:#d9cfbe', Math.max(x, -hw + 0.03), GY, z0, Math.min(p, hw - 0.03), GY + h, z1);
+            x = q;
+          }
+        };
+        // (Set 3 cm inside the model's outside faces, so the two never share a plane.)
+        const I = 0.03;
+        wallX(I, T, gapsF, 4.6);
+        wallX(d - T, d - I, gapsB, 4.6);
+        b.box('flat:#d9cfbe', -hw + I, GY, T, -hw + T, GY + 4.6, d - T);
+        b.box('flat:#d9cfbe', hw - T, GY, T, hw - I, GY + 4.6, d - T);
+        // Above the doors, the wall carried over them inside.
+        for (const [p, q] of gapsF) b.deco('flat:#d9cfbe', p, GY + P._doorw[4] + 0.46, I, q, GY + 4.6, T);
+        b.deco('flat:#d9cfbe', gapsB[0][0], GY + P._back[4] + 0.46, d - T, gapsB[0][1], GY + 4.6, d - I);
+        b.slab('tile:#c9bba4', -hw + T, T, hw - T, d - T, GY + 0.002, GY + 0.02, [], false);
+        b.deco('paint:#3a2a22', -hw + T, GY + 4.6, T, hw - T, GY + 4.75, d - T);
+        for (let x = -hw + 4; x < hw - 2; x += 6) for (const z of [6, 15]) ceilingLight(b, x, x + 2.4, z - 0.15, z + 0.15, GY + 4.6);
+        // The restaurant: a counter along the back with stools, tables down the middle.
+        b.box('flat:#6b4a32', -hw + 1.2, GY, d - 3.4, -4, GY + 1.05, d - 2.6);
+        b.box('flat:#3a2a22', -hw + T, GY, d - 1.2, -4, GY + 2.2, d - T);
+        for (let x = -hw + 2; x < -5; x += 1.4) b.box('flat:#2a2d30', x - 0.2, GY, d - 4.4, x + 0.2, GY + 0.7, d - 4.0);
+        for (const x of [-18, -13.5, -4.5]) for (const z of [6, 11]) {
+          b.box('flat:#8a6a4a', x - 1.1, GY, z - 0.6, x + 1.1, GY + 0.74, z + 0.6);
+          for (const s of [-1, 1]) b.box('flat:#3a2a22', x - 1.0, GY, z + s * 1.0 - 0.2, x + 1.0, GY + 0.45, z + s * 1.0 + 0.2);
+        }
+        b.sign({ k: 'label', text: '海鮮丼・浜焼き', sub: 'Seafood bowls · grill', fg: '#ffffff', bg: '#7a1f2b' }, -12, GY + 3.2, d - T - 0.02, [0, -1], 4.0, 0.7);
+        // The fish shop: ice cases in two runs, a counter and scales at the back.
+        for (const z of [6.5, 11.5]) {
+          b.box('flat:#6b6e70', 3, GY, z - 0.8, hw - 3, GY + 0.85, z + 0.8);
+          b.deco('flat:#e9f1f4', 3.1, GY + 0.85, z - 0.75, hw - 3.1, GY + 0.95, z + 0.75);
+          for (let x = 3.4; x < hw - 3.4; x += 0.9) b.deco(x % 1.8 < 0.9 ? 'flat:#9aa6ad' : 'flat:#c86a4a', x, GY + 0.95, z - 0.5, x + 0.6, GY + 1.05, z + 0.5);
+        }
+        b.box('flat:#ece6d6', 3, GY, d - 2.6, hw - 3, GY + 1.0, d - 1.8);
+        b.sign({ k: 'label', text: '鮮魚 浜辺', sub: 'Fresh fish', fg: '#ffffff', bg: '#1f4e8c' }, 12, GY + 3.2, d - T - 0.02, [0, -1], 4.0, 0.7);
+        b.zone('street', -hw + T, -0.3, T, hw - T, 4.5, d - T, '浜辺赤煉瓦 海鮮館', 'Hamabe Red Brick Seafood Hall');
+      });
     }
-    b.clearScenery(-X - 40, -N - NO - 12, X + 40, -N);
+    // The back lane behind the quay row: paved, lit, back doors' clutter, the net store.
+    const offRoad = (x: number, m: number) => clearOf(x, NS.map((q): [number, number] => [q.c - q.half - q.pave, q.c + q.half + q.pave]), m);
+    for (const [p, q] of [[-X, MIO.c - MIO.half - MIO.pave], [MIO.c + MIO.half + MIO.pave, -HAM.half - HAM.pave], [HAM.half + HAM.pave, TOD.c - TOD.half - TOD.pave], [TOD.c + TOD.half + TOD.pave, X]]) b.deco('tile:#8f8a80', p, GY + 0.002, LANE_Z[0], q, GY + 0.012, LANE_Z[1]);
+    for (let x = -X + 10; x < X - 3; x += 22) if (offRoad(x, 1)) streetLamp(b, 'lamp_small', x, LANE_Z[1] - 0.3, [0, -1]);
+    for (let x = -X + 4; x < X - 3; x += 9) {
+      if (!offRoad(x, 1.5)) continue;
+      const k = Math.floor(r() * 3);
+      if (k === 0) b.box('flat:#4f7a8a', x, GY, LANE_Z[1] - 0.7, x + 1.2, GY + 1.0, LANE_Z[1] - 0.1);
+      else if (k === 1) b.box('flat:#c8b23a', x, GY, LANE_Z[1] - 0.5, x + 0.9, GY + 0.6, LANE_Z[1] - 0.1);
+    }
+    {
+      const k = Math.ceil((2 * X) / 36);
+      for (let i = 0; i < k; i++) b.zone('street', -X + ((2 * X) * i) / k, -0.3, LANE_Z[0], -X + ((2 * X) * (i + 1)) / k, 6, LANE_Z[1], '岸壁裏小路', `Quay back lane ${i + 1}`, true);
+    }
+    // Past the east edge: the quay road goes on to the dock's corner, a last warehouse on it, and turns north up the
+    // dock's east side (Shinshio's side quay).
+    b.deco('asphalt', X, -0.03, QW + 0.4, 192, 0.004, QL);
+    b.deco(STONE, X, -0.03, QW, 180, GY + 0.35, QW + 0.4);
+    b.deco('flat:#9e9b93', 180, -0.03, -260, 192, GY, QW + 0.4);
+    at('n', X + 0.6 + PORT.soko_b.w / 2, QL + 0.3, () => b.model('port', 'soko_b', 0, GY, 0, 7));
+    b.clearScenery(X, -270, 200, -N);
+    b.clearScenery(-X - 40, -N - 12, X + 40, -N);
   }
   void reserved;
 

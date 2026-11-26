@@ -181,16 +181,21 @@ function skyMaterial(sunGain: number, final: boolean, clouds3d = false): THREE.S
     uniforms: { ...skyU, sunGain: { value: sunGain } },
     vertexShader: /* glsl */ `
       varying vec3 vDir;
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       void main() {
         vDir = position;
         gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
       uniform float sunGain;
       varying vec3 vDir;
       ${SKY_GLSL}
+      #include <logdepthbuf_pars_fragment>
       void main() {
+        #include <logdepthbuf_fragment>
         gl_FragColor = vec4( skyColor( normalize( vDir ), sunGain, ${final ? '1.0' : '0.0'} ), 1.0 );
         ${final ? '#include <tonemapping_fragment>\n#include <colorspace_fragment>' : ''}
       }

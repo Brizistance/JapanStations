@@ -21,9 +21,38 @@ import { FinishPass, type Grade } from './grade';
 import type { Fx } from './graphics';
 import { ReflectionPass } from './ssr';
 
+/**
+ * The renderer keeps a logarithmic depth buffer (Scene.tsx); GTAO and its denoiser read depth as ordinary perspective
+ * depth. Convert at their two read functions so the rest of their maths is untouched.
+ */
+function readLogDepth(m: THREE.ShaderMaterial, cam: THREE.PerspectiveCamera) {
+  m.uniforms.uLogNear = { value: cam.near };
+  m.uniforms.uLogFar = { value: cam.far };
+  const helper = `
+    uniform float uLogNear, uLogFar;
+    float logToPersp( float d ) {
+      if ( d >= 1.0 ) return 1.0;
+      float vz = -( exp2( d * log2( uLogFar + 1.0 ) ) - 1.0 );
+      return ( ( uLogNear + vz ) * uLogFar ) / ( ( uLogFar - uLogNear ) * vz );
+    }
+    float getDepth(const vec2 uv) {`;
+  const fs = m.fragmentShader
+    .replace('float getDepth(const vec2 uv) {', helper)
+    .replace('return textureLod(tDepth, uv.xy, 0.0).r;', 'return logToPersp(textureLod(tDepth, uv.xy, 0.0).r);')
+    .replace('return texelFetch(tDepth, uv.xy, 0).r;', 'return logToPersp(texelFetch(tDepth, uv.xy, 0).r);');
+  if (!fs.includes('logToPersp(textureLod') || !fs.includes('logToPersp(texelFetch')) throw new Error('readLogDepth: the AO shader changed');
+  m.fragmentShader = fs;
+  m.needsUpdate = true;
+}
+
 /** GTAO, but glass and the sky do not occlude or receive occlusion. */
 class StationAO extends GTAOPass {
   private hidden: THREE.Object3D[] = [];
+  constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera, w: number, h: number) {
+    super(scene, camera, w, h);
+    readLogDepth(this.gtaoMaterial, camera);
+    readLogDepth(this.pdMaterial, camera);
+  }
   _overrideVisibility() {
     this.scene.traverse((o) => {
       if (!o.visible) return;

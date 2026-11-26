@@ -161,21 +161,22 @@ def build_hi(v):
 
 
 def build_lo(v):
+    # (Faces stand 0.25 m or more off the wall: seen from 200–500 m the depth buffer must still part them.)
     rng = random.Random(v['seed'])
     p = Part()
     x0, x1, D = -v['w'] / 2, v['w'] / 2, v['d']
     ys = levels(v)
     H = ys[-1]
     p.box(v['wall'], x0, 0, 0, x1, H + 0.9, D)
-    p.box(SHUTTER if v['kind'] != 'office' else 'glassTint', x0 + 0.2, 0.1, -0.03, x1 - 0.2, 2.4, 0)
+    p.box(SHUTTER if v['kind'] != 'office' else 'glassTint', x0 + 0.2, 0.1, -0.25, x1 - 0.2, 2.4, 0)
     for y in ys[:-1]:
         if v['kind'] == 'flats':
             p.box(v['trim'], x0, y, -1.0, x1, y + 0.8, -0.9)
-            p.box(WINDOW_LIT, x0 + 0.5, y + 0.2, -0.03, x1 - 0.5, y + 2.1, 0)
+            lo_band(p, x0 + 0.5, y + 0.2, -0.25, x1 - 0.5, y + 2.1, 0)
         else:
             for f in (0.28, 0.72):
                 xc = x0 + v['w'] * f
-                p.box(WINDOW_LIT, xc - 0.5, y + 0.9, -0.03, xc + 0.5, y + 2.1, 0)
+                lo_band(p, xc - 0.5, y + 0.9, -0.25, xc + 0.5, y + 2.1, 0)
     if v['awning']:
         sign(p, v['awning'], x0 + 0.3, 2.15, -1.0, x1 - 0.3, 2.6, -0.4, glyphs=False)
     rng.random()

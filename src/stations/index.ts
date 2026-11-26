@@ -119,7 +119,7 @@ function place(def: StationDef, build: Build, primary: string, x: number, z: num
     if (inPlot(build.plot, lx, lz) || m.pos[1] < -0.5) return true;
     // (Placed on the water on purpose: Minatoura-bashi, the breakwater's lighthouse, the cranes across the harbour.)
     // (And Watayamachi's expressway, which leaves the shore on piers.)
-    if (m.kind === 'minato' || (m.kind === 'port' && m.id === 'crane') || (m.kind === 'watacentre' && (m.id === 'deck' || m.id === 'pier_sea'))) return true;
+    if (m.kind === 'minato' || (m.kind === 'mcenter' && (m.id === 'yacht' || m.id === 'waterbus')) || (m.kind === 'shinshio' && m.id === 'pontoon') || (m.kind === 'port' && m.id === 'crane') || (m.kind === 'watacentre' && (m.id === 'deck' || m.id === 'pier_sea'))) return true;
     return !wet(lx, lz) && !wet(lx + Math.sin(m.yaw) * 10, lz + Math.cos(m.yaw) * 10);
   });
   const blockers: Blocker[] = build.gates.map((g) => {

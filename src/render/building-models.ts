@@ -14,7 +14,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { SignContent } from '../signs/content';
 import { drawSign } from '../signs/draw';
 import { isChain, lum, shopStyle, tone } from '../signs/shop';
-import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, MACHI_NAMES, MACHI_WORDS, SIGN_WORDS, TOWER_NAMES, TOSEN_NAMES, TOSEN_WORDS, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
+import { BOUTIQUE_NAMES, BOUTIQUE_WORDS, ICHIBA_NAMES, ICHIBA_WORDS, MACHI_NAMES, MACHI_WORDS, SIGN_WORDS, TOWER_NAMES, TOSEN_NAMES, TOSEN_WORDS, YOKOCHO_NAMES, YOKOCHO_WORDS, type BuildingKind } from '../stations/buildings';
 import { SHOPS } from '../stations/surface';
 import { rng, type ModelPart } from '../world/builder';
 import { lit } from './lit';
@@ -32,11 +32,11 @@ interface Proto {
   boards: Board[];
 }
 
-const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique', 'machi'];
+const KINDS: BuildingKind[] = ['zakkyo', 'office', 'tower', 'shophouse', 'manshon', 'canalfront', 'yokocho', 'boutique', 'machi', 'ichiba'];
 /** Station props and one-off buildings built the same way (tools/blender/build_hub.py, build_plaza.py). */
-const PROPS = ['hub', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'miochika', 'tsumugifront', 'tsumugikit', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port', 'minato', 'minatofront', 'tosen', 'hatoba', 'tsuna', 'urafront', 'kamome', 'watacentre', 'wata', 'wholesale', 'civic', 'umibe'];
+const PROPS = ['hub', 'shinshio', 'mcenter', 'plaza', 'tsumugi', 'exchange', 'road', 'city', 'konbini', 'station', 'shops', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'miochika', 'tsumugifront', 'tsumugikit', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port', 'minato', 'minatofront', 'tosen', 'hatoba', 'tsuna', 'urafront', 'kamome', 'watacentre', 'wata', 'wholesale', 'civic', 'umibe'];
 /** Of those, the ones that stand outdoors and take daylight (tools/blender/build_plaza.py). */
-const OUTDOOR = ['plaza', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port', 'minato', 'minatofront', 'tosen', 'hatoba', 'tsuna', 'urafront', 'kamome', 'watacentre', 'wata', 'wholesale', 'civic', 'umibe'];
+const OUTDOOR = ['plaza', 'shinshio', 'mcenter', 'exchange', 'road', 'city', 'konbini', 'places', 'trees', 'hyotan', 'horie', 'tsuru', 'kaisei', 'midori', 'kitafront', 'mioya', 'gate', 'viaduct', 'kawaeki', 'tokei', 'ring', 'kitaarcade', 'kitacity', 'aizome', 'aizomefront', 'aoba', 'aobafront', 'daigaku', 'daigakufront', 'hibari', 'hibarifront', 'konya', 'port', 'minato', 'minatofront', 'tosen', 'hatoba', 'tsuna', 'urafront', 'kamome', 'watacentre', 'wata', 'wholesale', 'civic', 'umibe'];
 /** Kinds that also get a copy without daylight, named <kind>u_<id>, for use below the street (a station kiosk). */
 const UNDER = ['konbini'];
 /** Daylight of single models that differ from their file: a dome above the roofs. */
@@ -212,7 +212,7 @@ export function modelPieces(kind: string, id: string): { geometry: THREE.BufferG
 export const modelsLoaded = () => protos.size > 0;
 
 /** How worn a kind of building's signs are, from its best kept to its worst: old mixed-use blocks carry old signs. */
-const WEAR: Record<string, [number, number]> = { zakkyo: [0.2, 0.8], shophouse: [0.3, 0.85], yokocho: [0.35, 0.9], machi: [0.25, 0.8], canalfront: [0.1, 0.5], manshon: [0.05, 0.3], office: [0, 0.12], tower: [0, 0.08], boutique: [0, 0.15] };
+const WEAR: Record<string, [number, number]> = { zakkyo: [0.2, 0.8], shophouse: [0.3, 0.85], yokocho: [0.35, 0.9], machi: [0.25, 0.8], ichiba: [0.35, 0.9], canalfront: [0.1, 0.5], manshon: [0.05, 0.3], office: [0, 0.12], tower: [0, 0.08], boutique: [0, 0.15] };
 /** Sign-maker's colours for the cells of a shared upright sign. */
 const INKS = ['#b3261e', '#1f4e8c', '#1f6b45', '#d9861a', '#3a2a22', '#6a2c70', '#0f7f86', '#c2185b', '#222429', '#0d3b66'];
 const CHAIN_SHOPS = SHOPS.filter((s) => isChain(s.ja));
@@ -242,10 +242,10 @@ function tenants(kind: BuildingKind, r: () => number, tier: number) {
       return left.pop()!;
     };
   };
-  const name = bag<Named>(kind === 'boutique' ? BOUTIQUE_NAMES : kind === 'machi' ? MACHI_NAMES : kind === 'yokocho' ? YOKOCHO_NAMES : (kind as string) === 'tosen' ? TOSEN_NAMES : EVERYONE);
-  const word = bag(kind === 'boutique' ? BOUTIQUE_WORDS : kind === 'machi' ? MACHI_WORDS : kind === 'yokocho' ? YOKOCHO_WORDS : (kind as string) === 'tosen' ? TOSEN_WORDS : SIGN_WORDS);
+  const name = bag<Named>(kind === 'boutique' ? BOUTIQUE_NAMES : kind === 'ichiba' ? ICHIBA_NAMES : kind === 'machi' ? MACHI_NAMES : kind === 'yokocho' ? YOKOCHO_NAMES : (kind as string) === 'tosen' ? TOSEN_NAMES : EVERYONE);
+  const word = bag(kind === 'boutique' ? BOUTIQUE_WORDS : kind === 'ichiba' ? ICHIBA_WORDS : kind === 'machi' ? MACHI_WORDS : kind === 'yokocho' ? YOKOCHO_WORDS : (kind as string) === 'tosen' ? TOSEN_WORDS : SIGN_WORDS);
   const chain = bag<Named>(CHAIN_SHOPS), tower = bag<Named>(TOWER_NAMES);
-  const own = kind === 'boutique' || kind === 'machi' || kind === 'yokocho' || (kind as string) === 'tosen';
+  const own = kind === 'boutique' || kind === 'ichiba' || kind === 'machi' || kind === 'yokocho' || (kind as string) === 'tosen';
   const [lo, hi] = WEAR[kind] ?? [0.05, 0.3];
   const age = lo + r() * (hi - lo);
   const wear = (k = 1) => Math.min(1, Math.max(0, age + (r() - 0.5) * 0.3)) * k;
@@ -469,12 +469,23 @@ export function cellMergedModels(parts: ModelPart[], size: number, o: { cast?: b
 // ── Detail by distance ───────────────────────────────────────────────────────────────────────
 
 /** Size of a detail cell, and how near (camera to cell centre) a cell shows its full models. */
-const LOD_CELL = 150, LOD_NEAR = 190;
+const LOD_CELL = 150;
+let LOD_NEAR = 190;
+/** The same for the backdrop's far blocks (`far` cells): never full on Low, out to the whole district above it. */
+let FAR_NEAR = 0;
+/**
+ * The graphics preset's backdrop detail (2026-11-25): on High and Ultra every backdrop block within ~450 m of the
+ * camera shows its full model; on Low only the blocks right behind a plot do, within 190 m, as before.
+ */
+export function setBackdropDetail(far: boolean) {
+  LOD_NEAR = far ? 450 : 190;
+  FAR_NEAR = far ? 450 : 0;
+}
 /**
  * Every mounted detail cell: its centre in its group's frame, its simplified copies, and its full
  * models, merged only once the camera first comes near (`parts` until then).
  */
-interface LodCell { group: THREE.Object3D; x: number; z: number; lo: THREE.Object3D; full: THREE.Object3D | null; parts: ModelPart[] }
+interface LodCell { group: THREE.Object3D; x: number; z: number; lo: THREE.Object3D; full: THREE.Object3D | null; parts: ModelPart[]; far: boolean }
 const lodCells = new Set<LodCell>();
 const lodV = new THREE.Vector3();
 
@@ -485,7 +496,7 @@ const lodV = new THREE.Vector3();
  * is cheap, and mounting a station stays quick. Returns the group and the parts it did not take
  * (props, trees: no simplified copy).
  */
-export function lodModels(parts: ModelPart[]): { group: THREE.Group; rest: ModelPart[] } {
+export function lodModels(parts: ModelPart[], far = false): { group: THREE.Group; rest: ModelPart[] } {
   const group = new THREE.Group();
   const rest: ModelPart[] = [];
   const cells = new Map<string, { cx: number; cz: number; full: ModelPart[]; lo: ModelPart[] }>();
@@ -504,7 +515,7 @@ export function lodModels(parts: ModelPart[]): { group: THREE.Group; rest: Model
   for (const c of cells.values()) {
     const lo = mergedModels(c.lo, { noAO: true });
     group.add(lo);
-    lodCells.add({ group, x: (c.cx + 0.5) * LOD_CELL, z: (c.cz + 0.5) * LOD_CELL, lo, full: null, parts: c.full });
+    lodCells.add({ group, x: (c.cx + 0.5) * LOD_CELL, z: (c.cz + 0.5) * LOD_CELL, lo, full: null, parts: c.full, far });
   }
   return { group, rest };
 }
@@ -518,7 +529,7 @@ export function updateLod(cam: THREE.Vector3) {
   let built = false;
   for (const c of lodCells) {
     lodV.set(c.x, 0, c.z).applyMatrix4(c.group.matrixWorld);
-    let near = Math.hypot(lodV.x - cam.x, lodV.z - cam.z) < LOD_NEAR;
+    let near = Math.hypot(lodV.x - cam.x, lodV.z - cam.z) < (c.far ? FAR_NEAR : LOD_NEAR);
     if (near && !c.full) {
       if (built) near = false;
       else {

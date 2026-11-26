@@ -739,6 +739,52 @@ function drawMural(ctx: Ctx, W: number, H: number, c: Extract<SignContent, { k: 
       ctx.quadraticCurveTo(x + s * 0.5, y - s * 0.6, x + s, y);
       ctx.stroke();
     }
+  } else if (c.v === 'catch') {
+    // A big-catch flag (大漁旗) after the market's boats: a red rising sun on white, a shoal of fish leaping through
+    // indigo waves below.
+    ctx.fillStyle = '#f4f1ea';
+    ctx.fillRect(0, 0, W, H);
+    const sun = ctx.createRadialGradient(W * 0.78, H * 0.3, 0, W * 0.78, H * 0.3, H * 0.26);
+    sun.addColorStop(0, '#d8392b');
+    sun.addColorStop(1, '#c22a20');
+    ctx.fillStyle = sun;
+    ctx.beginPath();
+    ctx.arc(W * 0.78, H * 0.3, H * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#c22a20';
+    ctx.lineWidth = H * 0.018;
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.78 + Math.cos(a) * H * 0.3, H * 0.3 + Math.sin(a) * H * 0.3);
+      ctx.lineTo(W * 0.78 + Math.cos(a) * H * 0.42, H * 0.3 + Math.sin(a) * H * 0.42);
+      ctx.stroke();
+    }
+    for (let row = 0; row < 3; row++) {
+      ctx.fillStyle = row === 0 ? col : row === 1 ? '#2b4f8a' : '#1d2f55';
+      const y0 = H * (0.62 + row * 0.12);
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += H * 0.05) ctx.lineTo(x, y0 + Math.sin(x / (H * 0.22) + row * 1.7) * H * 0.04);
+      ctx.lineTo(W, H);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#e9e4d6';
+    for (let i = 0; i < 9; i++) {
+      const x = W * (0.06 + 0.11 * i), y = H * (0.5 + 0.08 * Math.sin(i * 1.9)), s = H * 0.09, t = (i % 2 ? 1 : -1) * 0.35;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(t);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s, s * 0.32, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.9, 0);
+      ctx.lineTo(-s * 1.4, -s * 0.35);
+      ctx.lineTo(-s * 1.4, s * 0.35);
+      ctx.fill();
+      ctx.restore();
+    }
   } else if (c.v === 'threads') {
     // Cotton skeins: long drooping threads in a few dyed colours.
     ctx.fillStyle = '#f6f1e6';

@@ -313,7 +313,12 @@ function backdropModels(): THREE.Group {
   parts.push(...bandParts);
   const { group, rest } = lodModels(parts);
   // In grid cells, not one city-wide mesh: cells behind the camera or past the fog are skipped (cull()).
-  if (farParts.length) group.add(cellMergedModels(farParts, BACKDROP_CELL, { noAO: true }));
+  // (The far blocks: simplified, and full near the camera only on High and up: setBackdropDetail.)
+  if (farParts.length) {
+    const far = lodModels(farParts, true);
+    group.add(far.group);
+    if (far.rest.length) group.add(cellMergedModels(far.rest, BACKDROP_CELL, { noAO: true }));
+  }
   if (rest.length) group.add(cellMergedModels(rest, BACKDROP_CELL, { noAO: true }));
   return group;
 }

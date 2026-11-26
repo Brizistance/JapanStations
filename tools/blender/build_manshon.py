@@ -153,6 +153,7 @@ def build_hi(v):
 
 
 def build_lo(v):
+    # (Faces stand 0.25 m or more off the wall: seen from 200–500 m the depth buffer must still part them.)
     p = Part()
     x0, x1, D = -v['w'] / 2, v['w'] / 2, v['d']
     ys = levels(v)
@@ -160,10 +161,10 @@ def build_lo(v):
     p.box(v['wall'], x0, 0, 0, x1, H + PARAPET, D)
     band = v['balcol'] if v['bal'] != 'rail' else SLAB
     for y in ys[:-1]:
-        p.box(WINDOW_LIT, x0 + 0.2, y + 1.15, -0.03, x1 - 0.2, y + FH - 0.18, 0)
-        p.box(band, x0 + 0.2, y - 0.18, -0.05, x1 - 0.2, y + 1.15, 0)
+        lo_band(p, x0 + 0.2, y + 1.15, -0.25, x1 - 0.2, y + FH - 0.18, 0)
+        p.box(band, x0 + 0.2, y - 0.18, -0.3, x1 - 0.2, y + 1.15, 0)
         p.box(DARK, x0, y + 1.15, D, x1 - 3.0, y + FH - 0.18, D + 0.03)
-    p.box(LOBBY, x0 + 0.5, 0.3, -0.03, x1 - 0.5, G0 - 0.5, 0)
+    p.box(LOBBY, x0 + 0.5, 0.3, -0.25, x1 - 0.5, G0 - 0.5, 0)
     p.box(v['trim'], x1 - 3.0, H + PARAPET, D - COR, x1, H + 3.0, D + 0.4)
     tank(p, x0 + 1.6, H + PARAPET, D - 2.4)
     for k in range(3):

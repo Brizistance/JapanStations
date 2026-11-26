@@ -5,7 +5,7 @@
 // A model's front faces local -z with its origin at the middle of the frontage on the pavement.
 // `corner` models have a second street face on their local -x side.
 
-export type BuildingKind = 'zakkyo' | 'office' | 'tower' | 'shophouse' | 'manshon' | 'canalfront' | 'yokocho' | 'boutique' | 'machi';
+export type BuildingKind = 'zakkyo' | 'office' | 'tower' | 'shophouse' | 'manshon' | 'canalfront' | 'yokocho' | 'boutique' | 'machi' | 'ichiba';
 
 export interface BuildingModel {
   kind: BuildingKind;
@@ -66,6 +66,16 @@ export const BUILDING_MODELS: BuildingModel[] = [
   { kind: 'boutique', id: 'd', w: 4.8, d: 9, h: 11.2 },
   { kind: 'boutique', id: 'e', w: 8.6, d: 10, h: 9.8 },
   { kind: 'boutique', id: 'f', w: 5.8, d: 9.5, h: 8.3 },
+  // Ichiba (build_ichiba.py, fish-market towns): shop-houses 18 m deep, 3.2 m shop floor, 2.8 m storeys. Its cold stores
+  // and ice plant (cs_a, cs_b, ice) are placed by hand, so they are not listed here.
+  { kind: 'ichiba', id: 'a', w: 5.4, d: 18, h: 7.9 },
+  { kind: 'ichiba', id: 'b', w: 4.2, d: 18, h: 10.7 },
+  { kind: 'ichiba', id: 'c', w: 6.0, d: 18, h: 7.9 },
+  { kind: 'ichiba', id: 'd', w: 4.8, d: 18, h: 10.7 },
+  { kind: 'ichiba', id: 'e', w: 6.6, d: 18, h: 7.9 },
+  { kind: 'ichiba', id: 'f', w: 7.2, d: 18, h: 13.5 },
+  { kind: 'ichiba', id: 'g', w: 3.6, d: 18, h: 7.9 },
+  { kind: 'ichiba', id: 'h', w: 5.0, d: 18, h: 10.7 },
   // Machi (build_machi.py, small streets): low mixed houses, shops and flats, 3.0 m ground floor, 2.8 m storeys.
   { kind: 'machi', id: 'a', w: 6.0, d: 10, h: 10.5 },
   { kind: 'machi', id: 'b', w: 5.0, d: 9, h: 7.7 },
@@ -119,6 +129,16 @@ export const TOSEN_NAMES: { ja: string; en: string }[] = [
   { ja: '食材 泰和行', en: 'Taiwakō Grocers' }, { ja: '占い 天命館', en: 'Tenmeikan Fortunes' }, { ja: '飲茶 翠園', en: 'Suien Yum Cha' },
 ];
 export const TOSEN_WORDS = ['点心', '飲茶', '小籠包', '中華料理', '北京ダック', '中国茶', '漢方', '豚まん', '刀削麺', '月餅', '粥', '占い'];
+/** A fish-market town's shops (build_ichiba.py): names for their boards, words for the blade signs. Invented, not web-checked. */
+export const ICHIBA_NAMES: { ja: string; en: string }[] = [
+  { ja: '鮮魚 丸新', en: 'Marushin Fish' }, { ja: '鮮魚 浜勝', en: 'Hamakatsu Fish' }, { ja: '海鮮丼 しおさい', en: 'Shiosai Seafood Bowls' },
+  { ja: '乾物 潮屋', en: 'Ushioya Dried Goods' }, { ja: '刃物 正吉', en: 'Masakichi Knives' }, { ja: 'すし 新潮', en: 'Sushi Shinshio' },
+  { ja: '玉子焼 まる八', en: 'Maruhachi Tamagoyaki' }, { ja: '昆布 浪花屋', en: 'Naniwaya Kombu' }, { ja: '鮪 三福', en: 'Sanpuku Tuna' },
+  { ja: '貝 かいの家', en: 'Kai-no-ie Shellfish' }, { ja: '食堂 魚河', en: 'Uokawa Shokudō' }, { ja: '器 海松', en: 'Miru Tableware' },
+  { ja: '漬物 汐見堂', en: 'Shiomidō Pickles' }, { ja: '珈琲 ともづな', en: 'Tomozuna Coffee' }, { ja: '海苔 磯辺', en: 'Isobe Nori' },
+  { ja: '練物 かまぼこ吉田', en: 'Yoshida Kamaboko' }, { ja: '包材 みなと', en: 'Minato Packaging' }, { ja: '天ぷら 漁火', en: 'Isaribi Tempura' },
+];
+export const ICHIBA_WORDS = ['鮮魚', '海鮮丼', '乾物', '刃物', '寿司', '玉子焼', '昆布', '鮪', '活魚', '食堂', '珈琲', '練物'];
 export const MACHI_WORDS = ['理容', '薬', '酒', 'たばこ', '不動産', '喫茶', 'お好み焼', 'クリーニング', '鍼灸', '定食', '美容室', '質'];
 export const BOUTIQUE_WORDS = ['カフェ', '雑貨', '古着', '家具', '花', '紅茶', '器', 'パン'];
 export const YOKOCHO_WORDS = ['焼鳥', 'スナック', 'おでん', 'バー', '串焼', '立呑み', '酒場', '餃子', 'ホルモン', 'もつ焼', '小料理', 'カラオケ'];

@@ -214,6 +214,7 @@ def build_hi(v):
 
 
 def build_lo(v):
+    # (Faces stand 0.25 m or more off the wall: seen from 200–500 m the depth buffer must still part them.)
     """Same massing and sign colours, a fraction of the faces."""
     rng = random.Random(v['seed'])
     p = Part()
@@ -225,15 +226,15 @@ def build_lo(v):
     p.box(v['wall'], x0, 0, 0, x1, H + PARAPET, D)
     for y in ys[:-1]:
         if v.get('corner'):
-            p.box(WINDOW_LIT, x0 - 0.03, y + 0.85, 0.35, x0, y + FH - 0.35, D - 0.35)
-        p.box(WINDOW_LIT, a, y + 0.85, -0.03, b, y + FH - 0.35, 0)
+            lo_band(p, x0 - 0.25, y + 0.85, 0.35, x0, y + FH - 0.35, D - 0.35)
+        lo_band(p, a, y + 0.85, -0.25, b, y + FH - 0.35, 0)
         if rng.random() < 0.55:
             rng.uniform(0, 1)
-            sign(p, rng.choice(SIGN_COLOURS), a, y - 0.25, -0.07, b, y + 0.7, -0.03, glyphs=False)
-    p.box(SHOPGLASS, a, 0.45, -0.03, b, 3.0, 0)
-    sign(p, rng.choice(SIGN_COLOURS), a, 3.0, -0.07, b, G0 - 0.4, 0, glyphs=False)
+            sign(p, rng.choice(SIGN_COLOURS), a, y - 0.25, -0.45, b, y + 0.7, -0.25, glyphs=False)
+    p.box(SHOPGLASS, a, 0.45, -0.25, b, 3.0, 0)
+    sign(p, rng.choice(SIGN_COLOURS), a, 3.0, -0.45, b, G0 - 0.4, 0, glyphs=False)
     if v['stair']:
-        p.box(DARK, fx1 + 0.1, 0, -0.03, x1 - 0.2, H - 0.3, 0)
+        p.box(DARK, fx1 + 0.1, 0, -0.25, x1 - 0.2, H - 0.3, 0)
     sx = x0 + 0.06
     for y in ys[:-1]:
         sign(p, rng.choice(SIGN_COLOURS), sx, y + 0.3, -1.08, sx + 0.24, y + FH - 0.1, -0.16, glyphs=False)

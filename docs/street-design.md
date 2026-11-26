@@ -250,3 +250,6 @@ The 422 m between the two plots is built in Umibe-shiyakusho-mae's world along i
 ## Size, joins, layout and edges (the owner, 2026-11-25)
 
 Fixed plot of about 300 × 250 m per station, no joins unless asked, a named Japanese layout type per station, and every edge a real boundary or a carried-on street: the rules are in [station-playbook.md](station-playbook.md), "The brief".
+
+## Planned new towns (Minato Center, the owner, 2026-11-25)
+Wires are buried in a planned bay new town; poles and wires run only on its back street, where it meets older ground. It has no 6.5 m small streets (rule 8 does not apply there).

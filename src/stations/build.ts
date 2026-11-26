@@ -4,9 +4,12 @@
 
 import { tsumugiStreet } from './tsumugibashi-street';
 import { aizomeStreet } from './aizomecho-street';
+import { buildMcAtrium } from './minatocenter-atrium';
+import { minatoCenterStreet } from './minatocenter-street';
 import { buildCentre } from './wata-centre';
 import { watayaStreet } from './watayamachi-street';
 import { umibeStreet } from './umibe-street';
+import { shinshioStreet } from './shinshio-street';
 import { daigakuStreet } from './daigaku-street';
 import { buildHibarino } from './hibarino';
 import { aobaStreet } from './aobadai-street';
@@ -131,6 +134,8 @@ export interface GateEnd {
   exits?: ExitPlan;
   /** The end wall has a doorway of the composer's own (Watayamachi's stair halls): no mural or bench on it. */
   endDoor?: boolean;
+  /** That doorway's exit number, for the signs (Minato Center's atrium, Exit 2). */
+  endNum?: string;
 }
 
 /** The two gate ends of an interchange-type concourse at ±g: exits 1… from the +x end. */
@@ -392,7 +397,7 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   const info: ConcInfo = {
     b, station, line: c.line, era: themeFor(c.line.id).opened ?? 2000, style,
     wall: style.concWall, floor: style.floor, pillar: style.pillar, ceil: ceilMat,
-    cf, cw, footprint: fw, clear: CONC_CLEAR, x0, x1, ends: o.ends.map((e) => ({ g: e.g, hi: e.hi })), paid: [paid0, paid1], holes: o.holes, pillars,
+    cf, cw, footprint: fw, clear: CONC_CLEAR, x0, x1, ends: o.ends.map((e) => ({ g: e.g, hi: e.hi, endNum: e.endNum })), paid: [paid0, paid1], holes: o.holes, pillars,
     stairs: [...o.stairs, ...(o.ways ?? [])], exits, openings: plan.openings, rooms: concRooms, toilets: tx,
     stairwells: wells.map((w): Stairwell => ({ stair: w.stair, walls: w.walls, footprint: w.footprint, room: w.room, portal: w.portal })),
     free: (a, z0, d, z1, m = 0) =>
@@ -529,6 +534,9 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further, dir:
     hi: g === 'hi',
     nums: nums[i],
     exits: spec.exits?.[i],
+    // (Minato Center: the end wall beyond the unpaid side opens onto the atrium's low hall.)
+    endDoor: spec.mcAtrium && g === 'hi' ? true : undefined,
+    endNum: spec.mcAtrium && g === 'hi' ? '2' : undefined,
   }));
   // The street does not move: a narrower concourse reaches the same entrances by longer corridors.
   // A hillside adit leaves the +z wall for the valley (Narukozaka).
@@ -551,9 +559,12 @@ function buildUnderground(c: Ctx, spec: UndergroundSpec, further?: Further, dir:
     });
   }
   if (spec.adit) buildAdit(c, cf, cw);
+  if (spec.mcAtrium) buildMcAtrium(c, cf, cw, cx1);
   // Aobadai's street is laid out by hand (aobadai-street.ts).
   if (station.id === 'aobadai') aobaStreet(c, spec.surface, STREET_CW, dir, cf);
   else if (station.id === 'umibe-shiyakusho-mae') umibeStreet(c, spec.surface, STREET_CW);
+  else if (station.id === 'shinshio') shinshioStreet(c, spec.surface, STREET_CW);
+  else if (station.id === 'minato-center') minatoCenterStreet(c, spec.surface, STREET_CW);
   else surface(b, spec.surface, STREET_CW, { ja: station.nameJa, en: station.nameRomaji });
 }
 

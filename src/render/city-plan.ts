@@ -13,6 +13,9 @@ import { AIZOME } from '../stations/anchors/aizome';
 import { WATACENTRE } from '../stations/anchors/watacentre';
 import { CIVIC } from '../stations/anchors/civic';
 import { UMIBE } from '../stations/anchors/umibe';
+import { SHINSHIO } from '../stations/anchors/shinshio';
+import { ICHIBA } from '../stations/anchors/ichiba';
+import { MCENTER } from '../stations/anchors/mcenter';
 import { WHOLESALE } from '../stations/anchors/wholesale';
 import { WATA as WATA_ANCHORS } from '../stations/anchors/wata';
 import { AIZOMEFRONT } from '../stations/anchors/aizomefront';
@@ -90,13 +93,13 @@ export function planBuilding(x: number, z: number, yaw: number, w: number, d: nu
 }
 
 const ANCHORS: Record<string, Anchors> = {
-  civic: CIVIC, umibe: UMIBE, aizome: AIZOME, watacentre: WATACENTRE, wholesale: WHOLESALE, wata: WATA_ANCHORS, aizomefront: AIZOMEFRONT, aoba: AOBA, aobafront: AOBAFRONT, daigaku: DAIGAKU, daigakufront: DAIGAKUFRONT,
+  civic: CIVIC, umibe: UMIBE, shinshio: SHINSHIO, ichiba: ICHIBA, mcenter: MCENTER, aizome: AIZOME, watacentre: WATACENTRE, wholesale: WHOLESALE, wata: WATA_ANCHORS, aizomefront: AIZOMEFRONT, aoba: AOBA, aobafront: AOBAFRONT, daigaku: DAIGAKU, daigakufront: DAIGAKUFRONT,
   gate: GATE, hibari: HIBARI, hibarifront: HIBARIFRONT, kawaeki: KAWAEKI, kitaarcade: KITAARCADE, kitacity: KITACITY,
   kitafront: KITAFRONT, konya: KONYA, minato: MINATO, minatofront: MINATOFRONT, miochika: MIOCHIKA, mioya: MIOYA, port: PORT,
   ring: RING, hatoba: HATOBA, tokei: TOKEI, tosen: TOSEN, tsuna: TSUNA, urafront: URAFRONT, kamome: KAMOME, tsumugifront: TSUMUGIFRONT, tsumugikit: TSUMUGIKIT, viaduct: VIADUCT,
 };
 /** Things on the water or too small to be a building on the plan. */
-const NOT_BUILDING = /boat|barge|lorry|crane|ferry|teibo|todai|quayrail|bollard|lamp|rail|sign|bench|tree|fence|pylon|steps|dryframe|paifang|koro|hokage|gazebo|monument|bandshell|kadan/;
+const NOT_BUILDING = /wheel|sculpt|buoy|scope|lookout|yacht|waterbus|boat|barge|lorry|crane|ferry|teibo|todai|quayrail|bollard|lamp|rail|sign|bench|tree|fence|pylon|steps|dryframe|paifang|koro|hokage|gazebo|monument|bandshell|kadan/;
 
 /** A model's footprint size, or null if it is not a building (or not known). */
 export function modelSize(kind: string, id: string): { w: number; d: number; h: number } | null {

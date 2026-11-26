@@ -41,17 +41,21 @@ function prepassMaterial(reflect: number, side: THREE.Side): THREE.ShaderMateria
     vertexShader: /* glsl */ `
       #include <common>
       varying vec3 vN;
+      #include <logdepthbuf_pars_vertex>
       void main() {
         #include <beginnormal_vertex>
         #include <defaultnormal_vertex>
         #include <begin_vertex>
         #include <project_vertex>
+        #include <logdepthbuf_vertex>
         vN = transformedNormal;
       }`,
     fragmentShader: /* glsl */ `
       uniform float uReflect;
       varying vec3 vN;
+      #include <logdepthbuf_pars_fragment>
       void main() {
+        #include <logdepthbuf_fragment>
         vec3 n = normalize( vN );
         #ifdef DOUBLE_SIDED
           n *= gl_FrontFacing ? 1.0 : -1.0;
@@ -68,8 +72,16 @@ const TRACE_FS = /* glsl */ `
   uniform float uNear, uFar, uMaxDist;
   varying vec2 vUv;
 
+  // The renderer keeps a logarithmic depth buffer (Scene.tsx): read it back as ordinary perspective depth, so the
+  // trace's projection maths is unchanged. depth = log2(1 + w) / log2(far + 1).
+  float depthAt( vec2 uv ) {
+    float d = texture2D( tDepth, uv ).r;
+    if ( d >= 1.0 ) return 1.0;
+    float vz = -( exp2( d * log2( uFar + 1.0 ) ) - 1.0 );
+    return ( ( uNear + vz ) * uFar ) / ( ( uFar - uNear ) * vz );
+  }
   float viewZ( vec2 uv ) {
-    return perspectiveDepthToViewZ( texture2D( tDepth, uv ).r, uNear, uFar );
+    return perspectiveDepthToViewZ( depthAt( uv ), uNear, uFar );
   }
   vec2 project( vec3 p ) {
     vec4 c = uProj * vec4( p, 1.0 );
@@ -81,7 +93,7 @@ const TRACE_FS = /* glsl */ `
 
   void main() {
     vec4 nr = texture2D( tNormal, vUv );
-    float d = texture2D( tDepth, vUv ).r;
+    float d = depthAt( vUv );
     if ( nr.a <= 0.0 || d >= 1.0 ) { gl_FragColor = vec4( 0.0 ); return; }
 
     vec4 pp = uInvProj * vec4( vec3( vUv, d ) * 2.0 - 1.0, 1.0 );
@@ -122,7 +134,7 @@ const TRACE_FS = /* glsl */ `
     if ( hitT < 0.0 ) { gl_FragColor = vec4( 0.0 ); return; }
 
     vec2 huv = project( start + R * hitT );
-    if ( texture2D( tDepth, huv ).r >= 1.0 ) { gl_FragColor = vec4( 0.0 ); return; }
+    if ( depthAt( huv ) >= 1.0 ) { gl_FragColor = vec4( 0.0 ); return; }
     vec3 col = min( texture2D( tColor, huv ).rgb, vec3( 6.0 ) );
     vec2 e = smoothstep( 0.0, 0.1, huv ) * smoothstep( 0.0, 0.1, 1.0 - huv );
     float w = e.x * e.y;

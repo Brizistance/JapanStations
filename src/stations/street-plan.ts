@@ -12,6 +12,8 @@ import { plotNorth } from '../world/builder';
 import { GROUND_Y } from './kit';
 import { WATA_PLOT, WATA_STAGE, WATA_STREETS, WATA_RESERVED } from './wata-plan';
 import { UMIBE_PLOT, UMIBE_STAGE, UMIBE_STREETS, UMIBE_RESERVED } from './umibe-plan';
+import { SHINSHIO_PLOT, SHINSHIO_STAGE, SHINSHIO_STREETS, SHINSHIO_RESERVED } from './shinshio-plan';
+import { MC_PLOT, MC_STAGE, MC_STREETS, MC_RESERVED } from './minatocenter-plan';
 
 export type Rect = [number, number, number, number];
 
@@ -55,7 +57,15 @@ export const STREET_PLANS: Record<string, StreetPlan> = {
   },
   'umibe-shiyakusho-mae': {
     stage: UMIBE_STAGE, plot: UMIBE_PLOT, streets: UMIBE_STREETS, reserved: UMIBE_RESERVED,
-    overhead: [], walkIn: ['umibe/shiyakusho'],
+    overhead: [], walkIn: ['umibe/shiyakusho', 'umibe/renga'],
+  },
+  shinshio: {
+    stage: SHINSHIO_STAGE, plot: SHINSHIO_PLOT, streets: SHINSHIO_STREETS, reserved: SHINSHIO_RESERVED,
+    overhead: [], walkIn: ['shinshio/ichiba', 'shinshio/terminal', 'shinshio/jinja'],
+  },
+  'minato-center': {
+    stage: MC_STAGE, plot: MC_PLOT, streets: MC_STREETS, reserved: MC_RESERVED,
+    overhead: [], walkIn: ['mcenter/wheel', 'mcenter/tower'],
   },
 };
 

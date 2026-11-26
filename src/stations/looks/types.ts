@@ -216,7 +216,8 @@ export interface ConcInfo {
    * exit doorways at g + 9 … g + 13 on both walls, and the mural on the end wall. `hi` false:
    * the same, mirrored (unpaid side is x < g).
    */
-  ends: { g: number; hi: boolean }[];
+  /** Gate lines; `endNum`: the exit through the end wall beyond the unpaid side (Minato Center's atrium). */
+  ends: { g: number; hi: boolean; endNum?: string }[];
   /** x-range inside the gates. */
   paid: [number, number];
   /** Stair and escalator openings in the floor. */

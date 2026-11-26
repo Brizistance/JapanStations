@@ -231,16 +231,17 @@ def build_hi(v):
 
 
 def build_lo(v):
+    # (Faces stand 0.25 m or more off the wall: seen from 200–500 m the depth buffer must still part them.)
     rng = random.Random(v['seed'])
     p = Part()
     x0, x1, D = -v['w'] / 2, v['w'] / 2, v['d']
     ys = levels(v)
     H = ys[-1]
     p.box(v['wall'], x0, 0, 0, x1, H, D)
-    p.box(WINDOW_LIT, x0 + 0.3, 0.4, -0.03, x1 - 0.3, G0 - 0.6, 0)
+    lo_band(p, x0 + 0.3, 0.4, -0.25, x1 - 0.3, G0 - 0.6, 0)
     for y in ys[:-1]:
-        p.box(WINDOW_LIT, x0 + 0.5, y + 0.8, -0.03, x1 - 0.5, y + FH - 0.35, 0)
-    sign(p, v['awning'][0], x0 + 0.4, G0 - 0.95, -0.05, x1 - 0.4, G0 - 0.3, 0.0, glyphs=False)
+        lo_band(p, x0 + 0.5, y + 0.8, -0.25, x1 - 0.5, y + FH - 0.35, 0)
+    sign(p, v['awning'][0], x0 + 0.4, G0 - 0.95, -0.3, x1 - 0.4, G0 - 0.3, 0.0, glyphs=False)
     rng.random()
     p.box(ACU, x0 + 0.6, H, D * 0.5, x0 + 1.5, H + 0.65, D * 0.5 + 0.32)
     return p

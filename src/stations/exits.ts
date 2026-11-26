@@ -11,6 +11,7 @@ import { LINES, linesAt, stationById } from '../data/network';
 import type { LineDef, StationDef, StationId } from '../data/types';
 import { SPECS, type ElevatedSpec } from './specs';
 import { WATA, wataWell } from './wata-plan';
+import { MCA, MC_GY, MC_SLOPE } from './minatocenter-plan';
 import type { BlockStyle, SurfaceSpec } from './surface';
 
 export interface Named {
@@ -557,6 +558,31 @@ function umibeFeatures(): Feature[] {
   ];
 }
 
+/** What stands round Minato Center's exits (minatocenter-street.ts, minatocenter-atrium.ts). */
+function minatoCenterFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: n('アトリウム', 'Atrium'), x0: 40, x1: 76, side: -1, named: true },
+    { n: n('みなとセンタータワー', 'Minato Center Tower'), x0: 10, x1: 80, side: -1, named: true, reach: 60 },
+    { n: n('みなとベイウォーク', 'Minato Baywalk'), x0: -150, x1: 150, side: 1, named: true, reach: 60 },
+    { n: n('海辺通', 'Umibe-dōri'), x0: -150, x1: 150, side: 0, named: true, reach: 30 },
+    { n: n('渚の大観覧車', 'Nagisa Great Wheel'), x0: -145, x1: -75, side: 1, named: true, reach: 200 },
+    { n: n('国際展示場', 'Exhibition Hall'), x0: -146, x1: -80, side: -1, named: true, reach: 200 },
+  ];
+}
+
+/** What stands round Shinshio's exits (shinshio-street.ts). */
+function shinshioFeatures(): Feature[] {
+  const n = (ja: string, en: string): Named => ({ ja, en });
+  return [
+    { n: n('新潮魚市場', 'Shinshio Fish Market'), x0: -95, x1: 55, side: 1, named: true, reach: 120 },
+    { n: n('場外筋・新潮場外市場', 'Jōgai-suji, outer market'), x0: -51, x1: -39, side: -1, named: true, reach: 40 },
+    { n: n('新潮フェリーターミナル', 'Shinshio Ferry Terminal'), x0: -65, x1: -25, side: -1, named: true, reach: 60 },
+    { n: n('潮守恵比須神社', 'Shiomori Ebisu Shrine'), x0: 115, x1: 133, side: 1, named: true, reach: 120 },
+    { n: n('新潮岸壁', 'Shinshio Quay'), x0: -150, x1: 150, side: 1, named: true, reach: 60 },
+  ];
+}
+
 /** What stands round Aobadai's exits (aobadai-street.ts). */
 function aobaFeatures(): Feature[] {
   const n = (ja: string, en: string): Named => ({ ja, en });
@@ -658,6 +684,13 @@ function derive(id: StationId): StationStreet {
       // Aobadai's street is not laid out by surface() (aobadai-street.ts): list what stands round its exits.
       if (id === 'aobadai') return { kind: 'hub', exits: withNear(aobaFeatures(), es) };
       if (id === 'umibe-shiyakusho-mae') return { kind: 'hub', exits: withNear(umibeFeatures(), es) };
+      if (id === 'shinshio') return { kind: 'hub', exits: withNear(shinshioFeatures(), es) };
+      if (id === 'minato-center') {
+        // Exit 1 off the gates (the south pavement); Exit 2 is the atrium's escalators up to its street-level floor.
+        const { e1 } = MCA, r1 = Math.round((MC_GY - concourseY(id)) * MC_SLOPE * 100) / 100;
+        const own: Omit<StationExit, 'near'> = { num: MCA.num, side: -1, rect: [e1.x, e1.z0, e1.x + r1, e1.z1] };
+        return { kind: 'hub', exits: withNear(minatoCenterFeatures(), [...es, own]) };
+      }
       return { kind: 'street', surface: spec.surface, box: [cx0, -cw, cx1, cw], swOut: STREET_CW + 5.5, exits: withNear(streetFeatures(spec.surface), es) };
     }
     case 'interchange': {

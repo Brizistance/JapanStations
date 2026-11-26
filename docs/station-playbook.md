@@ -202,6 +202,21 @@ Rules (street-design.md)
 - `roadKit` puts a bus stop and a taxi stand where it likes: pass `busX` and `taxiX` when a mouth or an exit is near, and give the same values to `kerbGaps`.
 - A sign placed by a model anchor is in the model's frame; a hand-placed sign needs its normal turned to match.
 
+## Traps met at Shinshio and Umibe's quay (2026-11-25)
+
+- **Exits fix the main street.** An underground station's exit wells rise beside its box (z ±13–16 m): the widest street must run over the station. Check this before planning the layout around another street.
+- **Water and neighbours in their own frames.** Sample the water over the plot *and* 400–500 m out, and convert every neighbour's plot into this station's frame (Umibe's dock frontage starts at its x −120, not its plot edge).
+- **Edges follow the map, not a fixed run-on.** Find what the streets really meet 300–500 m out (a bluff, another district's road, the far shore) and carry them there; check what is seen across water too.
+- **Do not change a shared model set.** Add a variant in the station's own set (Kon'yahama uses the port set; Umibe's walk-in hall is `umibe/renga`).
+- **The row filler's leftovers.** `fillModelLots` ends rows with a pocket alley (`isAlleyLot`) or a gap that has no zone: the bare-ground test fails on them. Zone the alley, and use the gap. Row depths either side of a lane must add up to the block's depth exactly.
+- **T junctions and canopies.** Across a T from its stem, the far signal poles land against the building line: put them at the kerb. Check that no canopy or post reaches past the pavement.
+- **Code walls inside a model.** Inner walls built in code must stand a few centimetres inside the model's outer faces, or the two planes fight.
+- **Distant flicker is depth precision.** The renderer now keeps a logarithmic depth buffer (Scene.tsx). Any pass or shader that reads depth (AO, reflections) must decode it, and world-space `ShaderMaterial`s need the `common` and `logdepthbuf` chunks. Simplified (`_lo`) model faces stand 0.25 m or more off their walls.
+
+## Traps met at Minato Center (2026-11-25)
+
+- **Rows past the edge are not checked by any test.** A wrong face letter put rows on the carried-on back street and across the Mall's line, and a neighbour's back street (Umibe's Hamachidori-dōri) arrived at the edge with nothing to meet. Walk every edge in the browser after the fill, and list each neighbour street that reaches the run-on.
+
 ## Still to build (not done; a later session can build these from here)
 
 Decided 2026-11-24: the edge-join test, the overlap tests and the top-down view are built as the first step of the next station redesign, before its stage 1.
