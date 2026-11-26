@@ -49,7 +49,7 @@ export const PEN = {
 /** The plot: x ±150, from the sea wall at z 52 north to z −198; the peninsula west and north of it and the pier are arms. */
 export const MC_PLOT = {
   x: 150, z: 52, north: 198,
-  arms: [[-331, -493, -150, 52], [-150, -493, 207, -198], [-20, 52, -12, 100], [-28, 100, -4, 112]] as [number, number, number, number][],
+  arms: [[-331, -493, -150, 52], [-150, -493, 207, -198], [150, -198, 207, -177.5], [-20, 52, -12, 100], [-28, 100, -4, 112]] as [number, number, number, number][],
 };
 
 /** Which step of the rebuild is built: 1 the station, 2 streets and landmarks, 3 filled (street-plan.ts). */

@@ -32,6 +32,7 @@ import { rng, type LanePart } from '../world/builder';
 import { CARS, VEH, family } from '../traffic/vehicles';
 import { CIVIC } from './anchors/civic';
 import { MCENTER as M } from './anchors/mcenter';
+import { ROADSIDE } from './anchors/roadside';
 import type { Anchor, AnchorPt, Anchors } from './anchors/types';
 import type { Rect } from './looks/types';
 import type { Ctx } from './kit';
@@ -92,6 +93,26 @@ export const MC_NAMES = {
   bhotel: { ja: 'ホテル港灯り', en: 'Hotel Minato-akari' },
   soko: { ja: '旧七号倉庫 ハーバーホール', en: 'Old No. 7 Warehouse — Harbour Hall' },
   clinic: { ja: 'みなとセンター診療所・ベイ薬局', en: 'Minato Center Clinic · Bay Pharmacy' },
+  // The peninsula's fill (stage 3).
+  rtowb: { ja: '西浜レジデンス', en: 'Nishihama Residence' },
+  cafe: { ja: 'カフェ 汐見', en: 'Café Shiomi' },
+  school: { ja: '川湊市立みなと小学校', en: 'Minato Elementary School' },
+  hpark: { ja: '帆柱公園', en: 'Hobashira Park' },
+  rtowaW: { ja: 'ベイサイドコート みなと 西棟', en: 'Bayside Court Minato, West' },
+  rtowaE: { ja: 'ベイサイドコート みなと 東棟', en: 'Bayside Court Minato, East' },
+  petrol: { ja: 'シオサイ石油', en: 'SHIOSAI' },
+  chotel: { ja: 'ホテル みなとグランドベイ', en: 'Hotel Minato Grand Bay' },
+  carpark: { ja: 'ハーバーテラス 駐車場', en: 'Harbour Terrace car park' },
+  bmall: { ja: 'ハーバーテラス川湊', en: 'Harbour Terrace Kawaminato' },
+  cinema: { ja: 'ハーバーシネマ', en: 'Harbour Cinema' },
+  boats: { ja: 'みなとマリーナ ボートヤード', en: 'Minato Marina Boatyard' },
+  shrine: { ja: '汐守神社', en: 'Shiomori Shrine' },
+  btowW: { ja: 'みなとベイタワー 西', en: 'Minato Bay Tower West' },
+  btowE: { ja: 'みなとベイタワー 東', en: 'Minato Bay Tower East' },
+  rpark: { ja: 'みなと河口公園', en: 'Minato Rivermouth Park' },
+  pav: { ja: 'リバーテラス', en: 'River Terrace' },
+  pav2: { ja: '河口食堂 汐風', en: 'Kakō Shokudō Shiokaze' },
+  rowing: { ja: 'みなと漕艇クラブ', en: 'Minato Rowing Club' },
 };
 
 export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
@@ -136,7 +157,7 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   // Plot edges: the east wall where the avenue runs on to Umibe (only seen); west and north the plot opens onto the
   // peninsula (minatocenter-plan.ts PEN), whose own edges are the sea walls and Shinshio's connector road.
   b.block(X, -1, -N, X + 1, 60, Z + 1);
-  b.block(X, -1, -N - 1, PEN.ce, 60, -N);
+  // (The edge east of the plot's north side, x 150 … 207, is closed by the run-on block's flats: MC_PLOT's arm.)
   b.out.district = { radius: 450, old: [0, -100], oldRadius: 0, towers: 6 };
 
   // ═════════════════════════ Paint ═════════════════════════
@@ -221,8 +242,8 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     mallE: { ja: 'モール公園東', en: 'Mōru-kōen-higashi' },
   };
   // A new town's signals: the avenue's on the long 6.5 m arms, the 筋's on the plain new masts.
-  junction(HO.c, HO.half, [1, -1], AV.c, AV.half, [1, -1], J.hall, true, false, { style: 'long' });
-  junction(HK.c, HK.half, [1, -1], AV.c, AV.half, [1, -1], J.tower, true, false, { style: 'long' });
+  junction(HO.c, HO.half, [1, -1], AV.c, AV.half, [1, -1], J.hall, true, false, { style: 'shared' });
+  junction(HK.c, HK.half, [1, -1], AV.c, AV.half, [1, -1], J.tower, true, false, { style: 'shared' });
   junction(HO.c, HO.half, [1, -1], KI.c, KI.half, [1, -1], J.hoKita, true, true);
   junction(HK.c, HK.half, [1, -1], KI.c, KI.half, [1, -1], J.hkKita, true, true);
   // The Mall's crossings over the 筋: a zebra the park's width, pedestrian heads, a stop line and a head each way.
@@ -646,15 +667,8 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     const k = Math.ceil((e - a) / 30);
     for (let i = 0; i < k; i++) b.zone('street', a + ((e - a) * i) / k, -0.3, z0, a + ((e - a) * (i + 1)) / k, 6, z1, '裏通路', `Back walk ${Math.round(a + ((e - a) * (i + 0.5)) / k)}`, true);
   }
-  // North of the back street: one row, a service lane behind it along the plot's edge (in from the 筋).
-  for (const [a, e] of [[-150, -72], [-48, 84], [108, 150]] as [number, number][]) {
-    fillRect(a + 0.2, -N + 6.2, e - 0.2, BL.kiN, 's', ['office', 'manshon'], 1);
-    b.deco(PAVE, a, GY + 0.002, -N, e, GY + 0.012, -N + 6);
-    // (Named in short lengths, as a lane is: the walk test reaches only as far as its narrow places.)
-    const k = Math.ceil((e - a) / 30);
-    for (let i = 0; i < k; i++) b.zone('street', a + ((e - a) * i) / k, -0.3, -N, a + ((e - a) * (i + 1)) / k, 6, -N + 6, 'センター北通 裏路地', `Lane behind Sentā-kita-dōri ${Math.round(a + ((e - a) * (i + 0.5)) / k)}`, true);
-    for (let x = a + 8; x < e - 2; x += 20) streetLamp(b, 'lamp_small', x, -N + 0.5, [0, 1]);
-  }
+  // North of the back street: the peninsula's perimeter blocks run on across the plot's edge to its building line
+  // (the peninsula's fill, below), so no lane of backs is left along the seam.
 
   // ── The waterfront: the kōban by Exit 1, the old No. 7 warehouse ──
   at('n', 26, BL.avS, () => place(b, { kind: 'koban', ja: 'みなとセンター駅前交番', en: 'Minato Center Sta. Police Box' }));
@@ -825,6 +839,44 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     dash('x', KI.c, srE, -X, bX);
     dash('x', MD.c, srE, CE, bX);
     dash('x', HM.c, srE, CE, bX);
+    // The 筋 carried north of the plot: a yellow centre, lane dashes; edge lines a half metre in from every kerb.
+    for (const st of NS) {
+      line('z', st.c, hmS, -N, bZ, YELLOW, 0.06);
+      for (const k of [-1, 1]) dash('z', st.c + k * 3.5, hmS, -N, bZ);
+    }
+    for (const k of [-1, 1]) {
+      for (const st of [...NS, SR, S3]) line('z', st.c + k * (st.half - 0.5), hmS, st === SR || st === S3 ? BL.avN : -N, bZ, WHITE, 0.07);
+      for (const st of [MD, BR, HM]) line('x', st.c + k * (st.half - 0.5), srE, CE, bX, WHITE, 0.07);
+      line('x', KI.c + k * (KI.half - 0.5), srE, -X, bX, WHITE, 0.07);
+    }
+    // Junction marks: lane arrows before each stop line (straight and left in the outer lane, straight and right in
+    // the inner, straight in a single lane), and the diamonds that warn of the crossing 30 and 50 m before it.
+    const pm = (axis: 'x' | 'z', u0: number, u1: number, v0: number, v1: number) => (axis === 'z' ? b.deco(WHITE, Math.min(v0, v1), 0.006, Math.min(u0, u1), Math.max(v0, v1), 0.012, Math.max(u0, u1)) : b.deco(WHITE, Math.min(u0, u1), 0.006, Math.min(v0, v1), Math.max(u0, u1), 0.012, Math.max(v0, v1)));
+    const arrow = (axis: 'x' | 'z', tail: number, v: number, dir: 1 | -1, side: number) => {
+      const at2 = (d: number) => tail + dir * d;
+      pm(axis, at2(0), at2(3), v - 0.075, v + 0.075);
+      for (const [d0, d1, w] of [[3, 3.4, 0.45], [3.4, 3.8, 0.3], [3.8, 4.2, 0.15]]) pm(axis, at2(d0), at2(d1), v - w, v + w);
+      if (side) {
+        pm(axis, at2(1.5), at2(1.65), v, v + side * 1.0);
+        pm(axis, at2(1.25), at2(1.9), v + side * 0.9, v + side * 1.2);
+      }
+    };
+    const diamond = (axis: 'x' | 'z', u: number, v: number) => {
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6;
+        for (const [du, dv] of [[-2.5 + 2.5 * t, 0.7 * t], [2.5 * t, 0.7 * (1 - t)], [2.5 - 2.5 * t, -0.7 * t], [-2.5 * t, -0.7 * (1 - t)]]) pm(axis, u + du - 0.2, u + du + 0.2, v + dv - 0.08, v + dv + 0.08);
+      }
+    };
+    const lanesOf = (half: number) => (half >= 8.5 ? [2.75, 6.25] : half >= 6 ? [1.75, 5.25] : [half / 2]);
+    /** The marks on one approach: `stop` the stop line's place along the street, `dir` the way traffic travels. */
+    const approach = (axis: 'x' | 'z', c: number, half: number, stop: number, dir: 1 | -1) => {
+      const left = axis === 'z' ? dir : -dir, ls = lanesOf(half), box = axis === 'z' ? corrZ : corrX;
+      ls.forEach((o, i) => {
+        const v = c + left * o, turn = ls.length === 1 ? 0 : i === 0 ? -left : left;
+        if (clearOf(stop - dir * 6, box)) arrow(axis, stop - dir * 8.2, v, dir, turn);
+        for (const d of [30, 50]) if (clearOf(stop - dir * d, box, 3)) diamond(axis, stop - dir * d, v);
+      });
+    };
 
     // ── Junctions: a signal wherever two streets with traffic meet ──
     type Arms = { n?: boolean; s?: boolean; e?: boolean; w?: boolean };
@@ -852,26 +904,30 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       }
       roadModel(b, 'sigbox', cx - hx - 2.6, GY, cz + (arm.n ? -hz - 3.2 : hz + 2.2), [0, 1]);
       b.block(cx - hx - 2.96, GY, cz + (arm.n ? -hz - 3.2 : hz + 2.2) - 0.26, cx - hx - 2.24, GY + 1.56, cz + (arm.n ? -hz - 3.2 : hz + 2.2) + 0.26);
+      if (arm.n) approach('z', cx, hx, cz - (hz + SL), 1);
+      if (arm.s) approach('z', cx, hx, cz + (hz + SL), -1);
+      if (arm.w) approach('x', cz, hz, cx - (hx + SL), 1);
+      if (arm.e) approach('x', cz, hz, cx + (hx + SL), -1);
     };
-    jn(SR.c, SR.half, AV.c, AV.half, { n: true, e: true }, n3('岬公園前', 'Misaki-kōen-mae'), 'long');
+    jn(SR.c, SR.half, AV.c, AV.half, { n: true, e: true }, n3('岬公園前', 'Misaki-kōen-mae'), 'shared');
     jn(SR.c, SR.half, KI.c, KI.half, { n: true, s: true, e: true }, n3('西浜センター北', 'Nishihama Sentā-kita'));
     jn(SR.c, SR.half, MD.c, MD.half, { n: true, s: true, e: true }, n3('西浜中通', 'Nishihama-nakadōri'));
-    jn(SR.c, SR.half, BR.c, BR.half, { n: true, s: true, e: true }, n3('西浜臨港', 'Nishihama-rinkō'), 'long');
+    jn(SR.c, SR.half, BR.c, BR.half, { n: true, s: true, e: true }, n3('西浜臨港', 'Nishihama-rinkō'), 'shared');
     jn(SR.c, SR.half, HM.c, HM.half, { s: true, e: true }, n3('西浜浜通', 'Nishihama-hamadōri'));
-    jn(S3.c, S3.half, AV.c, AV.half, { n: true, e: true, w: true }, n3('コンベンションセンター前', 'Convention Center-mae'), 'long');
+    jn(S3.c, S3.half, AV.c, AV.half, { n: true, e: true, w: true }, n3('コンベンションセンター前', 'Convention Center-mae'), 'shared');
     jn(S3.c, S3.half, KI.c, KI.half, { n: true, s: true, e: true, w: true }, n3('展示場筋北', 'Tenjijō-suji-kita'));
     jn(S3.c, S3.half, MD.c, MD.half, { n: true, s: true, e: true, w: true }, n3('展示場筋中通', 'Tenjijō-suji-nakadōri'));
-    jn(S3.c, S3.half, BR.c, BR.half, { n: true, s: true, e: true, w: true }, n3('展示場筋臨港', 'Tenjijō-suji-rinkō'), 'long');
+    jn(S3.c, S3.half, BR.c, BR.half, { n: true, s: true, e: true, w: true }, n3('展示場筋臨港', 'Tenjijō-suji-rinkō'), 'shared');
     jn(S3.c, S3.half, HM.c, HM.half, { s: true, e: true, w: true }, n3('展示場筋浜', 'Tenjijō-suji-hama'));
     for (const [st, nm] of [[HO, '帆柱筋'], [HK, '浜風筋']] as const) {
       const ro = st === HO ? 'Hobashira-suji' : 'Hamakaze-suji';
       jn(st.c, st.half, MD.c, MD.half, { n: true, s: true, e: true, w: true }, n3(`${nm}中通`, `${ro}-nakadōri`));
-      jn(st.c, st.half, BR.c, BR.half, { n: true, s: true, e: true, w: true }, n3(`${nm}臨港`, `${ro}-rinkō`), 'long');
+      jn(st.c, st.half, BR.c, BR.half, { n: true, s: true, e: true, w: true }, n3(`${nm}臨港`, `${ro}-rinkō`), 'shared');
       jn(st.c, st.half, HM.c, HM.half, { s: true, e: true, w: true }, n3(`${nm}浜`, `${ro}-hama`));
     }
     // The connector's junctions on the arms' east edge (its far side is Shinshio's).
     jn(CN.c, CN.half, MD.c, MD.half, { n: true, s: true, w: true, e: true }, n3('新潮連絡道中通', 'Renraku-dō-nakadōri'));
-    jn(CN.c, CN.half, BR.c, BR.half, { n: true, s: true, w: true, e: true }, n3('新潮連絡道臨港', 'Renraku-dō-rinkō'), 'long');
+    jn(CN.c, CN.half, BR.c, BR.half, { n: true, s: true, w: true, e: true }, n3('新潮連絡道臨港', 'Renraku-dō-rinkō'), 'shared');
     jn(CN.c, CN.half, HM.c, HM.half, { s: true, w: true, e: true }, n3('新潮連絡道浜', 'Renraku-dō-hama'));
     // The Mall's crossings over the shore road and 展示場筋, as over the 筋.
     crosswalk(b, S3.c, MZ, 2 * S3.half - 0.4, 8, false);
@@ -1042,6 +1098,426 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       b.zone('street', WB.x0, -0.3, WB.z0, WB.x1, 6, N0, `${MC_NAMES.wbus.ja} 桟橋`, `${MC_NAMES.wbus.en} pier`, true);
       b.zone('street', WB.hx0, -1.2, WB.z1, WB.hx1, 6, WB.z0, `${MC_NAMES.wbus.ja} 浮桟橋`, `${MC_NAMES.wbus.en} pontoon`, true);
     }
+
+    // ── The fill (stage 3): where the new town lives ──
+    //   Flats inland, two towers of flats and the school with its park on みなと中通; the convention hotel, a car park
+    //   and offices on the bay road; the bay mall facing the river mouth; the marina's boat store, the fishing
+    //   village's shrine and low buildings on Hama-dōri. Heights step down from the tower to the shore and the point.
+    //   Blocks by x (between the 筋): W −293 … −183, A −159 … −72, B −48 … 84, C 108 … 207.
+    {
+      const kiS = KI.c + KI.half + KI.pave, kiN = KI.c - KI.half - KI.pave;
+      const mdN = MD.c - MD.half - MD.pave, mdS = MD.c + MD.half + MD.pave, brN = BR.c - BR.half - BR.pave, brS = BR.c + BR.half + BR.pave;
+      const s3W = S3.c - S3.half - S3.pave, s3E = S3.c + S3.half + S3.pave;
+      const hoW = HO.c - HO.half - HO.pave, hoE = HO.c + HO.half + HO.pave, hkW = HK.c - HK.half - HK.pave, hkE = HK.c + HK.half + HK.pave;
+      const edge = -N; // the original plot's north edge (its rear lane is inside it)
+      const garden = (x0: number, z0: number, x1: number, z1: number, name: Named, kinds: TreeKind[], zone = true) => {
+        b.box('flat:#b9b4a8', x0, GY, z0, x1, GY + 0.35, z1);
+        b.deco(LAWN, x0 + 0.15, GY + 0.35, z0 + 0.15, x1 - 0.15, GY + 0.37, z1 - 0.15);
+        for (let x = x0 + 4; x < x1 - 3; x += 9) for (let z = z0 + 4; z < z1 - 3; z += 9) if (r() < 0.45) modelTree(b, kinds[Math.floor(r() * kinds.length)], x + r() * 2 - 1, z + r() * 2 - 1, 'b', GY + 0.35);
+        if (zone) b.zone('street', x0, -0.3, z0, x1, 6, z1, name.ja, name.en, true);
+        // Benches in pairs facing each other across a paved patch in the middle (stage 4).
+        if (zone && x1 - x0 > 14 && z1 - z0 > 14) {
+          const xm = (x0 + x1) / 2, zm = (z0 + z1) / 2;
+          b.deco('tile:#cfc9bd', xm - 3, GY + 0.37, zm - 2.6, xm + 3, GY + 0.38, zm + 2.6);
+          for (const [dz, f] of [[-2.1, 1], [2.1, -1]] as [number, 1 | -1][]) {
+            roadModel(b, 'bench_s', xm, GY + 0.35, zm + dz, [0, f]);
+            b.block(xm - 0.9, GY + 0.35, zm + dz - 0.3, xm + 0.9, GY + 0.85, zm + dz + 0.3);
+          }
+        }
+      };
+      // Perimeter blocks: deep flats (build_mcenter.py pb*, pc*) wrap a block's street sides, a corner piece on every
+      // corner, a garden or residents' parking in the courtyard, reached through a gate in one side.
+      type Side = 'n' | 's' | 'e' | 'w';
+      const PBW = [16, 20, 24, 28, 32], PC = 14;
+      /** Bar lengths that tile `L` to within 4 m (any multiple of 4 from 16 up is a sum of them). */
+      const tile = (L: number): number[] => {
+        const out: number[] = [];
+        let left = Math.floor(L / 4) * 4;
+        if (left < 16) return out;
+        while (left > 0) {
+          const ok = PBW.filter((w) => w === left || left - w >= 16);
+          const w = ok[Math.floor(r() * ok.length)];
+          out.push(w);
+          left -= w;
+        }
+        return out;
+      };
+      const gateRect = (face: Side, line: number, m: number): Rect =>
+        face === 'n' ? [m - 2.5, line, m + 2.5, line + 13] : face === 's' ? [m - 2.5, line - 13, m + 2.5, line] : face === 'e' ? [line - 13, m - 2.5, line, m + 2.5] : [line, m - 2.5, line + 13, m + 2.5];
+      /** The 24 m block with a drive-through two storeys high (pg*): its colliders either side of the passage, the
+       *  passage paved and named, and on a car park's way in a barrier and card post at the courtyard end. */
+      const gateBar = (face: Side, line: number, m: number, lvl: number, car: boolean) => {
+        const [px, pz] = face === 'n' || face === 's' ? [m, line] : [line, m];
+        at(face, px, pz, () => {
+          const id = lvl >= 2 ? 'pgh' : 'pgl', a = M[id];
+          b.model('mcenter', id, 0, GY, 0, ++seed);
+          for (const [x0, x1] of [[-12, -3.2], [3.2, 12]] as [number, number][]) b.block(x0, GY, 0, x1, GY + a.h, 14);
+          b.deco('asphalt', -3.2, GY + 0.004, 0, 3.2, GY + 0.014, 14);
+          b.zone('street', -3.2, -0.3, 0, 3.2, 6, 14, car ? '駐車場入口' : '中庭入口', car ? `Car park way in ${Math.round(m)}` : `Courtyard way in ${Math.round(m)}`, true);
+          label(a.pts.gate, car ? n3('住民駐車場 入口', 'Residents parking') : n3('中庭 入口', 'Courtyard'), '#ffffff', '#1f3550');
+          if (car) {
+            b.model('mcenter', 'gatebar', -2.0, GY, 13.0, ++seed);
+            b.block(-2.3, GY, 12.7, -1.7, GY + 1.1, 13.3);
+          }
+        });
+      };
+      /** A run of bars along one side, fronts on `line`, spread evenly over [a, e]. `lvl`: 0 low only, 1 mostly low,
+       *  2 mostly tall. `gate`: the drive-through block in the run (a 5 m walk where the run is too short for it). */
+      const run = (face: Side, line: number, a: number, e: number, lvl: number, gate: false | 'walk' | 'car' = false) => {
+        if (gate && e - a >= 40.4) {
+          const m = e - a >= 56.4 ? (a + e) / 2 : a + 12.2;
+          gateBar(face, line, m, lvl, gate === 'car');
+          run(face, line, a, m - 12.2, lvl);
+          run(face, line, m + 12.2, e, lvl);
+          return;
+        }
+        if (gate && e - a >= 37) {
+          const m = Math.round((a + e) / 2);
+          const [x0, z0, x1, z1] = gateRect(face, line, m);
+          strip(x0, z0, x1, z1, PAVE, '通り抜け', `Way through ${Math.round(m)}`);
+          run(face, line, a, m - 2.5, lvl);
+          run(face, line, m + 2.5, e, lvl);
+          return;
+        }
+        const ws = tile(e - a);
+        if (!ws.length) return;
+        const gap = (e - a - ws.reduce((s, w) => s + w, 0)) / (ws.length + 1);
+        let u = a + gap;
+        for (const w of ws) {
+          const c = u + w / 2, id = `pb${w}${(lvl >= 2 ? r() < 0.7 : lvl === 1 ? r() < 0.25 : false) ? 'h' : 'l'}`;
+          if (face === 'n' || face === 's') piece('mcenter', M, id, face, c, line);
+          else piece('mcenter', M, id, face, line, c);
+          u += w + gap;
+        }
+      };
+      /** A bicycle shed: a steel frame under a clear roof, bicycles in a row. */
+      const bikeShed = (x0: number, z0: number, x1: number, z1: number) => {
+        b.deco('glassTint', x0, GY + 2.3, z0, x1, GY + 2.36, z1);
+        for (let x = x0 + 0.2; x < x1; x += 4) b.box(STEEL, x - 0.06, GY, z1 - 0.3, x + 0.06, GY + 2.3, z1 - 0.18);
+        for (let x = x0 + 0.6; x < x1 - 0.4; x += 0.62) if (r() < 0.7) b.out.models.push({ kind: 'places', id: 'bicycle', pos: b.pt(x, GY, (z0 + z1) / 2), yaw: 0, seed: 0, merge: true });
+        b.block(x0, GY, z1 - 0.32, x1, GY + 2.3, z1 - 0.16);
+      };
+      const perimeter = (x0: number, z0: number, x1: number, z1: number, o: { omit?: Side[]; inset?: Partial<Record<Side, number>>; coreIn?: Partial<Record<Side, number>>; tall?: boolean; low?: boolean; gate?: Side; core: 'garden' | 'parking'; name: Named; seen?: boolean }) => {
+        const has = (s: Side) => !(o.omit ?? []).includes(s), ins = (s: Side) => o.inset?.[s] ?? 0;
+        const lvl = o.tall ? 2 : o.low ? 0 : 1;
+        const pc = lvl >= 2 ? 'pch' : 'pcl';
+        if (has('n') && has('w')) piece('mcenter', M, pc, 'n', x0 + PC / 2, z0);
+        if (has('n') && has('e')) piece('mcenter', M, pc, 'e', x1, z0 + PC / 2);
+        if (has('s') && has('e')) piece('mcenter', M, pc, 's', x1 - PC / 2, z1);
+        if (has('s') && has('w')) piece('mcenter', M, pc, 'w', x0, z1 - PC / 2);
+        const xa = x0 + (has('w') ? PC : ins('w')), xb = x1 - (has('e') ? PC : ins('e'));
+        const za = z0 + (has('n') ? PC : ins('n')), zb = z1 - (has('s') ? PC : ins('s'));
+        const g = (s: Side) => (o.gate === s && !o.seen ? (o.core === 'parking' ? 'car' : 'walk') : false);
+        if (has('n')) run('n', z0, xa, xb, lvl, g('n'));
+        if (has('s')) run('s', z1, xa, xb, lvl, g('s'));
+        if (has('w')) run('w', x0, za, zb, lvl, g('w'));
+        if (has('e')) run('e', x1, za, zb, lvl, g('e'));
+        // The courtyard.
+        const cin = (s: Side) => o.coreIn?.[s] ?? (has(s) ? PC + 0.2 : ins(s) + 0.2);
+        const [cx0, cz0, cx1, cz1] = [x0 + cin('w'), z0 + cin('n'), x1 - cin('e'), z1 - cin('s')];
+        if (cx1 - cx0 < 4 || cz1 - cz0 < 4) return;
+        if (o.seen) {
+          // Seen only, from the streets past the plot's edge: a planted courtyard, no one walks it.
+          garden(cx0, cz0, cx1, cz1, o.name, ['zelkova', 'cherry', 'camphor'], false);
+          return;
+        }
+        if (cz1 - cz0 < 10 || cx1 - cx0 < 10) {
+          strip(cx0, cz0, cx1, cz1, PAVE, '裏路地', `Back lane, ${o.name.en}`);
+        } else if (o.core === 'garden') {
+          garden(cx0, cz0, cx1, cz1, o.name, ['zelkova', 'cherry', 'dogwood', 'camphor']);
+          for (let x = cx0 + 6; x < cx1 - 4; x += 14) streetLamp(b, 'lamp_small', x, cz0 + 0.6, [0, 1]);
+        } else {
+          // Residents' parking: a kerb round it, a bicycle shed along one end, rows of bays with wheel stops,
+          // planted islands at the ends of the rows.
+          b.deco('asphalt', cx0, GY + 0.002, cz0, cx1, GY + 0.012, cz1);
+          for (const [a0, c0, a1, c1] of [[cx0, cz0, cx1, cz0 + 0.3], [cx0, cz1 - 0.3, cx1, cz1], [cx0, cz0, cx0 + 0.3, cz1], [cx1 - 0.3, cz0, cx1, cz1]] as Rect[]) b.deco('flat:#b9b4a8', a0, GY, c0, a1, GY + 0.15, c1);
+          bikeShed(cx0 + 0.6, cz0 + 0.5, cx0 + Math.min(16, (cx1 - cx0) * 0.4), cz0 + 3.0);
+          const i0 = cx0 + 2.6, i1 = cx1 - 2.6;
+          for (let z = cz0 + 7.0; z < cz1 - 2.5; z += 12) {
+            for (let x = i0; x <= i1 + 0.01; x += 2.6) b.deco(WHITE, x - 0.05, GY + 0.012, z - 2.5, x + 0.05, GY + 0.018, z + 2.5);
+            for (let x = i0 + 1.3; x < i1; x += 2.6) b.deco('flat:#b9b6ac', x - 0.75, GY + 0.012, z + 2.0, x + 0.75, GY + 0.13, z + 2.25);
+            for (const [ia, ib] of [[cx0 + 0.4, i0 - 0.2], [i1 + 0.2, cx1 - 0.4]] as [number, number][]) {
+              b.box('flat:#b9b4a8', ia, GY, z - 2.4, ib, GY + 0.2, z + 2.4);
+              b.deco(LAWN, ia + 0.1, GY + 0.2, z - 2.3, ib - 0.1, GY + 0.22, z + 2.3);
+              modelTree(b, 'azalea', (ia + ib) / 2, z, 'a', GY + 0.2);
+            }
+            cars(i0, i1, z, [0, 1], 0.6);
+          }
+          b.zone('street', cx0, -0.3, cz0, cx1, 6, cz1, o.name.ja, o.name.en, true);
+          for (let x = cx0 + 8; x < cx1 - 4; x += 20) streetLamp(b, 'lamp_small', x, cz1 - 0.6, [0, -1]);
+        }
+      };
+      const park = (en: string) => n3('住民駐車場', `Residents' parking, ${en}`);
+      const court = (en: string) => n3('中庭', `Courtyard, ${en}`);
+
+      // West arm, between the back street and the Mall: a block of flats; walks round the convention centre.
+      perimeter(srE, kiS, s3W, BL.mallN, { tall: true, gate: 'n', core: 'parking', name: park('Nishihama-kita') });
+      strip(srE, -95, s3W, -90, PAVE, `${MC_NAMES.conv.ja} 裏通路`, `${MC_NAMES.conv.en}, lane behind`);
+      strip(-196, -90, s3W, BL.avN, PLAZA, `${MC_NAMES.conv.ja} 東通路`, `${MC_NAMES.conv.en}, east walk`);
+      for (let z = -84; z < -24; z += 10) modelTree(b, 'camphor', -189.5, z, 'b');
+      for (const [z0, z1] of [[kiS, BL.mallN], [BL.mallS, BL.avN]] as [number, number][]) strip(s3E, z0, -X, z1, PAVE, '展示場筋 東の通路', `Tenjijō-suji, east walk ${Math.round(z0)}`);
+
+      // ── Row 1, between the back street (or the plot's edge) and みなと中通 ──
+      // W: flats round the resort hotel; a perimeter block with the beige tower of flats in its courtyard, facing the gate.
+      fillRect(-287, -197, -257.2, kiN, 's', ['manshon'], 1);
+      fillRect(-287, mdS, -257.2, -259.4, 'n', ['manshon'], 1);
+      {
+        const [x0, z0, x1, z1] = [-256.8, mdS, s3W, kiN];
+        perimeter(x0, z0, x1, z1, { gate: 'e', core: 'garden', coreIn: { e: 999 }, name: n3(`${MC_NAMES.rtowb.ja} 庭`, `${MC_NAMES.rtowb.en} garden`) });
+        const cx0 = x0 + PC + 0.2, cz0 = z0 + PC + 0.2, cx1 = x1 - PC - 0.2, cz1 = z1 - PC - 0.2, tf = cx1 - 8;
+        piece('mcenter', M, 'rtowb', 'e', tf, (z0 + z1) / 2, (a) => {
+          label(a.pts.name, MC_NAMES.rtowb);
+          label(a.pts.shop, MC_NAMES.cafe, '#ffffff', '#2f4a3a');
+        });
+        const g = n3(`${MC_NAMES.rtowb.ja} 庭`, `${MC_NAMES.rtowb.en} garden`);
+        garden(cx0, cz0, tf - 25.4, cz1, g, ['cherry', 'dogwood', 'camphor']);
+        garden(tf - 25.4, cz0, cx1, (z0 + z1) / 2 - 12.8, g, ['cherry', 'dogwood']);
+        garden(tf - 25.4, (z0 + z1) / 2 + 12.8, cx1, cz1, g, ['cherry', 'dogwood']);
+        strip(tf, (z0 + z1) / 2 - 12.6, x1 - 13, (z0 + z1) / 2 + 12.6, PLAZA, `${MC_NAMES.rtowb.ja} 前庭`, `${MC_NAMES.rtowb.en} forecourt`);
+      }
+      // A: the elementary school on みなと中通, its sports ground behind, the neighbourhood park beside it.
+      piece('mcenter', M, 'school', 'n', -125, mdS, (a) => label(a.pts.name, MC_NAMES.school, '#1f3550', '#f4f1e8'));
+      {
+        const [x0, x1, z0, z1] = [-157, -93, mdS + 23, -N - 1];
+        garden(x0, -N - 0.8, x1, kiN - PC - 0.2, n3('みなと小学校 前庭', 'Minato Elementary School, south lawn'), ['cherry', 'dogwood']);
+        b.deco('flat:#b59c78', x0, GY + 0.002, z0, x1, GY + 0.012, z1);
+        for (const k of [-1, 1]) b.deco(WHITE, (x0 + x1) / 2 + k * 18 - 0.05, GY + 0.012, z0 + 6, (x0 + x1) / 2 + k * 18 + 0.05, GY + 0.018, z1 - 6);
+        b.deco(WHITE, x0 + 6, GY + 0.012, (z0 + z1) / 2 - 0.05, x1 - 6, GY + 0.018, (z0 + z1) / 2 + 0.05);
+        for (const [fx0, fz0, fx1, fz1] of [[x0, z0, x0 + 0.08, z1], [x1 - 0.08, z0, x1, z1], [x0, z1 - 0.08, x1, z1]] as Rect[]) {
+          b.block(fx0, GY, fz0, fx1, GY + 2.4, fz1);
+          b.deco('metal:#7d868c', fx0, GY + 2.3, fz0, fx1, GY + 2.4, fz1);
+          b.deco('metal:#7d868c', fx0, GY + 0.9, fz0, fx1, GY + 0.98, fz1);
+          const along = fx1 - fx0 > fz1 - fz0;
+          for (let u = (along ? fx0 : fz0) + 1; u < (along ? fx1 : fz1); u += 3) (along ? b.deco('metal:#7d868c', u - 0.04, GY, fz0, u + 0.04, GY + 2.4, fz1) : b.deco('metal:#7d868c', fx0, GY, u - 0.04, fx1, GY + 2.4, u + 0.04));
+        }
+        for (const x of [x0 + 3, x1 - 3]) for (let z = z0 + 3; z < z1 - 2; z += 8) modelTree(b, 'cherry', x, z, 'b');
+        strip(-159, mdS, -157.2, kiN - PC - 0.2, PAVE, `${MC_NAMES.school.ja} 西通路`, `${MC_NAMES.school.en}, west walk`);
+      }
+      {
+        // 帆柱公園: a lawn, a playground at the front, trees, benches.
+        const [x0, x1] = [-92.6, hoW - 0.2];
+        at('n', (x0 + x1) / 2, mdS, () => place(b, { kind: 'park', ja: MC_NAMES.hpark.ja, en: MC_NAMES.hpark.en }));
+        garden(x0, mdS + 12.4, x1, kiN - PC - 0.4, MC_NAMES.hpark, ['zelkova', 'cherry', 'momiji']);
+      }
+      // Flats along the back street behind the school and the park, a corner block at each end.
+      piece('mcenter', M, 'pcl', 'w', s3E, kiN - PC / 2);
+      piece('mcenter', M, 'pcl', 's', hoW - PC / 2, kiN);
+      run('s', kiN, s3E + PC, hoW - PC, 1);
+      // B: the konbini on the corner, two slabs of flats and flats between on みなと中通; perimeter flats round the rest.
+      at('n', hoE + 7.2, mdS, () => konbini(b, { type: 'corner', chain: 'asanagi' }));
+      piece('mcenter', M, 'rtowa', 'n', -12, mdS, (a) => label(a.pts.name, MC_NAMES.rtowaW));
+      fillRect(4.8, mdS, 37.2, mdS + 22, 'n', ['manshon'], 1);
+      piece('mcenter', M, 'rtowa', 'n', 54, mdS, (a) => label(a.pts.name, MC_NAMES.rtowaE));
+      fillRect(70.8, mdS, hkW - 0.2, mdS + 22, 'n', ['manshon'], 1);
+      strip(hoE + 14.4, mdS, -28.6, mdS + 24.2, PLAZA, `${MC_NAMES.rtowaW.ja} 前庭`, `${MC_NAMES.rtowaW.en} forecourt`);
+      perimeter(hoE, mdS, hkW, kiN, { omit: ['n'], inset: { n: 24.4 }, tall: true, gate: 's', core: 'garden', name: n3('ベイサイドコート 中庭', 'Bayside Court garden') });
+      // C: the petrol station on the corner, flats on みなと中通, perimeter flats round the rest.
+      piece('roadside', ROADSIDE, 'petrol', 'n', hkE + 14.6, mdS, (a) => {
+        label(a.pts.name, MC_NAMES.petrol, '#ffffff', '#2f6e4a');
+        label(a.pts.pole, MC_NAMES.petrol, '#ffffff', '#2f6e4a');
+      }, false);
+      for (const [x, z] of [[hkE + 8.6, mdS + 6], [hkE + 8.6, mdS + 14], [hkE + 20.6, mdS + 6], [hkE + 20.6, mdS + 14]] as [number, number][]) b.block(x - 0.3, GY, z - 0.3, x + 0.3, GY + 5.2, z + 0.3);
+      for (const x of [hkE + 8.6, hkE + 20.6]) b.block(x - 0.75, GY, mdS + 4.5, x + 0.75, GY + 2.0, mdS + 15.5);
+      b.block(hkE + 1.6, GY, mdS + 18, hkE + 27.6, GY + 4.2, mdS + 24);
+      b.block(hkE + 27.2, GY, mdS + 0.55, hkE + 27.9, GY + 7.4, mdS + 0.95);
+      b.zone('street', hkE + 0.3, -0.3, mdS, hkE + 28.6, 6, mdS + 18, MC_NAMES.petrol.ja, MC_NAMES.petrol.en, true);
+      fillRect(hkE + 29, mdS, CE - 0.2, mdS + 22, 'n', ['manshon', 'office'], 1);
+      perimeter(hkE, mdS, CE, kiN, { omit: ['n'], inset: { n: 24.4 }, tall: true, gate: 'w', core: 'parking', name: park('Hamakaze') });
+
+      // ── Row 2, between みなと中通 and the bay road ──
+      // W: a lower block of flats towards the shore, its courtyard garden.
+      perimeter(srE, brS, s3W, mdN, { gate: 's', core: 'garden', name: n3('西浜 中庭', 'Nishihama courtyard') });
+      // A: the convention hotel on the bay road between the block's arms, the hotel's car park in the courtyard.
+      piece('mcenter', M, 'chotel', 'n', -115.5, brS, (a) => {
+        label(a.pts.name, MC_NAMES.chotel, '#ffffff', '#1f3550');
+        label(a.pts.plate, MC_NAMES.chotel);
+      });
+      perimeter(s3E, brS, hoW, mdN, { omit: ['n'], coreIn: { n: 44.2 }, tall: true, gate: 's', core: 'parking', name: n3(`${MC_NAMES.chotel.ja} 駐車場`, `${MC_NAMES.chotel.en} car park`) });
+      // B: the car park for the mall across the road; the two towers of flats that mark Minato Center from across the
+      // river mouth, offices between them; flats round the rest.
+      piece('roadside', ROADSIDE, 'carpark', 'n', hoE + 17.2, brS, (a) => {
+        label(a.pts.name, n3('P', 'Parking'), '#ffffff', '#1673c9');
+        label(a.pts.plate, MC_NAMES.carpark, '#ffffff', '#1f3550');
+      });
+      piece('mcenter', M, 'btow', 'n', 10, brS, (a) => label(a.pts.name, MC_NAMES.btowW));
+      piece('mcenter', M, 'btow', 'n', 60, brS, (a) => label(a.pts.name, MC_NAMES.btowE));
+      fillRect(23.2, brS, 46.8, brS + 26, 'n', ['office'], 1);
+      for (const [x0, x1] of [[-13.6, -3.2], [73.2, hkW]] as [number, number][]) {
+        strip(x0, brS, x1, brS + 32.2, PLAZA, `${MC_NAMES.btowW.ja} 前庭`, `Bay Tower forecourt ${x0 < 0 ? 'west' : 'east'}`);
+        for (let z = brS + 4; z < brS + 30; z += 8) modelTree(b, 'zelkova', (x0 + x1) / 2, z, 'b');
+      }
+      perimeter(hoE, brS, hkW, mdN, { omit: ['n'], inset: { n: 32.4 }, tall: true, gate: 's', core: 'garden', name: court('Hobashira-rinkō') });
+      // C: offices on the bay road; flats round the rest.
+      fillRect(hkE + 0.2, brS, CE - 0.2, brS + 26, 'n', ['office'], 1);
+      perimeter(hkE, brS, CE, mdN, { omit: ['n'], inset: { n: 26.4 }, tall: true, gate: 's', core: 'parking', name: park('Hamakaze-rinkō') });
+
+      // ── Row 3, between the bay road and Hama-dōri: みなと河口公園 along Hama-dōri, low flats on the bay road ──
+      /** The river-mouth park: lawns and trees, a path along it, benches and lamps facing the water. */
+      const riverPark = (x0: number, x1: number) => {
+        const z0 = hmS + 0.2, z1 = brN - PC - 0.2;
+        garden(x0, z0 + 3.2, x1, z1, MC_NAMES.rpark, ['cherry', 'pine', 'zelkova', 'momiji']);
+        strip(x0, z0, x1, z0 + 3.0, PLAZA, MC_NAMES.rpark.ja, `${MC_NAMES.rpark.en}, path ${Math.round(x0)}`);
+        for (let x = x0 + 6; x < x1 - 4; x += 14) {
+          streetLamp(b, 'lamp_small', x, z0 + 0.4, [0, -1]);
+          roadModel(b, 'bench_s', x + 7, GY, z0 + 2.4, [0, -1]);
+          b.block(x + 6.1, GY, z0 + 2.1, x + 7.9, GY + 0.5, z0 + 2.7);
+        }
+      };
+      // W.
+      riverPark(srE, s3W);
+      perimeter(srE, hmS, s3W, brN, { omit: ['n'], inset: { n: 20.4 }, coreIn: { n: 999 }, low: true, core: 'parking', name: park('Nishihama-hama') });
+      // A: the boat store across from the marina's gangway, the fishing shrine, the park.
+      piece('mcenter', M, 'boatstore', 'n', s3E + 20.2, hmS, (a) => label(a.pts.name, MC_NAMES.boats, '#ffffff', '#1f3550'));
+      piece('mcenter', M, 'hamamiya', 'n', -108, hmS, (a) => label(a.pts.name, MC_NAMES.shrine, '#2b2b2b', '#d9d4c8'), false);
+      {
+        // The precinct's colliders (its fence, the torii's posts, the hall), the old pine by the path, the zone.
+        const x0 = -116, x1 = -100, z0 = hmS, z1 = hmS + 22;
+        for (const [a0, c0, a1, c1] of [[x0, z0, -110.4, z0 + 0.4], [-105.6, z0, x1, z0 + 0.4], [x0, z0, x0 + 0.4, z1], [x1 - 0.4, z0, x1, z1], [x0, z1 - 0.4, x1, z1]] as Rect[]) b.block(a0, GY, c0, a1, GY + 0.9, c1);
+        for (const x of [-110, -106]) b.block(x - 0.2, GY, z0 + 1.4, x + 0.2, GY + 4.2, z0 + 1.8);
+        b.block(-112.5, GY, z0 + 14.6, -103.5, GY + 5.6, z0 + 21);
+        b.block(-114.8, GY, z0 + 5, -113.2, GY + 1.6, z0 + 5.6);
+        modelTree(b, 'pine', -103, z0 + 6.5, 'b', GY, true);
+        modelTree(b, 'pine', -113.5, z0 + 11, 'a', GY, true);
+        b.zone('street', x0 + 0.4, -0.3, z0 + 0.4, x1 - 0.4, 6, z0 + 14.4, MC_NAMES.shrine.ja, MC_NAMES.shrine.en, true);
+      }
+      riverPark(-99.6, hoW);
+      perimeter(s3E, hmS, hoW, brN, { omit: ['n'], inset: { n: 26.4 }, low: true, core: 'parking', name: park('Tenjijō-hama') });
+      // B: the bay mall, its front on the bay road, its terraces over Hama-dōri and the river mouth.
+      piece('mcenter', M, 'mall', 's', 18, brN, (a) => {
+        label(a.pts.name, MC_NAMES.bmall, '#ffffff', '#1f3550');
+        label(a.pts.side, MC_NAMES.bmall, '#1f3550', '#eef0ee');
+        label(a.pts.cinema, MC_NAMES.cinema, '#ffffff', '#b8323c');
+      });
+      for (const [x0, x1] of [[hoE, -44.2], [80.2, hkW]] as [number, number][]) strip(x0, hmS, x1, brN, PAVE, `${MC_NAMES.bmall.ja} 脇通路`, `${MC_NAMES.bmall.en}, side walk ${x0 < 0 ? 'west' : 'east'}`);
+      // ── Past the plot's edge to the east (seen, not walked): the new town carried on to Shinshio's connector and
+      // Umibe's run-on, in the same blocks kept a storey or two lower, a tower of flats in two of the courtyards ──
+      {
+        const E1 = { c: 300, half: 7, pave: 5 }, HC = { c: -84, half: 3.25, pave: 2 }, EAST_AV = 392;
+        const e1W = E1.c - E1.half - E1.pave, e1E = E1.c + E1.half + E1.pave, cnE = CN.c + CN.half + CN.pave;
+        const hcN = HC.c - HC.half - HC.pave, hcS = HC.c + HC.half + HC.pave;
+        const seen = (x0: number, z0: number, x1: number, z1: number, omit: Side[], tower?: [number, number]) => {
+          perimeter(x0, z0, x1, z1, { omit, low: true, core: 'garden', name: n3('', ''), seen: true });
+          if (tower) at('e', tower[0], tower[1], () => { b.model('mcenter', 'rtowb', 0, GY, 0, ++seed); b.block(-12.6, GY, 0, 12.6, GY + 76, 25.2); });
+        };
+        seen(X + 0.3, BL.mallS, e1W, BL.avN, ['w']);
+        seen(X + 0.3, kiS, e1W, BL.mallN, ['w']);
+        seen(cnE, mdS, e1W, BL.mallN, [], [e1W - 30, -200]);
+        seen(e1E, hcS, EAST_AV, BL.avN, ['e']);
+        seen(e1E, mdS, EAST_AV, hcN, ['n', 'e'], [EAST_AV - 20, -180]);
+      }
+      // C: the park facing the water-bus landing, low flats on the bay road.
+      riverPark(hkE, CE);
+      perimeter(hkE, hmS, CE, brN, { omit: ['n'], inset: { n: 20.4 }, coreIn: { n: 999 }, low: true, core: 'parking', name: park('Hamakaze-hama') });
+
+      // ── The river-mouth promenade: the terrace restaurants and the rowing club facing the water, pines, benches ──
+      piece('mcenter', M, 'pavilion', 'n', 30, PEN.prom + 0.5, (a) => label(a.pts.name, MC_NAMES.pav, '#ffffff', '#2f4a3a'));
+      piece('mcenter', M, 'pavilion', 'n', 185, PEN.prom + 0.5, (a) => label(a.pts.name, MC_NAMES.pav2, '#ffffff', '#5a2a1e'));
+      piece('mcenter', M, 'boathouse', 'n', -245, PEN.prom + 0.6, (a) => label(a.pts.name, MC_NAMES.rowing, '#ffffff', '#1f3550'));
+      const built: [number, number][] = [[2, 58], [157, 213], [-261, -229], [-162, -138], [128, 154], [-158, -142]];
+      for (let x = W0 + 16; x < CE - 6; x += 16) {
+        if (built.some(([p0, q0]) => x > p0 - 3 && x < q0 + 3)) continue;
+        modelTree(b, (Math.round(x) % 3 ? 'pine' : 'cherry') as TreeKind, x, (PEN.prom + hmN) / 2, 'b');
+      }
+      for (let x = W0 + 20; x < CE - 6; x += 18) {
+        if (x > MAR.gang[0] - 4 && x < MAR.gang[1] + 4) continue;
+        if (x > WB.x0 - 4 && x < WB.x1 + 4) continue;
+        roadModel(b, 'bench_s', x, GY, PEN.prom - 2.4, [0, -1]);
+        b.block(x - 0.9, GY, PEN.prom - 2.7, x + 0.9, GY + 0.5, PEN.prom - 2.1);
+      }
+
+      // ═════ Props (stage 4): the peninsula's dress ═════
+      // Tidy on the big roads (bus stops, maps, finger posts at the big corners), gathered where people stop (the
+      // mall's front, the school gate, the parks, the river-mouth promenade), back of house in the courtyards.
+      {
+        const pp = (id: string, x: number, z: number, f: [number, number], hw: number, hd: number, h: number, y = GY) => {
+          roadModel(b, id, x, y, z, f);
+          const [ax, az] = f[0] !== 0 ? [hd, hw] : [hw, hd];
+          b.block(x - ax, y, z - az, x + ax, y + h, z + az);
+        };
+        const pmc = (id: string, x: number, z: number, face: Face, hw: number, hd: number, h: number) => {
+          at(face, x, z, () => b.model('mcenter', id, 0, GY, 0, ++seed));
+          const [ax, az] = face === 'e' || face === 'w' ? [hd, hw] : [hw, hd];
+          b.block(x - ax, GY, z - az, x + ax, GY + h, z + az);
+        };
+        const bikes = (x0: number, x1: number, z: number, yaw: number) => {
+          for (let x = x0; x < x1; x += 0.62) if (r() < 0.65) b.out.models.push({ kind: 'places', id: 'bicycle', pos: b.pt(x, GY, z), yaw, seed: 0, merge: true });
+        };
+        /** A bus stop on an east–west road: the pole with its name, a shelter where the pavement is wide. */
+        const busStop = (x: number, z: number, n: 1 | -1, name: Named, shelter: boolean) => {
+          roadModel(b, 'busstop', x, GY, z, [0, n]);
+          b.block(x - 0.1, GY, z - 0.1, x + 0.1, GY + 2.2, z + 0.1);
+          b.sign({ k: 'label', text: name.ja, sub: `${name.en} · Bus stop`, fg: '#1f2023', bg: '#f4f4f0' }, x, GY + 1.5, z + n * 0.05, [0, n], 0.5, 0.82);
+          if (shelter) {
+            roadModel(b, 'shelter', x - 4.5, GY, z - n * 1.6, [0, n]);
+            b.block(x - 6.5, GY, Math.min(z - n * 2.3, z - n * 2.5), x - 2.5, GY + 2.5, Math.max(z - n * 2.3, z - n * 2.5));
+          }
+        };
+        const brNP = BR.c - BR.half - 1.2, brSP = BR.c + BR.half + 1.2, mdSP = MD.c + MD.half + 1.0, hmSP = HM.c + HM.half + 1.0;
+
+        // The bay road: bus stops both ways at the mall, the Bay Towers and the convention hotel; maps and finger posts.
+        busStop(30, brNP, 1, n3('ハーバーテラス前', 'Harbour Terrace-mae'), true);
+        busStop(-36, brSP, -1, n3('ハーバーテラス前', 'Harbour Terrace-mae'), true);
+        busStop(-100, brSP, -1, n3('みなとグランドベイ前', 'Minato Grand Bay-mae'), true);
+        busStop(-130, brNP, 1, n3('みなとグランドベイ前', 'Minato Grand Bay-mae'), false);
+        for (const [x, z, f] of [[S3.c + S3.half + 2.2, brN + 2.2, [0, 1]], [HO.c + HO.half + 2.2, brS - 2.2, [0, -1]], [HK.c - HK.half - 2.2, brN + 2.2, [0, 1]], [SR.c + SR.half + 2.2, mdN + 1.4, [0, 1]]] as [number, number, [number, number]][]) pp('fingerpost', x, z, f, 0.15, 0.15, 3.0);
+        pp('mapstand', -46.2, brN + 3.2, [0, 1], 0.6, 0.2, 2.2);
+        pp('mapstand', -150, hmS - 1.0, [0, -1], 0.6, 0.2, 2.2);
+        // みなと中通: the school's bus stop and its crossing flags' box, a post box, the konbini's bicycles and bins.
+        busStop(-140, mdSP, -1, n3('みなと小学校前', 'Minato Elementary School-mae'), false);
+        pp('postbox', -101.5, mdS - 0.6, [0, -1], 0.25, 0.25, 1.3);
+        pp('phonebox', -95, mdS - 0.9, [0, -1], 0.5, 0.5, 2.3);
+        pp('bikerack', hoE + 16.2, mdS - 0.6, [0, -1], 1.25, 0.3, 0.9);
+        pp('recycle', hoE + 18.6, mdS - 0.6, [0, -1], 0.6, 0.25, 1.0);
+        for (let k = 0; k < 3; k++) vending(b, -86.4 + k * 1.05, GY, mdS - 0.6, [0, -1], k % 2 ? 'vending2' : 'vending', 'new');
+
+        // The mall's front: planters and bicycle racks along it, benches facing the road, banners at the doors.
+        for (let x = -40; x < 78; x += 9) {
+          if (Math.abs(x - 18) < 18) continue;
+          pp(Math.round(x) % 2 ? 'planter' : 'bikerack', x, brN + 1.0, [0, 1], 1.0, 0.35, 0.9);
+        }
+        bikes(-42, -24, brN + 2.4, 0);
+        bikes(60, 78, brN + 2.4, 0);
+        for (const x of [-4, 40]) pp('bench_s', x, brN + 2.6, [0, 1], 0.9, 0.3, 0.5);
+        for (const x of [3, 7, 29, 33]) pp('nobori', x, brN + 1.6, [0, 1], 0.1, 0.1, 2.6);
+        // The Bay Towers: potted pines by the doors.
+        for (const xc of [10, 60]) for (const d of [-9.6, 9.6]) pp('potpine', xc + d, brS - 1.2, [0, -1], 0.45, 0.45, 1.6);
+        // The convention hotel's drop-off: taxis waiting, potted pines.
+        for (const x of [-131, -100]) pp('potpine', x, brS - 0.8, [0, -1], 0.45, 0.45, 1.6);
+        // The petrol station: cars at the pumps.
+        pp('kei_v', hkE + 11.0, mdS + 10, [0, 1], 1.7, 0.74, 1.8);
+        pp(CARS[2], hkE + 18.2, mdS + 10, [0, -1], 2.2, 0.85, 1.5);
+        // The school: bicycles by the gate, a notice board.
+        pp('aboard', -132, mdS - 0.6, [0, -1], 0.3, 0.25, 1.0);
+
+        // Hama-dōri and the shrine: the fishing shrine's banners, a drinks machine by the boatyard, the boatyard's van.
+        for (const x of [-111.8, -104.2]) pp('nobori', x, hmS - 0.6, [0, -1], 0.1, 0.1, 2.6);
+        for (let k = 0; k < 2; k++) vending(b, s3E + 41.2 + k * 1.05, GY, hmS - 0.6, [0, -1], k ? 'vending2' : 'vending', 'new');
+        pp('van_s', s3E + 8, hmS + 4.5, [1, 0], 2.4, 0.86, 1.95);
+        pp('gomist', -97, hmS - 0.9, [0, -1], 1.0, 0.6, 1.2);
+
+        // The river-mouth promenade: lifebuoys on the sea rail, telescopes looking out over the river mouth, the
+        // terrace restaurants' A-boards and menu cases; on the west promenade, buoys along the open sea.
+        for (let x = W0 + 30; x < CE - 10; x += 36) {
+          if (x > MAR.gang[0] - 6 && x < MAR.gang[1] + 6) continue;
+          if (x > WB.x0 - 6 && x < WB.x1 + 6) continue;
+          pmc('buoy', x, N0 + 0.6, 's', 0.45, 0.15, 2.1);
+        }
+        for (const x of [-40, -34, 100, 106]) pmc('scope', x, N0 + 1.4, 'n', 0.25, 0.4, 1.5);
+        for (const [xc, d] of [[30, 1], [185, -1]] as [number, number][]) {
+          pp('aboard', xc + d * 16, PEN.prom - 1.0, [0, -1], 0.3, 0.25, 1.0);
+          pp('menucase', xc + d * 15, PEN.prom + 1.0, [0, -1], 0.35, 0.15, 1.5);
+        }
+        for (let z = hmN + 20; z < BL.avS - 10; z += 40) pmc('buoy', W0 + 0.6, z, 'e', 0.45, 0.15, 2.1);
+        // The parks: map stands at the entrances, drinks machines, bins.
+        for (const x of [srE + 12, hkE + 12]) {
+          pp('mapstand', x, hmS - 1.0, [0, -1], 0.6, 0.2, 2.2);
+          pp('recycle', x + 3, hmS - 0.8, [0, -1], 0.6, 0.25, 1.0);
+        }
+        pp('mapstand', -82.6, mdS - 0.8, [0, -1], 0.6, 0.2, 2.2);
+        // The courtyards: garbage stations by the ways in.
+        for (const [x, z, f] of [[163, mdN - 0.9, [0, 1]], [10, mdN - 0.9, [0, 1]], [-246, mdN - 0.9, [0, 1]], [hkE - 0.9, -230, [-1, 0]]] as [number, number, [number, number]][]) pp('gomist', x, z, f, 1.0, 0.6, 1.2);
+      }
+    }
     b.clearScenery(W0 - 4, N0 - 60, CE, Z + 4);
   }
 
@@ -1057,11 +1533,6 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       for (const k of [-1, 1]) R(PAVE, Math.min(k * half, k * (half + pv)), Math.max(k * half, k * (half + pv)), -0.03, GY);
       if (wide) for (const k of [-1, 1]) R(YELLOW, k * 0.75 - 0.06, k * 0.75 + 0.06, 0.004, 0.01);
       else for (let u = u0 + 2; u + 3 < u1; u += 6) (axis === 'x' ? b.deco(WHITE, u, 0.004, cc - 0.07, u + 3, 0.01, cc + 0.07) : b.deco(WHITE, cc - 0.07, 0.004, u, cc + 0.07, 0.01, u + 3));
-    };
-    const lowRows = (x0: number, z0: number, x1: number, z1: number, face: Face, kinds: string[]) => {
-      const [a, e, f0, f1] = face === 'n' ? [x0, x1, z0, z1] : face === 's' ? [-x1, -x0, -z1, -z0] : face === 'e' ? [z0, z1, -x1, -x0] : [-z1, -z0, x0, x1];
-      if (e - a < 4.6 || f1 - f0 < 8) return;
-      b.with(FRAME[face], () => fillModelLots(b, r, a, e, f0, f1 + 2.01, { noBack: true, kinds, lo: true }));
     };
     const EAST_AV = 392, EAST_KI = 214, MD = PEN.md;
     const E1 = { c: 300, half: 7, pave: 5 }, HC = { c: -84, half: 3.25, pave: 2 };
@@ -1082,18 +1553,8 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       if (u < EAST_KI) lampOut(u, KI.c + KI.half + 0.45, [0, -1], false);
     }
     for (let z = -AV.half - 10; z > mdS; z -= 22) lampOut(E1.c - E1.half - 0.6, z, [1, 0], true);
-    const BIZ = ['office'], MIX = ['office', 'manshon'];
-    lowRows(X + 0.5, BL.avN - 36, e1W - 0.5, BL.avN, 's', BIZ);
-    lowRows(X + 0.5, BL.mallS + 0.1, e1W - 0.5, BL.mallS + 24, 'n', BIZ);
-    lowRows(X + 0.5, BL.mallN - 22, e1W - 0.5, BL.mallN - 0.1, 's', BIZ);
-    lowRows(X + 0.5, BL.kiS + 0.1, e1W - 0.5, BL.kiS + 22, 'n', MIX);
-    lowRows(X + 0.5, BL.kiN - 22, EAST_KI - 6, BL.kiN - 0.1, 's', ['manshon']);
-    lowRows(PEN.cn.c + PEN.cn.half + PEN.cn.pave + 0.5, BL.kiN - 22, e1W - 0.5, BL.mallN - 24, 's', MIX);
-    lowRows(PEN.cn.c + PEN.cn.half + PEN.cn.pave + 0.5, mdS + 0.1, e1W - 0.5, mdS + 22, 'n', MIX);
-    lowRows(e1E + 0.5, BL.avN - 30, EAST_AV, BL.avN, 's', BIZ);
-    lowRows(e1E + 0.5, HC.c + HC.half + HC.pave + 0.1, EAST_AV, BL.avN - 30.8, 'n', BIZ);
-    lowRows(e1E + 0.5, HC.c - HC.half - HC.pave - 24, EAST_AV, HC.c - HC.half - HC.pave - 0.1, 's', MIX);
-    lowRows(e1E + 0.1, mdS, e1E + 22, HC.c - HC.half - HC.pave - 26, 'w', MIX);
+    // (The blocks along these roads are the peninsula's fill's: perimeter blocks, seen only.)
+    for (let x = X + 8; x < EAST_AV - 4; x += 16) modelTree(b, (Math.round(x / 16) % 3 ? 'pine' : 'cherry') as TreeKind, x, (BL.avS + BL.walk) / 2, 'b');
     b.clearScenery(X, mdS - 2, e1E + 24, BL.avN);
     b.clearScenery(e1E, HC.c - 30, EAST_AV, BL.avN);
     b.clearScenery(X, -FRONT - 2, EAST_AV, Z + 2);

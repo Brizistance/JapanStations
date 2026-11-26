@@ -23,6 +23,7 @@ BOARD = 'flat:#d6d4cc'
 BALGLASS = 'flat:#9fb7c2'
 DOOR = 'flat:#6b4a3a'
 LOBBY = 'flat:#6f7f82'
+DOORS = ['flat:#6b4a3a', 'flat:#2f4a6e', 'flat:#7a1f24', 'flat:#3d5a54', 'flat:#8d8a82']
 FUTON = ['#e8e2d2', '#c7d6e6', '#e6c7cf', '#d9e3c5', '#f0d9a8']
 
 VARIANTS = [
@@ -78,6 +79,11 @@ def front(p, s, v, rng):
             p.box(WINDOW, ux + uw - 2.3, y + 0.9, BAL - 0.04, ux + uw - 0.7, y + 2.15, BAL)
             if rng.random() < 0.7:
                 acu(p, ux + uw - 1.35, y, BAL - 0.4)
+            p.box(STEEL, ux + 0.4, y + 1.95, 0.55, ux + uw - 0.4, y + 2.0, 0.6)               # laundry pole
+            if rng.random() < 0.3:
+                for _ in range(rng.randint(1, 3)):
+                    lx0 = rng.uniform(ux + 0.6, ux + uw - 1.6)
+                    p.box('flat:' + rng.choice(FUTON), lx0, y + rng.uniform(1.15, 1.45), 0.56, lx0 + rng.uniform(0.35, 0.9), y + 1.95, 0.6)
             if rng.random() < 0.12:                                          # bedding out to air
                 fx = ux + rng.uniform(0.6, uw - 2.2)
                 p.box('flat:' + rng.choice(FUTON), fx, y + 0.45, -0.07, fx + 1.5, y + 1.19, 0.19)
@@ -118,8 +124,12 @@ def back(p, v, rng):
         for ux, uw in units(v):
             if ux + 1.7 > tx:
                 continue
-            p.box(DOOR, ux + 0.7, y, zc, ux + 1.6, y + 2.0, zc + 0.03)
-            p.box(WINDOW, ux + 2.2, y + 1.0, zc, min(ux + 3.4, tx - 0.2), y + 2.0, zc + 0.03)
+            p.box(rng.choice(DOORS), ux + 0.7, y, zc, ux + 1.6, y + 2.0, zc + 0.03)
+            win(p, ux + 2.2, y + 1.0, min(ux + 3.4, tx - 0.2), y + 2.0, zc, out=1, glass=WINDOW_LIT if rng.random() < 0.35 else WINDOW)
+            for bx in (ux + 2.5, ux + 2.85, ux + 3.2):
+                if bx < min(ux + 3.4, tx - 0.2) - 0.1:
+                    p.box(STEEL, bx - 0.015, y + 1.0, zc + 0.07, bx + 0.015, y + 2.0, zc + 0.1)
+            p.box('flat:#d9d5c4', ux + 1.75, y + 1.2, zc, ux + 2.05, y + 1.7, zc + 0.18)
     p.box(SLAB, x0, H - 0.18, zc, tx, H, D)
     p.box(v['trim'], tx, 0, zc, x1, H + 3.0, D + 0.4)
     for y in ys:
@@ -131,8 +141,9 @@ def body(p, v, rng):
     x0, x1, D = -v['w'] / 2, v['w'] / 2, v['d']
     H = levels(v)[-1]
     p.box(v['wall'], x0, 0, BAL, x1, H, D - COR)
-    for y in levels(v)[:-1]:                                        # gable-end windows
-        p.box(WINDOW, x0 - 0.02, y + 0.9, D * 0.45, x0, y + 2.0, D * 0.45 + 1.0)
+    for y in levels(v)[:-1]:                                        # gable-end windows, framed
+        p.box(FRAME, x0 - 0.06, y + 0.84, D * 0.45 - 0.06, x0, y + 2.06, D * 0.45 + 1.06)
+        p.box(WINDOW_LIT if rng.random() < 0.35 else WINDOW, x0 - 0.08, y + 0.9, D * 0.45, x0 - 0.06, y + 2.0, D * 0.45 + 1.0)
     p.box(ROOF, x0 + 0.2, H, BAL + 0.2, x1 - 0.2, H + 0.03, D - COR - 0.2)
     for a, b, c, d in ((x0, BAL, x0 + 0.2, D - COR), (x1 - 0.2, BAL, x1, D - COR), (x0, D - COR - 0.2, x1 - 3.0, D - COR)):
         p.box(v['wall'], a, H, b, c, H + PARAPET, d)

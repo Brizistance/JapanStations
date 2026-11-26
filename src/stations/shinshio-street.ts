@@ -40,6 +40,7 @@ import { SHINSHIO as S } from './anchors/shinshio';
 import { ICHIBA } from './anchors/ichiba';
 import { PORT } from './anchors/port';
 import { CIVIC } from './anchors/civic';
+import { MCENTER } from './anchors/mcenter';
 import type { Anchor, AnchorPt, Anchors } from './anchors/types';
 import type { Ctx } from './kit';
 import { GROUND_Y, vending } from './kit';
@@ -620,21 +621,22 @@ export function shinshioStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
   //   mixed blocks), either side of Nishi-Yūnagi's plot, with an embankment walk along the water.
   {
     const inRect = (p: number[], x0: number, z0: number, x1: number, z1: number) => p[0] >= x0 - 0.5 && p[0] <= x1 + 0.5 && p[2] >= z0 - 0.5 && p[2] <= z1 + 0.5;
+    // (Full models, not the stand-in `_lo` copies: the owner, 2026-11-25, docs/street-design.md.)
     const lowRows = (x0: number, z0: number, x1: number, z1: number, face: Face, kinds: string[], rows = 1, maxH = 99) => {
       const [a, e, f0, f1] = face === 'n' ? [x0, x1, z0, z1] : face === 's' ? [-x1, -x0, -z1, -z0] : face === 'e' ? [z0, z1, -x1, -x0] : [-z1, -z0, x0, x1];
       if (e - a < 4.6 || f1 - f0 < 8) return;
       b.with(FRAME[face], () => {
         let z = f0;
         for (let k = 0; k < rows && f1 - z > 8.5; k++) {
-          const lots = fillModelLots(b, r, a, e, z, f1 + 2.01, { noBack: true, kinds, lo: true, bare: k > 0 });
+          const lots = fillModelLots(b, r, a, e, z, f1 + 2.01, { noBack: true, kinds, bare: k > 0 });
           if (!lots.length) break;
           z = Math.max(...lots.map((l) => l[3])) + 0.8;
         }
       });
       // (The filler picks by kind only: a height limit drops what is too tall afterwards, for a steady skyline.)
       if (maxH < 99) {
-        const tall = (m: { kind: string; id: string }) => (BUILDING_MODELS.find((q) => `${q.id}_lo` === m.id && q.kind === m.kind)?.h ?? 0) > maxH;
-        b.out.models = b.out.models.filter((m) => !(m.id.endsWith('_lo') && tall(m) && inRect(m.pos, x0, z0, x1, z1)));
+        const tall = (m: { kind: string; id: string }) => (BUILDING_MODELS.find((q) => q.id === m.id && q.kind === m.kind)?.h ?? 0) > maxH;
+        b.out.models = b.out.models.filter((m) => !(kinds.includes(m.kind) && tall(m) && inRect(m.pos, x0, z0, x1, z1)));
       }
     };
     /** Cold stores and ice plants in a row from u0, fronts at `line` facing `face`. */
@@ -721,12 +723,49 @@ export function shinshioStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
         segs.push([from, xc === -X ? -X - 0.3 : xc - CW - 2.8]);
         from = xc + CW + 2.8;
       }
-      const m = (BL.avN + BL.haS) / 2;
+      // The bay new town carried on from Minato Center (minatocenter-street.ts, its peninsula's row 3 and the run-on):
+      // perimeter flats facing the bay road on both sides, a corner block at each cross street, the river-mouth park
+      // along Hama-dōri, and the waterfront strip left open with pines, as on Minato Center's promenade.
+      const PBW = [16, 20, 24, 28, 32];
+      const bars = (face: 'n' | 's', line: number, a: number, e: number, tall: boolean) => {
+        let left = Math.floor((e - a) / 4) * 4;
+        if (left < 16) return;
+        const ws: number[] = [];
+        while (left > 0) {
+          const ok = PBW.filter((w) => w === left || left - w >= 16);
+          const w = ok[Math.floor(r() * ok.length)];
+          ws.push(w);
+          left -= w;
+        }
+        const gap = (e - a - ws.reduce((q, w) => q + w, 0)) / (ws.length + 1);
+        let u = a + gap;
+        for (const w of ws) {
+          piece('mcenter', MCENTER, `pb${w}${(tall ? r() < 0.6 : r() < 0.2) ? 'h' : 'l'}`, face, u + w / 2, line);
+          u += w + gap;
+        }
+      };
+      /** A row of flats along the bay road from a to e, a corner block at each end. */
+      const block = (face: 'n' | 's', line: number, a: number, e: number, tall: boolean) => {
+        const pc = tall ? 'pch' : 'pcl';
+        if (face === 's') {
+          piece('mcenter', MCENTER, pc, 'w', a, line - 7);
+          piece('mcenter', MCENTER, pc, 's', e - 7, line);
+        } else {
+          piece('mcenter', MCENTER, pc, 'n', a + 7, line);
+          piece('mcenter', MCENTER, pc, 'e', e, line + 7);
+        }
+        bars(face, line, a + 14, e - 14, tall);
+      };
       for (const [a, e] of segs) {
-        lowRows(a, m + 0.4, e, BL.avN - 0.2, 's', ['manshon']);
-        lowRows(a, BL.haS + 0.2, e, m - 0.4, 'n', ['manshon', 'machi']);
-        lowRows(a, BL.avS + 0.2, Math.min(e, -X - 40.3), BL.avS + 30, 'n', ['manshon', 'machi'], 2, 24);
-        lowRows(a, BL.prom, e, BL.haN - 0.2, 's', ['manshon']);
+        block('s', BL.avN - 0.2, a, e, false);
+        block('n', BL.avS + 0.2, a, Math.min(e, -X - 40.3), true);
+        // The river-mouth park between the flats and Hama-dōri; the open waterfront strip with its pines.
+        b.deco('grass', a, GY, BL.haS + 0.2, e, GY + 0.03, BL.avN - 14.4);
+        for (let x = a + 5; x < e - 3; x += 9) for (let z = BL.haS + 4; z < BL.avN - 17; z += 8) if (r() < 0.5) modelTree(b, r() < 0.5 ? 'cherry' : 'zelkova', x + r() * 2 - 1, z, 'b');
+        b.deco('tile:#d9d4c8', a, -0.03, BL.prom, e, GY + 0.014, BL.haN - 0.2);
+        for (let x = a + 8; x < e - 4; x += 16) modelTree(b, 'pine', x, (BL.prom + BL.haN) / 2, 'b');
+        // Behind the south row: the courtyard gardens.
+        b.deco('grass', a, GY, BL.avS + 14.4, Math.min(e, -X - 40.3), GY + 0.03, BL.avS + 30);
       }
     }
     b.clearScenery(WEST - 8, -N - 2, -X, 45);

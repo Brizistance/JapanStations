@@ -253,3 +253,4 @@ Fixed plot of about 300 × 250 m per station, no joins unless asked, a named Jap
 
 ## Planned new towns (Minato Center, the owner, 2026-11-25)
 Wires are buried in a planned bay new town; poles and wires run only on its back street, where it meets older ground. It has no 6.5 m small streets (rule 8 does not apply there).
+No stand-in (`_lo`) rows in a redesign, past the edge either (the owner, 2026-11-25): they read as placeholders from the street. Carry the district's own blocks on instead, and let blocks run across a plot edge rather than leave a lane of backs along it.

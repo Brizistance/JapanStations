@@ -490,6 +490,547 @@ def rhotel(p):
     mark('plate', 0.0, 7.0, -0.25, 12.0, 0.9)
 
 
+# ── The peninsula's fill (2026-11-25): where the new town lives. Flats, a school, the convention hotel, the bay mall,
+# the marina's dry-boat store, the fishing village's shrine kept on Hama-dōri ──
+TILE_B = 'flat:#d9cbb2'      # beige tile of the older-looking flats
+TILE_W = 'flat:#e6e2d8'
+COPPER = 'flat:#5f8a78'      # weathered copper roofs
+GRANITE_G = 'flat:#a9a69e'
+CORRUG = 'flat:#9ea6aa'
+
+
+def rtowa(p):
+    """A 90 m slab of flats: deep balconies front and back on every floor, tiled ends, a frame crown, a glass lobby."""
+    x0, x1, z0, z1, H = -16.0, 16.0, 2.0, 18.0, 90.0
+    p.box(TILE_W, x0, 0, z0, x1, H, z1)
+    curtain(p, x0, x1, z0, z1, 0.0, 6.0, glass=GLASS_T, mull=WHITE_S, fh=6.0, bay=2.4, sp=0.2)
+    grid(p, x0, x1, z0, z1, 6.0, H, TILE_W, fh=3.0, bay=3.2, ww=1.2, wh=1.5, sill=0.9, which='lr', body=False)
+    for face, at, s in (('f', z0, -1), ('b', z1, 1)):
+        for k in range(int((H - 6.0) / 3.0)):
+            y = 6.0 + k * 3.0
+            za, zb = (at - 1.8, at) if s < 0 else (at, at + 1.8)
+            p.box(WHITE_S, x0 + 0.4, y - 0.18, za, x1 - 0.4, y, zb)
+            slab(p, 'glassTint', face, x0 + 0.6, x1 - 0.6, y, y + 1.1, at, 1.75)
+            quad(p, WINDOW, face, x0 + 0.8, x1 - 0.8, y + 0.2, y + 2.7, out(face, at, 0.02), col='flat:#55707e')
+        for x in (x0 + 0.4, 0.0, x1 - 0.4):
+            slab(p, TILE_W, face, x - 0.25, x + 0.25, 6.0, H, at, 1.8)
+    p.box(WHITE_S, -6.0, 4.6, 0.0, 6.0, 5.6, 2.0)
+    p.box(DARK, -1.2, 0, 1.92, 1.2, 2.6, 1.98)
+    for x in (x0, x1):
+        p.box(WHITE_S, x - 0.3, H, z0 - 1.8, x + 0.3, H + 4.0, z1 + 1.8)
+    p.box(WHITE_S, x0 - 0.3, H + 3.4, z0 - 1.8, x1 + 0.3, H + 4.0, z0 - 1.2)
+    p.box(WHITE_S, x0 - 0.3, H + 3.4, z1 + 1.2, x1 + 0.3, H + 4.0, z1 + 1.8)
+    beacons(p, x0 + 1, x1 - 1, z0 + 1, z1 - 1, H)
+    mark('name', 0.0, 5.1, -0.06, 10.0, 0.7)
+
+
+def rtowb(p):
+    """A 74 m square tower of flats in beige tile: balcony slabs all round, glass corner bays, the top floors set back."""
+    x0, x1, z0, z1, H, TOPB = -11.0, 11.0, 2.0, 24.0, 74.0, 62.0
+    grid(p, x0, x1, z0, z1, 6.0, TOPB, TILE_B, fh=3.1, bay=3.0, ww=2.2, wh=2.0, sill=0.5)
+    p.box(TILE_B, x0, 0, z0, x1, 6.0, z1)
+    curtain(p, x0 + 3, x1 - 3, z0, z1, 0.0, 5.6, glass=GLASS_T, mull=WHITE_S, fh=5.6, bay=2.4, sp=0.2, which='f')
+    bands(p, WHITE_S, x0, x1, z0, z1, [6.0 + k * 3.1 for k in range(int((TOPB - 6.0) / 3.1))], t=0.2, proud=1.3)
+    for cx, cz in ((x0, z0), (x1, z0), (x0, z1), (x1, z1)):
+        p.box(GLASS_T, cx - 1.6, 6.0, cz - 1.6, cx + 1.6, TOPB, cz + 1.6)
+    grid(p, x0 + 3, x1 - 3, z0 + 3, z1 - 3, TOPB, H, TILE_B, fh=3.1, bay=3.0, ww=2.2, wh=2.0, sill=0.5)
+    p.box('flat:#8a5a44', x0 + 2.6, H, z0 + 2.6, x1 - 2.6, H + 2.2, z1 - 2.6)
+    p.box('flat:#8a5a44', x0 - 0.2, TOPB, z0 - 0.2, x1 + 0.2, TOPB + 0.6, z1 + 0.2)
+    beacons(p, x0 + 4, x1 - 4, z0 + 4, z1 - 4, H + 2.2)
+    p.box(WHITE_S, -5.0, 4.4, 0.0, 5.0, 5.2, 2.0)
+    p.box(DARK, -1.2, 0, 1.92, 1.2, 2.6, 1.98)
+    # The cafe in the corner of the ground floor: its own awning.
+    p.box('flat:#2f4a3a', 5.4, 3.4, 0.6, 10.6, 3.6, 2.0)
+    mark('name', 0.0, 4.8, -0.06, 8.0, 0.6)
+    mark('shop', 8.0, 4.3, 1.9, 5.0, 0.7)
+
+
+def school(p):
+    """A new-town elementary school: four white storeys of ribbon windows, a glass stair tower, the gym at one end."""
+    W, D, H = 64.0, 16.0, 15.6
+    x0, x1 = -W / 2, W / 2
+    ribbon(p, x0, x1 - 18, 0, D, 0.0, H, WHITE_P, fh=3.8, wh=1.9, sill=0.9, chunk=3.6)
+    p.box(WHITE_S, x0 - 0.2, H, -0.2, x1 - 18 + 0.2, H + 1.2, D + 0.2)
+    bands(p, 'flat:#5f9ec9', x0, x1 - 18, 0, D, (3.7, 7.5, 11.3), t=0.25, proud=0.3)
+    # The glass stair tower and the entrance canopy.
+    p.box('glassTint', 4.0, 0, -2.0, 10.0, H + 2.6, 2.0)
+    p.box(WHITE_S, 3.8, H + 2.6, -2.2, 10.2, H + 3.0, 2.2)
+    p.box(WHITE_S, -6.0, 3.0, -4.0, 4.0, 3.4, 0.0)
+    for x in (-5.6, 3.6):
+        p.box(WHITE_S, x - 0.1, 0, -3.9, x + 0.1, 3.0, -3.7)
+    p.box(DARK, -3.0, 0, -0.06, 1.0, 2.6, -0.02)
+    # The gym: a hall under a shallow vault, high windows.
+    gx0, gx1 = x1 - 18, x1
+    p.box('flat:#d7dcde', gx0, 0, 0, gx1, 9.0, D + 6)
+    ribbon(p, gx0, gx1, 0, D + 6, 6.0, 9.0, 'flat:#d7dcde', fh=3.0, wh=1.4, sill=0.8, chunk=3.0, body=False)
+    n = 10
+    arc = [(0 + (D + 6) * k / n, 9.0 + 2.0 * math.sin(math.pi * k / n)) for k in range(n + 1)]
+    p.prism('flat:#7f8a8e', [(z, y) for z, y in arc] + [(z, y - 0.4) for z, y in arc[::-1]], 'x', gx0 - 0.3, gx1 + 0.3)
+    p.prism('flat:#d7dcde', [(0.0, 9.0)] + arc + [(D + 6, 9.0)], 'x', gx0, gx1)
+    # Rooftop fence.
+    for x in rows(x0, x1 - 18, 2.0):
+        p.box(GREY_P, x - 0.03, H + 1.2, -0.1, x + 0.03, H + 2.6, 0.0)
+    p.box(GREY_P, x0, H + 2.5, -0.12, x1 - 18, H + 2.6, 0.0)
+    mark('name', -14.0, H - 1.6, -0.08, 16.0, 1.4)
+
+
+def chotel(p):
+    """The convention hotel on the bay road: a banquet podium, a slender 84 m slab in green glass with white fins."""
+    W, D, H = 60.0, 44.0, 84.0
+    p.box(STONE_P, -W / 2, 0, 0, W / 2, 12.0, D)
+    curtain(p, -W / 2, W / 2, 0, D, 0.0, 12.0, glass='flat:#4d7a78', mull=WHITE_S, fh=6.0, bay=3.0, sp=0.4, spandrel=STONE_P, which='flr')
+    p.box(WHITE_S, -16.0, 6.0, -8.0, 16.0, 6.8, 0.0)
+    for x in (-14.0, 14.0):
+        p.cyl(WHITE_S, (x, 3.0, -7.0), 1, 0.35, 6.0, seg=10)
+    for xc in (-4.0, 4.0):
+        p.box(DARK, xc - 1.8, 0, -0.06, xc + 1.8, 3.4, -0.02)
+    x0, x1, z0, z1 = -22.0, 22.0, 10.0, 30.0
+    curtain(p, x0, x1, z0, z1, 12.0, H, glass='flat:#4d7a78', mull=WHITE_S, fh=3.4, bay=2.0, sp=0.6, chunk=2)
+    fins(p, WHITE_S, x0, x1, z0, z1, 12.0, H, 4.0, w=0.4, proud=0.7, which='fb')
+    p.prism('glassTint', [(z0, H), (z1, H), (z1, H + 6.0)], 'x', x0, x1)
+    p.box(WHITE_S, x0 - 0.5, H - 0.4, z0 - 0.5, x1 + 0.5, H, z1 + 0.5)
+    beacons(p, x0 + 1, x1 - 1, z0 + 1, z1 - 1, H)
+    p.box('flat:#7a8f5a',-W / 2 + 1, 12.0, 1.0, x0 - 1, 12.3, D - 1)
+    mark('name', 0.0, H - 3.0, z0 - 0.75, 16.0, 2.0)
+    mark('plate', 0.0, 9.0, -0.25, 14.0, 1.0)
+
+
+def mall(p):
+    """The bay mall: five storeys, a glass atrium at the front, white panels, the cinema's box on the roof, terraces
+    stepping back towards the bay behind (front at z = 0 on the bay road, the terraces at the back)."""
+    W, D, FH, NF = 124.0, 40.0, 5.0, 5
+    x0, x1 = -W / 2, W / 2
+    for k in range(NF):
+        zb = D - k * 3.0
+        y0, y1 = k * FH, (k + 1) * FH
+        p.box(WHITE_P, x0, y0, 0.0, x1, y1, zb - 3.0)
+        # The terrace floor's glass wall at the back and its deck, rail and planters.
+        p.box('glassTint', x0 + 2, y0 + 0.2, zb - 3.05, x1 - 2, y1 - 0.4, zb - 3.0)
+        for x in rows(x0 + 2, x1 - 2, 3.0):
+            p.box(WHITE_S, x - 0.06, y0, zb - 3.1, x + 0.06, y1, zb - 3.0)
+        p.box(TEAK, x0, y0, zb - 3.0, x1, y0 + 0.15, zb)
+        slab(p, 'glassTint', 'b', x0, x1, y0 + 0.15, y0 + 1.25, zb, -0.05)
+        for x in rows(x0 + 4, x1 - 4, 12.0):
+            p.box('flat:#6d8a48', x - 2.0, y0 + 0.15, zb - 1.2, x + 2.0, y0 + 0.75, zb - 0.4)
+    bands(p, 'flat:#c9d3d8', x0, x1, 0.0, 10.0, [k * FH - 0.4 for k in range(1, NF + 1)], t=0.4, proud=0.15)
+    # The atrium: full-height glass across the middle of the front, the entrance canopy.
+    p.box('glassTint', -16.0, 0, -0.4, 16.0, NF * FH + 3.0, 0.0)
+    for x in rows(-16.0, 16.0, 2.0):
+        p.box(WHITE_S, x - 0.08, 0, -0.5, x + 0.08, NF * FH + 3.0, -0.3)
+    p.box(WHITE_S, -16.5, NF * FH + 3.0, -0.6, 16.5, NF * FH + 3.6, 8.0)
+    p.box(WHITE_S, -12.0, 5.0, -6.0, 12.0, 5.5, -0.4)
+    for xc in (-8.0, 0.0, 8.0):
+        p.box(DARK, xc - 2.4, 0, -0.46, xc + 2.4, 3.2, -0.42)
+    # Side entrances and shop windows along the ground floor.
+    for xc in rows(x0 + 2, -18.0, 6.5) + rows(18.0, x1 - 2, 6.5):
+        p.box(GLASS_T, xc - 2.6, 0.3, -0.06, xc + 2.6, 4.2, -0.02)
+    # The cinema's windowless box on the roof.
+    p.box('flat:#3a4048', 30.0, NF * FH, 2.0, 60.0, NF * FH + 10.0, 22.0)
+    p.box(WHITE_S, 29.8, NF * FH + 9.6, 1.8, 60.2, NF * FH + 10.2, 22.2)
+    mark('name', 0.0, NF * FH - 2.0, -0.62, 26.0, 3.0)
+    mark('cinema', 45.0, NF * FH + 6.0, 1.94, 22.0, 3.0)
+    mark('side', -40.0, 21.0, -0.2, 24.0, 2.4)
+
+
+def boatstore(p):
+    """The marina's dry-boat store: a steel shed open to the street, three tiers of racks with boats on them."""
+    W, D, H = 40.0, 26.0, 15.0
+    x0, x1 = -W / 2, W / 2
+    for face, a0, a1, at in sides(x0, x1, 0, D, 'blr'):
+        slab(p, CORRUG, face, a0, a1, 0.0, H, at, 0.0)
+        for c in rows(a0, a1, 0.6):
+            slab(p, 'flat:#8b9397', face, c - 0.08, c + 0.08, 0.0, H, at, 0.05)
+    p.box(CORRUG, x0, H, 0, x1, H + 0.4, D)
+    p.box('flat:#1f3550', x0 - 0.1, H - 1.6, -0.1, x1 + 0.1, H + 0.4, 0.0)
+    for x in rows(x0, x1, 8.0) + [x0 + 0.2, x1 - 0.2]:
+        p.box('flat:#3d4448', x - 0.2, 0, 0.0, x + 0.2, H - 1.6, 0.4)
+    for y in (0.6, 5.0, 9.4):
+        p.box('flat:#3d4448', x0, y - 0.25, 0.4, x1, y, D - 1.0)
+        for xc in rows(x0 + 1, x1 - 1, 4.0):
+            p.box(HULL, xc - 1.2, y, 2.0, xc + 1.2, y + 1.3, D - 3.0)
+            p.box(BLUE, xc - 1.22, y + 0.5, 2.0, xc + 1.22, y + 0.65, D - 3.0)
+    mark('name', 0.0, H - 0.6, -0.12, 16.0, 1.4)
+
+
+def hamamiya(p):
+    """The fishing village's shrine, kept when the land was made: a granite torii, a stone path and lanterns, a small
+    hall with a copper roof, a low stone fence round the precinct, the boatmen's anchor stone. The pine is the game's."""
+    W, D = 16.0, 22.0
+    x0, x1 = -W / 2, W / 2
+    p.box(GRANITE_G, x0, 0, 0, x1, 0.06, D)
+    for (a, e) in ((x0, -2.4), (2.4, x1)):
+        p.box(GRANITE_G, a, 0, 0.0, e, 0.9, 0.4)
+    p.box(GRANITE_G, x0, 0, 0.0, x0 + 0.4, 0.9, D)
+    p.box(GRANITE_G, x1 - 0.4, 0, 0.0, x1, 0.9, D)
+    p.box(GRANITE_G, x0, 0, D - 0.4, x1, 0.9, D)
+    # The torii.
+    for x in (-2.0, 2.0):
+        p.cyl('flat:#b8b4aa', (x, 2.1, 1.6), 1, 0.2, 4.2, seg=12)
+    p.box('flat:#b8b4aa', -2.6, 3.4, 1.42, 2.6, 3.7, 1.78)
+    p.box('flat:#b8b4aa', -3.2, 4.1, 1.35, 3.2, 4.5, 1.85)
+    p.box('flat:#b8b4aa', -0.3, 3.7, 1.5, 0.3, 4.1, 1.7)
+    # The path and two lanterns.
+    p.box('flat:#cfcac0', -0.9, 0.06, 0.4, 0.9, 0.1, 15.0)
+    for x in (-2.4, 2.4):
+        p.box(GRANITE_G, x - 0.35, 0.06, 8.65, x + 0.35, 0.36, 9.35)
+        p.box(GRANITE_G, x - 0.12, 0.36, 8.88, x + 0.12, 1.3, 9.12)
+        p.box(GRANITE_G, x - 0.3, 1.3, 8.7, x + 0.3, 1.75, 9.3)
+        p.box(GRANITE_G, x - 0.42, 1.75, 8.58, x + 0.42, 1.9, 9.42)
+    # The hall.
+    p.box(GRANITE_G, -4.5, 0, 14.6, 4.5, 0.6, 21.0)
+    p.box('flat:#8a6a4a', -3.6, 0.6, 15.6, 3.6, 3.4, 20.4)
+    p.box('flat:#3a2e24', -1.6, 0.6, 15.56, 1.6, 2.6, 15.6)
+    p.box('wood:#8a6a4a', -1.0, 0.6, 15.0, 1.0, 1.3, 15.5)
+    for x in (-3.6, 3.6):
+        p.box('flat:#6e5038', x - 0.15, 0.6, 15.0, x + 0.15, 3.4, 15.3)
+    p.prism(COPPER, [(14.2, 3.2), (17.9, 5.6), (21.6, 3.2), (21.6, 3.0), (17.9, 5.35), (14.2, 3.0)], 'x', -4.8, 4.8)
+    p.box(COPPER, -4.9, 5.5, 17.7, 4.9, 5.75, 18.1)
+    # The anchor stone: a granite block carved with an anchor, the boatmen's offering.
+    p.box(GRANITE_G, x0 + 1.2, 0.06, 5.0, x0 + 2.8, 1.6, 5.6)
+    p.box('flat:#5d666c', x0 + 1.9, 0.5, 4.97, x0 + 2.1, 1.3, 5.0)
+    p.box('flat:#5d666c', x0 + 1.6, 0.6, 4.97, x0 + 2.4, 0.7, 5.0)
+    mark('name', x0 + 4.2, 1.1, -0.06, 2.6, 0.5)
+
+
+# ── Perimeter-block flats (2026-11-25): the peninsula's blocks are wrapped in deep mid-rise flats, balconies to the
+# street, open access galleries to the courtyard behind. Bars 13 m deep in lengths that tile any side to within 4 m,
+# and a corner piece 14 x 14 with a second street face on its local -x side. ──
+PB_D, PB_G, PB_FH = 13.0, 4.0, 3.0
+PB_WALLS = ['flat:#e9e6de', 'flat:#d9cbb2', 'flat:#c9d0d3', 'flat:#e2d6c4', 'flat:#d2cfc8']
+PB_ACC = ['flat:#8a5a44', 'flat:#5f7f8f', 'flat:#3d4a55', 'flat:#9a6b45', 'flat:#6d7a5a']
+
+
+PB_STYLES = [
+    # wall, accent, parapet kind: 'glass' (clear panels on posts), 'solid' (tiled parapet with a colour band),
+    # 'panel' (frosted panels, a coloured panel in some bays)
+    dict(wall='flat:#ebe8e0', acc='flat:#5f7f8f', kind='glass', tile='flat:#d8d4ca'),
+    dict(wall='flat:#d9cbb2', acc='flat:#8a5a44', kind='solid', tile='flat:#c4b294'),
+    dict(wall='flat:#c9d0d3', acc='flat:#3d4a55', kind='panel', tile='flat:#b3bcc0'),
+    dict(wall='flat:#e2d6c4', acc='flat:#9a6b45', kind='glass', tile='flat:#cdbfa6'),
+    dict(wall='flat:#d2cfc8', acc='flat:#6d7a5a', kind='panel', tile='flat:#bdb9b0'),
+]
+DOORS = ['flat:#6b4a3a', 'flat:#2f4a6e', 'flat:#7a1f24', 'flat:#3d5a54', 'flat:#8d8a82', 'flat:#c9a227']
+LAUNDRY = ['flat:#f2efe6', 'flat:#c7d6e6', 'flat:#e6c7cf', 'flat:#d9e3c5', 'flat:#f0d9a8', 'flat:#9fb7c2']
+FROST = 'flat:#dfe6ea'
+
+
+class FaceT:
+    """One street face's frame: `along` runs a0 .. a1, `n` is the distance out from the wall plane `at` (balconies
+    stand at n 0 .. depth). Turns (u, y, n) into model coordinates for the front (-z) or the left (-x) face."""
+
+    def __init__(self, face, at):
+        self.face, self.at = face, at
+
+    def box(self, p, mat, u0, y0, n0, u1, y1, n1, col=None):
+        if self.face == 'f':
+            p.box(mat, u0, y0, self.at - max(n0, n1), u1, y1, self.at - min(n0, n1), col)
+        else:
+            p.box(mat, self.at - max(n0, n1), y0, u0, self.at - min(n0, n1), y1, u1, col)
+
+
+def pb_street(p, rng, st, face, a0, a1, at, nf, top_set=False, depth=1.4):
+    """A street face of flats: per floor a balcony slab, the parapet in the block's style, sliding doors behind,
+    an AC unit and a laundry pole in every flat, washing, plants; frosted dividers between flats."""
+    T = FaceT(face, at)
+    n = max(2, round((a1 - a0) / 7.2))
+    uw = (a1 - a0) / n
+    for k in range(nf):
+        y = PB_G + k * PB_FH
+        top = top_set and k == nf - 1
+        dp = depth + (2.0 if top else 0.0)
+        T.box(p, WHITE_S, a0, y - 0.18, 0.0, a1, y, dp)
+        # The parapet.
+        if st['kind'] == 'solid':
+            T.box(p, st['wall'], a0, y, 0.0, a1, y + 1.1, 0.14)
+            T.box(p, st['acc'], a0, y + 0.82, -0.01, a1, y + 0.96, 0.15)
+        else:
+            panel = 'glassTint' if st['kind'] == 'glass' else FROST
+            T.box(p, panel, a0 + 0.05, y + 0.08, 0.03, a1 - 0.05, y + 1.02, 0.06)
+            for c in rows(a0, a1, 1.6) + [a0 + 0.03, a1 - 0.03]:
+                T.box(p, ALU_DK, c - 0.025, y, 0.0, c + 0.025, y + 1.1, 0.05)
+            T.box(p, st['acc'], a0, y + 1.04, -0.01, a1, y + 1.12, 0.08)
+        for i in range(n):
+            u0, u1 = a0 + i * uw, a0 + (i + 1) * uw
+            if st['kind'] == 'panel' and rng.random() < 0.25:
+                T.box(p, st['acc'], u0 + 0.1, y + 0.1, 0.0, u1 - 0.1, y + 1.0, 0.025)
+            # Sliding doors and a window behind, framed.
+            dn = dp
+            GL = 'flat:#8aa3b1'
+            T.box(p, ALU, u0 + 0.5, y + 0.05, dn, u1 - 2.0, y + 2.35, dn + 0.02)
+            T.box(p, WINDOW_LIT if p.lit.random() < LIT_SHARE else WINDOW_DARK, u0 + 0.56, y + 0.1, dn - 0.005, u1 - 2.06, y + 2.29, dn + 0.015, GL)
+            T.box(p, ALU, (u0 + u1 - 1.5) / 2 - 0.04, y + 0.05, dn - 0.02, (u0 + u1 - 1.5) / 2 + 0.04, y + 2.35, dn + 0.01)
+            T.box(p, ALU, u1 - 1.7, y + 0.9, dn, u1 - 0.5, y + 2.35, dn + 0.02)
+            T.box(p, WINDOW_LIT if p.lit.random() < LIT_SHARE else WINDOW_DARK, u1 - 1.65, y + 0.95, dn - 0.005, u1 - 0.55, y + 2.3, dn + 0.015, GL)
+            # Curtains drawn to the sides of the doors, some half closed; a transom band.
+            cw = rng.uniform(0.3, 1.2)
+            cc = rng.choice(['flat:#efe9dc', 'flat:#e6dccb', 'flat:#dfe6ea', 'flat:#e9e1d3'])
+            T.box(p, cc, u0 + 0.6, y + 0.15, dn - 0.02, u0 + 0.6 + cw, y + 2.25, dn - 0.01)
+            T.box(p, cc, u1 - 2.1 - rng.uniform(0.3, 0.9), y + 0.15, dn - 0.02, u1 - 2.1, y + 2.25, dn - 0.01)
+            T.box(p, st['tile'], u0 + 0.5, y + 2.35, dn - 0.01, u1 - 0.5, y + PB_FH - 0.2, dn + 0.02)
+            # The AC unit on the balcony floor at the flat's end.
+            T.box(p, ACU, u1 - 1.3, y, dn - 0.45, u1 - 0.4, y + 0.66, dn - 0.12)
+            T.box(p, DARK, u1 - 1.2, y + 0.08, dn - 0.46, u1 - 0.66, y + 0.58, dn - 0.45)
+            # The laundry pole on its brackets, washing on some.
+            T.box(p, ALU, u0 + 0.4, y + 1.95, 0.55, u1 - 0.4, y + 2.0, 0.6)
+            for c in (u0 + 0.45, u1 - 0.45):
+                T.box(p, ALU, c - 0.02, y + 1.95, 0.0 + dn - 0.3, c + 0.02, y + 2.0, dn)
+                T.box(p, ALU, c - 0.02, y + 1.95, 0.5, c + 0.02, y + 2.0, dn - 0.3)
+            if rng.random() < 0.35:
+                for _ in range(rng.randint(1, 3)):
+                    c = rng.uniform(u0 + 0.8, u1 - 1.6)
+                    w = rng.uniform(0.35, 0.9)
+                    T.box(p, rng.choice(LAUNDRY), c, y + rng.uniform(1.15, 1.45), 0.56, c + w, y + 1.95, 0.6)
+            if rng.random() < 0.25:
+                c = rng.uniform(u0 + 0.6, u0 + 1.6)
+                T.box(p, 'flat:#8a6a4a', c, y, 0.3, c + 0.4, y + 0.35, 0.7)
+                T.box(p, 'flat:#4f7a3e', c - 0.1, y + 0.35, 0.25, c + 0.5, y + 0.85, 0.75)
+            if i:
+                T.box(p, FROST, u0 - 0.03, y, 0.15, u0 + 0.03, y + 2.1, dp)
+    # End fins and the street storey.
+    for c in (a0, a1):
+        T.box(p, st['tile'], c - 0.2 if c == a1 else c, PB_G - 0.2, 0.0, c if c == a1 else c + 0.2, PB_G + nf * PB_FH, depth)
+
+
+def pb_roof(p, rng, x0, x1, z0, z1, H, st, core=None, solar=False):
+    """Roof: a parapet, the lift's machine room over the core, a water tank, an antenna, condensers, solar panels."""
+    for a, b, c, d in ((x0, z0, x1, z0 + 0.2), (x0, z1 - 0.2, x1, z1), (x0, z0, x0 + 0.2, z1), (x1 - 0.2, z0, x1, z1)):
+        p.box(st['acc'], a, H, b, c, H + 0.9, d)
+    p.box('flat:#8f8d86', x0 + 0.2, H, z0 + 0.2, x1 - 0.2, H + 0.04, z1 - 0.2)
+    cx = core if core is not None else (x0 + x1) / 2
+    p.box(st['tile'], cx - 2.0, H, z1 - 4.6, cx + 2.0, H + 3.0, z1 - 0.6)
+    p.box(st['acc'], cx - 2.1, H + 3.0, z1 - 4.7, cx + 2.1, H + 3.2, z1 - 0.5)
+    tank(p, x0 + 2.0, H, z0 + (z1 - z0) / 2)
+    p.cyl(STEEL, (x1 - 1.2, H + 3.0, z1 - 1.5), 1, 0.04, 6.0, seg=6)
+    for y in (H + 4.4, H + 5.4):
+        p.box(STEEL, x1 - 1.9, y, z1 - 1.52, x1 - 0.5, y + 0.04, z1 - 1.48)
+    for k in range(rng.randint(2, 5)):
+        acu(p, x0 + 4.0 + k * 1.1, H + 0.04, z0 + 1.6)
+    if solar and x1 - x0 > 14:
+        for xs in rows(x0 + 6.0, cx - 3.0, 2.2) + rows(cx + 3.0, x1 - 3.0, 2.2):
+            p.prism('flat:#22324a', [(z0 + 3.0, H + 0.4), (z0 + 6.5, H + 0.4), (z0 + 6.5, H + 1.4)], 'x', xs - 1.0, xs + 1.0)
+
+
+def pb_gallery(p, rng, x0, x1, zb, d, nf, st, skip=None):
+    """The courtyard side: open access galleries with steel rails, a coloured front door and a barred kitchen window
+    to every flat, gas meters, pipes down between the flats."""
+    n = max(2, round((x1 - x0) / 7.2))
+    uw = (x1 - x0) / n
+    for k in range(nf):
+        y = PB_G + k * PB_FH
+        p.box(WHITE_S, x0, y - 0.18, zb, x1, y, d)
+        p.box(st['wall'], x0, y, d - 0.1, x1, y + 0.45, d)
+        p.box(ALU_DK, x0, y + 1.05, d - 0.06, x1, y + 1.1, d)
+        for c in rows(x0, x1, 1.5):
+            p.box(ALU_DK, c - 0.02, y + 0.45, d - 0.06, c + 0.02, y + 1.05, d - 0.02)
+        for i in range(n):
+            u0 = x0 + i * uw
+            if skip and skip[0] < u0 + uw / 2 < skip[1]:
+                continue
+            p.box(rng.choice(DOORS), u0 + 0.8, y, zb, u0 + 1.75, y + 2.05, zb + 0.04)
+            p.box(FRAME, u0 + 2.3, y + 1.0, zb, u0 + 3.6, y + 2.0, zb + 0.04)
+            p.box(WINDOW_LIT if p.lit.random() < LIT_SHARE else WINDOW, u0 + 2.36, y + 1.06, zb + 0.04, u0 + 3.54, y + 1.94, zb + 0.05)
+            for c in (2.6, 2.95, 3.3):
+                p.box(ALU, u0 + c - 0.015, y + 1.0, zb + 0.06, u0 + c + 0.015, y + 2.0, zb + 0.1)
+            p.box('flat:#d9d5c4', u0 + 1.95, y + 1.2, zb, u0 + 2.2, y + 1.7, zb + 0.18)
+            if i:
+                p.cyl('flat:#8d8a82', (u0, PB_G + nf * PB_FH / 2, zb + 0.15), 1, 0.06, nf * PB_FH, seg=6, caps=False)
+
+
+def pb_ground(p, rng, x0, x1, zf, st, lobby=0.0, drive=None):
+    """The street storey: a lobby with a mailbox wall and a canopy, shopfront glass elsewhere, planters."""
+    for a, b in ([(x0, x1)] if drive is None else [(x0, drive[0]), (drive[1], x1)]):
+        p.box(st['tile'], a, 0, zf, b, PB_G, PB_D - 1.2)
+    segs = [(x0 + 0.6, x1 - 0.6)] if drive is None else [(x0 + 0.6, drive[0] - 0.4), (drive[1] + 0.4, x1 - 0.6)]
+    for a, b in segs:
+        if b - a < 2:
+            continue
+        p.box(GLASS_T, a, 0.3, zf - 0.05, b, 3.4, zf)
+        for c in rows(a, b, 3.0) + [a, b]:
+            p.box(st['tile'], c - 0.14, 0, zf - 0.12, c + 0.14, PB_G, zf)
+    p.box(st['acc'], x0, 3.5, zf - 0.14, x1, PB_G - 0.2, zf)
+    if lobby is not None:
+        # The lobby: recessed glass doors, the mailbox wall seen through them, a canopy, two planters.
+        p.box(GLASS_T, lobby - 2.2, 0, zf + 1.2, lobby + 2.2, 3.2, zf + 1.25)
+        p.box(st['tile'], lobby - 2.4, 0, zf - 0.13, lobby - 2.2, PB_G, zf + 1.25)
+        p.box(st['tile'], lobby + 2.2, 0, zf - 0.13, lobby + 2.4, PB_G, zf + 1.25)
+        p.box('flat:#cfcac0', lobby - 2.2, 0, zf - 0.13, lobby + 2.2, 0.02, zf + 1.2)
+        p.box('flat:#9aa0a6', lobby - 1.6, 0.9, zf + 2.6, lobby + 1.6, 2.2, zf + 2.9)
+        p.box(DARK, lobby - 0.6, 0, zf + 1.18, lobby + 0.6, 2.4, zf + 1.2)
+        p.box(WHITE_S, lobby - 3.0, 3.0, -0.4, lobby + 3.0, 3.25, zf)
+        p.box(st['acc'], lobby - 3.0, 3.0, -0.45, lobby + 3.0, 3.25, -0.4)
+        for c in (lobby - 4.2, lobby + 3.0):
+            p.box(st['tile'], c, 0, -0.6, c + 1.2, 0.6, 0.2)
+            p.box(HEDGE, c + 0.1, 0.6, -0.5, c + 1.1, 1.1, 0.1)
+
+
+def pbar(p, W, nf, si, seed, drive=False):
+    st = PB_STYLES[si % len(PB_STYLES)]
+    rng = random.Random(seed)
+    x0, x1, zf, zb = -W / 2, W / 2, 1.4, PB_D - 1.2
+    H = PB_G + nf * PB_FH
+    top_set = st['kind'] == 'solid'
+    dv = (-3.2, 3.2) if drive else None
+    # The body (the passage cut through two storeys where cars drive in).
+    if drive:
+        y2 = PB_G + PB_FH
+        for a, b in ((x0, dv[0]), (dv[1], x1)):
+            p.box(st['wall'], a, PB_G, zf, b, y2, zb)
+        p.box(st['wall'], x0, y2, zf, x1, H - (PB_FH if top_set else 0), zb)
+        for xc in dv:
+            p.box('flat:#cfcac0', xc - 0.2 if xc > 0 else xc, 0, zf - 0.2, xc if xc > 0 else xc + 0.2, y2, PB_D)
+        p.box('flat:#cfcac0', dv[0], y2 - 0.5, zf - 0.2, dv[1], y2, PB_D)
+        p.box(LIGHT, -0.6, y2 - 0.52, 4.0, 0.6, y2 - 0.5, 9.0)
+        mark('gate', 0.0, y2 - 1.1, zf - 0.25, 5.2, 0.8)
+    else:
+        p.box(st['wall'], x0, PB_G, zf, x1, H - (PB_FH if top_set else 0), zb)
+    if top_set:
+        p.box(st['wall'], x0, H - PB_FH, zf + 2.0, x1, H, zb)
+    pb_ground(p, rng, x0, x1, zf, st, lobby=x0 + 4.6 if drive else 0.0, drive=dv)
+    pb_street(p, rng, st, 'f', x0, x1, zf, nf, top_set)
+    # The stair and lift core: a glazed tower on the courtyard side.
+    core = 0.0 if not drive else x1 - 5.0
+    pb_gallery(p, rng, x0, x1, zb, PB_D, nf, st, skip=(core - 2.4, core + 2.4))
+    p.box('glassTint', core - 2.2, 0, zb, core + 2.2, H + 0.6, PB_D + 0.9)
+    for y in [PB_G + k * PB_FH for k in range(nf + 1)]:
+        p.box(st['tile'], core - 2.25, y - 0.25, zb, core + 2.25, y, PB_D + 0.95)
+    for c in (core - 2.25, core + 2.1):
+        p.box(st['tile'], c, 0, zb, c + 0.15, H + 0.6, PB_D + 0.95)
+    # Ends: windows in tile surrounds, a bay window up the middle on the tall blocks.
+    grid(p, x0, x1, zf, zb, PB_G, H, st['wall'], fh=PB_FH, bay=3.0, ww=1.0, wh=1.2, sill=1.0, which='lr', body=False, frame=FRAME)
+    if nf >= 10:
+        for s in (-1, 1):
+            xs = x1 if s > 0 else x0
+            p.box(st['tile'], min(xs, xs + s * 0.6), PB_G, 5.0, max(xs, xs + s * 0.6), H - 1.0, 8.2)
+            for k in range(nf):
+                y = PB_G + k * PB_FH
+                p.box(WINDOW, min(xs + s * 0.6, xs + s * 0.62), y + 0.9, 5.3, max(xs + s * 0.6, xs + s * 0.62), y + 2.3, 7.9)
+    for c in (x0 + 0.1, x1 - 0.1):
+        p.cyl('flat:#8d8a82', (c, H / 2, zb - 0.3), 1, 0.05, H, seg=6, caps=False)
+    pb_roof(p, rng, x0, x1, zf if not top_set else zf + 2.0, zb, H, st, core=core, solar=si % 3 == 2)
+
+
+def pcorner(p, nf, si, seed):
+    """The corner piece: balconies to the front (-z) and to the left (-x), the other two sides against its neighbours."""
+    st = PB_STYLES[si % len(PB_STYLES)]
+    rng = random.Random(seed)
+    S, i = 14.0, 1.4
+    x0, x1, z0, z1 = -S / 2, S / 2, 0.0, S
+    H = PB_G + nf * PB_FH
+    p.box(st['wall'], x0 + i, PB_G, z0 + i, x1, H, z1)
+    p.box(st['tile'], x0 + i, 0, z0 + i, x1, PB_G, z1)
+    p.box(GLASS_T, x0 + i + 0.4, 0.3, z0 + i - 0.05, x1 - 0.6, 3.4, z0 + i)
+    p.box(GLASS_T, x0 + i - 0.05, 0.3, z0 + i + 0.4, x0 + i, 3.4, z1 - 0.6)
+    p.box(st['acc'], x0 + i - 0.14, 3.5, z0 + i - 0.14, x1, PB_G - 0.2, z0 + i)
+    p.box(st['acc'], x0 + i - 0.14, 3.5, z0 + i, x0 + i, PB_G - 0.2, z1)
+    # A corner shop's canopy on the ground floor.
+    p.box(st['acc'], x0 - 0.2, 3.0, -0.8, x1, 3.3, z0 + i)
+    p.box(st['acc'], x0 - 0.8, 3.0, z0 - 0.8, x0 + i, 3.3, z1)
+    pb_street(p, rng, st, 'f', x0, x1, z0 + i, nf)
+    pb_street(p, rng, st, 'l', z0 + i, z1, x0 + i, nf)
+    # The corner itself: a glazed bay rising the full height.
+    p.box('glassTint', x0 - 0.2, PB_G, z0 - 0.2, x0 + 1.6, H, z0 + 1.6)
+    grid(p, x0 + i, x1, z0 + i, z1, PB_G, H, st['wall'], fh=PB_FH, bay=3.0, ww=1.0, wh=1.2, sill=1.0, which='rb', body=False, frame=FRAME)
+    for c in (x1 - 0.3,):
+        p.cyl('flat:#8d8a82', (c, H / 2, z1 + 0.08), 1, 0.05, H, seg=6, caps=False)
+    pb_roof(p, rng, x0 + i, x1, z0 + i, z1, H, st, core=x1 - 3.5, solar=False)
+
+
+def pbar_fn(W, nf, k, drive=False):
+    return lambda p: pbar(p, W, nf, k, 100 + k * 7 + nf, drive)
+
+
+def pcorner_fn(nf, k):
+    return lambda p: pcorner(p, nf, k, 300 + k * 11 + nf)
+
+
+PB_VARIANTS = []
+for _k, (_W, (_nf, _t)) in enumerate([(W, h) for W in (16, 20, 24, 28, 32) for h in ((8, 'l'), (12, 'h'))]):
+    PB_VARIANTS.append(dict(id='pb%d%s' % (_W, _t), w=float(_W), d=PB_D + 1.0, h=PB_G + _nf * PB_FH + 6.0, fn=pbar_fn(float(_W), _nf, _k), gap=6.0))
+for _k, (_nf, _t) in enumerate(((8, 'l'), (12, 'h'))):
+    PB_VARIANTS.append(dict(id='pg%s' % _t, w=24.0, d=PB_D + 1.0, h=PB_G + _nf * PB_FH + 6.0, fn=pbar_fn(24.0, _nf, _k + 1, True), gap=6.0))
+for _k, (_nf, _t) in enumerate(((10, 'l'), (14, 'h'))):
+    PB_VARIANTS.append(dict(id='pc%s' % _t, w=14.0, d=14.0, h=PB_G + _nf * PB_FH + 3.4, fn=pcorner_fn(_nf, _k + 2), gap=6.0))
+
+
+# ── The north waterfront (2026-11-25): a barrier at the courtyard car parks' drive-throughs, the two towers of flats
+# behind the mall that mark Minato Center from across the river mouth, the terrace restaurant and the rowing club ──
+
+
+def gatebar(p):
+    """A car-park barrier: the arm's housing, a striped arm 4.6 m long (down), the resident-card post beside it."""
+    p.box('flat:#e8e6df', -0.3, 0, -0.3, 0.3, 1.05, 0.3)
+    p.box('flat:#c8102e', -0.32, 0.8, -0.32, 0.32, 0.9, 0.32)
+    for k in range(6):
+        p.box('flat:#c8102e' if k % 2 else 'flat:#f2f2ee', 0.3 + k * 0.75, 0.88, -0.04, 0.3 + (k + 1) * 0.75, 0.96, 0.04)
+    p.box(ALU_DK, -1.3, 0, -0.12, -1.1, 1.2, 0.12)
+    p.box('flat:#2b2e33', -1.35, 1.2, -0.18, -1.05, 1.55, 0.18)
+    p.box(SCREEN, -1.36, 1.3, -0.12, -1.35, 1.48, 0.12)
+
+
+BT_H = 132.0
+
+
+def btow(p):
+    """A 132 m tower of flats: a square plan with its corners cut, balcony bands all round, a lit frame crown."""
+    S, c = 26.0, 4.0
+    plan = [(-S / 2 + c, 1.0), (S / 2 - c, 1.0), (S / 2, 1.0 + c), (S / 2, S - c), (S / 2 - c, S), (-S / 2 + c, S), (-S / 2, S - c), (-S / 2, 1.0 + c)]
+    inner = [(x * 0.9, 1.0 + (z - 1.0) * 0.9 + S * 0.05) for x, z in plan]
+    extrude(p, 'flat:#55707e', inner, 0.0, BT_H)
+    strips(p, inner, 8.0, BT_H - 6.0, 3.1, glass='flat:#55707e', out_m=0.03)
+    for k in range(int((BT_H - 8.0) / 3.1)):
+        y = 8.0 + k * 3.1
+        extrude(p, WHITE_S, plan, y - 0.2, y, top=False)
+        extrude(p, 'glassTint', plan, y, y + 1.05, top=False)
+    extrude(p, 'flat:#e2e4e1', plan, 0.0, 8.0)
+    p.box(GLASS_T, -8.0, 0.2, 0.95, 8.0, 7.0, 1.0)
+    p.box(WHITE_S, -9.0, 4.0, -3.0, 9.0, 4.4, 1.0)
+    for k in range(4):
+        y = BT_H + k * 2.5
+        r = S / 2 - 1.0 - k * 1.2
+        p.box(WHITE_S, -r, y, 1.0 + S / 2 - r, r, y + 0.4, 1.0 + S / 2 + r)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            p.box(WHITE_S, sx * (S / 2 - 2.0) - 0.3, BT_H - 6.0, 1.0 + S / 2 + sz * (S / 2 - 2.0) - 0.3, sx * (S / 2 - 2.0) + 0.3, BT_H + 10.0, 1.0 + S / 2 + sz * (S / 2 - 2.0) + 0.3)
+    p.box(LIGHT, -4.0, BT_H + 8.5, 1.0 + S / 2 - 4.0, 4.0, BT_H + 9.0, 1.0 + S / 2 + 4.0)
+    beacons(p, -S / 2 + 2, S / 2 - 2, 3.0, S - 1.0, BT_H + 10.0)
+    mark('name', 0.0, 6.0, -0.12, 14.0, 0.9)
+
+
+def pavilion(p):
+    """A terrace restaurant on the river-mouth promenade: a glass box under a deep flat roof, a timber deck."""
+    W, D = 24.0, 8.0
+    p.box(TEAK, -W / 2 - 2, 0, -0.5, W / 2 + 2, 0.3, D + 3.0)
+    p.box('glassTint', -W / 2 + 2, 0.3, 1.5, W / 2 - 2, 4.0, D - 0.5)
+    p.box(WHITE_S, -W / 2 + 2, 0.3, D - 0.5, W / 2 - 2, 4.0, D)
+    for x in rows(-W / 2 + 2, W / 2 - 2, 2.0):
+        p.box(WHITE_S, x - 0.05, 0.3, 1.45, x + 0.05, 4.0, 1.55)
+    p.box(WHITE_S, -W / 2 - 2, 4.0, -0.5, W / 2 + 2, 4.5, D + 3.0)
+    for x in (-W / 2 - 1.6, W / 2 + 1.6):
+        for z in (0.0, D + 2.5):
+            p.box(WHITE_S, x - 0.12, 0.3, z - 0.12, x + 0.12, 4.0, z + 0.12)
+    for x in rows(-W / 2, W / 2, 3.0):
+        p.cyl(WHITE_S, (x, 0.3 + 0.36, -0.1 + 0.4), 1, 0.45, 0.04, seg=12)
+        p.cyl(ALU_DK, (x, 0.3 + 0.18, 0.3), 1, 0.04, 0.36, seg=6)
+    p.box(DARK, -1.0, 0.3, D + 0.0, 1.0, 2.6, D + 0.04)
+    mark('name', 0.0, 4.25, -0.52, 10.0, 0.4)
+
+
+def boathouse(p):
+    """The rowing club's boathouse: a long gabled shed with three big doors to the water, the club room above one end."""
+    W, D, E = 30.0, 10.4, 5.0
+    p.box('flat:#ebe7dc', -W / 2, 0, 0, W / 2, E, D)
+    p.prism('flat:#3d4a55', [(-0.6, E - 0.2), (D / 2, E + 3.2), (D + 0.6, E - 0.2), (D + 0.6, E - 0.4), (D / 2, E + 2.95), (-0.6, E - 0.4)], 'x', -W / 2 - 0.4, W / 2 + 0.4)
+    p.prism('flat:#ebe7dc', [(0.0, E), (D / 2, E + 3.0), (D, E)], 'x', -W / 2, W / 2)
+    for xc in (-9.0, 0.0, 9.0):
+        p.box('flat:#5d666c', xc - 3.6, 0, -0.05, xc + 3.6, 3.8, 0.0)
+        for y in rows(0.2, 3.7, 0.4):
+            p.box('flat:#4d555b', xc - 3.6, y - 0.02, -0.07, xc + 3.6, y + 0.02, -0.05)
+    for xc in rows(-W / 2 + 1, W / 2 - 1, 3.0):
+        p.box(WINDOW, xc - 0.6, E - 1.0, D, xc + 0.6, E - 0.2, D + 0.04)
+    p.box(DARK, W / 2 - 3.0, 0, D, W / 2 - 1.8, 2.2, D + 0.04)
+    mark('name', 0.0, 4.4, -0.08, 12.0, 0.6)
+
+
 VARIANTS = [
     dict(id='tower', w=TW, d=TD, h=TOP + 30.0, fn=tower, gap=12.0),
     dict(id='hall', w=HW_, d=HD_, h=EH + VR + 1.0, fn=hall, gap=12.0),
@@ -509,7 +1050,18 @@ VARIANTS = [
     dict(id='wbterm', w=18.0, d=10.0, h=5.6, fn=wbterm, gap=6.0),
     dict(id='convention', w=94.0, d=64.0, h=22.0, fn=convention, gap=12.0),
     dict(id='rhotel', w=62.0, d=30.0, h=124.0, fn=rhotel, gap=12.0),
-]
+    dict(id='rtowa', w=33.0, d=20.0, h=94.0, fn=rtowa, gap=12.0),
+    dict(id='rtowb', w=25.2, d=25.2, h=76.2, fn=rtowb, gap=12.0),
+    dict(id='school', w=64.0, d=22.0, h=19.0, fn=school, gap=12.0),
+    dict(id='chotel', w=60.0, d=44.0, h=90.0, fn=chotel, gap=12.0),
+    dict(id='mall', w=124.0, d=40.0, h=35.0, fn=mall, gap=12.0),
+    dict(id='boatstore', w=40.0, d=26.0, h=15.4, fn=boatstore, gap=8.0),
+    dict(id='hamamiya', w=16.0, d=22.0, h=5.8, fn=hamamiya, gap=6.0),
+    dict(id='gatebar', w=6.0, d=0.6, h=1.6, fn=gatebar, gap=3.0),
+    dict(id='btow', w=26.0, d=28.0, h=BT_H + 11.0, fn=btow, gap=12.0),
+    dict(id='pavilion', w=28.0, d=11.5, h=4.6, fn=pavilion, gap=6.0),
+    dict(id='boathouse', w=31.0, d=11.0, h=8.4, fn=boathouse, gap=6.0),
+] + PB_VARIANTS
 
 
 def build_hi(v):

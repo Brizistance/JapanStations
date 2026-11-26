@@ -124,13 +124,7 @@ def rest(p, s, v, rng):
     H = ys[-1]
     wall = v['wall'] if v['style'] != 'curtain' else v['trim']
     p.box(wall, x0, 0, R, x1, H, D)
-    for y in ys[:-1]:                              # side and back windows, flat
-        if not v.get('corner'):
-            p.box(WINDOW, x0 - 0.02, y + 0.9, 2.0, x0, y + FH - 0.5, D - 2.0)
-        for k in range(4):
-            xc = x0 + v['w'] * (k + 0.5) / 4
-            p.box(WINDOW, xc - 1.0, y + 0.9, D, xc + 1.0, y + FH - 0.7, D + 0.02)
-        p.box(WINDOW, x1, y + 1.0, D * 0.3, x1 + 0.02, y + 2.4, D * 0.3 + 1.2)
+    # (The back and side windows are backs()'s, framed: build_hi.)
     # Roof.
     p.box(ROOF, x0 + 0.25, H, R, x1 - 0.25, H + 0.03, D - 0.25)
     for a, b, c, d in ((x0, R, x0 + 0.25, D), (x1 - 0.25, R, x1, D), (x0, D - 0.25, x1, D)):
