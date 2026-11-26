@@ -37,6 +37,7 @@ def winx(p, z0, y0, z1, y1, x, out, frame=FRAME, glass=WINDOW):
     """A framed window on a wall in the plane x, facing out (+1 or -1 along x)."""
     p.box(frame, x, y0, z0, x + out * 0.05, y1, z1)
     p.box(glass, x + out * 0.05, y0 + 0.06, z0 + 0.06, x + out * 0.06, y1 - 0.06, z1 - 0.06)
+    win_dress(p, z0, y0, z1, y1, None, glass, lambda a0, b0, a1, b1, n0, n1, m: p.box(m, min(x + out * n0, x + out * n1), b0, a0, max(x + out * n0, x + out * n1), b1, a1))
 
 
 def rows(a0, a1, bay):

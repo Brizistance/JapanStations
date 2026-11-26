@@ -66,7 +66,23 @@ function World() {
     scene.fog = new THREE.Fog(SKY.clone(), 300, 1700);
     scene.background = SKY.clone();
     camera.rotation.order = 'YXZ';
+    // A newly built station: its shaders compiled (in the background where the browser can) and its sign textures
+    // uploaded a few dozen a frame before it is shown, so its first frame on screen does not stall.
+    view.prepare = async (o) => {
+      await gl.compileAsync(o, camera, scene);
+      const maps = new Set<THREE.Texture>();
+      o.traverse((m) => {
+        const mat = (m as THREE.Mesh).material as THREE.MeshBasicMaterial | THREE.MeshBasicMaterial[] | undefined;
+        for (const x of Array.isArray(mat) ? mat : mat ? [mat] : []) if (x.map) maps.add(x.map);
+      });
+      let k = 0;
+      for (const t of maps) {
+        gl.initTexture(t);
+        if (++k % 24 === 0) await new Promise((r) => requestAnimationFrame(r));
+      }
+    };
     return () => {
+      view.prepare = null;
       view.dispose();
       lighting.current?.dispose();
       lighting.current = null;

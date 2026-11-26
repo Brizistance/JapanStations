@@ -64,6 +64,11 @@ function ledMaterial(tex: THREE.CanvasTexture, W: number, H: number): THREE.Mate
   return mat;
 }
 
+/** Draw one sign into `cache` ahead of building a SignSet from it (a station mount spreads this over frames). */
+export function prepareSign(cache: SignCache, c: SignContent, w: number, h: number) {
+  entry(cache, c, w, h);
+}
+
 function entry(cache: SignCache, c: SignContent, w: number, h: number): Entry {
   const k = signKey(c, w, h);
   let e = cache.get(k);

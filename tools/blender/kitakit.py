@@ -125,6 +125,12 @@ def grid(p, x0, x1, z0, z1, y0, y1, wall, fh=3.8, bay=3.2, ww=1.9, wh=1.9, sill=
                 if frame:
                     quad(p, frame, face, c - ww / 2 - 0.08, c + ww / 2 + 0.08, y - 0.08, y + wh + 0.08, out(face, at, 0.015))
                 quad(p, WINDOW, face, c - ww / 2, c + ww / 2, y, y + wh, out(face, at, 0.03), col=glass)
+                # A sill, a mullion on the wide ones, a blind down in some.
+                slab(p, frame or 'flat:#b9b6ae', face, c - ww / 2 - 0.1, c + ww / 2 + 0.1, y - 0.12, y - 0.04, at, 0.12)
+                if ww > 1.3:
+                    slab(p, frame or 'flat:#6f7378', face, c - 0.03, c + 0.03, y, y + wh, at, 0.07)
+                if p.lit.random() < 0.35:
+                    quad(p, 'flat:#e4e2da', face, c - ww / 2 + 0.04, c + ww / 2 - 0.04, y + wh * (0.45 + 0.4 * p.lit.random()), y + wh - 0.04, out(face, at, 0.035))
 
 
 def ribbon(p, x0, x1, z0, z1, y0, y1, wall, fh=3.8, wh=1.7, sill=1.1, chunk=4.5, which='fblr', glass=WINDOW, body=True):
@@ -138,7 +144,12 @@ def ribbon(p, x0, x1, z0, z1, y0, y1, wall, fh=3.8, wh=1.7, sill=1.1, chunk=4.5,
         for i in range(n):
             y = y0 + i * fh + sill
             for k in range(m):
-                quad(p, WINDOW, face, a0 + 0.5 + k * cw + 0.05, a0 + 0.5 + (k + 1) * cw - 0.05, y, y + wh, out(face, at, 0.03), col=glass)
+                u0, u1 = a0 + 0.5 + k * cw + 0.05, a0 + 0.5 + (k + 1) * cw - 0.05
+                quad(p, WINDOW, face, u0, u1, y, y + wh, out(face, at, 0.03), col=glass)
+                # Mullions about every 1.5 m, a sill line under the band.
+                for c in rows(u0, u1, 1.5)[1:]:
+                    slab(p, 'flat:#6f7378', face, c - (u1 - u0) / max(1, round((u1 - u0) / 1.5)) / 2 - 0.03, c - (u1 - u0) / max(1, round((u1 - u0) / 1.5)) / 2 + 0.03, y, y + wh, at, 0.06)
+                slab(p, 'flat:#b9b6ae', face, u0 - 0.05, u1 + 0.05, y - 0.1, y - 0.03, at, 0.1)
 
 
 def fins(p, mat, x0, x1, z0, z1, y0, y1, bay, w=0.3, proud=0.5, which='fblr'):

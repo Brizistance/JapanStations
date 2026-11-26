@@ -4,6 +4,7 @@ export { plan } from './plan';
 
 import { player } from '../player/player';
 import { perfStats } from '../render/perf';
+import { mountLog } from '../render/world-view';
 import { DISTRICT_WORLDS, stationWorld } from '../stations';
 import { useUI } from '../ui/store';
 import { FILL_SPOTS } from '../stations/fill';
@@ -105,4 +106,9 @@ export const scene = () => perfStats.scene;
 /** This frame's cost: draw calls and triangles over every pass, and the frame's smoothed JavaScript time in ms. */
 export function perf() {
   return { calls: perfStats.calls, tris: perfStats.tris, ms: Math.round(perfStats.ms * 10) / 10 };
+}
+
+/** Station mounts so far: build time, longest single step (the worst hitch it caused) and frames taken, ms. */
+export function mounts() {
+  return mountLog;
 }

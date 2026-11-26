@@ -172,7 +172,7 @@ def build_hi(v):
     terrace(p, s, v, rng)
     upper(p, s, v, rng)
     roof(p, v, rng)
-    backs(p, v['w'], v['d'], levels(v), rng, fire=v['floors'] >= 5, signs=s, side_z=(TER, v['d']))
+    backs(p, v['w'], v['d'], levels(v), rng, fire=v['floors'] >= 5, signs=s, side_z=(TER, v['d']), use='home')
     return p, s
 
 

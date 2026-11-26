@@ -1,10 +1,11 @@
 // The teleport transition: fade to dark with the station's name card, move the player
-// while the screen is covered, let a few frames draw there (shaders and textures for the
+// while the screen is covered, wait for the stations there to be built, let a few frames draw there (shaders and textures for the
 // new view are prepared out of sight), then fade back in.
 
 import { useEffect, useState } from 'react';
 import { ALL_STATIONS, linesAt, stationById } from '../data/network';
 import { clearInput, teleport } from '../player/player';
+import { mountWait } from '../render/world-view';
 import { NumberBadge } from './MetroMap';
 import { useUI } from './store';
 
@@ -12,6 +13,8 @@ const COVER_MS = 250;
 const HOLD_MS = 700; // from the start until the reveal begins, if the new view is ready
 const REVEAL_MS = 300;
 const WARM_FRAMES = 3;
+/** Longest the cover waits for the stations around the new spot to be built (WorldView mounts them a step at a time). */
+const BUILD_MAX_MS = 8000;
 
 const frames = (n: number) =>
   new Promise<void>((done) => {
@@ -37,6 +40,9 @@ export function Travel() {
       teleport(travel.id);
       clearInput();
       if (useUI.getState().mode !== 'play') useUI.setState({ mode: 'play' });
+      await frames(WARM_FRAMES);
+      const until = performance.now() + BUILD_MAX_MS;
+      while (live && mountWait.busy && performance.now() < until) await frames(1);
       await frames(WARM_FRAMES);
       await wait(Math.max(0, HOLD_MS - (performance.now() - t0)));
       if (!live) return;

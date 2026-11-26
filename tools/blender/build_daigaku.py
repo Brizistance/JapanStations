@@ -314,7 +314,7 @@ def library(p, s, v, r):
     mark('_door', 0, 0, 0, DOOR_W, DOOR_H)
     mark('_tower', 0, 0, tz1 / 2, TW_W, tz1)
     mark('_front', 0, 0, zf, w, d - zf)
-    backs(p, w, d, [5.0, 10.5, H], r, sides=(), back=True)
+    backs(p, w, d, [5.0, 10.5, H], r, sides=(), back=True, use='office')
 
 
 # ═════════════════════════ Lecture halls and the cafeteria ═════════════════════════
@@ -357,7 +357,7 @@ def hall(p, s, v, r):
     for sx in (-1, 1):
         e = sx * (w / 2 + 0.35)
         p.face(SLATE, [(e, h, -0.35), (e, h, d + 0.35), (e - sx * rh * 1.3, h + rh, d - rh * 1.3), (e - sx * rh * 1.3, h + rh, rh * 1.3)], (sx, 0.6, 0))
-    backs(p, w, d, fl[1:] + [h], r, sides=(-1, 1), back=True)
+    backs(p, w, d, fl[1:] + [h], r, sides=(-1, 1), back=True, use='office')
 
 
 def shokudo(p, s, v, r):
@@ -381,7 +381,7 @@ def shokudo(p, s, v, r):
     p.box(CONCR, x0 - 0.3, h - 0.8, -0.4, x1 + 0.3, h, d + 0.2)
     board(p, 'name', 'f', x0 + 2.0, x0 + 12.0, h - 0.7, h - 0.1, -0.4, 'flat:#f4f1e8', 0.04)
     roof_plant(p, x0, x1, h, 1.0, d - 1.0, seed=v['seed'])
-    backs(p, w, d, [4.6, h], r, sides=(-1, 1), back=True)
+    backs(p, w, d, [4.6, h], r, sides=(-1, 1), back=True, use='office')
 
 
 def auditorium(p, s, v, r):
@@ -452,7 +452,7 @@ def auditorium(p, s, v, r):
     pyramid(p, COPPER, tx0 - 0.2, tx1 + 0.2, zt - 0.2, 6.2, TH + 0.5, 7.5)
     p.box(IRON, -0.05, TH + 7.8, (zt + 6.0) / 2 - 0.05, 0.05, TH + 10.0, (zt + 6.0) / 2 + 0.05)
     mark('_tower', 0, 0, (zt + 6.0) / 2, T, 6.0 - zt)
-    backs(p, w, d, [9.8, h], r, sides=(-1, 1), back=True)
+    backs(p, w, d, [9.8, h], r, sides=(-1, 1), back=True, use='office')
 
 
 STYLES = {'wall': wall, 'gate': gate, 'gatehouse': gatehouse, 'sidegate': sidegate, 'library': library, 'hall': hall, 'shokudo': shokudo, 'auditorium': auditorium}

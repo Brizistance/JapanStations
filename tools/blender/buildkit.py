@@ -347,6 +347,7 @@ def look(cam, loc, target):
 WINDOW = 'flat:#2b3740'
 SHOPGLASS = 'flat:#4a5a5e'
 FRAME = 'flat:#3a3d42'
+FRAME_LT = 'flat:#c4c8cb'   # aluminium window frames on backs and sides
 DARK = 'flat:#1d1f22'
 CONC = 'flat:#8d8f8c'
 ROOF = 'flat:#6c7074'
@@ -396,6 +397,29 @@ def win(p, x0, y0, x1, y1, z, out=-1, frame=FRAME, glass=WINDOW):
     if x1 - x0 > 1.1:
         m = (x0 + x1) / 2
         p.box(frame, m - 0.025, y0, z + out * 0.05, m + 0.025, y1, z + out * 0.075)
+    win_dress(p, x0, y0, x1, y1, lambda n: z + out * n, glass, lambda a0, b0, a1, b1, n0, n1, m: p.box(m, a0, b0, min(z + out * n0, z + out * n1), a1, b1, max(z + out * n0, z + out * n1)))
+
+
+CURTAIN_COLS = ['flat:#efe9dc', 'flat:#e6dccb', 'flat:#dfe6ea', 'flat:#e9e1d3', 'flat:#d9cfc0', 'flat:#c9d3d8']
+
+
+def win_dress(p, a0, y0, a1, y1, at, glass, box):
+    """What makes a window more than a framed square (shared by win() and winx()): a sill under it, and behind
+    ordinary glass a curtain drawn to one side or a blind half down. `box(a0, y0, a1, y1, n0, n1, mat)` draws a box
+    n0 … n1 out from the wall."""
+    if y0 > 0.5:
+        box(a0 - 0.08, y0 - 0.1, a1 + 0.08, y0 - 0.03, 0.0, 0.12, 'flat:#b9b6ae')
+    if glass != WINDOW or y1 - y0 < 0.5:
+        return
+    r = p.lit.random()
+    w = a1 - a0
+    c = CURTAIN_COLS[int(p.lit.random() * len(CURTAIN_COLS))]
+    if r < 0.4:
+        cw = w * (0.2 + 0.25 * p.lit.random())
+        lo = a0 + 0.07 if p.lit.random() < 0.5 else a1 - 0.07 - cw
+        box(lo, y0 + 0.08, lo + cw, y1 - 0.08, 0.061, 0.063, c)
+    elif r < 0.65:
+        box(a0 + 0.07, y1 - 0.08 - (y1 - y0 - 0.16) * (0.2 + 0.5 * p.lit.random()), a1 - 0.07, y1 - 0.08, 0.061, 0.063, c)
 
 
 def wall_ac(p, plane, at, out, y, c, stack=1):
@@ -428,44 +452,219 @@ def wall_lamp(p, plane, at, out, y, c):
     box('light', 0.24, 0.4, y - 0.02, y + 0.1, c - 0.08, c + 0.08)
 
 
-def backs(p, w, d, ys, rng, sides=(-1, 1), back=True, fire=False, wall=None, signs=None, side_z=None):
+def _hexcol(lin):
+    def enc(c):
+        c = max(0.0, min(1.0, c))
+        return c * 12.92 if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055
+    return '#%02x%02x%02x' % tuple(int(round(enc(c) * 255)) for c in lin[:3])
+
+
+def shade(hexcol, k):
+    """A hex colour made darker (k < 1) or paler towards white (k > 1)."""
+    h = hexcol.split('#')[-1]
+    rgb = [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+    if k <= 1:
+        rgb = [c * k for c in rgb]
+    else:
+        rgb = [c + (255 - c) * (k - 1) for c in rgb]
+    return 'flat:#%02x%02x%02x' % tuple(max(0, min(255, int(round(c)))) for c in rgb)
+
+
+def wall_tone(p, n, fallback='#c9c4b8'):
+    """The colour of the biggest painted face already in p that looks along game direction n = (x, z):
+    the wall backs() is dressing, so its grime, bands and plinth can be a shade of it."""
+    if PAINT not in p.mats:
+        return fallback
+    paint = p.mats.index(PAINT)
+    best, area = None, 3.0
+    for f in p.bm.faces:
+        if f.material_index != paint:
+            continue
+        a = f.calc_area()
+        if a <= area:
+            continue
+        f.normal_update()
+        gx, gz = f.normal.x, -f.normal.y
+        if abs(f.normal.z) > 0.2 or gx * n[0] + gz * n[1] < 0.95:
+            continue
+        best, area = f.loops[0][p.col], a
+    return _hexcol(best) if best is not None else fallback
+
+
+# Column kinds per use: (back, sides). See backs().
+USE_KINDS = {
+    'home': (['win', 'win', 'narrow', 'frost', 'pair', 'balc', 'balc', 'blank'], ['win', 'narrow', 'frost', 'win', 'blank']),
+    'shop': (['win', 'win', 'narrow', 'frost', 'pair', 'blank'], ['win', 'narrow', 'frost', 'blank']),
+    'office': (['wide', 'wide', 'win', 'frost'], ['wide', 'win', 'blank']),
+}
+BINS = ['flat:#2f5d8a', 'flat:#3d6b45', 'flat:#8a8d90', 'flat:#c9a227']
+
+
+def bike(p, x, z):
+    """A bicycle parked along a back wall (the plane z = const behind it), wheels at x and x + 1.05."""
+    for wx in (x, x + 1.05):
+        p.ring('flat:#26282b', (wx, 0.34, z), 0.31, 0.025, seg=12, sub=3)
+    p.box('flat:#8a2a24', x + 0.05, 0.36, z - 0.015, x + 1.0, 0.4, z + 0.015)
+    p.box('flat:#8a2a24', x + 0.45, 0.38, z - 0.015, x + 0.49, 0.82, z + 0.015)
+    p.box('flat:#8a2a24', x + 0.45, 0.62, z - 0.015, x + 1.0, 0.66, z + 0.015)
+    p.box('flat:#1d1f22', x + 0.35, 0.82, z - 0.06, x + 0.6, 0.86, z + 0.06)          # saddle
+    p.box(STEEL, x + 0.98, 0.66, z - 0.015, x + 1.02, 0.95, z + 0.015)
+    p.box('flat:#1d1f22', x + 0.96, 0.95, z - 0.25, x + 1.04, 0.98, z + 0.25)          # bars
+    p.box(STEEL, x + 1.05, 0.72, z - 0.15, x + 1.32, 0.96, z + 0.15)                   # basket
+
+
+def _laundry(p, rng, face, a0, a1, y, at, n):
+    """Washing on a pole across a balcony: towels and shirts hung from it, n metres out from the wall."""
+    import detailkit as dk
+    dk.wb(p, STEEL, face, a0 + 0.1, a1 - 0.1, y + 1.72, y + 1.75, at, n, n + 0.03)
+    c = a0 + 0.2
+    while c < a1 - 0.5:
+        w = rng.uniform(0.3, 0.7)
+        if rng.random() < 0.75:
+            dk.wb(p, rng.choice(dk.LAUNDRY), face, c, min(c + w, a1 - 0.15), y + rng.uniform(0.95, 1.25), y + 1.72, at, n - 0.01, n + 0.02)
+        c += w + rng.uniform(0.05, 0.3)
+
+
+def _column(p, rng, face, c, y, at, kd, tone, k, lo, hi):
+    """One storey of one column of a back or side wall (see _wall): the opening of kind kd centred on c."""
+    import detailkit as dk
+    streak = shade(tone, 0.82)
+    if kd == 'win':
+        a0, a1, y0, y1 = c - 0.6, c + 0.6, y + 0.95, y + 2.1
+        dk.fwin(p, rng, face, a0, a1, y0, y1, at, FRAME_LT, dk.GLASS_L)
+    elif kd == 'narrow':
+        a0, a1, y0, y1 = c - 0.35, c + 0.35, y + 1.0, y + 2.2
+        dk.fwin(p, rng, face, a0, a1, y0, y1, at, FRAME_LT, dk.GLASS_L, mull=False)
+    elif kd == 'frost':
+        a0, a1, y0, y1 = c - 0.3, c + 0.3, y + 1.55, y + 2.15
+        dk.fwin(p, rng, face, a0, a1, y0, y1, at, FRAME_LT, dk.GLASS_LW, mull=False, curtain=False)
+        dk.wb(p, 'flat:#d9d6cc', face, c + 0.45, c + 0.7, y0 + 0.1, y0 + 0.35, at, 0.0, 0.14)   # bathroom fan hood
+        dk.wb(p, DARK, face, c + 0.47, c + 0.68, y0 + 0.1, y0 + 0.14, at, 0.14, 0.145)
+    elif kd == 'pair':
+        a0, a1, y0, y1 = c - 1.0, c + 1.0, y + 1.1, y + 2.15
+        dk.fwin(p, rng, face, c - 1.0, c - 0.12, y0, y1, at, FRAME_LT, dk.GLASS_L, mull=False)
+        dk.fwin(p, rng, face, c + 0.12, c + 1.0, y0, y1, at, FRAME_LT, dk.GLASS_LW, mull=False, curtain=False)
+    elif kd == 'wide':
+        a0, a1, y0, y1 = c - 1.15, c + 1.15, y + 0.85, y + 2.3
+        dk.fwin(p, rng, face, a0, a1, y0, y1, at, FRAME_LT, dk.GLASS_L, curtain=False)
+        if rng.random() < 0.5:
+            dk.quad(p, 'flat:#e4e2da', face, a0 + 0.03, a1 - 0.03, y1 - rng.uniform(0.25, 0.7), y1 - 0.03, dk.out(face, at, 0.045))  # a blind
+    elif kd == 'balc':
+        a0, a1, y0, y1 = c - 0.8, c + 0.8, y + 0.1, y + 2.15
+        dk.fwin(p, rng, face, a0, a1, y0, y1, at, FRAME_LT, dk.GLASS_L, sill=False)
+        if k:
+            dk.juliet(p, face, c - 1.1, c + 1.1, y, at)
+            if rng.random() < 0.55:
+                _laundry(p, rng, face, c - 1.1, c + 1.1, y, at, 0.55)
+            if rng.random() < 0.35:
+                dk.wb(p, ACU, face, c + 0.2, c + 0.95, y, y + 0.6, at, 0.25, 0.55)
+        return
+    else:
+        return
+    # Rain streaks down from the ends of some sills, an AC unit beside some windows.
+    if rng.random() < 0.45:
+        for e in (a0, a1 - 0.1) if rng.random() < 0.6 else (a0 + rng.uniform(0, a1 - a0 - 0.1),):
+            dk.wb(p, streak, face, e, e + 0.1, y0 - 0.15 - rng.uniform(0.4, 1.3), y0 - 0.15, at, 0.0, 0.006)
+    if k and kd in ('win', 'narrow', 'pair') and rng.random() < 0.32:
+        side = 1 if rng.random() < 0.5 else -1
+        ca = (a1 + 0.55) if side > 0 else (a0 - 0.55)
+        if lo + 0.5 < ca < hi - 0.5:
+            dk.ac(p, face, ca, y + 0.2, at)
+
+
+def _wall(p, rng, face, a0, a1, at, floors, G, H, tone, kinds, bay=2.8, skip=None):
+    """A back or side wall that reads as lived in: per column of bays one kind of opening kept up the wall, a
+    slab band at each floor, a darker plinth, rain streaks under the sills, AC units, downpipes with brackets."""
+    import detailkit as dk
+    plan = []
+    for c in (dk.rows(a0 + 0.7, a1 - 0.7, bay) if a1 - a0 > 2.2 else []):
+        kd = rng.choice(kinds)
+        if skip and skip[0] - 1.2 < c < skip[1] + 1.2:
+            kd = 'narrow' if kd == 'balc' else kd
+        plan.append((c, kd))
+    # Plinth, slab bands, a coping line under the parapet.
+    dk.wb(p, shade(tone, 0.7), face, a0, a1, 0.0, 0.4, at, 0.0, 0.035)
+    for y in floors:
+        dk.wb(p, shade(tone, 0.9), face, a0, a1, y - 0.12, y + 0.05, at, 0.0, 0.04)
+    dk.wb(p, shade(tone, 1.25), face, a0, a1, H - 0.18, H, at, 0.0, 0.05)
+    dk.wb(p, shade(tone, 0.9), face, a0, a1, H - 0.75, H - 0.18, at, 0.0, 0.004)   # grime under the edge
+    for k, y in enumerate(floors):
+        for c, kd in plan:
+            _column(p, rng, face, c, y, at, kd, tone, k, a0, a1)
+    return plan
+
+
+def backs(p, w, d, ys, rng, sides=(-1, 1), back=True, fire=False, wall=None, signs=None, side_z=None, kinds=None, use='shop'):
     """Detail for the back (z = d, facing +z) and the sides (x = ±w/2, facing out) of a building
-    whose upper storeys start at ys[:-1] (ys[-1] is the roof): windows in rows, drain and gas
-    pipes, air-conditioning units on brackets, electricity meters, a back door, and on tall
-    buildings a steel fire-escape stair. Seen from back lanes and the gaps between buildings."""
+    whose upper storeys start at ys[:-1] (ys[-1] is the roof): framed windows of light glass with sills and
+    curtains, kept up the wall per column (a window, a pair, a narrow or frosted one, a small balcony with washing),
+    slab bands, a plinth and rain streaks in a shade of the wall, AC units, drain and gas pipes, meters, a back door
+    with bins and a bicycle, and on tall buildings a steel fire-escape stair. Seen from back lanes, car parks and
+    the gaps between buildings. `use`: 'home' (balconies with washing, bicycles), 'shop' (the default: shops,
+    bars and small firms, no balconies) or 'office' (wide windows with blinds, no clutter). `kinds` overrides
+    the column kinds for the back."""
+    import detailkit as dk
     x0, x1 = -w / 2, w / 2
     H = ys[-1]
     G = ys[0] if len(ys) > 1 else 3.0
     floors = ys[:-1]
     if back:
-        # Windows on every upper floor, a few lit at night.
-        n = max(1, int((w - 0.8) / 2.2))
-        for y in floors:
-            for k in range(n):
-                xa = x0 + 0.6 + k * (w - 1.2) / n + 0.3
-                xb = xa + min(1.1, (w - 1.2) / n - 0.6)
-                if xb - xa < 0.4:
-                    continue
-                win(p, xa, y + 0.9, xb, y + 2.0, d, out=1, glass=WINDOW_LIT)
-                if rng.random() < 0.4 and xb + 1.0 < x1 - 0.3:
-                    wall_ac(p, 'z', d, 1, y + 0.2, xb + 0.55, 2 if rng.random() < 0.35 else 1)
-        # A back door with a small canopy, meters beside it, a drain pipe and a gas pipe.
+        tone = wall_tone(p, (0, 1))
+        fx = (x1 - 2.6, x1 - 0.4) if fire and w >= 5.5 and len(floors) >= 3 else None
+        _wall(p, rng, 'b', x0, x1, d, floors, G, H, tone, kinds or USE_KINDS[use][0], skip=fx)
+        # A back door with a small canopy and a lamp, meters beside it, a barred kitchen window and its vent
+        # hood, a drain pipe and a gas pipe, bins and sometimes a bicycle.
         dx = x0 + 0.5 if w > 3 else x0 + 0.2
+        dk.wb(p, shade(tone, 0.85), 'b', dx - 0.08, dx + 0.98, 0, 2.18, d, 0.0, 0.03)
         p.box('flat:#3a3d42', dx, 0, d, dx + 0.9, 2.1, d + 0.04)
+        p.box(STEEL, dx + 0.72, 0.95, d + 0.04, dx + 0.8, 1.0, d + 0.09)
         p.box('flat:#5f6266', dx - 0.1, 2.2, d, dx + 1.0, 2.26, d + 0.6)
         wall_lamp(p, 'z', d, 1, 2.55, dx + 0.45)
         p.box('flat:#d9d5c4', dx + 1.15, 1.2, d, dx + 1.6, 1.75, d + 0.18)
         p.box('flat:#d9d5c4', dx + 1.15, 0.5, d, dx + 1.6, 0.95, d + 0.18)
-        p.cyl('flat:#6f726b', (x1 - 0.25, H / 2, d + 0.08), 1, 0.05, H, seg=6, caps=False)
+        p.box(DARK, dx + 1.25, 1.4, d + 0.18, dx + 1.5, 1.6, d + 0.185)
+        kx = dx + 2.3
+        if kx + 1.0 < (fx[0] if fx else x1 - 0.5) and G > 2.6:
+            dk.fwin(p, rng, 'b', kx, kx + 0.9, 1.15, 1.95, d, FRAME_LT, dk.GLASS_LW, mull=False, curtain=False)
+            for k in range(6):
+                bx = kx + 0.06 + k * 0.155
+                dk.wb(p, STEEL, 'b', bx, bx + 0.022, 1.08, 2.02, d, 0.09, 0.11)
+            dk.wb(p, STEEL, 'b', kx - 0.03, kx + 0.93, 1.08, 1.11, d, 0.0, 0.11)
+            dk.wb(p, STEEL, 'b', kx - 0.03, kx + 0.93, 1.99, 2.02, d, 0.0, 0.11)
+            dk.wb(p, 'flat:#b9b6ac', 'b', kx + 1.15, kx + 1.5, 2.15, 2.45, d, 0.0, 0.25)
+            dk.wb(p, DARK, 'b', kx + 1.18, kx + 1.47, 2.15, 2.18, d, 0.02, 0.23)
+            bins_x = kx + 1.7
+        else:
+            bins_x = dx + 2.0
+        if bins_x + 1.3 < x1 - 0.3:
+            for k in range(1 + (rng.random() < 0.6)):
+                bc = rng.choice(BINS)
+                bx = bins_x + k * 0.68
+                p.box(bc, bx, 0, d + 0.12, bx + 0.6, 0.85, d + 0.7)
+                p.box(shade(bc.split(':')[1], 0.75), bx - 0.02, 0.85, d + 0.1, bx + 0.62, 0.92, d + 0.72)
+            bins_x += 1.5
+        if use == 'home' and rng.random() < 0.55 and bins_x + 1.5 < x1 - 0.3 and not (fx and bins_x + 1.5 > fx[0]):
+            bike(p, bins_x, d + 0.45)
+        dk.pipe(p, 'b', x1 - 0.25, 0.0, H, d)
         p.cyl('flat:#c9a227', (dx + 1.9, G / 2, d + 0.06), 1, 0.025, G, seg=5, caps=False)
-        if fire and w >= 5.5 and len(floors) >= 3:
+        dk.wb(p, 'flat:#2b2b2b', 'b', dx + 1.36, dx + 1.4, 1.75, H - 0.8, d, 0.0, 0.04)   # cable run up to the drop
+        if use != 'office' and floors and rng.random() < 0.3:
+            # A satellite dish on a bracket near the top.
+            sx = x0 + 0.8 + rng.random() * max(0.1, w - 2.5)
+            sy = H - 1.6
+            dk.wb(p, STEEL, 'b', sx - 0.03, sx + 0.03, sy - 0.3, sy, d, 0.0, 0.3)
+            p.cyl('flat:#e9e7e0', (sx, sy + 0.1, d + 0.36), 2, 0.32, 0.06, seg=12)
+            dk.wb(p, STEEL, 'b', sx - 0.02, sx + 0.02, sy + 0.08, sy + 0.12, d, 0.36, 0.7)
+        if fx:
             # Steel fire-escape: a landing at every upper floor, flights between them, rails.
-            fx0, fx1 = x1 - 2.6, x1 - 0.4
+            fx0, fx1 = fx
             for i, y in enumerate(floors):
                 p.box(STEEL, fx0, y - 0.08, d, fx1, y, d + 1.1)
                 p.box(STEEL, fx0, y + 1.0, d + 1.06, fx1, y + 1.04, d + 1.1)
                 for x in (fx0, fx1 - 0.04):
                     p.box(STEEL, x, y, d + 1.06, x + 0.04, y + 1.04, d + 1.1)
+                for x in [fx0 + 0.25 * j for j in range(1, int((fx1 - fx0) / 0.25))]:
+                    p.box(STEEL, x, y, d + 1.07, x + 0.018, y + 1.0, d + 1.09)
                 p.box('flat:#3a3d42', fx0 + 0.3, y, d - 0.01, fx0 + 1.1, y + 2.0, d + 0.02)
                 lo = floors[i - 1] if i else 0.0
                 steps = 10
@@ -477,26 +676,22 @@ def backs(p, w, d, ys, rng, sides=(-1, 1), back=True, fire=False, wall=None, sig
             p.box(STEEL, fx1, 0, d + 1.8, fx1 + 0.04, floors[-1] + 1.0, d + 1.85)
     for s in sides:
         x = x1 if s > 0 else x0
+        face = 'r' if s > 0 else 'l'
         # Where this side has a wall (an open stair, balconies or a corridor leave none): sz0 … sz1.
         sz0, sz1 = (side_z.get(s, (0.0, d)) if isinstance(side_z, dict) else side_z) if side_z else (0.0, d)
-        # Small windows along the side every 3.5 m, a pipe, an AC unit here and there.
-        for y in floors:
-            z = max(1.8, sz0 + 0.5)
-            while z < sz1 - 1.2:
-                za, zb = z, z + 0.9
-                p.box(FRAME, min(x, x + s * 0.05), y + 1.0, za, max(x, x + s * 0.05), y + 2.0, zb)
-                p.box(WINDOW_LIT, min(x + s * 0.05, x + s * 0.06), y + 1.06, za + 0.06, max(x + s * 0.05, x + s * 0.06), y + 1.94, zb - 0.06)
-                if rng.random() < 0.4 and zb + 1.6 < sz1 - 0.2:
-                    wall_ac(p, 'x', x, s, y + 0.25, zb + 1.1, 2 if rng.random() < 0.4 else 1)
-                z += 3.5
+        if sz1 - sz0 < 1.0:
+            continue
+        tone = wall_tone(p, (s, 0))
+        _wall(p, rng, face, max(sz0, 1.1), sz1, x, floors, G, H, tone, USE_KINDS[use][1], bay=3.4)
         if sz1 - sz0 < 3.2:
             continue
-        p.cyl('flat:#6f726b', (x + s * 0.08, H / 2, sz1 - 0.6), 1, 0.05, H, seg=6, caps=False)
-        # Gas and water: a pipe up from the ground, meters at eye height, a vent, a cable run.
+        dk.pipe(p, face, sz1 - 0.6, 0.0, H, x)
+        # Gas and water: a pipe up from the ground, meters at eye height, a cable run.
         p.cyl('flat:#c9a227', (x + s * 0.06, G / 2, sz1 - 1.3), 1, 0.025, G, seg=5, caps=False)
         for zz in (sz1 - 2.2, sz1 - 2.75):
             if zz > sz0 + 0.1:
                 p.box('flat:#d9d5c4', min(x, x + s * 0.16), 1.25, zz, max(x, x + s * 0.16), 1.75, zz + 0.4)
+                p.box(DARK, min(x + s * 0.16, x + s * 0.165), 1.45, zz + 0.1, max(x + s * 0.16, x + s * 0.165), 1.62, zz + 0.3)
         p.box('flat:#2b2b2b', min(x, x + s * 0.04), 0.3, sz0 + 0.6, max(x, x + s * 0.04), H - 0.8, sz0 + 0.66)
         if s > 0 and H > 5:
             # The service drop comes in here: a bracket with insulators at the top of the cable run, the meter below.
@@ -505,9 +700,6 @@ def backs(p, w, d, ys, rng, sides=(-1, 1), back=True, fire=False, wall=None, sig
             p.box('flat:#d9d5c4', min(x, x + s * 0.18), 1.55, sz0 + 0.4, max(x, x + s * 0.18), 2.15, sz0 + 0.86)
         if floors and rng.random() < 0.55:
             wall_lamp(p, 'x', x, s, min(3.1, H - 0.6), sz1 - 1.6)
-        if floors:
-            zm = (sz0 + sz1) / 2
-            p.box('flat:#b9b6ac', min(x, x + s * 0.12), floors[0] + 2.3, zm, max(x, x + s * 0.12), floors[0] + 2.55, zm + 0.25)
         # A painted wall ad on a tall enough gable, high up where it shows over the neighbours.
         if signs is not None and H >= 9.5 and d >= 6 and rng.random() < 0.6:
             tall = rng.random() < 0.45
@@ -517,7 +709,7 @@ def backs(p, w, d, ys, rng, sides=(-1, 1), back=True, fire=False, wall=None, sig
                 za = sz0 + 0.8 + rng.random() * max(0.01, sz1 - sz0 - 1.6 - aw)
                 ya = H - 0.7 - ah
                 col = rng.choice(['#c8241c', '#1f5fae', '#e8a020', '#2f8f5a', '#f2efe6', '#6a3d8f', '#e86a1c'])
-                sign(signs, col, min(x, x + s * 0.08), ya, za, max(x, x + s * 0.08), ya + ah, za + aw)
+                sign(signs, col, min(x, x + s * 0.15), ya, za, max(x, x + s * 0.15), ya + ah, za + aw)
         if wall:
             p.box(wall, min(x, x + s * 0.02), H - 0.6, sz0 + 0.2, max(x, x + s * 0.02), H - 0.5, sz1)
 
@@ -662,3 +854,17 @@ def run(kind, variants, build_hi, build_lo):
 
     bpy.ops.wm.save_as_mainfile(filepath=blend, compress=True)
     print('SAVED', blend)
+
+
+def front_surface(p, rng, a0, a1, floors, H, at=0.0):
+    """The street wall's surface between a0 and a1 (the plane z = at, facing -z): a slab band at each upper floor
+    and a coping at the top in shades of the wall, grime under the coping and rain streaks running down from it."""
+    import detailkit as dk
+    tone = wall_tone(p, (0, -1))
+    for y in floors[1:]:
+        dk.wb(p, shade(tone, 0.9), 'f', a0, a1, y - 0.12, y + 0.05, at, 0.0, 0.04)
+    dk.wb(p, shade(tone, 1.25), 'f', a0, a1, H - 0.18, H, at, 0.0, 0.05)
+    dk.wb(p, shade(tone, 0.9), 'f', a0, a1, H - 0.6, H - 0.18, at, 0.0, 0.004)
+    for _ in range(int((a1 - a0) / 2.5)):
+        c = rng.uniform(a0 + 0.3, a1 - 0.4)
+        dk.wb(p, shade(tone, 0.84), 'f', c, c + rng.uniform(0.06, 0.14), H - 0.6 - rng.uniform(0.5, 2.2), H - 0.6, at, 0.0, 0.005)

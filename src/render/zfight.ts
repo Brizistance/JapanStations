@@ -7,17 +7,23 @@ import type { BoxPart } from '../world/builder';
 const SAME = 0.0011, MIN_SIDE = 0.02, MIN_AREA = 0.0004;
 
 export function separateCoplanar(boxes: BoxPart[], eps = 0.006): BoxPart[] {
+  const steps = separateCoplanarSteps(boxes, eps);
+  for (let s = steps.next(); ; s = steps.next()) if (s.done) return s.value;
+}
+
+/** `separateCoplanar` a face direction per step (a plot's 15 000 boxes take ~0.1 s: a station mount spreads it). */
+export function* separateCoplanarSteps(boxes: BoxPart[], eps = 0.006): Generator<string, BoxPart[]> {
   // Layers of three or more (an inlay on a panel on a wall) need a pass per layer.
   let out = boxes.filter((b) => b.mat !== 'none');
   for (let pass = 0; pass < 6; pass++) {
-    const r = onePass(out, eps);
+    const r = yield* onePass(out, eps);
     if (!r.moved) break;
     out = r.boxes;
   }
   return out;
 }
 
-function onePass(vis: BoxPart[], eps: number): { boxes: BoxPart[]; moved: number } {
+function* onePass(vis: BoxPart[], eps: number): Generator<string, { boxes: BoxPart[]; moved: number }> {
   // push[i] = bitmask over the six faces (axis*2 + (max ? 1 : 0)).
   const push = new Uint8Array(vis.length);
   for (let a = 0; a < 3; a++) {
@@ -33,25 +39,38 @@ function onePass(vis: BoxPart[], eps: number): { boxes: BoxPart[]; moved: number
         else buckets.set(k, [i]);
       });
       for (const [k, list] of buckets) {
-        // Pairs inside this bucket and with the next one up (so nothing near a bucket edge is missed).
+        // Pairs inside this bucket and with the next one up (so nothing near a bucket edge is missed): every pair with
+        // at least one box in this bucket. Swept along o1 so only boxes that overlap there are compared (a plot's
+        // ground plane holds thousands of boxes: comparing them all took ~0.2 s a mount, 2026-11-26).
         const next = buckets.get(k + 1) ?? [];
-        for (let p = 0; p < list.length; p++) {
-          const A = vis[list[p]];
-          const pa = hi ? A.max[a] : A.min[a];
-          for (const q of [...list.slice(p + 1), ...next]) {
-            const B = vis[q];
+        // rank: the order the pair loop used to take them in (this bucket in order, then the next), so that of two
+        // equal faces the same box as before is pushed.
+        const items = [...list.map((i, r) => ({ i, r, own: true })), ...next.map((i, r) => ({ i, r: list.length + r, own: false }))];
+        items.sort((x, y) => vis[x.i].min[o1] - vis[y.i].min[o1]);
+        const active: typeof items = [];
+        for (const it of items) {
+          const C = vis[it.i];
+          let n = 0;
+          for (const o of active) if (vis[o.i].max[o1] >= C.min[o1] + MIN_SIDE) active[n++] = o;
+          active.length = n;
+          for (const o of active) {
+            if (!it.own && !o.own) continue;
+            const [pA, pB] = o.r < it.r ? [o, it] : [it, o];
+            const A = vis[pA.i], B = vis[pB.i];
             if (A.mat === B.mat) continue;
-            if (Math.abs(pa - (hi ? B.max[a] : B.min[a])) > SAME) continue;
+            if (Math.abs((hi ? A.max[a] : A.min[a]) - (hi ? B.max[a] : B.min[a])) > SAME) continue;
             const w1 = Math.min(A.max[o1], B.max[o1]) - Math.max(A.min[o1], B.min[o1]);
             const w2 = Math.min(A.max[o2], B.max[o2]) - Math.max(A.min[o2], B.min[o2]);
             if (w1 < MIN_SIDE || w2 < MIN_SIDE || w1 * w2 < MIN_AREA) continue;
             const fa = (A.max[o1] - A.min[o1]) * (A.max[o2] - A.min[o2]);
             const fb = (B.max[o1] - B.min[o1]) * (B.max[o2] - B.min[o2]);
-            const small = fa <= fb ? list[p] : q;
+            const small = fa <= fb ? pA.i : pB.i;
             push[small] |= 1 << (a * 2 + (hi ? 1 : 0));
           }
+          active.push(it);
         }
       }
+      yield 'coplanar faces';
     }
   }
   let moved = 0;

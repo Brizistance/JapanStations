@@ -160,7 +160,7 @@ def build_hi(v):
         ground(p, s, v2, rng)
         for q in (p, s):
             q.turned(None, 0)
-    backs(p, v['w'], v['d'], levels(v), rng, sides=(1,) if v.get('corner') else (-1, 1), fire=True, signs=s)
+    backs(p, v['w'], v['d'], levels(v), rng, sides=(1,) if v.get('corner') else (-1, 1), fire=True, signs=s, use='office')
     return p, s
 
 

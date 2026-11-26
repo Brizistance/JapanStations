@@ -106,7 +106,7 @@ def tenant(p, s, v, r):
     p.box(ROOF, x0 - 0.05, h, -0.05, x1 + 0.05, h + 0.5, d + 0.05)
     roof_frame(p, 'roof', x0 + 0.8, x1 - 3.0, h + 0.5, 1.2, 2.2)
     tank(p, x0 + 2.0, h + 0.5, d - 3.0)
-    backs(p, w, d, [3.6] + [4.9 + f * 3.3 for f in range(floors)] + [h], r, sides=(-1, 1), back=True, fire=True)
+    backs(p, w, d, [3.6] + [4.9 + f * 3.3 for f in range(floors)] + [h], r, sides=(-1, 1), back=True, fire=True, use='office')
 
 
 def tower(p, s, v, r):

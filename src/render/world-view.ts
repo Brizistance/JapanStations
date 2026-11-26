@@ -27,8 +27,8 @@ import { withEnvMod } from './lit';
 import { getMaterial } from './materials';
 import { buildLandAndWater, inVista, wetNear } from './water';
 import { isWater } from '../data/geography';
-import { GateSet, makeSigns, staticGroup } from './part-view';
-import { disposeCache, redrawLive, type SignCache, type SignSet } from './sign-set';
+import { disposeStatic, GateSet, makeSigns, staticGroup, staticSteps } from './part-view';
+import { disposeCache, prepareSign, redrawLive, type SignCache, type SignSet } from './sign-set';
 import type { SignContent } from '../signs/content';
 import { buildTrack, WIRE_H } from './track';
 import { stretchesOf, stretchRange } from './stretches';
@@ -194,13 +194,43 @@ const SKY_ENV: EnvMode = { kind: 'sky' };
 /** Faces looking into this box are the saloon: always lit by the car's own lights. */
 const carEnv = (half: number): EnvMode => ({ kind: 'car', min: [-half + 0.02, PF_H - 0.2, -CAR_HALF_W + 0.02], max: [half - 0.02, 3.4, CAR_HALF_W - 0.02] });
 
-function mountStation(w: StationWorld): StationView {
-  const group = new THREE.Group();
+/**
+ * Mounting a station a step at a time (2026-11-26): a mount took 0.5–1 s in one frame (merging ~0.5 s, drawing the
+ * signs ~0.3–0.4 s), so WorldView runs these steps within a few milliseconds a frame from 520 m out, and a teleport
+ * waits behind its fade (mountWait). Each step is one merged mesh, one simplified-copy cell, 150 models gathered or ~3 ms of signs.
+ * Dropped before it finishes (gen.return()), it frees what it built.
+ */
+function* mountStationSteps(w: StationWorld, group: THREE.Group): Generator<string, StationView> {
   group.position.set(w.frame.x, w.frame.y, w.frame.z);
   group.rotation.y = w.frame.yaw;
-  const st = staticGroup(w.build, STATION_ENV);
-  group.add(st.group);
+  const stGroup = new THREE.Group();
+  group.add(stGroup);
   const cache: SignCache = new Map();
+  let done = false;
+  try {
+    yield* staticSteps(w.build, stGroup);
+    let t = performance.now();
+    for (const s of w.build.signs) {
+      prepareSign(cache, s.content, s.w, s.h);
+      if (performance.now() - t > 3) {
+        yield `signs ${s.content.k}`;
+        t = performance.now();
+      }
+    }
+    yield 'signs';
+    const view = finishStation(w, group, stGroup, cache);
+    done = true;
+    return view;
+  } finally {
+    if (!done) {
+      disposeStatic(stGroup);
+      disposeCache(cache);
+    }
+  }
+}
+
+function finishStation(w: StationWorld, group: THREE.Group, stGroup: THREE.Group, cache: SignCache): StationView {
+  const st = { group: stGroup, dispose: () => disposeStatic(stGroup) };
   const signs = makeSigns(w.build, cache, undefined, true).group;
   group.add(signs);
   const layered = [...st.group.children, ...signs.children];
@@ -720,9 +750,27 @@ function buildBackdrop(): THREE.Group {
   return group;
 }
 
+/** A station within this mount distance of the camera is being stood in (a teleport): build it fast. */
+const URGENT = 150;
+/** Milliseconds a frame for building stations: while riding or walking, and while a teleport's fade covers the screen. */
+const BUDGET = 5, BUDGET_URGENT = 45;
+/** True while a station near the camera is still being built or prepared: the teleport fade waits for it. */
+export const mountWait = { busy: false };
+/** Dev readout (window.__sim.mounts()): per built station, its total build time, its longest single step and frames taken, ms. */
+export const mountLog: { id: string; total: number; step: number; what: string; frames: number }[] = [];
+
 export class WorldView {
   readonly root = new THREE.Group();
   private stations = new Map<string, StationView>();
+  /** Stations being built a step at a time (mountStationSteps), with their mount distance this frame. */
+  private jobs = new Map<string, { gen: Generator<string, StationView>; d: number; total: number; step: number; frames: number; what: string }>();
+  /** Built stations whose shaders are being prepared before they are shown; true if near the camera. */
+  private preparing = new Map<string, boolean>();
+  /**
+   * Prepares a built station before it joins the scene (Scene.tsx: compiles its shaders, uploads its textures), so
+   * its first frame on screen does not stall. Without it a station is shown as soon as it is built.
+   */
+  prepare: ((o: THREE.Object3D) => Promise<unknown>) | null = null;
   private trainViews = new Map<string, TrainView>();
   private liveTimer = 0;
   private fastTimer = 0;
@@ -771,6 +819,44 @@ export class WorldView {
     }, (e) => console.warn('building models not loaded:', e));
   }
 
+  /** Build the queued stations, nearest first, within this frame's budget; prepare and show the finished ones. */
+  private runJobs() {
+    const urgent = [...this.jobs.values()].some((j) => j.d < URGENT);
+    const t0 = performance.now(), budget = urgent ? BUDGET_URGENT : BUDGET;
+    for (const [id, job] of [...this.jobs].sort((a, b) => a[1].d - b[1].d)) {
+      job.frames++;
+      while (performance.now() - t0 < budget) {
+        const s0 = performance.now();
+        const r = job.gen.next();
+        const took = performance.now() - s0;
+        job.total += took;
+        if (took > job.step) {
+          job.step = took;
+          job.what = r.done ? 'finish' : r.value;
+        }
+        if (!r.done) continue;
+        this.jobs.delete(id);
+        if (import.meta.env.DEV) mountLog.push({ id, total: Math.round(job.total), step: Math.round(job.step), what: job.what, frames: job.frames });
+        this.show(id, r.value, job.d < URGENT);
+        break;
+      }
+      if (performance.now() - t0 >= budget) break;
+    }
+    mountWait.busy = urgent || [...this.preparing.values()].some(Boolean);
+  }
+
+  /** A station is built: it counts as mounted now, and joins the scene once prepared. */
+  private show(id: string, v: StationView, near: boolean) {
+    this.stations.set(id, v);
+    const add = () => {
+      this.preparing.delete(id);
+      if (this.stations.get(id) === v) this.root.add(v.group);
+    };
+    if (!this.prepare) return add();
+    this.preparing.set(id, near);
+    this.prepare(v.group).then(add, add);
+  }
+
   /** Per-frame updates of the running lines (tunnel signals that follow the trains). */
   private trackTicks: ((time: number) => void)[] = [];
 
@@ -781,6 +867,10 @@ export class WorldView {
 
   /** Stations mounted before the building models arrived are dropped; update() mounts them again. */
   private resetBuildings() {
+    for (const [id, job] of this.jobs) {
+      job.gen.return(undefined as never);
+      this.jobs.delete(id);
+    }
     for (const w of WORLDS) {
       const v = this.stations.get(w.def.id);
       if (!v || !w.build.models.length) continue;
@@ -806,7 +896,6 @@ export class WorldView {
     updateLod(cam);
     // Stations: at most one mount per frame to spread the cost.
     for (const tick of this.trackTicks) tick(clock.time);
-    let mounted = false;
     // Departure boards in the station around the player redraw at ~15 Hz (scrolling tickers).
     this.fastTimer -= dt;
     const fast = this.fastTimer <= 0;
@@ -820,11 +909,13 @@ export class WorldView {
       const d = mountDist(w, cam.x, cam.z);
       const v = this.stations.get(w.def.id);
       if (v && fast && d < FAST_RANGE) redrawLive(v.cache, true);
-      if (!v && d < IN && !mounted) {
-        const nv = mountStation(w);
-        this.stations.set(w.def.id, nv);
-        this.root.add(nv.group);
-        mounted = true;
+      const job = this.jobs.get(w.def.id);
+      if (!v && d < IN) {
+        if (job) job.d = d;
+        else this.jobs.set(w.def.id, { gen: mountStationSteps(w, new THREE.Group()), d, total: 0, step: 0, frames: 0, what: '' });
+      } else if (job && d > OUT) {
+        job.gen.return(undefined as never);
+        this.jobs.delete(w.def.id);
       } else if (v && d > OUT) {
         this.root.remove(v.group);
         v.dispose();
@@ -874,6 +965,7 @@ export class WorldView {
         for (const l of v.xingLamps) if (l.left === leftOn && crossingState(l.line, l.key, clock.time).on) xingLights.push(l);
       }
     }
+    this.runJobs();
 
     // Trains.
     this.liveTimer -= dt;

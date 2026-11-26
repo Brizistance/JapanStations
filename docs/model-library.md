@@ -4,6 +4,8 @@ Every building set in `assets/buildings/<set>.blend` (built by `tools/blender/bu
 
 Written from each script's head comment, not from looking at the models: open the script for the pieces and sizes.
 
+**Backs, sides and windows are shared** (2026-11-26): `buildkit.backs(..., use='home'|'shop'|'office')` dresses every back and side wall (framed light windows with curtains, balconies with washing for homes, bands, plinth, streaks in the wall's own shade, bins, bikes); `win()`/`winx()`/kitakit `grid()`/`ribbon()` add sills, curtains, blinds and mullions. Change them there, then rebuild every set.
+
 **Rule for new sets:** regular buildings are generic. Name and build them by theme (a shopping-street set, a harbour-warehouse set), with no station name and no station-specific signs in the model. Only landmarks are station-specific.
 
 ## Generic sets (use anywhere the theme fits)

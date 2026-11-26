@@ -196,7 +196,7 @@ def shop(p, s, v, r):
     if r.random() < 0.5:
         tank(p, x0 + 1.6, h + 0.35, d - 2.0, 0.6, 1.2)
     acu(p, x1 - 1.6, h + 0.35, 2.0)
-    backs(p, w, d, [3.8 + i * 2.9 for i in range(floors)] + [h], r, sides=(-1, 1), back=True)
+    backs(p, w, d, [3.8 + i * 2.9 for i in range(floors)] + [h], r, sides=(-1, 1), back=True, use='home')
 
 
 # ── Okamori shrine ──

@@ -389,7 +389,14 @@ const MERGE_ATTRS = ['position', 'normal', 'color', 'uv', 'aEnv'];
  * (for buildings too far away for contact shading to show).
  */
 export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boolean } = {}): THREE.Group {
+  const steps = mergedModelsSteps(parts, o);
+  for (let s = steps.next(); ; s = steps.next()) if (s.done) return s.value;
+}
+
+/** `mergedModels`, gathering `chunk` parts a step (a station mount spreads a big merge over frames). */
+export function* mergedModelsSteps(parts: ModelPart[], o: { cast?: boolean; noAO?: boolean } = {}, chunk = Infinity): Generator<string, THREE.Group> {
   const group = new THREE.Group();
+  let n = 0;
   const byMat = new Map<string, { mat: THREE.Material; list: THREE.BufferGeometry[] }>();
   const m4 = new THREE.Matrix4(), rot = new THREE.Matrix4();
   for (const part of parts) {
@@ -413,6 +420,7 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
       if (!e) byMat.set(key, (e = { mat: sign ? signMaterial(part.kind as BuildingKind, part.id, part.seed, proto.boards) : material(p.mat), list: [] }));
       e.list.push(g);
     }
+    if (++n % chunk === 0) yield `models (${n} of ${parts.length})`;
   }
   for (const { mat, list } of byMat.values()) {
     // Vertex colours come as RGB or RGBA depending on the file: bring a mixed set to one size.
@@ -437,6 +445,7 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
     mesh.receiveShadow = litOpaque;
     if (o.noAO || cutout) mesh.userData.noAO = true;
     group.add(mesh);
+    if (chunk !== Infinity) yield 'models merged';
   }
   return group;
 }
@@ -497,7 +506,13 @@ const lodV = new THREE.Vector3();
  * (props, trees: no simplified copy).
  */
 export function lodModels(parts: ModelPart[], far = false): { group: THREE.Group; rest: ModelPart[] } {
-  const group = new THREE.Group();
+  const steps = lodModelsSteps(parts, far);
+  for (let s = steps.next(); ; s = steps.next()) if (s.done) return s.value;
+}
+
+/** `lodModels`, one cell's simplified copies merged per step (a station mount spreads them over frames). */
+export function* lodModelsSteps(parts: ModelPart[], far = false, into?: THREE.Group): Generator<string, { group: THREE.Group; rest: ModelPart[] }> {
+  const group = into ?? new THREE.Group();
   const rest: ModelPart[] = [];
   const cells = new Map<string, { cx: number; cz: number; full: ModelPart[]; lo: ModelPart[] }>();
   for (const p of parts) {
@@ -516,6 +531,7 @@ export function lodModels(parts: ModelPart[], far = false): { group: THREE.Group
     const lo = mergedModels(c.lo, { noAO: true });
     group.add(lo);
     lodCells.add({ group, x: (c.cx + 0.5) * LOD_CELL, z: (c.cz + 0.5) * LOD_CELL, lo, full: null, parts: c.full, far });
+    yield `lo cell (${c.lo.length})`;
   }
   return { group, rest };
 }

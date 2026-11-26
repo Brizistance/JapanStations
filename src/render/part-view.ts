@@ -4,10 +4,10 @@
 import * as THREE from 'three';
 import type { Build, GatePart } from '../world/builder';
 import { boxesToGeometry, groupBy, meshesToGeometry, polysToGeometry, skyAt, type EnvMode } from './geometry';
-import { dropLod, isLo, lodModels, mergedModels } from './building-models';
+import { dropLod, isLo, lodModelsSteps, mergedModels, mergedModelsSteps } from './building-models';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
-import { separateCoplanar } from './zfight';
+import { separateCoplanarSteps } from './zfight';
 import type { SignContent } from '../signs/content';
 
 const geoCache = new Map<string, THREE.Group>();
@@ -47,6 +47,28 @@ export const layerOf = (y0: number, y1: number, open = false): Layer => (y0 >= S
 
 function makeStatic(build: Build, mode: EnvMode): THREE.Group {
   const group = new THREE.Group();
+  const steps = makeStaticSteps(build, mode, group);
+  while (!steps.next().done);
+  return group;
+}
+
+/**
+ * Static geometry for a station built a step at a time into `group` (a mount runs the steps over several frames,
+ * see WorldView): one step per merged mesh. Dispose of it with `disposeStatic`.
+ */
+export function* staticSteps(build: Build, group: THREE.Group): Generator<string, void> {
+  yield* makeStaticSteps(build, { kind: 'station' }, group);
+}
+
+/** Free what `staticSteps` built into `group` (finished or not). */
+export function disposeStatic(group: THREE.Group) {
+  dropLod(group);
+  group.traverse((o) => {
+    if (!o.userData.shared) (o as THREE.Mesh).geometry?.dispose();
+  });
+}
+
+function* makeStaticSteps(build: Build, mode: EnvMode, group: THREE.Group): Generator<string, void> {
   // A station's parts go in three groups by layer; anything else (a train car) in one.
   const station = mode.kind === 'station';
   const layers = new Map<Layer, THREE.Group>();
@@ -72,33 +94,50 @@ function makeStatic(build: Build, mode: EnvMode): THREE.Group {
     m.castShadow = litOpaque && layer !== 'deep';
     m.receiveShadow = litOpaque;
     into(layer).add(m);
+    return true;
   };
   const boxLayer = (b: Build['boxes'][number]): Layer => (station ? layerOf(b.min[1], b.max[1], b.open) : 'both');
   for (const layer of ['surface', 'deep', 'both'] as const) {
     const boxes = build.boxes.filter((b) => boxLayer(b) === layer);
-    for (const [mat, list] of groupBy(separateCoplanar(boxes))) add(boxesToGeometry(list, mode), mat, layer);
+    for (const [mat, list] of groupBy(yield* separateCoplanarSteps(boxes))) {
+      add(boxesToGeometry(list, mode), mat, layer);
+      yield `boxes ${mat}`;
+    }
     const meshes = build.meshes.filter((p) => (station ? layerOf(p.pos[1] - p.size[1] / 2, p.pos[1] + p.size[1] / 2, p.open) : 'both') === layer);
-    for (const [mat, parts] of groupBy(meshes)) add(meshesToGeometry(parts, mode), mat, layer);
+    for (const [mat, parts] of groupBy(meshes)) {
+      add(meshesToGeometry(parts, mode), mat, layer);
+      yield `meshes ${mat}`;
+    }
   }
   // Polygons laid at an angle (roads, paint, a plaza): all at the street.
   const polys = build.polys ?? [];
   if (polys.length) {
     const by = new Map<string, typeof polys>();
     for (const p of polys) (by.get(p.mat) ?? by.set(p.mat, []).get(p.mat)!).push(p);
-    for (const [mat, list] of by) add(polysToGeometry(list, mode), mat, station ? layerOf(Math.min(...list.map((p) => p.y0)), 1) : 'both');
+    for (const [mat, list] of by) {
+      add(polysToGeometry(list, mode), mat, station ? layerOf(Math.min(...list.map((p) => p.y0)), 1) : 'both');
+      yield 'polys';
+    }
   }
   // Blender-built models, merged: one mesh per material for the full models (they cast shadows),
   // one for the simplified copies (too far back for contact shading or their shadows to show).
   // A model standing below the street (a rotunda's shell) reaches up through it: 'both'.
   const below = (p: Build['models'][number]) => station && p.pos[1] < STREET_Y - 0.1;
   // Buildings with a simplified copy go in detail cells (full near the camera, simplified beyond).
-  const { group: cells, rest } = lodModels(build.models.filter((p) => !below(p)));
-  if (cells.children.length) into(station ? 'surface' : 'both').add(cells);
+  const models = build.models.filter((p) => !below(p));
+  const cells = new THREE.Group();
+  if (models.length) into(station ? 'surface' : 'both').add(cells);
+  const { rest } = yield* lodModelsSteps(models, false, cells);
   const full = rest.filter((p) => !isLo(p)), lo = rest.filter((p) => isLo(p)), under = build.models.filter(below);
-  if (full.length) into(station ? 'surface' : 'both').add(mergedModels(full, { cast: true }));
-  if (lo.length) into(station ? 'surface' : 'both').add(mergedModels(lo, { noAO: true }));
+  if (full.length) {
+    into(station ? 'surface' : 'both').add(yield* mergedModelsSteps(full, { cast: true }, 150));
+    yield `models full (${full.length})`;
+  }
+  if (lo.length) {
+    into(station ? 'surface' : 'both').add(yield* mergedModelsSteps(lo, { noAO: true }, 150));
+    yield `models lo (${lo.length})`;
+  }
   if (under.length) into('both').add(mergedModels(under, { cast: true }));
-  return group;
 }
 
 /** One instanced layer of a gate leaf, as a fraction of the leaf: [u0, v0, u1, v1], and how far it stands proud. */
