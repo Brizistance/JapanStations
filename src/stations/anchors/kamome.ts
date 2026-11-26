@@ -2,6 +2,24 @@
 import type { Anchors } from './types';
 
 export const KAMOME: Anchors = {
+ "bandstand": {
+  "d": 9.0,
+  "h": 9.0,
+  "pts": {},
+  "w": 9.0
+ },
+ "bridge": {
+  "d": 10.0,
+  "h": 1.9,
+  "pts": {},
+  "w": 3.0
+ },
+ "bungalow": {
+  "d": 10.5,
+  "h": 3.8,
+  "pts": {},
+  "w": 14.0
+ },
  "church": {
   "d": 36.0,
   "h": 11.0,
@@ -35,6 +53,18 @@ export const KAMOME: Anchors = {
    ]
   },
   "w": 14.0
+ },
+ "cot_a": {
+  "d": 8.5,
+  "h": 6.8,
+  "pts": {},
+  "w": 10.0
+ },
+ "cot_b": {
+  "d": 8.0,
+  "h": 6.4,
+  "pts": {},
+  "w": 9.0
  },
  "gazebo": {
   "d": 7.0,
@@ -100,6 +130,30 @@ export const KAMOME: Anchors = {
   "pts": {},
   "w": 13.0
  },
+ "ijin_e": {
+  "d": 10.0,
+  "h": 8.0,
+  "pts": {},
+  "w": 12.0
+ },
+ "ijin_f": {
+  "d": 10.0,
+  "h": 8.0,
+  "pts": {},
+  "w": 11.0
+ },
+ "manse": {
+  "d": 10.0,
+  "h": 7.6,
+  "pts": {},
+  "w": 12.5
+ },
+ "pergola": {
+  "d": 3.0,
+  "h": 3.0,
+  "pts": {},
+  "w": 12.0
+ },
  "ryoji": {
   "d": 13.0,
   "h": 10.0,
@@ -140,5 +194,11 @@ export const KAMOME: Anchors = {
    ]
   },
   "w": 46.0
+ },
+ "timber": {
+  "d": 9.5,
+  "h": 6.4,
+  "pts": {},
+  "w": 11.0
  }
 };

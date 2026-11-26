@@ -351,7 +351,222 @@ def gazebo(p, s, v, r):
     p.cyl(IRON, (0, 5.4, R), 1, 0.08, 0.8, seg=6)
 
 
-STYLES = {'ijin': ijin, 'harrington': harrington, 'consulate': consulate, 'church': church, 'school': school, 'gazebo': gazebo}
+# ── Added 2026-11-26 (the quarter flattened into a park): smaller houses of the same family, and the park's pieces ──
+TIMBER = 'flat:#4a3527'
+
+
+def gable_roof(p, mat, x0, x1, z0, z1, y, rise, over=0.5, axis='x', wall=TRIM):
+    """A gabled roof, its ridge along `axis`, eaves `over` out; the gable ends filled in `wall`."""
+    ax0, ax1, az0, az1 = x0 - over, x1 + over, z0 - over, z1 + over
+    yt = y + rise
+    if axis == 'x':
+        zm = (az0 + az1) / 2
+        p.face(mat, [(ax0, y, az0), (ax1, y, az0), (ax1, yt, zm), (ax0, yt, zm)], (0, 1, -1))
+        p.face(mat, [(ax1, y, az1), (ax0, y, az1), (ax0, yt, zm), (ax1, yt, zm)], (0, 1, 1))
+        p.face(wall, [(x0, y, az1), (x0, y, az0), (x0, yt, zm)], (-1, 0, 0))
+        p.face(wall, [(x1, y, az0), (x1, y, az1), (x1, yt, zm)], (1, 0, 0))
+    else:
+        xm = (ax0 + ax1) / 2
+        p.face(mat, [(ax0, y, az1), (ax0, y, az0), (xm, yt, az0), (xm, yt, az1)], (-1, 1, 0))
+        p.face(mat, [(ax1, y, az0), (ax1, y, az1), (xm, yt, az1), (xm, yt, az0)], (1, 1, 0))
+        p.face(wall, [(ax0, y, z0), (ax1, y, z0), (xm, yt, z0)], (0, 0, -1))
+        p.face(wall, [(ax1, y, z1), (ax0, y, z1), (xm, yt, z1)], (0, 0, 1))
+    p.face(TRIM, [(ax0, y, az0), (ax0, y, az1), (ax1, y, az1), (ax1, y, az0)], (0, -1, 0))
+
+
+def porch(p, x0, x1, depth, h, roof=SLATE):
+    """A single-storey porch: a deck, slim posts, a rail, a lean-to roof."""
+    p.box(TRIM, x0, 0, -depth, x1, 0.45, 0)
+    n = max(2, int((x1 - x0) / 2.4) + 1)
+    for k in range(n):
+        c = x0 + 0.15 + (x1 - x0 - 0.3) * k / (n - 1)
+        p.box(TRIM, c - 0.1, 0.45, -depth + 0.05, c + 0.1, h, -depth + 0.25)
+    p.box(TRIM, x0, h - 0.2, -depth, x1, h, 0)
+    p.face(roof, [(x0 - 0.2, h, -depth - 0.3), (x1 + 0.2, h, -depth - 0.3), (x1 + 0.2, h + 0.8, 0), (x0 - 0.2, h + 0.8, 0)], (0, 1, -1))
+    for a, e in ((x0, -0.9), (0.9, x1)):
+        if e - a > 0.6:
+            p.box(TRIM, a, 1.3, -depth + 0.1, e, 1.37, -depth + 0.2)
+            for c in rows(a + 0.15, e - 0.15, 0.24):
+                p.box(TRIM, c - 0.03, 0.45, -depth + 0.12, c + 0.03, 1.3, -depth + 0.18)
+
+
+def cottage(p, s, v, r):
+    """A gardener's or clerk's cottage: one storey and an attic under a steep gabled roof, a dormer, a porch."""
+    w, d, h = v['w'], v['d'], v['eave']
+    x0, x1 = -w / 2, w / 2
+    wall = v['wall']
+    p.box(wall, x0, 0, 0, x1, h, d)
+    p.box(STONE_CD, x0 - 0.05, 0, -0.05, x1 + 0.05, 0.5, d + 0.05)
+    clap(p, x0, x1, 0.5, h, 0, v['ribc'])
+    for c in rows(x0 + 1.3, x1 - 1.3, 2.5):
+        if abs(c) > 1.1:
+            sash(p, c, 1.0, 0.0, 0.9, 1.6)
+    p.box(v.get('door', '#4a2f22') if False else 'flat:#4a2f22', -0.6, 0.5, -0.04, 0.6, 2.6, 0)
+    porch(p, -w * 0.3, w * 0.3, 1.8, 2.9)
+    rise = v.get('rise', 3.4)
+    gable_roof(p, SLATE, x0, x1, 0, d, h, rise, 0.5, 'x', wall)
+    # Attic windows in the gable ends, a dormer on the front slope.
+    for sx in (x0 - 0.01, x1 + 0.01):
+        quad(p, WINDOW, 'l' if sx < 0 else 'r', d / 2 - 0.5, d / 2 + 0.5, h + 0.5, h + 1.8, sx)
+    dz = d * 0.22
+    p.box(wall, -1.0, h + 0.5, dz - 0.3, 1.0, h + 2.1, d / 2)
+    quad(p, WINDOW, 'f', -0.6, 0.6, h + 0.8, h + 1.9, dz - 0.31)
+    gable_roof(p, SLATE, -1.0, 1.0, dz - 0.3, d / 2, h + 2.1, 0.8, 0.25, 'z', wall)
+    chimney(p, x1 - 1.6, d * 0.5, h + rise - 0.6, 1.8)
+    side_sashes(p, w, d, [1.0], x0, x1)
+
+
+def timber(p, s, v, r):
+    """A half-timbered house (a German trader's): white infill between dark posts and braces, a jettied upper
+    floor, its gable to the lane."""
+    w, d, h = v['w'], v['d'], v['h']
+    x0, x1 = -w / 2, w / 2
+    h1 = h / 2
+    p.box(BRICK_R, x0, 0, 0, x1, h1, d)
+    p.box(TRIM, x0 - 0.25, h1, -0.4, x1 + 0.25, h, d)
+    p.box(TIMBER, x0 - 0.3, h1 - 0.15, -0.45, x1 + 0.3, h1 + 0.15, d + 0.02)
+    p.box(TIMBER, x0 - 0.3, h - 0.2, -0.45, x1 + 0.3, h, -0.38)
+    for c in rows(x0 - 0.1, x1 + 0.1, 1.9):
+        p.box(TIMBER, c - 0.09, h1, -0.45, c + 0.09, h, -0.39)
+    for c in rows(x0 + 1.4, x1 - 1.4, 3.8):
+        quad(p, WINDOW, 'f', c - 0.7, c + 0.7, h1 + 0.9, h - 0.6, -0.41)
+        p.box(TIMBER, c - 0.8, h1 + 0.8, -0.45, c + 0.8, h1 + 0.9, -0.39)
+    for c in rows(x0 + 1.5, x1 - 1.5, 3.2):
+        if abs(c) > 1.2:
+            quad(p, WINDOW, 'f', c - 0.6, c + 0.6, 1.0, h1 - 0.6, -0.01)
+            p.box(STONE_C, c - 0.75, 0.85, -0.06, c + 0.75, 1.0, 0)
+    p.box('flat:#2f3d2c', -0.7, 0, -0.04, 0.7, 2.5, 0)
+    rise = v.get('rise', 3.8)
+    gable_roof(p, 'flat:#7a3b2c', x0 - 0.25, x1 + 0.25, -0.4, d, h, rise, 0.4, 'z', TRIM)
+    # The gable's own timbers and a small window.
+    for k in (-1, 1):
+        p.face(TIMBER, [(k * 0.1 - 0.1, h, -0.42), (k * 0.1 + 0.1, h, -0.42), (k * 0.1 + 0.1, h + rise - 0.3, -0.42), (k * 0.1 - 0.1, h + rise - 0.3, -0.42)], (0, 0, -1))
+    quad(p, WINDOW, 'f', -0.5, 0.5, h + 0.5, h + 1.6, -0.43)
+    chimney(p, x0 + 1.5, d * 0.6, h + rise * 0.5, 2.6)
+    side_sashes(p, w, d, [1.0, h1 + 0.9], x0, x1)
+
+
+def manse(p, s, v, r):
+    """The brick manse: red brick with stone bands and quoins, plain sashes, a hipped slate roof, a small
+    columned porch."""
+    w, d, h = v['w'], v['d'], v['h']
+    x0, x1 = -w / 2, w / 2
+    h1 = h / 2
+    p.box(BRICK_R, x0, 0, 0, x1, h, d)
+    p.box(STONE_CD, x0 - 0.05, 0, -0.05, x1 + 0.05, 0.6, d + 0.05)
+    for y in (h1 - 0.1, h - 0.35):
+        p.box(STONE_C, x0 - 0.06, y, -0.06, x1 + 0.06, y + 0.3, d + 0.06)
+    for sx in (x0, x1):
+        for k in range(int(h / 0.7)):
+            p.box(STONE_C, sx - 0.3 - 0.04, 0.6 + k * 0.7, -0.05, sx + 0.3 + 0.04, 0.95 + k * 0.7, 0.3)
+    for f, y in enumerate((1.2, h1 + 0.8)):
+        for c in rows(x0 + 1.4, x1 - 1.4, 2.7):
+            if f == 0 and abs(c) < 1.0:
+                continue
+            sash(p, c, y, 0.0, 1.0, 1.8, shutters=False)
+            p.box(STONE_C, c - 0.65, y + 1.8, -0.07, c + 0.65, y + 2.05, 0)
+    p.box('flat:#1f2b3a', -0.65, 0.6, -0.04, 0.65, 2.9, 0)
+    p.box(STONE_C, -1.5, 0, -1.6, 1.5, 0.6, 0)
+    for sx in (-1.25, 1.25):
+        p.cyl(TRIM, (sx, 1.85, -1.3), 1, 0.16, 2.5, seg=8)
+    p.box(TRIM, -1.6, 3.1, -1.7, 1.6, 3.5, 0)
+    hip_roof(p, SLATE, x0, x1, 0, d, h, v.get('rise', 2.8))
+    chimney(p, x0 + 1.2, d * 0.5, h + 1.2, 2.4)
+    chimney(p, x1 - 1.2, d * 0.5, h + 1.2, 2.4)
+    side_sashes(p, w, d, [1.2, h1 + 0.8], x0, x1)
+
+
+def bungalow(p, s, v, r):
+    """A colonial bungalow: one storey under a broad hipped roof that covers a veranda on three sides."""
+    w, d, h = v['w'], v['d'], v['h']
+    vd = 2.2
+    x0, x1 = -w / 2 + vd, w / 2 - vd
+    wall = v['wall']
+    p.box(TRIM, -w / 2, 0, -0.0, w / 2, 0.5, d)
+    p.box(wall, x0, 0.5, vd, x1, h, d)
+    clap(p, x0, x1, 0.5, h, vd, v['ribc'])
+    for c in rows(x0 + 1.2, x1 - 1.2, 2.4):
+        if abs(c) > 1.0:
+            sash(p, c, 1.2, vd, 0.9, 1.7)
+    p.box('flat:#4a2f22', -0.6, 0.5, vd - 0.04, 0.6, 2.7, vd)
+    # Posts round the veranda, a rail between them (open at the steps).
+    pts = [(c, 0.12) for c in rows(-w / 2 + 0.2, w / 2 - 0.2, 2.5)] + [(sx, z) for sx in (-w / 2 + 0.12, w / 2 - 0.12) for z in rows(2.4, d - 0.3, 2.6)]
+    for (cx, cz) in pts:
+        p.box(TRIM, cx - 0.09, 0.5, cz - 0.09, cx + 0.09, h, cz + 0.09)
+    for a, e in ((-w / 2, -1.0), (1.0, w / 2)):
+        p.box(TRIM, a, 1.35, 0.08, e, 1.42, 0.16)
+        for c in rows(a + 0.15, e - 0.15, 0.24):
+            p.box(TRIM, c - 0.03, 0.5, 0.09, c + 0.03, 1.35, 0.15)
+    p.box(STONE_C, -1.0, 0, -0.6, 1.0, 0.25, 0)
+    hip_roof(p, v.get('roof', 'flat:#5b6b5a'), -w / 2, w / 2, 0, d, h, v.get('rise', 2.6), 0.4)
+    chimney(p, 0.0, d * 0.6, h + 1.6, 1.6)
+    side_sashes(p, w - 2 * vd, d, [1.2], x0, x1)
+
+
+def bandstand(p, s, v, r):
+    """The park's bandstand: an eight-sided stone base with steps, iron columns and a fretted rail, a two-tier
+    copper roof with a finial."""
+    R = v['w'] / 2
+    p.cyl(STONE_C, (0, 0.45, R), 1, R, 0.9, seg=8)
+    p.cyl(STONE_CD, (0, 0.92, R), 1, R - 0.15, 0.06, seg=8)
+    for k in range(3):
+        p.box(STONE_C, -1.2, 0, -0.9 + k * 0.3 + 0.35, 1.2, 0.9 - (2 - k) * 0.3, 0.45 + 0.0)
+    for k in range(8):
+        a = 2 * math.pi * (k + 0.5) / 8
+        x, z = math.cos(a) * (R - 0.45), R + math.sin(a) * (R - 0.45)
+        p.cyl('flat:#2f4a3f', (x, 2.65, z), 1, 0.09, 3.5, seg=8)
+        p.box('flat:#2f4a3f', x - 0.16, 4.2, z - 0.16, x + 0.16, 4.4, z + 0.16)
+        a2 = 2 * math.pi * (k + 1.5) / 8
+        x2, z2 = math.cos(a2) * (R - 0.45), R + math.sin(a2) * (R - 0.45)
+        if not (math.sin((a + a2) / 2) < -0.9):
+            n = 6
+            for j in range(n + 1):
+                fx, fz = x + (x2 - x) * j / n, z + (z2 - z) * j / n
+                p.box('flat:#2f4a3f', fx - 0.025, 0.95, fz - 0.025, fx + 0.025, 1.85, fz + 0.025)
+            mx, mz = (x + x2) / 2, (z + z2) / 2
+            p.cyl('flat:#2f4a3f', (mx, 1.88, mz), 1, 0.06, 0.06, seg=6)
+    p.cyl(TRIM, (0, 4.5, R), 1, R, 0.25, seg=8)
+    for k in range(4):
+        rr = (R + 0.5) * (1 - k / 5.5)
+        p.cyl('flat:#5f8f7d', (0, 4.75 + k * 0.32, R), 1, rr, 0.32, seg=8)
+    p.cyl(TRIM, (0, 6.3, R), 1, 1.3, 0.5, seg=8)
+    for k in range(4):
+        p.cyl('flat:#5f8f7d', (0, 6.7 + k * 0.3, R), 1, max(0.1, 1.7 * (1 - k / 4)), 0.3, seg=8)
+    p.cyl(IRON, (0, 8.3, R), 1, 0.06, 0.9, seg=6)
+
+
+def bridge(p, s, v, r):
+    """A low arched footbridge over the pond: a timber deck in short steps, white rails."""
+    w, d = v['w'], v['d']
+    n = 10
+    for k in range(n):
+        z0, z1 = d * k / n, d * (k + 1) / n
+        y = 0.15 + 0.75 * math.sin(math.pi * (k + 0.5) / n)
+        p.box('flat:#8a6a4c', -w / 2, y - 0.18, z0, w / 2, y, z1)
+        for sx in (-w / 2 + 0.06, w / 2 - 0.06):
+            p.box(TRIM, sx - 0.05, y, z0, sx + 0.05, y + 0.95, z0 + 0.1)
+            p.box(TRIM, sx - 0.04, y + 0.88, z0, sx + 0.04, y + 0.95, z1)
+            p.box(TRIM, sx - 0.03, y + 0.45, z0, sx + 0.03, y + 0.5, z1)
+    for z in (0.3, d - 0.3):
+        p.box(STONE_CD, -w / 2 - 0.15, 0, z - 0.3, w / 2 + 0.15, 0.3, z + 0.3)
+
+
+def pergola(p, s, v, r):
+    """A rose pergola: white posts in pairs, beams and rafters over a path, climbers on it."""
+    w, d = v['w'], v['d']
+    for c in rows(-w / 2 + 0.2, w / 2 - 0.2, 2.4):
+        for z in (0.15, d - 0.15):
+            p.box(TRIM, c - 0.09, 0, z - 0.09, c + 0.09, 2.6, z + 0.09)
+        p.box(TRIM, c - 0.05, 2.75, -0.3, c + 0.05, 2.9, d + 0.3)
+        p.box('flat:#4f7a48', c - 0.25, 1.9 + (hash(round(c * 10)) % 3) * 0.1, 0.0, c + 0.25, 2.75, 0.32)
+        p.box('flat:#c8527a', c - 0.18, 2.3, -0.02, c + 0.18, 2.6, 0.04)
+    for z in (0.15, d - 0.15):
+        p.box(TRIM, -w / 2 - 0.3, 2.6, z - 0.07, w / 2 + 0.3, 2.75, z + 0.07)
+    p.box('flat:#4f7a48', -w / 2, 2.9, 0.2, w / 2, 3.02, d - 0.2)
+
+
+STYLES = {'ijin': ijin, 'harrington': harrington, 'consulate': consulate, 'church': church, 'school': school, 'gazebo': gazebo,
+          'cottage': cottage, 'timber': timber, 'manse': manse, 'bungalow': bungalow, 'bandstand': bandstand, 'bridge': bridge, 'pergola': pergola}
 
 
 def build_hi(v):
@@ -377,6 +592,17 @@ VARIANTS = [
     dict(id='church', style='church', w=14.0, d=36.0, h=11.0, seed=7),
     dict(id='school', style='school', w=46.0, d=14.0, h=10.0, seed=8),
     dict(id='gazebo', style='gazebo', w=7.0, d=7.0, h=6.0, seed=9),
+    # (2026-11-26: the park quarter's own houses and park pieces.)
+    dict(id='ijin_e', style='ijin', w=12.0, d=10.0, h=8.0, wall='flat:#ecd3cf', ribc='flat:#d3b6b1', bay=3.4, vx=(-5.4, 1.2), seed=10),
+    dict(id='ijin_f', style='ijin', w=11.0, d=10.0, h=8.0, wall='flat:#d9e3cc', ribc='flat:#bccab0', glazed=True, tower=-3.5, chimneys=((3.2, 6.0),), seed=11),
+    dict(id='cot_a', style='cottage', w=10.0, d=8.5, h=6.8, eave=3.4, wall='flat:#f1ead6', ribc='flat:#d8cfb8', seed=12),
+    dict(id='cot_b', style='cottage', w=9.0, d=8.0, h=6.4, eave=3.2, rise=3.2, wall='flat:#cfdde6', ribc='flat:#b3c4cf', seed=13),
+    dict(id='timber', style='timber', w=11.0, d=9.5, h=6.4, seed=14),
+    dict(id='manse', style='manse', w=12.5, d=10.0, h=7.6, seed=15),
+    dict(id='bungalow', style='bungalow', w=14.0, d=10.5, h=3.8, wall='flat:#efe9da', ribc='flat:#d6cfbc', seed=16),
+    dict(id='bandstand', style='bandstand', w=9.0, d=9.0, h=9.0, seed=17),
+    dict(id='bridge', style='bridge', w=3.0, d=10.0, h=1.9, seed=18),
+    dict(id='pergola', style='pergola', w=12.0, d=3.0, h=3.0, seed=19),
 ]
 for _v in VARIANTS:
     _v['gap'] = 8.0

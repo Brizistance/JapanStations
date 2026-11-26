@@ -47,6 +47,8 @@ import { GROUND_Y as GY, ceilingLight, vending, type Ctx } from './kit';
 import { kerbGaps, kerbRail, pedSignal, poleLine, roadKit, roadModel, roadSign, shortSignal, streetLamp, trafficLane, vehicleSignal } from './roads';
 import type { SurfaceSpec } from './surface';
 import { crosswalk, fillModelLots } from './surface';
+import { place } from './places';
+import { CARS, VEH } from '../traffic/vehicles';
 import { modelTree, type TreeKind } from './trees';
 import { leftovers } from './tsumugibashi-street';
 import { SHORE } from './shore';
@@ -76,7 +78,21 @@ const TSU_C0 = TSU.z - TSU.half, TSU_C1 = TSU.z + TSU.half; // −58.5 … −49
 const BACK0 = TSU_C1 + TSU.pave; // −47: the front blocks' far edge
 const BACK1 = TSU_C0 - TSU.pave; // −61: the north band's front
 /** North of the boulevard: 唐船大路's mouth, the one break in the fronts between the cross streets (x range). */
-const LANE_N: [number, number][] = [[-6, 6]];
+/**
+ * Which step of the 2026-11-26 re-lay is built (station-playbook.md, the brief): 1 the streets and the landmarks,
+ * the north side's other lots bare; 2 the fill.
+ */
+export const MINATO_STEP = 2 as 1 | 2;
+// (Re-laid 2026-11-26 as an old shipping town: no lane lines up with the one across Tsunamachi-dōri. The front
+// blocks' lanes 錨小路 and 舫小路 at uneven places, clear of the exits at x ±42 … 51; the north band's west alley
+// comes in at Tōsen-machi's x −50 and cranks east along the row-house lane to reach the back street at x −36.)
+const LANE_N: [number, number][] = [[-29, -26], [-6, 6], [36, 39]];
+/** The north band's alleys where they cut the back street's shop row (LANE_F: where they cut the terraces and the edge). */
+const LANE_S: [number, number][] = [[-38, -34], [-6, 6], [48, 52]];
+/** 帆桁小路, the L-shaped lane in the north-west front block: south from the back street, then east behind the fronts to Hobashira-suji. */
+const HOGETA = { x: [-108, -105] as [number, number], z: [-36.5, -33.5] as [number, number] };
+/** The dead end east of 龍門小路: the row-house lane stops at the shrine's precinct, fenced along Sanbashi-suji. */
+const SHRINE_X0 = 52.3;
 // (The middle one is 唐船大路 Tōsen-ōji's start, 12 m wide: Tōsen-machi's food street, tosen-street.ts, from 2026-11-24.)
 const LANE_F: [number, number][] = [[-52, -48], [-6, 6], [48, 52]]; // (4 m: no fronts closer, 2026-11-24)
 const ZEIKAN_LANE: [number, number] = [125.2, 130];
@@ -388,11 +404,11 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
     for (let x = -X + 1; x < X - 3; x += 6) if (clearOf(x + 1.5, boxes)) b.deco(WHITE, x, 0.004, TSU.z - 0.07, x + 3, 0.01, TSU.z + 0.07);
     for (const e of [-1, 1]) for (const [x0, x1] of [[-X, -8], [8, X]]) b.deco(WHITE, x0, 0.004, TSU.z + e * (TSU.half - 0.4) - 0.05, x1, 0.01, TSU.z + e * (TSU.half - 0.4) + 0.05);
     for (const x of [-X + 14, X - 14]) roadSign(b, 'speed30', x, TSU.z + Math.sign(x) * (TSU.half + 0.4), [Math.sign(x), 0], 0.6);
-    poleLine(b, { axis: 'x', from: -X + 6, to: X - 6, at: TSU_C1 + 0.4, road: -1, step: 26, skip: (u) => !clearOf(u, boxes, 2) || !clearOf(u, [...LANE_N, ...LANE_F], 2), drops: 0.7, name: stName });
-    for (let x = -X + 13; x < X - 6; x += 26) if (clearOf(x, boxes, 2) && clearOf(x, [...LANE_N, ...LANE_F], 2)) streetLamp(b, 'lamp_small', x, TSU_C0 - 0.4, [0, 1]);
+    poleLine(b, { axis: 'x', from: -X + 6, to: X - 6, at: TSU_C1 + 0.4, road: -1, step: 26, skip: (u) => !clearOf(u, boxes, 2) || !clearOf(u, [...LANE_N, ...LANE_S, [HOGETA.x[0], HOGETA.x[1]]], 2), drops: 0.7, name: stName });
+    for (let x = -X + 13; x < X - 6; x += 26) if (clearOf(x, boxes, 2) && clearOf(x, LANE_S, 2)) streetLamp(b, 'lamp_small', x, TSU_C0 - 0.4, [0, 1]);
     // Vending machines and parked bikes along the back street's pavements, Aizomechō's way.
     for (let x = -X + 20; x < X - 10; x += 34) {
-      if (!clearOf(x, boxes, 4) || !clearOf(x, LANE_F, 4) || (x > 84 && x < 131)) continue;
+      if (!clearOf(x, boxes, 4) || !clearOf(x, LANE_S, 4) || (x > 84 && x < 131)) continue;
       vending(b, x, GY, BACK0 - 0.45, [0, -1], (x / 34) % 2 < 1 ? 'vending' : 'vending2', 'old');
       for (let k = 0; k < 3; k++) bike(x + 4 + k * 0.7, BACK1 + 0.5, [0, 1]);
     }
@@ -541,14 +557,68 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
   const FD = MINATOFRONT.brick_a.d; // 14: every front's depth
   const corrN: [number, number][] = [bl(HOB), ...LANE_N, bl(SAN), [SAN.c + SAN.half + SAN.pave, X]];
   const frontSpans = between(corrN);
-  for (const [a, e] of frontSpans) row('minatofront', MINATOFRONT, 's', -FRONT, a + 0.3, e - 0.3, e - a < 40 ? NO_TOWER : FRONT_IDS, (id, q) => letterFront(id, q.pts));
+  const FILL = MINATO_STEP >= 2;
+  if (FILL) for (const [a, e] of frontSpans) row('minatofront', MINATOFRONT, 's', -FRONT, a + 0.3, e - 0.3, e - a < 40 ? NO_TOWER : FRONT_IDS, (id, q) => letterFront(id, q.pts));
   // Behind them, the back street's rows (stock: a back street).
   const interiors: Rect[] = [];
   /** Hobashira-suji has no pavements: rows keep 3 m off its edges, so turning traffic clears their corners. */
   const off = (u: number) => (Math.abs(u - (HOB.c - HOB.half)) < 0.01 || Math.abs(u - (HOB.c + HOB.half)) < 0.01 ? 3 : 0.3);
-  for (const [a, e] of frontSpans) {
-    fillRect(a + off(a), BACK0 + 0.3, e - off(e), -FRONT - FD - 0.3, 'n', a < HOB.c || e > SAN.c ? SMALL : LOW);
+  const rowBack = -FRONT - FD - 0.3;
+  if (FILL) for (const [a, e] of frontSpans) {
+    if (e < HOB.c) {
+      // (The north-west block, round 帆桁小路: a row west of it, a shallower one in its corner.)
+      // (Its west 15 m and the corner inside the lane's elbow are left to leftovers(): the children's park and a coin car park.)
+      fillRect(a + 15.3, BACK0 + 0.3, HOGETA.x[0] - 0.3, rowBack, 'n', SMALL);
+    } else fillRect(a + off(a), BACK0 + 0.3, e - off(e), rowBack, 'n', e > SAN.c ? SMALL : LOW);
     interiors.push([a, BACK0, e, -FRONT]);
+  }
+  // The coin car park inside 帆桁小路's elbow, open to the back street: six bays against the lane's side, a pay
+  // machine, the P sign on a post, a lamp.
+  if (FILL) {
+    const x0 = HOGETA.x[1] + 0.3, x1 = bl(HOB)[0] - 3.3, z0 = BACK0, z1 = HOGETA.z[0] - 0.3, zt = z1 - 0.3, zb = zt - 5.2;
+    b.deco('asphalt', x0, GY, z0, x1, GY + 0.012, z1);
+    b.deco(WHITE, x0, GY + 0.012, z0, x1, GY + 0.016, z0 + 0.12);
+    for (let x = x0 + 1.6; x + 2.5 <= x1 - 0.4; x += 2.6) {
+      for (const xl of [x, x + 2.5]) b.deco(WHITE, xl, GY + 0.012, zb, xl + 0.1, GY + 0.016, zt);
+      b.deco('flat:#d6a21a', x + 0.5, GY + 0.012, zt - 1.3, x + 2.1, GY + 0.12, zt - 1.1);
+      if (r() < 0.5) {
+        const id = CARS[Math.floor(r() * CARS.length)], [len, wid, hgt] = VEH[id.split('_')[0]];
+        roadModel(b, id, x + 1.3, GY, (zb + zt) / 2, [0, 1]);
+        b.block(x + 1.3 - wid / 2, GY, (zb + zt) / 2 - len / 2, x + 1.3 + wid / 2, GY + hgt, (zb + zt) / 2 + len / 2);
+      }
+    }
+    // (A low kerb shuts it from the lane behind and from Hobashira-suji's corner lot.)
+    b.box(STONE, x0, GY, z1 - 0.15, x1, GY + 0.25, z1);
+    b.box('flat:#f2c230', x0 + 0.3, GY, z0 + 0.5, x0 + 0.9, GY + 1.4, z0 + 1.0);
+    b.box('flat:#5f6266', x0 + 1.2, GY, z0 + 0.5, x0 + 1.3, GY + 3.2, z0 + 0.6);
+    for (const f of [-1, 1] as const) b.sign({ k: 'label', text: 'P', sub: '24h コインパーキング', fg: '#fff', bg: '#1f5fa8' }, x0 + 1.25, GY + 2.7, z0 + 0.55 + f * 0.06, [0, f], 1.1, 0.9);
+    streetLamp(b, 'lamp_small', x1 - 0.5, z1 - 0.6, [0, -1]);
+    reserved.push([x0 - 0.3, z0, x1 + 0.3, z1 + 0.3]);
+    b.zone('street', x0, GY - 0.2, z0, x1, GY + 8, z1, '綱町パーキング', 'Tsunamachi coin parking', true);
+  }
+  // The front blocks' lanes, boulevard to back street, and 帆桁小路's two legs.
+  {
+    const names: Named[] = [{ ja: '錨小路', en: 'Ikari-kōji' }, { ja: '舫小路', en: 'Moyai-kōji' }];
+    let k = 0;
+    for (const [a, e] of LANE_N) {
+      if (a === LANE_F[1][0]) continue; // (Tōsen-ōji: below)
+      lanePave(a, BACK0, e, -FRONT, names[k++]);
+      for (let z = BACK0 + 5; z < -FRONT - 3; z += 11) streetLamp(b, 'lamp_small', a + 0.25, z, [1, 0]);
+    }
+    const H: Named = { ja: '帆桁小路', en: 'Hogeta-kōji' };
+    lanePave(HOGETA.x[0], BACK0, HOGETA.x[1], HOGETA.z[1], H);
+    lanePave(HOGETA.x[1], HOGETA.z[0], bl(HOB)[0], HOGETA.z[1], H);
+    streetLamp(b, 'lamp_small', HOGETA.x[0] + 0.25, BACK0 + 6, [1, 0]);
+    for (let x = HOGETA.x[1] + 5; x < bl(HOB)[0] - 3; x += 11) streetLamp(b, 'lamp_small', x, HOGETA.z[0] + 0.25, [0, 1]);
+    if (FILL) {
+      // What a back lane holds: bicycles along a wall, a drinks machine at the turn and by each lane's back-street end.
+      for (const [la] of LANE_N) if (la !== LANE_F[1][0]) {
+        for (const z of [BACK0 + 9, -FRONT - 8]) bike(la + 2.6, z, [-1, 0]);
+        vending(b, la + 2.55, GY, BACK0 + 2.2, [-1, 0], la < 0 ? 'vending' : 'vending2', 'old');
+      }
+      vending(b, HOGETA.x[0] + 0.45, GY, HOGETA.z[1] - 1.2, [1, 0], 'vending2', 'old');
+      for (let x = HOGETA.x[1] + 8; x < bl(HOB)[0] - 4; x += 9) bike(x, HOGETA.z[0] + 0.4, [0, 1]);
+    }
   }
 
   // ═════════════════════════ The old customs house and its lane ═════════════════════════
@@ -606,56 +676,80 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
     };
     const LANES: Named[] = [
       { ja: '船大工横丁', en: 'Funadaiku-yokochō' }, { ja: '網干場小路', en: 'Amiboshiba-kōji' }, { ja: '帆布横丁', en: 'Hanpu-yokochō' },
-      { ja: '錨小路', en: 'Ikari-kōji' }, { ja: '舫小路', en: 'Moyai-kōji' }, { ja: '魚河岸横丁', en: 'Uogashi-yokochō' },
+      { ja: '魚河岸横丁', en: 'Uogashi-yokochō' },
     ];
-    const corrF: [number, number][] = [bl(HOB), ...LANE_F, bl(SAN)];
-    const blocks = between(corrF);
-    blocks.forEach(([a, e], k) => {
+    /** (The row-house lane's five stretches: the two either side of the bathhouse are one lane.) */
+    const LANE_OF = [0, 1, 1, 2, 3];
+    // Three sets of spans across the band: the shop row's (cut by LANE_S), the row-house lane's (uncut by the alleys:
+    // the west alley's crank runs along it), the terraces' (cut by LANE_F). The bathhouse's lot (east of the crank,
+    // back street to edge) and the shrine's precinct (the dead end's north side) are cut out of all of them.
+    const sw = TSUNA.sento, sx = LANE_S[0][1] + 3.3 + sw.w / 2, kc = KONBINI.corner;
+    const SENTO: [number, number] = [sx - sw.w / 2 - 0.3, sx + sw.w / 2 + 0.3];
+    const KON: [number, number] = [bl(SAN)[1], bl(SAN)[1] + kc.w + 0.6];
+    const SHRINE: [number, number] = [SHRINE_X0, bl(SAN)[0]];
+    const hs = bl(HOB), ss = bl(SAN), food = LANE_F[1];
+    piece('tsuna', TSUNA, 'sento', 's', sx, BACK1 - 0.3, (q) => {
+      label(q.pts.name, '錨湯', 'Ikari-yu bathhouse', '#2a2019', '#f2ecd8');
+      if (q.pts.chimney) signAt(q.pts.chimney, { k: 'shop', ja: 'ゆ', bg: '#f4f1e8', fg: '#7a1f2b', vertical: true });
+    });
+    reserved.push([SENTO[0], -Z, SENTO[1], BACK1]);
+    // The convenience store on Sanbashi-suji's corner, facing south onto Tsunamachi-dōri (its 9 m depth inside the shop row's).
+    at('s', KON[0] + 0.3 + kc.w / 2, BACK1 - 0.3, () => konbini(b, { type: 'corner', chain: 'hinode' }));
+    reserved.push([KON[0], BACK1 - kc.d - 0.6, KON[1], BACK1]);
+    // A gap site (空き地) in the shop row beside 提灯小路's mouth: gravel and weeds behind a low wire fence, a board on it.
+    const GAP: [number, number] = [LANE_S[0][0] - 7.4, LANE_S[0][0]];
+    if (FILL) {
+      const [g0, g1] = [GAP[0] + 0.3, GAP[1] - 0.2], zb = BACK1 - SD;
+      b.deco('flat:#9c9484', g0, GY + 0.002, zb, g1, GY + 0.012, BACK1);
+      for (let k = 0; k < 9; k++) {
+        const wx = g0 + 0.6 + r() * (g1 - g0 - 1.2), wz = zb + 0.8 + r() * (SD - 1.8);
+        b.deco('flat:#5f7a48', wx - 0.35, GY + 0.012, wz - 0.3, wx + 0.35, GY + 0.16 + r() * 0.2, wz + 0.3);
+      }
+      for (let x = g0; x < g1; x += 1.85) b.deco('flat:#6a6d70', x - 0.03, GY, BACK1 - 0.2, x + 0.03, GY + 1.1, BACK1 - 0.14);
+      for (const y of [0.45, 1.05]) b.deco('flat:#6a6d70', g0, GY + y, BACK1 - 0.19, g1, GY + y + 0.03, BACK1 - 0.15);
+      b.block(g0, GY, BACK1 - 0.25, g1, GY + 1.2, BACK1 - 0.1);
+      b.block(g1 - 0.15, GY, zb, g1, GY + 1.2, BACK1 - 0.1);
+      b.deco('flat:#6a6d70', g1 - 0.1, GY + 1.05, zb, g1 - 0.06, GY + 1.08, BACK1 - 0.15);
+      b.sign({ k: 'label', text: '売地', sub: '綱町不動産 · For sale', fg: '#b3261e', bg: '#f4f1e8' }, (g0 + g1) / 2, GY + 1.5, BACK1 - 0.6, [0, 1], 1.4, 0.9);
+      for (const sx of [-0.6, 0.6]) b.deco('flat:#6a6d70', (g0 + g1) / 2 + sx - 0.03, GY, BACK1 - 0.66, (g0 + g1) / 2 + sx + 0.03, GY + 1.1, BACK1 - 0.6);
+      reserved.push([GAP[0], zb - 0.3, GAP[1], BACK1]);
+    }
+    if (FILL) for (const [a, e] of between([hs, GAP, ...LANE_S, SENTO, ss, KON])) {
+      if (e - a > 5.6) for (const q of row('tsuna', TSUNA, 's', BACK1 - 0.3, a + 0.3, e - 0.3, SHOP, letterShop)) reserved.push(q);
+    }
+    if (FILL) for (const [a, e] of between([hs, ...LANE_F, SENTO, ss, SHRINE])) {
+      if (e - a > 8.8) for (const q of row('tsuna', TSUNA, 's', N0, a + 0.3, e - 0.3, NAGA, () => {})) reserved.push(q);
+    }
+    between([hs, SENTO, food, [SHRINE[1] - 0.3, ss[1]]]).forEach(([a, e], k) => {
       const x0 = a + 0.3, x1 = e - 0.3;
-      let s0 = x0;
-      const s1 = x1;
-      const westOfFood = Math.abs(e - LANE_F[1][0]) < 0.01;
-      // The bathhouse: the block west of the food street, a whole lot from the back street to the edge.
-      if (westOfFood) {
-        const sw = TSUNA.sento, sx = x0 + 3 + sw.w / 2;
-        piece('tsuna', TSUNA, 'sento', 's', sx, BACK1 - 0.3, (q) => {
-          label(q.pts.name, '錨湯', 'Ikari-yu bathhouse', '#2a2019', '#f2ecd8');
-          if (q.pts.chimney) signAt(q.pts.chimney, { k: 'shop', ja: 'ゆ', bg: '#f4f1e8', fg: '#7a1f2b', vertical: true });
-        });
-        reserved.push([sx - sw.w / 2, -Z, sx + sw.w / 2, BACK1]);
-        s0 = sx + sw.w / 2 + 0.6;
+      lanePave(x0, L1, x1, L0, LANES[LANE_OF[k] ?? 0]);
+      for (let x = x0 + 6; x < x1 - 4; x += 14) streetLamp(b, 'lamp_small', x, L0 - 0.22, [0, -1]);
+      if (FILL) {
+        for (let x = x0 + 3; x < x1 - 3; x += 11) if (clearOf(x, LANE_F, 1.5)) bike(x, L1 + 0.4, [1, 0]);
+        vending(b, x0 + 1.1, GY, L0 - 0.4, [0, -1], k % 2 ? 'vending' : 'vending2', 'old');
       }
-      // The convenience store on Sanbashi-suji's corner.
-      if (Math.abs(a - bl(SAN)[1]) < 0.01) {
-        const kc = KONBINI.corner;
-        // (Facing south onto Tsunamachi-dōri at Sanbashi-suji's corner: its 9 m depth sits inside the shop row's, clear of the lane behind.)
-        at('s', a + 0.3 + kc.w / 2, BACK1 - 0.3, () => konbini(b, { type: 'corner', chain: 'hinode' }));
-        reserved.push([a, BACK1 - kc.d - 0.6, a + kc.w + 0.6, BACK1]);
-        s0 = a + kc.w + 0.9;
-      }
-      if (s1 - s0 > 5) for (const q of row('tsuna', TSUNA, 's', BACK1 - 0.3, s0, s1, SHOP, letterShop)) reserved.push(q);
-      // The lane and its terrace, across the block (past the bathhouse's lot).
-      const la = westOfFood ? s0 : x0;
-      if (x1 - la > 8) {
-        lanePave(la, L1, x1, L0, LANES[k % LANES.length]);
-        for (const q of row('tsuna', TSUNA, 's', N0, la + 0.2, x1 - 0.2, NAGA, () => {})) reserved.push(q);
-        for (let x = la + 6; x < x1 - 4; x += 14) streetLamp(b, 'lamp_small', x, L0 - 0.22, [0, -1]);
-        for (let x = la + 3; x < x1 - 3; x += 11) bike(x, L1 + 0.4, [1, 0]);
-        at('n', x1 - 1.4, L0 - 0.02, () => {
-          b.model('aizome', 'jizo', 0, GY, -0.9, 1);
-          b.block(-0.6, GY, -0.9, 0.6, GY + 1.8, -0.05);
-        });
-        vending(b, la + 1.1, GY, L0 - 0.4, [0, -1], k % 2 ? 'vending' : 'vending2', 'old');
-      }
-      interiors.push([a, -Z, e, BACK1]);
     });
-    // The alleys at x ±50 through the north band (Tōsen-machi's 提灯小路 and 龍門小路 go on north).
+    for (const [a, e] of between([hs, food, ss])) if (FILL) interiors.push([a, -Z, e, BACK1]);
+    // The alleys through the band (Tōsen-machi's 提灯小路 and 龍門小路 go on north). The west one cranks: in at x −50,
+    // east along the row-house lane, out to the back street at x −36.
     const far: Named[] = [{ ja: '提灯小路', en: 'Chōchin-kōji' }, { ja: '', en: '' }, { ja: '龍門小路', en: 'Ryūmon-kōji' }];
-    LANE_F.forEach(([a, e], k) => {
-      if (k === 1) return;
-      lanePave(a, -Z, e, BACK1, far[k]);
-      for (let z = -Z + 6; z < BACK1 - 3; z += 9) streetLamp(b, 'lamp_small', a + 0.25, z, [1, 0]);
+    [0, 2].forEach((k) => {
+      const [na, ne] = LANE_F[k], [sa, se] = LANE_S[k];
+      lanePave(na, -Z, ne, L1, far[k]);
+      lanePave(sa, L0, se, BACK1, far[k]);
+      for (let z = -Z + 4; z < L1 - 1; z += 9) streetLamp(b, 'lamp_small', na + 0.25, z, [1, 0]);
+      for (let z = L0 + 3; z < BACK1 - 2; z += 9) streetLamp(b, 'lamp_small', sa + 0.25, z, [1, 0]);
     });
+    // The dead end: east of 龍門小路 the row-house lane runs on past the shrine 綱町船玉社 (its torii on the alley, its
+    // lot back to Sanbashi-suji's pavement) and stops at a stone fence (玉垣).
+    {
+      const x0 = SHRINE[0], x1 = SHRINE[1] - 0.3, zc = (-Z + L1) / 2;
+      at('w', x0 - 1.3, zc, () => place(b, { kind: 'shrine', ja: '綱町船玉社', en: 'Tsunamachi Funadama Shrine' }));
+      reserved.push([x0 - 1.3, -Z, SHRINE[1], L1]);
+      b.deco(STONE, x1 - 0.3, GY, L1, x1, GY + 1.25, L0);
+      for (let z = L1 + 0.4; z < L0; z += 0.8) b.deco('flat:#8c8678', x1 - 0.34, GY + 1.25, z - 0.12, x1 + 0.04, GY + 1.4, z + 0.12);
+      b.block(x1 - 0.3, GY, L1, x1, GY + 2.2, L0);
+    }
   }
 
   // ═════════════════════════ The south side: warehouses, plaza, terminal, port office ═════════════════════════
@@ -671,6 +765,21 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
     forecourt(TERM.x0, TERM.x1, FRONT, TERM.z0); // the terminal's forecourt
     forecourt(RENGA1[1], RENGA2[0], RZ, PROM, { ja: '帆柱筋（倉庫の間）', en: 'Hobashira-suji — between the warehouses' });
     forecourt(TERM.x1, KOWAN[0], FRONT, PROM, { ja: '桟橋筋（桟橋通路）', en: 'Sanbashi-suji — the pier approach' });
+    // The approach is 24 m of setts: a line of zelkova and lamps down each side and benches under them, so it
+    // reads as the way to the pier and not as a bare yard.
+    for (const [x, f] of [[TERM.x1 + 3, 1], [KOWAN[0] - 3, -1]] as [number, number][]) {
+      let k = 0;
+      for (let z = FRONT + 6; z < PROM - 3; z += 8) {
+        if (k++ % 2) {
+          roadModel(b, 'bench_s', x, GY, z, [f, 0]);
+          b.block(x - 0.4, GY, z - 0.95, x + 0.4, GY + 0.6, z + 0.95);
+        } else {
+          modelTree(b, 'zelkova', x, z, k % 4 ? 'a' : 'b', GY, true);
+          b.block(x - 0.4, GY, z - 0.4, x + 0.4, GY + 4, z + 0.4);
+        }
+      }
+      for (const z of [FRONT + 10, PROM - 7]) streetLamp(b, 'lamp_park', x + f * 1.4, z, [f, 0]);
+    }
     // Bollards keep cars off the approach.
     for (const x of [TERM.x1 + 1, (TERM.x1 + KOWAN[0]) / 2, KOWAN[0] - 1]) {
       roadModel(b, 'bollard', x, GY, FRONT + 0.6, [0, 1]);
@@ -697,8 +806,10 @@ export function minatoStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [number
     b.deco('tile:#a89a86', x0, GY + 0.003, z0, x1, GY + 0.013, z1);
     reserved.push([x0, z0, x1, z1]);
     b.zone('street', x0 + 0.3, GY - 0.2, z0 + 0.3, x1 - 0.3, GY + 10, z1 - 0.3, '煉瓦広場', 'Renga Hiroba — Brick Square', true);
+    // The police box on the square's corner by the terminal, facing the boulevard.
+    at('n', x1 - 4, z0 + 0.3, () => place(b, { kind: 'koban', ja: '川湊港交番', en: 'Kawaminato-kō Kōban' }));
     let k = 0;
-    for (let x = x0 + 4; x < x1 - 2; x += 7) for (const z of [z0 + 6, z1 - 6]) modelTree(b, 'zelkova', x, z, k++ % 2 ? 'a' : 'b', GY, true);
+    for (let x = x0 + 4; x < x1 - 2; x += 7) for (const z of [z0 + 6, z1 - 6]) if (!(x > x1 - 8 && z < z0 + 8)) modelTree(b, 'zelkova', x, z, k++ % 2 ? 'a' : 'b', GY, true);
     for (let x = x0 + 7.5; x < x1 - 4; x += 7) {
       roadModel(b, 'bench_s', x, GY, (z0 + z1) / 2 - 3, [0, 1]);
       b.block(x - 0.95, GY, (z0 + z1) / 2 - 3.4, x + 0.95, GY + 0.6, (z0 + z1) / 2 - 2.6);

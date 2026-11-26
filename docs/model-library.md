@@ -50,6 +50,7 @@ Written from each script's head comment, not from looking at the models: open th
 | | `port`, `konya` | Kon'yahama | East quay brick sheds; shore pieces |
 | | `hatoba` | Kawaminato-kō | Landmarks of the diagonal avenue |
 | Foreign quarter, Chinatown | `kamome`, `tosen` | Kawaminato-kō | Bluff foreign quarter; Chinatown |
+| | `kamome` (added 2026-11-26) | Kamome-ga-oka | Park-quarter houses: two more merchants' houses (`ijin_e`, `ijin_f`), two cottages (`cot_a`, `cot_b`), a half-timbered house, the brick manse, a veranda bungalow; park pieces: bandstand, pond footbridge, rose pergola |
 | Canal side, nightlife | `hyotan`, `canalfront`, `yokocho` | Hyōtanbori | Set pieces; narrow bar and restaurant blocks; lane of tiny bars |
 | Canal side, boutiques | `horie`, `boutique` | Minamihorie | Set pieces; converted low buildings as boutiques |
 | University town | `daigaku`, `daigakufront` | Daigaku-mae | Brick campus side; town side of the street |

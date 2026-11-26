@@ -1,21 +1,20 @@
-// 鴎ヶ丘 Kamome-ga-oka, the foreign quarter on the bluff (2026-11-24, stage 3 of the north districts; after Kobe's
-// Kitano and Nagasaki's Minami-Yamate, the names invented). The old rocky islet the port landfill was built round:
-// it rises from Hokushin-dōri in four terraces on stone retaining walls (石垣) to a summit 15 m up, a cliff over the
-// river mouth on its north. Two ways climb it straight: 鴎坂 Kamome-zaka (Hobashira-suji carried up, a sloped
-// lane) and 天主堂坂 Tenshudō-zaka (Sanbashi-suji carried up, a stone stair lane); 浜見坂 Hamami-zaka and the
-// north stair climb its east wall from Kita-Hatoba. On the terraces, flat car-free lanes with the merchants'
-// houses (異人館), the old consulate and the Harrington House museum; on the summit the church 川湊天主堂 over the
-// harbour (on the line of Hokage-ōdōri's promenade) and the lookout park 鴎ヶ丘公園; the mission school
-// 鴎ヶ丘女学院 on the lowest terrace. No traffic.
+// 鴎ヶ丘 Kamome-ga-oka, the foreign quarter (2026-11-24, stage 3 of the north districts; after Kobe's Kitano and
+// Nagasaki's Minami-Yamate, the names invented). Flat since 2026-11-26 (the owner: the bluff looked awkward): the
+// same quarter at street level, north of Hokushin-dōri to the river mouth. Two car-free ways run north through it:
+// 鴎小路 Kamome-kōji (Hobashira-suji carried on) and 天主堂筋 Tenshudō-suji (Sanbashi-suji carried on); 浜見小路
+// Hamami-kōji and the park's north gate open east onto Kita-Hatoba. On the three cross lanes the merchants' houses
+// (異人館), the old consulate and the Harrington House museum; at the north end the church 川湊天主堂 (on the line of
+// Hokage-ōdōri's promenade) and the riverside park 鴎ヶ丘公園; the mission school 鴎ヶ丘女学院 by the south lane.
+// No traffic.
 //
 // Frame: world (320, −378.5), yaw 0. Plot ±145 × ±113.5: world x 175 … 465, z −492 … −265. Written in world x, z.
 //
-//   z −272 … −265  the foot (y 0): Hokushin-dōri's north pavement carried on
-//   T1 z −320 … −272 at 3 m:   港見通 Minatomi-dōri z −304 … −298 (on Kita-Hatoba's Tōdai-dōri's line)
-//   T2 z −366 … −320 at 7.5 m: 異人館通 Ijinkan-dōri z −345 … −339
-//   T3 z −414 … −366 at 12.5 m: 鐘楼通 Shōrō-dōri z −393 … −387
-//   T4 z −492 … −414 at 15 m:  the summit: the church (x 422 … 465), the lookout park (z −492 … −455)
-//   x 238 … 252 鴎坂, x 389 … 401 天主堂坂 (their landings at the three lanes)
+//   z −272 … −265  Hokushin-dōri's north pavement carried on
+//   B1 z −320 … −272: 港見通 Minatomi-dōri z −304 … −298 (on Kita-Hatoba's Tōdai-dōri's line)
+//   B2 z −366 … −320: 異人館通 Ijinkan-dōri z −345 … −339
+//   B3 z −414 … −366: 鐘楼通 Shōrō-dōri z −393 … −387
+//   B4 z −492 … −414: the church (x 422 … 465), the riverside park (z −492 … −455)
+//   x 238 … 252 鴎小路, x 389 … 401 天主堂筋
 //
 // Models: tools/blender/build_kamome.py.
 
@@ -23,9 +22,9 @@ import { Builder, rng, type Build } from '../world/builder';
 import type { SignContent } from '../signs/content';
 import type { AnchorPt } from './anchors/types';
 import { KAMOME } from './anchors/kamome';
-import { GROUND_Y as GY, stairs } from './kit';
+import { GROUND_Y as GY } from './kit';
 import { roadModel, streetLamp } from './roads';
-import { BUILDING_MODELS } from './buildings';
+import { place } from './places';
 import { churchInside, harringtonInside } from './interiors';
 import { modelTree, type TreeKind } from './trees';
 
@@ -35,12 +34,12 @@ export const KAMOME_PLOT = { x: 145, z: 113.5 };
 export const KAMOME_NAME = { ja: '鴎ヶ丘', en: 'Kamome-ga-oka' };
 
 const XW = 175, XE = 465, ZS = -265, ZN = -492;
-/** The terraces: z range (z0 north, z1 south) and height. */
-export const TERRACES = [
-  { z0: -320, z1: -272, y: 3 },
-  { z0: -366, z1: -320, y: 7.5 },
-  { z0: -414, z1: -366, y: 12.5 },
-  { z0: ZN, z1: -414, y: 15 },
+/** The four bands of the quarter, south to north: z range (z0 north, z1 south); all at street level (y 0). */
+const TERRACES = [
+  { z0: -320, z1: -272, y: 0 },
+  { z0: -366, z1: -320, y: 0 },
+  { z0: -414, z1: -366, y: 0 },
+  { z0: ZN, z1: -414, y: 0 },
 ];
 /** The lanes across the terraces (z0, z1) and names. */
 const LANES = [
@@ -50,9 +49,7 @@ const LANES = [
 ];
 /** The two ways straight up (x ranges). */
 const ZAKA: [number, number] = [238, 252], TENSHU: [number, number] = [389, 401];
-/** Their height profile: (z, y) points from the foot to the summit, flat over each lane. */
-const PROFILE: [number, number][] = [[-272, 0], [-297.5, 3], [-304.5, 3], [-338.5, 7.5], [-345.5, 7.5], [-386.5, 12.5], [-393.5, 12.5], [-414, 15]];
-/** The east stairs (z ranges) and how far west they run. */
+/** The two ways in from Kita-Hatoba on the east (z ranges). */
 const TODAI = { z: [-304, -298] as [number, number], x: 453 }, KITA = { z: [-473, -467] as [number, number], x: 436 };
 
 const STONE = 'tile:#8f877a', STONE_L = 'tile:#a59c8e', PAVE = 'paver', SETT = 'tile:#77716a', IRONC = 'flat:#25282b', WHITE = 'flat:#f4f1e8';
@@ -82,14 +79,6 @@ export function kamomeGaOka(): Build {
     const hx = f[0] ? 0.4 : 0.95, hz = f[0] ? 0.95 : 0.4;
     block(x - hx, y + GY, z - hz, x + hx, y + GY + 0.6, z + hz);
   };
-  /** Height of the two straight ways at z. */
-  const yAt = (z: number) => {
-    for (let i = 0; i < PROFILE.length - 1; i++) {
-      const [za, ya] = PROFILE[i], [zb, yb] = PROFILE[i + 1];
-      if (z <= za && z >= zb) return ya + ((yb - ya) * (za - z)) / (za - zb);
-    }
-    return z > PROFILE[0][0] ? 0 : 15;
-  };
   /** Not in either way up (x). */
   const offWays = (x: number, m = 1.5) => ![ZAKA, TENSHU].some(([a, e]) => x > a - m && x < e + m);
 
@@ -100,8 +89,6 @@ export function kamomeGaOka(): Build {
   const cuts = (t: number): number[][] => {
     const out: number[][] = [];
     for (const [x0, x1] of [ZAKA, TENSHU]) out.push([fx(x0), fz(TERRACES[t].z0) - 1, fx(x1), fz(TERRACES[t].z1) + 1]);
-    if (t === 0) out.push([fx(TODAI.x), fz(TODAI.z[0]), fx(XE) + 1, fz(TODAI.z[1])]);
-    if (t === 3) out.push([fx(KITA.x), fz(KITA.z[0]), fx(XE) + 1, fz(KITA.z[1])]);
     return out;
   };
   TERRACES.forEach((T, t) => {
@@ -110,19 +97,7 @@ export function kamomeGaOka(): Build {
     b.slab(STONE, fx(XW), fz(T.z0), fx(XE), fz(T.z1), y0, top, cuts(t));
     b.slab(PAVE, fx(XW), fz(T.z0), fx(XE), fz(T.z1), top, top + 0.01, cuts(t), false);
     zone(XW, T.z0, XE, T.z1, T.y, KAMOME_NAME.ja, KAMOME_NAME.en);
-    // The wall's coping and an iron railing along its top (its south edge), broken at the two ways.
-    const rail = (x0: number, x1: number) => {
-      if (x1 - x0 < 1) return;
-      deco(STONE_L, x0, top - 0.25, T.z1 - 0.5, x1, top + 0.08, T.z1);
-      deco(IRONC, x0, top + 1.0, T.z1 - 0.32, x1, top + 1.06, T.z1 - 0.26);
-      for (let x = x0 + 0.1; x < x1; x += 1.8) deco(IRONC, x - 0.03, top, T.z1 - 0.32, x + 0.03, top + 1.0, T.z1 - 0.26);
-      block(x0, top, T.z1 - 0.4, x1, top + 1.3, T.z1 - 0.2);
-    };
-    let x = XW;
-    for (const [c0, c1] of [ZAKA, TENSHU]) { rail(x, c0); x = c1; }
-    rail(x, XE);
-    // Its east face: the bluff's wall over Kita-Hatoba, a rail along the top.
-    // (Broken where a stair comes up it.)
+    // Its east edge: an iron railing on a stone kerb towards Kita-Hatoba, open at the two ways in.
     const gap = t === 0 ? TODAI.z : t === 3 ? KITA.z : null;
     for (const [z0, z1] of (gap ? [[T.z0, gap[0]], [gap[1], T.z1]] : [[T.z0, T.z1]]) as [number, number][]) {
       deco(STONE_L, XE - 0.5, top - 0.25, z0, XE, top + 0.08, z1);
@@ -131,70 +106,30 @@ export function kamomeGaOka(): Build {
       deco(IRONC, XE - 0.32, top + 1.0, z0, XE - 0.26, top + 1.06, z1);
     }
   });
-  // The north cliff over the river mouth: the summit's rail; the west edge (the bluff's back, not walked) a wall.
-  deco(STONE_L, XW, 15 + GY - 0.25, ZN, XE, 15 + GY + 0.08, ZN + 0.5);
-  deco(IRONC, XW, 15 + GY + 1.0, ZN + 0.26, XE, 15 + GY + 1.06, ZN + 0.32);
-  for (let x = XW + 0.5; x < XE; x += 1.8) deco(IRONC, x - 0.03, 15 + GY, ZN + 0.26, x + 0.03, 15 + GY + 1.0, ZN + 0.32);
-  block(XW, 15 + GY, ZN + 0.2, XE, 15 + GY + 1.3, ZN + 0.4);
-  // (The cliff's face 0.4 m proud of the landfill's edge, so the shore's embankment at z −492 is hidden in it.)
-  box(STONE, XW, -2.5, ZN - 0.4, XE, 15 + GY, ZN);
+  // The north edge over the river mouth: a railing on the quay wall; the west edge (not walked) a wall.
+  deco(STONE_L, XW, GY - 0.25, ZN, XE, GY + 0.08, ZN + 0.5);
+  deco(IRONC, XW, GY + 1.0, ZN + 0.26, XE, GY + 1.06, ZN + 0.32);
+  for (let x = XW + 0.5; x < XE; x += 1.8) deco(IRONC, x - 0.03, GY, ZN + 0.26, x + 0.03, GY + 1.0, ZN + 0.32);
+  block(XW, GY, ZN + 0.2, XE, GY + 1.3, ZN + 0.4);
+  // (The wall's face 0.4 m proud of the landfill's edge, so the shore's embankment at z −492 is hidden in it.)
+  box(STONE, XW, -2.5, ZN - 0.4, XE, GY, ZN);
   block(XW - 1, -1, ZN, XW, 60, ZS);
   block(XW, -1, ZN - 1, XE, 60, ZN);
 
-  // ═════════════════════════ The two ways up ═════════════════════════
-  /** A sloped or stepped run northwards over x0 … x1 from z = za (low) to zb (high); `steps` lays treads. */
-  const run = (x0: number, x1: number, za: number, zb: number, ya: number, yb: number, steps: boolean, rails: [boolean, boolean]) => {
-    // (Local frame: +x runs north, +z runs east: rot 3 maps local (lx, lz) to frame (lz, −lx).)
-    b.with({ rot: 3 }, () => {
-      const lx0 = -fz(za), lx1 = -fz(zb), lz0 = fx(x0), lz1 = fx(x1);
-      if (steps) stairs(b, { x0: lx0, x1: lx1, z0: lz0, z1: lz1, yLow: ya + GY, yHigh: yb + GY, mat: STONE_L, rails });
-      else {
-        b.ramp(lx0, lz0, lx1, lz1, ya + GY, yb + GY, [1, 0]);
-        // The embankment under it, its top the lane's surface; setts down the middle, kerbs either side.
-        b.slant(STONE, lx0, -0.6, lz0, lx1, ya + GY, lz1, yb - ya);
-        b.slant(PAVE, lx0, ya + GY, lz0, lx1, ya + GY + 0.012, lz1, yb - ya);
-        b.slant(SETT, lx0, ya + GY + 0.012, (lz0 + lz1) / 2 - 1.5, lx1, ya + GY + 0.02, (lz0 + lz1) / 2 + 1.5, yb - ya);
-        // Parapets: low stone walls you cannot step over, capped.
-        const chunks = Math.max(2, Math.ceil((lx1 - lx0) / 3));
-        for (const [on, z0, z1] of [[rails[0], lz0, lz0 + 0.4], [rails[1], lz1 - 0.4, lz1]] as [boolean, number, number][]) {
-          if (!on) continue;
-          b.slant(STONE_L, lx0, ya + GY - 0.6, z0, lx1, ya + GY + 0.9, z1, yb - ya);
-          for (let k = 0; k < chunks; k++) {
-            const xa = lx0 + ((lx1 - lx0) * k) / chunks, xb = lx0 + ((lx1 - lx0) * (k + 1)) / chunks;
-            b.block(xa, ya + GY, z0, xb, ya + GY + ((yb - ya) * (k + 1)) / chunks + 0.9, z1);
-          }
-        }
-      }
-      // Solid under it, a step below its surface, so nothing is walked under or into.
-      const n = Math.max(1, Math.ceil(lx1 - lx0));
-      for (let k = 0; k < n; k++) {
-        const xa = lx0 + ((lx1 - lx0) * k) / n, xb = lx0 + ((lx1 - lx0) * (k + 1)) / n;
-        const yTop = ya + ((yb - ya) * k) / n + GY - 0.15;
-        if (yTop > -0.3) b.block(xa, -0.6, lz0 + 0.4, xb, yTop, lz1 - 0.4);
-      }
-    });
-  };
-  const flat = (x0: number, x1: number, z0: number, z1: number, y: number, mat: string) => {
-    box(STONE, x0, -0.6, z0, x1, y + GY, z1);
-    deco(mat, x0, y + GY, z0, x1, y + GY + 0.012, z1);
-  };
-  for (const [[x0, x1], steps, ja, en] of [[ZAKA, false, '鴎坂', 'Kamome-zaka'], [TENSHU, true, '天主堂坂', 'Tenshudō-zaka']] as [[number, number], boolean, string, string][]) {
-    for (let i = 0; i < PROFILE.length - 1; i++) {
-      const [za, ya] = PROFILE[i], [zb, yb] = PROFILE[i + 1];
-      if (ya === yb) flat(x0, x1, zb, za, ya, steps ? STONE_L : PAVE);
-      else run(x0, x1, za, zb, ya, yb, steps, [true, true]);
-      for (let z = za; z > zb + 1; z -= 8) zone(x0, z, x1, Math.max(zb, z - 8), yAt(z - 4), ja, en);
-    }
-    // On the summit: on north to the park as a level walk.
-    flat(x0, x1, ZN, -414, 15, steps ? STONE_L : PAVE);
-    // Lamps up the way, cherries on Kamome-zaka's terraces either side.
+  // ═════════════════════════ The two ways north ═════════════════════════
+  for (const [[x0, x1], stone, ja, en] of [[ZAKA, false, '鴎小路', 'Kamome-kōji'], [TENSHU, true, '天主堂筋', 'Tenshudō-suji']] as [[number, number], boolean, string, string][]) {
+    box(STONE, x0, -0.6, ZN, x1, GY, -272);
+    deco(stone ? STONE_L : PAVE, x0, GY, ZN, x1, GY + 0.012, -272);
+    // (Kamome-kōji: setts down the middle.)
+    if (!stone) deco(SETT, (x0 + x1) / 2 - 1.5, GY + 0.012, -414, (x0 + x1) / 2 + 1.5, GY + 0.02, -272);
+    for (let z = -272; z > -414; z -= 8) zone(x0, z, x1, z - 8, 0, ja, en);
     for (let z = -278; z > -410; z -= 16) {
       if (LANES.some((l) => z > l.z[0] - 3 && z < l.z[1] + 3)) continue;
-      lamp(x0 + 0.7, yAt(z), z, [1, 0]);
+      lamp(x0 + 0.7, 0, z, [1, 0]);
     }
   }
-  // Name posts at the foot of each.
-  for (const [x, ja, en] of [[ZAKA[0] + 1, '鴎坂', 'Kamome-zaka · to Kamome-ga-oka'], [TENSHU[0] + 1, '天主堂坂', 'Tenshudō-zaka · to the church']] as [number, string, string][]) {
+  // Name posts at the south end of each.
+  for (const [x, ja, en] of [[ZAKA[0] + 1, '鴎小路', 'Kamome-kōji · to Kamome-ga-oka'], [TENSHU[0] + 1, '天主堂筋', 'Tenshudō-suji · to the church']] as [number, string, string][]) {
     b.sign({ k: 'label', text: ja, sub: en, fg: '#f2ecd8', bg: '#2a2622' }, fx(x - 0.6), GY + 1.6, fz(-271.5), [0, 1], 1.1, 0.45);
   }
 
@@ -211,32 +146,14 @@ export function kamomeGaOka(): Build {
     for (const [a, e] of [ZAKA, TENSHU]) b.sign({ k: 'label', text: L.ja, sub: L.en, fg: '#f2ecd8', bg: '#2f4a3a' }, fx(e + 1.2), y + 2.2, fz(L.z[1] + 0.3), [0, 1], 1.2, 0.4);
   }
 
-  // ═════════════════════════ The east stairs from Kita-Hatoba ═════════════════════════
-  /** A flight westwards from x = XE (low) to x = xw (high) over z0 … z1. (rot 2: local (lx, lz) is frame (−lx, −lz).) */
-  const westFlight = (xw: number, z0: number, z1: number, y: number) => b.with({ rot: 2 }, () => {
-    stairs(b, { x0: -fx(XE), x1: -fx(xw), z0: -fz(z1), z1: -fz(z0), yLow: GY, yHigh: y + GY, mat: STONE_L });
-    const n = Math.ceil(XE - xw);
-    for (let k = 0; k < n; k++) {
-      const yTop = (y * k) / n + GY - 0.15;
-      if (yTop > -0.3) b.block(-fx(XE) + k, -0.6, -fz(z1) + 0.1, -fx(XE) + k + 1, yTop, -fz(z0) - 0.1);
-    }
-  });
-  westFlight(TODAI.x, TODAI.z[0], TODAI.z[1], TERRACES[0].y);
-  westFlight(KITA.x, KITA.z[0], KITA.z[1], TERRACES[3].y);
-  b.zone('street', fx(TODAI.x), -0.5, fz(TODAI.z[0]), fx(XE), TERRACES[0].y + 8, fz(TODAI.z[1]), '浜見坂', 'Hamami-zaka', true);
-  // Rails along the top of the north stair's cutting, either side.
-  for (const z of KITA.z) {
-    const zz = z === KITA.z[0] ? z - 0.15 : z + 0.15;
-    deco(IRONC, KITA.x, 15 + GY + 1.0, zz - 0.03, XE, 15 + GY + 1.06, zz + 0.03);
-    for (let x = KITA.x + 0.2; x < XE; x += 1.8) deco(IRONC, x - 0.03, 15 + GY, zz - 0.03, x + 0.03, 15 + GY + 1.0, zz + 0.03);
-    block(KITA.x, 15 + GY, zz - 0.1, XE, 15 + GY + 1.3, zz + 0.1);
-  }
-  b.zone('street', fx(KITA.x), -0.5, fz(KITA.z[0]), fx(XE), 23, fz(KITA.z[1]), '北岸の石段', 'Kitagishi steps', true);
-  b.sign({ k: 'label', text: '浜見坂', sub: 'Hamami-zaka · to Kamome-ga-oka', fg: '#f2ecd8', bg: '#2a2622' }, fx(XE + 0.05), GY + 2.2, fz(TODAI.z[1] + 0.8), [1, 0], 1.2, 0.45);
-  b.sign({ k: 'label', text: '鴎ヶ丘公園', sub: 'Kamome-ga-oka Park · steps', fg: '#ffffff', bg: '#2f4a2c' }, fx(XE + 0.05), GY + 2.2, fz(KITA.z[1] + 0.8), [1, 0], 1.2, 0.45);
+  // ═════════════════════════ The two ways in from Kita-Hatoba ═════════════════════════
+  deco(STONE_L, KITA.x, GY + 0.012, KITA.z[0], XE, GY + 0.035, KITA.z[1]);
+  b.zone('street', fx(TODAI.x), -0.5, fz(TODAI.z[0]), fx(XE), 8, fz(TODAI.z[1]), '浜見小路', 'Hamami-kōji', true);
+  b.sign({ k: 'label', text: '浜見小路', sub: 'Hamami-kōji · to Kamome-ga-oka', fg: '#f2ecd8', bg: '#2a2622' }, fx(XE + 0.05), GY + 2.2, fz(TODAI.z[1] + 0.8), [1, 0], 1.2, 0.45);
+  b.sign({ k: 'label', text: '鴎ヶ丘公園', sub: 'Kamome-ga-oka Park', fg: '#ffffff', bg: '#2f4a2c' }, fx(XE + 0.05), GY + 2.2, fz(KITA.z[1] + 0.8), [1, 0], 1.2, 0.45);
 
   // ═════════════════════════ Buildings ═════════════════════════
-  /** A house on a terrace: its front middle at (x, zf), facing `face`; a front garden to the lane behind a picket fence. */
+  /** A house: its front middle at (x, zf), facing `face`; a front garden to the lane behind a picket fence. */
   const placed: [number, number, number, number][] = [];
   const house = (id: string, face: 'n' | 's' | 'e', x: number, zf: number, y: number, ja: string, en: string, garden = 4.5) => {
     const A = KAMOME[id];
@@ -301,7 +218,7 @@ export function kamomeGaOka(): Build {
     house('ijin_c', 'n', 340, LANEZ(1)[1] + 5, y, '旧ロッシ邸', 'Old Rossi House · 1911');
     house('ijin_b', 's', 290, LANEZ(1)[0] - 5, y, '旧ヘイデン邸', 'Old Heyden House · 1897');
   }
-  // The church on the summit, its front to the east over the harbour (on Hokage-ōdōri's line), a forecourt before it.
+  // The church at the north end, its front to the east towards the harbour (on Hokage-ōdōri's line), a forecourt before it.
   const CH = { x: 458, z: -428 };
   {
     const y = TERRACES[3].y, C = KAMOME.church;
@@ -323,60 +240,82 @@ export function kamomeGaOka(): Build {
     bench(CH.x + 4.5, y, CH.z + 4, [1, 0]);
     placed.push([CH.x - C.d - 1, CH.z - C.w / 2 - 1, CH.x, CH.z + C.w / 2 + 1]);
     zone(CH.x - C.d, CH.z - 10, XE, CH.z + 10, y, '川湊天主堂', 'Kawaminato Cathedral');
-    // A walk from the top of Tenshudō-zaka to the forecourt, along the church's south side.
+    // A walk from Tenshudō-suji to the forecourt, along the church's south side.
     deco(STONE_L, TENSHU[1], y + GY + 0.01, -420, CH.x, y + GY + 0.022, -416);
   }
-  // Where nothing else stands: on every terrace, two-storey houses of the stock (no flats: the hill stays low, as
-  // Kitano's does, so the western houses and the church show), each in its garden behind a hedge, gaps of lawn and
-  // trees between them. East of x 420 on the two upper terraces only gardens: the view of the church from the avenue.
+  // Where nothing else stands: the quarter's own houses (build_kamome.py, 2026-11-26: cottages, a half-timbered
+  // house, the brick manse, a bungalow, two more merchants' houses), each in a garden behind a hedge with a gate, a
+  // path to the door and a flower bed; trees in the gaps. Rows face each lane from both sides, as deep as half
+  // the way to the next lane. East of x 420 on the two northern lanes only lawn: the view of the church.
   const free = (x0: number, z0: number, x1: number, z1: number) => !placed.some(([a, c, e, d]) => a < x1 && e > x0 && c < z1 && d > z0);
-  const LOW = BUILDING_MODELS.filter((m) => (m.kind === 'machi' || m.kind === 'shophouse') && m.h <= 10.6 && !m.corner);
-  /** In a row's own frame (front line z 0, facing −z, lots x 0 … len): houses with gardens between. */
-  const lowRow = (len: number, depth: number) => {
-    let x = 1 + r() * 2, last = '';
-    while (x < len - 5) {
-      const ok = LOW.filter((m) => m.w <= len - x - 0.5 && m.d <= depth - 1.5 && `${m.kind}${m.id}` !== last);
-      if (!ok.length) break;
-      const m = ok[Math.floor(r() * ok.length)], z0 = 1.6;
-      last = `${m.kind}${m.id}`;
-      b.model(m.kind, m.id, x + m.w / 2, GY, z0, Math.floor(r() * 1000) + 1000);
-      b.block(x, GY, z0, x + m.w, GY + m.h, z0 + m.d);
-      // Its hedge along the lane, and a garden gap with a tree after it.
-      b.deco('flat:#3f5a3a', x - 0.6, GY, 0.2, x + m.w + 0.6, GY + 0.9, 0.7);
-      b.block(x - 0.6, GY, 0.2, x + m.w + 0.6, GY + 0.9, 0.7);
-      const gap = 3 + r() * 5;
-      if (gap > 4.5 && x + m.w + gap / 2 < len - 1) {
-        const tx = x + m.w + gap / 2;
-        modelTree(b, r() < 0.5 ? 'momiji' : 'camphor', tx, depth / 2, 'b', GY, true);
-        b.block(tx - 0.4, GY, depth / 2 - 0.4, tx + 0.4, GY + 4, depth / 2 + 0.4);
+  /** The houses rows are made of, and how far each one's porch or veranda stands out before its front. */
+  const HOUSES: [string, number][] = [['cot_a', 1.9], ['ijin_e', 2.5], ['timber', 0.5], ['bungalow', 0.7], ['ijin_f', 2.5], ['manse', 1.7], ['cot_b', 1.9], ['ijin_d', 1.1], ['ijin_b', 2.5]];
+  const BEDS = ['flat:#c8402a', '#e3b12a', '#7a4fa0', '#d65a8a', '#f2f0ec'].map((c) => (c.startsWith('flat') ? c : `flat:${c}`));
+  let hn = 0;
+  /** In a row's own frame (the lane's edge at z 0, lots x 0 … len, running back to `depth`): houses in gardens. */
+  const houseRow = (len: number, depth: number) => {
+    let x = 1.5 + r() * 2;
+    while (x < len - 9) {
+      const pick = HOUSES.map((h, k) => HOUSES[(hn + k) % HOUSES.length]).find(([id]) => KAMOME[id].w <= len - x - 1 && KAMOME[id].d + 5.5 <= depth);
+      if (!pick) break;
+      hn++;
+      const [id, proj] = pick, A = KAMOME[id], set = 4.6 + (hn % 3) * 0.5, xc = x + A.w / 2;
+      b.model('kamome', id, xc, GY, set, 0);
+      b.block(x + 0.2, GY, set - proj, x + A.w - 0.2, GY + A.h, set + A.d - 0.2);
+      // The hedge along the lane, open at the gate; white gate posts; the path; a bed either side of it.
+      for (const [a, e] of [[x - 0.8, xc - 0.9], [xc + 0.9, x + A.w + 0.8]]) {
+        b.deco('flat:#3f5a3a', a, GY, 0.5, e, GY + 0.95, 1.05);
+        b.block(a, GY, 0.5, e, GY + 0.95, 1.05);
       }
-      b.deco('grass', x + m.w + 0.2, GY + 0.012, 0.8, Math.min(len, x + m.w + gap - 0.2), GY + 0.03, depth - 0.5);
-      x += m.w + gap;
+      for (const sx of [-1, 1]) b.deco(WHITE, xc + sx * 0.9 - 0.12, GY, 0.55, xc + sx * 0.9 + 0.12, GY + 1.25, 1.0);
+      b.deco(STONE_L, xc - 0.7, GY + 0.018, 0, xc + 0.7, GY + 0.03, set - proj);
+      for (const sx of [-1, 1]) {
+        const bx = xc + sx * (A.w / 4 + 0.6), col = BEDS[(hn + (sx > 0 ? 2 : 0)) % BEDS.length];
+        b.deco('flat:#4a6a40', bx - 1.5, GY + 0.018, 1.6, bx + 1.5, GY + 0.22, 2.6);
+        b.deco(col, bx - 1.3, GY + 0.22, 1.75, bx + 1.3, GY + 0.34, 2.45);
+      }
+      // The gap to the next house: a tree, and a bench under it now and then.
+      const gap = 3.5 + r() * 3.5;
+      const tx = x + A.w + gap / 2;
+      if (tx < len - 1.5) {
+        const tz = set + 3 + r() * 3;
+        modelTree(b, hn % 3 === 0 ? 'momiji' : hn % 3 === 1 ? 'camphor' : 'cherry', tx, tz, 'b', GY, true);
+        b.block(tx - 0.4, GY, tz - 0.4, tx + 0.4, GY + 4, tz + 0.4);
+      }
+      x += A.w + gap;
     }
   };
-  const stock = (x0: number, x1: number, zf: number, face: 'n' | 's', y: number, depth: number) => {
-    // Lots of the stock models in a row facing the lane (n: front at zf, back to zf + depth; s: front at zf, back to zf − depth).
+  const stock = (x0: number, x1: number, zf: number, face: 'n' | 's', depth: number) => {
+    // Runs of free lane front (n: the row runs back to zf + depth; s: back to zf − depth), each handed to houseRow.
     let a = x0;
     for (let x = x0; x <= x1; x += 1) {
       const z0 = face === 'n' ? zf : zf - depth, z1 = face === 'n' ? zf + depth : zf;
-      const ok = x < x1 && free(x, z0, x + 1, z1) && ![ZAKA, TENSHU].some(([p, q]) => x + 1 > p - 0.5 && x < q + 0.5);
+      const ok = x < x1 && free(x, z0, x + 1, z1) && ![ZAKA, TENSHU].some(([p, q]) => x + 1 > p - 1.5 && x < q + 1.5);
       if (!ok) {
-        if (x - a >= 9) b.with({ ...FRAME[face], t: [face === 'n' ? fx(a) : fx(x), y, fz(zf)] }, () => lowRow(x - a, depth));
+        if (x - a >= 12) b.with({ ...FRAME[face], t: [face === 'n' ? fx(a) : fx(x), 0, fz(zf)] }, () => houseRow(x - a, depth));
         a = x + 1;
       }
     }
   };
-  TERRACES.slice(0, 3).forEach((T, t) => {
-    const L = LANES[t].z;
+  // The lawn: everything between the lanes and the two ways is grass (the lanes, the ways and Hokushin-dōri's
+  // pavement stay paved).
+  {
+    const zs: [number, number][] = [[-455, LANES[2].z[0] - 0.3], [LANES[2].z[1] + 0.3, LANES[1].z[0] - 0.3], [LANES[1].z[1] + 0.3, LANES[0].z[0] - 0.3], [LANES[0].z[1] + 0.3, -272.5]];
+    const xs: [number, number][] = [[XW + 0.5, ZAKA[0] - 0.3], [ZAKA[1] + 0.3, TENSHU[0] - 0.3], [TENSHU[1] + 0.3, XE - 0.6]];
+    for (const [z0, z1] of zs) for (const [x0, x1] of xs) deco('grass', x0, GY + 0.011, z0, x1, GY + 0.017, z1);
+  }
+  LANES.forEach((L, t) => {
     const xe = t > 0 ? 420 : XE - 1;
-    stock(XW + 1, xe, L[1] + 3, 'n', T.y, T.z1 - L[1] - 4.5);
-    stock(XW + 1, xe, L[0] - 3, 's', T.y, L[0] - T.z0 - 4.5);
-    // (East of 420 on T2 and T3: lawn and low azaleas.)
-    if (t > 0) for (const [z0, z1] of [[L[1] + 1, T.z1 - 1.5], [T.z0 + 1, L[0] - 1]]) {
-      deco('grass', 421, T.y + GY + 0.012, z0, XE - 1, T.y + GY + 0.03, z1);
+    const south = t === 0 ? -276 : (LANES[t - 1].z[0] + L.z[1]) / 2 - 0.5;
+    const north = t === 2 ? -414 : (LANES[t + 1].z[1] + L.z[0]) / 2 + 0.5;
+    stock(XW + 1, xe, L.z[1], 'n', south - L.z[1]);
+    stock(XW + 1, xe, L.z[0], 's', L.z[0] - north);
+    const T = TERRACES[t];
+    // (East of 420 on the two northern lanes: lawn and low azaleas.)
+    if (t > 0) for (const [z0, z1] of [[L.z[1] + 1, T.z1 - 1.5], [T.z0 + 1, L.z[0] - 1]]) {
       for (let x = 424; x < XE - 3; x += 6) for (const z of [z0 + 2, z1 - 2]) {
-        deco('flat:#4a6a40', x - 0.8, T.y + GY, z - 0.6, x + 0.8, T.y + GY + 0.7, z + 0.6);
-        block(x - 0.8, T.y + GY, z - 0.6, x + 0.8, T.y + GY + 0.7, z + 0.6);
+        deco('flat:#4a6a40', x - 0.8, GY, z - 0.6, x + 0.8, GY + 0.7, z + 0.6);
+        block(x - 0.8, GY, z - 0.6, x + 0.8, GY + 0.7, z + 0.6);
       }
     }
   });
@@ -389,11 +328,11 @@ export function kamomeGaOka(): Build {
     }
   }
 
-  // ═════════════════════════ The summit: 鴎ヶ丘公園, the lookout park ═════════════════════════
+  // ═════════════════════════ The north end: 鴎ヶ丘公園, the riverside park ═════════════════════════
   {
     const y = TERRACES[3].y, P0 = -455;
     deco('grass', XW + 2, y + GY + 0.012, ZN + 6, XE - 2, y + GY + 0.03, P0 - 2);
-    // The lookout: a granite terrace along the cliff rail, benches facing the river mouth, a telescope.
+    // The lookout: a granite walk along the river rail, benches facing the river mouth, a telescope.
     deco(STONE_L, XW, y + GY + 0.012, ZN + 0.5, XE, y + GY + 0.035, ZN + 6);
     for (let x = XW + 12; x < XE - 8; x += 20) if (offWays(x, 2)) bench(x, y, ZN + 3.2, [0, -1]);
     for (let x = XW + 22; x < XE - 8; x += 40) if (offWays(x, 2)) lamp(x, y, ZN + 5.5, [0, 1]);
@@ -414,7 +353,6 @@ export function kamomeGaOka(): Build {
       if (Math.abs(x - gx) < 20 || x > KITA.x - 4 || !offWays(x)) continue;
       tree(x % 28 < 14 ? 'cherry' : 'pine', x, y, -462);
     }
-    for (let x = XW + 15; x < CH.x - 40; x += 26) if (offWays(x)) tree('camphor', x, y, -440);
     // Along the long walk: cherries both sides and azalea beds between them, benches facing the walk.
     for (let x = XW + 6; x < KITA.x - 3; x += 9) {
       if ([ZAKA, TENSHU].some(([a, e]) => x + 7.8 > a - 1 && x - 0.4 < e + 1) || Math.abs(x - gx) < 22 || Math.abs(x - 272) < 9) continue;
@@ -446,7 +384,99 @@ export function kamomeGaOka(): Build {
       block(tx - 0.3, y + GY, ZN + 0.9, tx + 0.3, y + GY + 1.5, ZN + 1.7);
     }
     zone(XW, ZN, XE, P0, y, '鴎ヶ丘公園', 'Kamome-ga-oka Park');
-    b.sign({ k: 'label', text: '鴎ヶ丘公園', sub: 'Kamome-ga-oka Park · lookout 15 m', fg: '#ffffff', bg: '#2f4a2c' }, fx(TENSHU[0] - 0.3), y + GY + 1.6, fz(-452), [-1, 0], 1.3, 0.45);
+    b.sign({ k: 'label', text: '鴎ヶ丘公園', sub: 'Kamome-ga-oka Park · river mouth', fg: '#ffffff', bg: '#2f4a2c' }, fx(TENSHU[0] - 0.3), y + GY + 1.6, fz(-452), [-1, 0], 1.3, 0.45);
+  }
+
+  // ═════════════════════════ The park's middle (z −455 … −414): pond, bandstand, tennis court, playground ═════════════════════════
+  {
+    const WATER = 'water', RIM = STONE_L;
+    // The pond between the two ways: two lobes and a neck, a stone rim; the footbridge over the neck.
+    const lobes: [number, number, number, number][] = [[270, -447, 296, -423], [296, -438, 304, -430], [304, -445, 331, -425]];
+    for (const [x0, z0, x1, z1] of lobes) deco(RIM, x0 - 0.45, GY + 0.017, z0 - 0.45, x1 + 0.45, GY + 0.2, z1 + 0.45);
+    for (const [x0, z0, x1, z1] of lobes) deco(WATER, x0, GY + 0.2, z0, x1, GY + 0.24, z1);
+    // (Cut corners: stone and planting over the lobes' corners so the pond reads rounded.)
+    for (const [x0, z0, x1, z1] of [lobes[0], lobes[2]]) for (const [cx, cz] of [[x0, z0], [x0, z1], [x1, z0], [x1, z1]]) {
+      if (Math.abs(cx - 300) < 5) continue;
+      deco('flat:#4f7a48', cx - 2.2, GY + 0.2, cz - 2.2, cx + 2.2, GY + 0.75, cz + 2.2);
+      block(cx - 2.2, GY, cz - 2.2, cx + 2.2, GY + 0.8, cz + 2.2);
+    }
+    for (const [x0, z0, x1, z1] of [lobes[0], lobes[2]]) block(x0 - 0.45, GY, z0 - 0.45, x1 + 0.45, GY + 0.5, z1 + 0.45);
+    for (const [xa, xb] of [[296, 298.4], [301.6, 304]]) block(xa, GY, -438.45, xb, GY + 0.5, -429.55);
+    for (const [px, pz] of [[280, -431], [287, -440], [316, -437], [322, -430]]) deco('flat:#5f8f4a', px - 0.7, GY + 0.24, pz - 0.6, px + 0.7, GY + 0.27, pz + 0.6);
+    at('n', 300, GY, -439, () => {
+      const B = KAMOME.bridge;
+      b.model('kamome', 'bridge', 0, 0, 0, 0);
+      b.ramp(-1.4, 0, 1.4, B.d / 2, 0.05, 0.9, [0, 1]);
+      b.ramp(-1.4, B.d / 2, 1.4, B.d, 0.05, 0.9, [0, -1]);
+      for (const sx of [-1, 1]) b.block(sx * 1.5 - 0.1, 0, 0, sx * 1.5 + 0.1, 2.0, B.d);
+    });
+    zone(268, -449, 333, -421, 0, '鴎ヶ池', 'Kamome Pond');
+    for (const [bx, bz, f] of [[283, -420.5, [0, -1]], [317, -422.5, [0, -1]], [283, -449.5, [0, 1]], [317, -447.5, [0, 1]]] as [number, number, [number, number]][]) bench(bx, 0, bz, f);
+    // The bandstand east of the pond, a ring of gravel round it and benches facing it.
+    const BS = KAMOME.bandstand, bx = 360, bz = -434;
+    deco(STONE_L, bx - 8, GY + 0.017, bz - 8, bx + 8, GY + 0.028, bz + 8);
+    at('n', bx, GY, bz - BS.d / 2, () => {
+      b.model('kamome', 'bandstand', 0, 0, 0, 0);
+      b.block(-BS.w / 2 + 0.6, 0, 0.6, BS.w / 2 - 0.6, 0.9, BS.d - 0.6);
+    });
+    for (const [dx, dz, f] of [[-6.8, 0, [-1, 0]], [6.8, 0, [1, 0]], [0, 6.8, [0, 1]], [-4.9, -4.9, [0, -1]], [4.9, -4.9, [0, -1]]] as [number, number, [number, number]][]) bench(bx + dx, 0, bz + dz, f);
+    b.sign({ k: 'label', text: '音楽堂', sub: 'Bandstand · 1911', fg: '#f2ecd8', bg: '#2f4a3a' }, fx(bx - 5.4), GY + 1.2, fz(bz - 7.6), [0, 1], 0.9, 0.4);
+    lamp(bx - 7.5, 0, bz + 7.5, [1, 0]);
+    lamp(bx + 7.5, 0, bz - 7.5, [-1, 0]);
+
+    // West of Kamome-kōji: the lawn tennis court (the settlement's club, 1898) in its wire fence, the clubhouse
+    // cottage beside it, and the children's playground.
+    const C = { x0: 181, x1: 213, z0: -453, z1: -437 };
+    deco('flat:#6f9a5a', C.x0, GY + 0.017, C.z0, C.x1, GY + 0.026, C.z1);
+    const cx0 = C.x0 + 4.1, cx1 = C.x1 - 4.1, cz0 = C.z0 + 2.5, cz1 = C.z1 - 2.5, cm = (C.x0 + C.x1) / 2;
+    deco('flat:#4f8a4a', cx0, GY + 0.026, cz0, cx1, GY + 0.03, cz1);
+    const line = (x0: number, z0: number, x1: number, z1: number) => deco(WHITE, x0, GY + 0.03, z0, x1, GY + 0.034, z1);
+    for (const z of [cz0, cz0 + 1.37, cz1 - 1.37, cz1]) line(cx0, z - 0.03, cx1, z + 0.03);
+    for (const x of [cx0, cx1, cm - 6.4, cm + 6.4]) line(x - 0.03, x === cx0 || x === cx1 ? cz0 : cz0 + 1.37, x + 0.03, x === cx0 || x === cx1 ? cz1 : cz1 - 1.37);
+    line(cm - 6.4, (cz0 + cz1) / 2 - 0.03, cm + 6.4, (cz0 + cz1) / 2 + 0.03);
+    deco('flat:#e9e9e4', cm - 0.02, GY + 0.95, cz0 - 0.6, cm + 0.02, GY + 1.02, cz1 + 0.6);
+    deco('flat:#2a2d30', cm - 0.015, GY + 0.1, cz0 - 0.6, cm + 0.015, GY + 0.95, cz1 + 0.6);
+    for (const z of [cz0 - 0.6, cz1 + 0.6]) deco(IRONC, cm - 0.05, GY, z - 0.05, cm + 0.05, GY + 1.07, z + 0.05);
+    block(cm - 0.1, GY, cz0 - 0.6, cm + 0.1, GY + 1.0, cz1 + 0.6);
+    // The fence: posts and wire 3 m high, a gate on the east side.
+    const post = (x: number, z: number) => deco('flat:#3f5a4a', x - 0.04, GY, z - 0.04, x + 0.04, GY + 3, z + 0.04);
+    for (let x = C.x0; x <= C.x1 + 0.01; x += 3.2) for (const z of [C.z0, C.z1]) post(x, z);
+    for (let z = C.z0; z <= C.z1 + 0.01; z += 3.2) for (const x of [C.x0, C.x1]) post(x, z);
+    for (const y of [0.05, 1.0, 2.0, 2.95]) {
+      for (const z of [C.z0, C.z1]) deco('flat:#3f5a4a', C.x0, GY + y, z - 0.015, C.x1, GY + y + 0.03, z + 0.015);
+      deco('flat:#3f5a4a', C.x0 - 0.015, GY + y, C.z0, C.x0 + 0.015, GY + y + 0.03, C.z1);
+      for (const [z0, z1] of [[C.z0, -446.2], [-443.8, C.z1]]) deco('flat:#3f5a4a', C.x1 - 0.015, GY + y, z0, C.x1 + 0.015, GY + y + 0.03, z1);
+    }
+    block(C.x0, GY, C.z0 - 0.1, C.x1, GY + 3, C.z0 + 0.1);
+    block(C.x0, GY, C.z1 - 0.1, C.x1, GY + 3, C.z1 + 0.1);
+    block(C.x0 - 0.1, GY, C.z0, C.x0 + 0.1, GY + 3, C.z1);
+    block(C.x1 - 0.1, GY, C.z0, C.x1 + 0.1, GY + 3, -446.2);
+    block(C.x1 - 0.1, GY, -443.8, C.x1 + 0.1, GY + 3, C.z1);
+    zone(C.x0, C.z0, C.x1, C.z1, 0, '鴎ヶ丘ローンテニス倶楽部', 'Kamome-ga-oka Lawn Tennis Club');
+    b.sign({ k: 'label', text: '鴎ヶ丘ローンテニス倶楽部', sub: 'Lawn Tennis Club · 1898', fg: '#f2ecd8', bg: '#2f4a3a' }, fx(C.x1 + 0.12), GY + 1.6, fz(-441.5), [1, 0], 1.6, 0.4);
+    // The clubhouse: the blue cottage, its door to the court's gate.
+    {
+      const A = KAMOME.cot_b;
+      at('w', 216.6, GY, -445, () => {
+        b.model('kamome', 'cot_b', 0, 0, 0, 0);
+        b.block(-A.w / 2 + 0.2, 0, -1.9, A.w / 2 - 0.2, A.h, A.d - 0.2);
+      });
+      placed.push([216, -450, 226, -440]);
+    }
+    // The playground south of it, fenced, its gate on the lawn path.
+    at('s', 222, 0, -418, () => place(b, { kind: 'park', ja: '鴎ヶ丘こども広場', en: 'Kamome-ga-oka Playground' }));
+    // A gravel path from Kamome-kōji past the playground and the court, and one from the pond to the bandstand.
+    deco(STONE_L, 214, GY + 0.017, -436, ZAKA[0], GY + 0.028, -434);
+    deco(STONE_L, 213.2, GY + 0.017, -446, 216.6, GY + 0.028, -444);
+    deco(STONE_L, 331.5, GY + 0.017, -435.5, bx - 8, GY + 0.028, -433.5);
+    deco(STONE_L, ZAKA[1], GY + 0.017, -421, 270, GY + 0.028, -419);
+    deco(STONE_L, 300 - 1.2, GY + 0.017, -429, 300 + 1.2, GY + 0.028, -414);
+    deco(STONE_L, 300 - 1.2, GY + 0.017, -455, 300 + 1.2, GY + 0.028, -439);
+    // Rose pergolas over the park's long walk.
+    for (const px of [205, 352, 412]) at('n', px, GY, -480.5, () => {
+      b.model('kamome', 'pergola', 0, 0, 0, 0);
+      for (let c = -5.8; c <= 5.81; c += 2.32) for (const z of [0.15, 2.85]) b.block(c - 0.12, 0, z - 0.12, c + 0.12, 2.6, z + 0.12);
+    });
   }
   return b.out;
 }

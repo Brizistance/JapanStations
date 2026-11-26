@@ -17,6 +17,7 @@ import { HATOBA } from './anchors/hatoba';
 import { URAFRONT } from './anchors/urafront';
 import { TSUNA } from './anchors/tsuna';
 import { GROUND_Y as GY, vending } from './kit';
+import { CARS, VEH } from '../traffic/vehicles';
 import { AVE, AVE_X, PLAZA, STREETS, aveX, ends as northEnds, meet as northMeet, street, type Street } from './north-roads';
 import { band, clipHalf, disc, floorPoly, paveSlab, ring, solidPoly, type P, type Poly } from './poly';
 import { roadModel, shortSignal, streetLamp } from './roads';
@@ -54,7 +55,20 @@ const S_HOKAGE = sAtZ(street('todai').az);
 /** The two lanes off the boulevard (x ranges, 4 m: no fronts closer, 2026-11-24): 浮標小路 to Hokushin-dōri, 舵小路 to Tsunamachi-dōri. */
 const FUHYO: [number, number] = [533, 537], KAJI: [number, number] = [628, 632];
 /** The inner blocks' lanes (2026-11-24): z ranges of 艫綱小路, 船溜小路, 舵輪小路; x ranges of 汽笛横丁 and 帆桁小路. */
-const TOMO: [number, number] = [-202, -198], FUNA: [number, number] = [-387, -383], DARIN: [number, number] = [-427, -423];
+const TOMO: [number, number] = [-202, -198], FUNA: [number, number] = [-372, -368], DARIN: [number, number] = [-403, -399];
+/**
+ * Re-laid 2026-11-26 (the owner: awkward gaps): the blocks between the east–west streets were 62 to 155 m deep with
+ * rows only round their edges, so their middles stood empty. Five more car-free lanes, at uneven spacing, cut them
+ * into strips two rows deep (22 … 33 m): 帆綱小路, 水夫小路, 錨鎖小路, 波除小路 (through the plaza) and 潮待小路; 船溜小路 and
+ * 舵輪小路 moved to suit. What is still left over behind the rows becomes small greens or coin parking (greens()).
+ */
+const HOZUNA: [number, number] = [-101, -97], KAKO: [number, number] = [-176, -172], BYOSA: [number, number] = [-228, -224];
+const NAMIYOKE: [number, number] = [-339, -335], SHIOMACHI: [number, number] = [-436.5, -432.5];
+const EW_ALL: { z: [number, number]; ja: string; en: string }[] = [
+  { z: HOZUNA, ja: '帆綱小路', en: 'Hozuna-kōji' }, { z: KAKO, ja: '水夫小路', en: 'Kako-kōji' }, { z: TOMO, ja: '艫綱小路', en: 'Tomozuna-kōji' },
+  { z: BYOSA, ja: '錨鎖小路', en: 'Byōsa-kōji' }, { z: NAMIYOKE, ja: '波除小路', en: 'Namiyoke-kōji' }, { z: FUNA, ja: '船溜小路', en: 'Funadamari-kōji' },
+  { z: DARIN, ja: '舵輪小路', en: 'Darin-kōji' }, { z: SHIOMACHI, ja: '潮待小路', en: 'Shiomachi-kōji' },
+];
 const KITEKI: [number, number] = [668, 672], HOGETA: [number, number] = [650, 654];
 
 export function kitaHatoba(): Build {
@@ -443,6 +457,8 @@ export function kitaHatoba(): Build {
   // blocks are their back yards. Nothing is built within 34 m of the avenue's line (its own rows and flatirons), on
   // the plaza's square, or east of the quay offices.
   const KP = KX1 + KM.pave, RP0 = SX0 - RS.pave, RP1 = SX1 + RS.pave; // the building lines on Kamome- and Rashin-dōri
+  /** Every strip of land the inner blocks' rows were laid on (greens() below puts what they left to use). */
+  const strips: [number, number, number, number][] = [];
   const SP0 = SHI[1] + street('shioji').pave, SP1 = SHI[0] - street('shioji').pave; // and on Shioji-dōri
   {
     type Kit = { kind: string; id: string; A: Anchor };
@@ -485,13 +501,20 @@ export function kitaHatoba(): Build {
      * One block, x0 … x1 by z0 (north) … z1 (south), with what lies on each side: rows along the north and south faces
      * over the full length, along the west and east faces between them.
      */
-    const blockRows = (x0: number, z0: number, x1: number, z1: number, sides: { n?: Side; s?: Side; w?: Side; e?: Side }) => {
+    const blockRows = (x0: number, z0: number, x1: number, z1: number, sides: { n?: Side; s?: Side; w?: Side; e?: Side; first?: 'ew' }) => {
+      strips.push([x0, z0, x1, z1]);
       const used = new Set<string>();
       const pool = (k: Side) => (k === 'big' ? BIGK : k === 'izak' ? IZAK : SMALLK);
       const depthOf = (k: Side, room: number) => Math.min(k === 'big' ? 14 : 12.5, room);
       const nsRoom = sides.n && sides.s ? (z1 - z0) / 2 - 0.6 : z1 - z0 - 1;
       const ewRoom = sides.w && sides.e ? (x1 - x0) / 2 - 0.6 : x1 - x0 - 1;
-      const dN = sides.n ? depthOf(sides.n, nsRoom) : 0, dS = sides.s ? depthOf(sides.s, nsRoom) : 0;
+      // Back to back, the two rows share the strip's depth: an office row takes its 14 m, the small row the rest.
+      let dN = sides.n ? depthOf(sides.n, nsRoom) : 0, dS = sides.s ? depthOf(sides.s, nsRoom) : 0;
+      if (sides.n && sides.s) {
+        const total = z1 - z0 - 1.2;
+        if (sides.n === 'big' && sides.s !== 'big') { dN = Math.min(14, total - 10.5); dS = Math.min(12.5, total - dN); }
+        else if (sides.s === 'big' && sides.n !== 'big') { dS = Math.min(14, total - 10.5); dN = Math.min(12.5, total - dS); }
+      }
       // A row along one face: `face` the way its fronts look; u0 … u1 along the face; `line` the front line.
       const run = (face: 'n' | 's' | 'e' | 'w', k: Side, line: number, u0: number, u1: number, dMax: number) => {
         if (!k) return;
@@ -524,6 +547,16 @@ export function kitaHatoba(): Build {
       };
       // (In from the corners by 0.8 m, the side fittings clear of the cross street's building line; the side rows
       // start 1.6 m behind the corner lots, clear of their backs' fittings.)
+      if (sides.first === 'ew') {
+        // (A strip on an alley of fronts, 汽笛横丁: the alley's row runs the strip's whole depth, the lanes' rows up to it.)
+        const dW = sides.w ? depthOf(sides.w, ewRoom) : 0, dE = sides.e ? depthOf(sides.e, ewRoom) : 0;
+        run('w', sides.w ?? null, x0 + 0.3, z0 + 0.8, z1 - 0.8, dW);
+        run('e', sides.e ?? null, x1 - 0.3, z0 + 0.8, z1 - 0.8, dE);
+        const a = x0 + (sides.w ? dW + 1.6 : 0.8), e = x1 - (sides.e ? dE + 1.6 : 0.8);
+        run('n', sides.n ?? null, z0 + 0.3, a, e, dN);
+        run('s', sides.s ?? null, z1 - 0.3, a, e, dS);
+        return;
+      }
       run('n', sides.n ?? null, z0 + 0.3, x0 + 0.8, x1 - 0.8, dN);
       run('s', sides.s ?? null, z1 - 0.3, x0 + 0.8, x1 - 0.8, dS);
       const ez0 = z0 + (sides.n ? dN + 1.6 : 0.8), ez1 = z1 - (sides.s ? dS + 1.6 : 0.8);
@@ -565,29 +598,41 @@ export function kitaHatoba(): Build {
         }
       }
     };
-    lanePave(KP, TOMO[0], QX0, TOMO[1], '艫綱小路', 'Tomozuna-kōji');
+    for (const L of EW_ALL) lanePave(KP, L.z[0], QX0, L.z[1], L.ja, L.en);
     lanePave(KITEKI[0], HOK[1] + PV, KITEKI[1], SP1, '汽笛横丁', 'Kiteki-yokochō', true);
     lanePave(HOGETA[0], HKG[1] + 3.5, HOGETA[1], HOK[0] - PV, '帆桁小路', 'Hogeta-kōji');
     lanePave(HOGETA[0], KIT[1] + 2.5, HOGETA[1], HKG[0] - 3.5, '帆桁小路', 'Hogeta-kōji');
-    lanePave(KP, FUNA[0], QX0, FUNA[1], '船溜小路', 'Funadamari-kōji');
-    lanePave(KP, DARIN[0], QX0, DARIN[1], '舵輪小路', 'Darin-kōji');
-    // Between Tsunamachi- and Shioji-dōri (Tsunamachi-dōri's shop houses already line its north side west of Rashin-dōri).
+    const QE = QX0 - 16.6;
+    // Between Tsunamachi- and Shioji-dōri (Tsunamachi-dōri's shop houses already line its north side west of
+    // Rashin-dōri): 帆綱小路 across. North of it offices on Shioji-dōri back to back with the lane's shops; south of
+    // it one row on the lane, yards behind it to the shop houses' backs.
     const TB = TSU[0] - 2.5 - TSUNA.shop_a.d - 0.9;
-    blockRows(KP, SP0, FUHYO[0], TB, { n: 'big', w: 'small', e: 'small' });
-    blockRows(FUHYO[1], SP0, RP0, TB, { n: 'big', w: 'small', e: 'small' });
-    blockRows(RP1, SP0, QX0 - 16.6, TSU[0] - 2.5, { n: 'big', s: 'big', w: 'small' });
-    // Between Shioji- and Hokushin-dōri: 艫綱小路 across, 浮標小路 and 汽笛横丁 down.
-    for (const [x0, x1, eK, wK] of [[KP, FUHYO[0], 'small', 'small'], [FUHYO[1], KITEKI[0], 'izak', 'small'], [KITEKI[1], QX0 - 16.6, null, 'izak']] as [number, number, Side, Side][]) {
-      blockRows(x0, TOMO[1], x1, SP1, { s: 'big', n: 'small', w: wK, e: eK });
-      blockRows(x0, HOK[1] + PV, x1, TOMO[0], { n: 'big', s: 'small', w: wK, e: eK });
+    for (const [x0, x1] of [[KP, FUHYO[0]], [FUHYO[1], RP0]]) {
+      blockRows(x0, SP0, x1, HOZUNA[0], { n: 'big', s: 'small' });
+      blockRows(x0, HOZUNA[1], x1, TB, { n: 'small' });
     }
-    // Between Hokushin- and Tōdai-dōri: 帆桁小路 down the east part.
+    blockRows(RP1, SP0, QE, HOZUNA[0], { n: 'big', s: 'small' });
+    blockRows(RP1, HOZUNA[1], QE, TSU[0] - 2.5, { n: 'small', s: 'big' });
+    // Between Shioji- and Hokushin-dōri: 水夫小路, 艫綱小路 and 錨鎖小路 across, 浮標小路 and 汽笛横丁 down. Four strips,
+    // offices on the two through streets; 汽笛横丁's izakaya run each strip's whole depth.
+    const B2: [number, number, Side, Side][] = [[HOK[1] + PV, BYOSA[0], 'big', 'small'], [BYOSA[1], TOMO[0], 'small', 'small'], [TOMO[1], KAKO[0], 'small', 'small'], [KAKO[1], SP1, 'small', 'big']];
+    for (const [z0, z1, nK, sK] of B2) {
+      blockRows(KP, z0, FUHYO[0], z1, { n: nK, s: sK });
+      blockRows(FUHYO[1], z0, KITEKI[0], z1, { n: nK, s: sK, e: 'izak', first: 'ew' });
+      blockRows(KITEKI[1], z0, QE, z1, { n: nK, s: sK, w: 'izak', first: 'ew' });
+    }
+    // Between Hokushin- and Tōdai-dōri (28.5 m: already two rows): 帆桁小路 down the east part.
     blockRows(KP, HKG[1] + 3.5, HOGETA[0], HOK[0] - PV, { n: 'small', s: 'big', w: 'small', e: 'small' });
-    blockRows(HOGETA[1], HKG[1] + 3.5, QX0 - 16.6, HOK[0] - PV, { n: 'small', s: 'big', w: 'small' });
-    // Between Tōdai- and Kitagishi-dōri: the plaza and the promenade west; east, 帆桁小路, 船溜小路 and 舵輪小路.
-    for (const [z0, z1, nK, sK] of [[FUNA[1], HKG[0] - 3.5, 'small', 'big'], [DARIN[1], FUNA[0], 'small', 'small'], [KIT[1] + 2.5, DARIN[0], 'big', 'small']] as [number, number, Side, Side][]) {
-      blockRows(KP, z0, HOGETA[0], z1, { n: nK, s: sK, w: 'small', e: 'small' });
-      blockRows(HOGETA[1], z0, QX0 - 16.6, z1, { n: nK, s: sK, w: 'small' });
+    blockRows(HOGETA[1], HKG[1] + 3.5, QE, HOK[0] - PV, { n: 'small', s: 'big', w: 'small' });
+    // Between Tōdai- and Kitagishi-dōri: the plaza and the promenade west; 波除小路, 船溜小路, 舵輪小路 and 潮待小路 across
+    // (five strips), 帆桁小路 down.
+    const B4: [number, number, Side, Side][] = [
+      [KIT[1] + 2.5, SHIOMACHI[0], 'big', 'small'], [SHIOMACHI[1], DARIN[0], 'small', 'small'], [DARIN[1], FUNA[0], 'small', 'small'],
+      [FUNA[1], NAMIYOKE[0], 'small', 'small'], [NAMIYOKE[1], HKG[0] - 3.5, 'small', 'big'],
+    ];
+    for (const [z0, z1, nK, sK] of B4) {
+      blockRows(KP, z0, HOGETA[0], z1, { n: nK, s: sK });
+      blockRows(HOGETA[1], z0, QE, z1, { n: nK, s: sK });
     }
   }
   // Along the quay road: harbour offices facing the water (rotated rows of the boulevard's fronts), behind the front strip.
@@ -595,7 +640,7 @@ export function kitaHatoba(): Build {
     const QIDS = ['kaiun_a', 'kaiun_b', 'ribbon_a', 'ribbon_b', 'hotel_a', 'brick_c', 'stone_a', 'tower_a'];
     let z = ZS - 1;
     // (Not between the boulevard and Tsunamachi-dōri: the Minatoura Trust flatiron's back reaches the quay side there.)
-    const stops = [[ZS + 5, TSU[0] - 2.5], [SHI[1], SHI[0]], [HOK[1], HOK[0]], [HKG[1], HKG[0]], [KIT[1], KIT[0]], [TOMO[1], TOMO[0]], [FUNA[1], FUNA[0]], [DARIN[1], DARIN[0]]].map(([a, e]) => [a + 2.5, e - 2.5]);
+    const stops = [[ZS + 5, TSU[0] - 2.5], [SHI[1], SHI[0]], [HOK[1], HOK[0]], [HKG[1], HKG[0]], [KIT[1], KIT[0]], [TOMO[1], TOMO[0]], [FUNA[1], FUNA[0]], [DARIN[1], DARIN[0]], ...[HOZUNA, KAKO, BYOSA, NAMIYOKE, SHIOMACHI].map(([a, e]) => [e, a])].map(([a, e]) => [a + 2.5, e - 2.5]);
     let k = 0;
     while (z > KIT[1] + 4) {
       const id = QIDS[k++ % QIDS.length], A = MINATOFRONT[id];
@@ -729,7 +774,7 @@ export function kitaHatoba(): Build {
     const bikeAt = (x: number, z: number, f: [number, number]) => {
       b.out.models.push({ kind: 'places', id: 'bicycle', pos: b.pt(x - O.x, GY, z - O.z), yaw: Math.atan2(-f[0], -f[1]), seed: 0, merge: true });
     };
-    const NS_LANES = [FUHYO, KAJI, KITEKI, HOGETA], EW_LANES = [TOMO, FUNA, DARIN];
+    const NS_LANES = [FUHYO, KAJI, KITEKI, HOGETA], EW_LANES = EW_ALL.map((L) => L.z);
     const nearLane = (x: number, z: number, m = 3) => NS_LANES.some(([p, q]) => x > p - m && x < q + m) || EW_LANES.some(([p, q]) => z > p - m && z < q + m);
     const offAve = (x: number, z: number) => Math.abs(tOf(x, z)) > 34 && !(Math.abs(sOf(x, z) - S_PLAZA) < PLAZA.r + 10 && Math.abs(tOf(x, z)) < PLAZA.r + 12);
     for (const sr of STREETS) {
@@ -847,6 +892,74 @@ export function kitaHatoba(): Build {
       const [tx, tz] = st(s + 9, side * (AVE_X.kerb + 1.6));
       modelTree(b, 'zelkova', tx - O.x, tz - O.z, 'b', GY, true);
       block(tx - 0.4, GY, tz - 0.4, tx + 0.4, GY + 4, tz + 0.4);
+    }
+  }
+
+  // ═════════════════════════ What the rows left over: small greens and coin parking ═════════════════════════
+  // Felt on a 5 m grid over every strip: a cell with nothing solid within 2.6 m of it is left over. A run of
+  // cells along a lane, three wide and two deep, becomes a coin car park opening onto the lane (four at most);
+  // every other left-over cell is planted: grass, a tree on every second one, a low hedge to the lane. Gaps too
+  // narrow for a cell stay the paved back alleys they are.
+  {
+    const CELL = 5;
+    const solids = b.out.boxes.filter((q) => q.solid && q.max[1] > GY + 1.2 && q.min[1] < GY + 1 && q.max[0] - q.min[0] > 0.9 && q.max[2] - q.min[2] > 0.9);
+    const clear = (x: number, z: number, m: number) => {
+      const lx = x - O.x, lz = z - O.z;
+      return !solids.some((q) => lx > q.min[0] - m && lx < q.max[0] + m && lz > q.min[2] - m && lz < q.max[2] + m);
+    };
+    const offAve = (x: number, z: number) => Math.abs(tOf(x, z)) > LINE + 2 && !(Math.abs(sOf(x, z) - S_PLAZA) < PLAZA.r + 9 && Math.abs(tOf(x, z)) < PLAZA.r + 9) && !(sOf(x, z) > S_PLAZA && Math.abs(tOf(x, z)) < 14);
+    let parks = 0, trees = 0;
+    for (const [x0, z0, x1, z1] of strips) {
+      const nx = Math.floor((x1 - x0 - 1) / CELL), nz = Math.floor((z1 - z0 - 1) / CELL);
+      if (nx < 1 || nz < 1) continue;
+      const ox = x0 + (x1 - x0 - nx * CELL) / 2, oz = z0 + (z1 - z0 - nz * CELL) / 2;
+      const free: boolean[][] = [];
+      for (let i = 0; i < nx; i++) {
+        free.push([]);
+        for (let j = 0; j < nz; j++) {
+          const cx = ox + (i + 0.5) * CELL, cz = oz + (j + 0.5) * CELL;
+          free[i].push(offAve(cx, cz) && clear(cx, cz, CELL / 2 + 0.1) && cx < QX0 - 17.5);
+        }
+      }
+      const take = (i0: number, j0: number, w: number, d: number) => { for (let i = i0; i < i0 + w; i++) for (let j = j0; j < j0 + d; j++) free[i][j] = false; };
+      const all = (i0: number, j0: number, w: number, d: number) => { for (let i = i0; i < i0 + w; i++) for (let j = j0; j < j0 + d; j++) if (i >= nx || j >= nz || !free[i][j]) return false; return true; };
+      // Coin parking on the strip's north or south edge (a lane or a street runs along it).
+      for (const j0 of nz >= 2 ? [0, nz - 2] : []) for (let i = 0; i + 3 <= nx && parks < 4; i++) {
+        if (!all(i, j0, 3, 2)) continue;
+        take(i, j0, 3, 2);
+        parks++;
+        const px0 = ox + i * CELL, pz0 = oz + j0 * CELL, w = 3 * CELL, d = 2 * CELL, north = j0 === 0;
+        deco('asphalt', px0, GY, pz0, px0 + w, GY + 0.014, pz0 + d);
+        for (let x = px0 + 0.6; x + 2.5 <= px0 + w - 0.3; x += 2.6) {
+          const zb = north ? pz0 + d - 5.6 : pz0 + 0.4, zt = zb + 5.2;
+          for (const xl of [x, x + 2.5]) deco(WHITE, xl, GY + 0.014, zb, xl + 0.1, GY + 0.018, zt);
+          deco('flat:#d6a21a', x + 0.5, GY + 0.014, north ? zt - 1.3 : zb + 1.1, x + 2.1, GY + 0.12, north ? zt - 1.1 : zb + 1.3);
+          if (r() < 0.5) {
+            const id = CARS[Math.floor(r() * CARS.length)], [len, wid, hgt] = VEH[id.split('_')[0]];
+            roadModel(b, id, x + 1.3 - O.x, GY, (zb + zt) / 2 - O.z, [0, north ? 1 : -1]);
+            block(x + 1.3 - wid / 2, GY, (zb + zt) / 2 - len / 2, x + 1.3 + wid / 2, GY + hgt, (zb + zt) / 2 + len / 2);
+          }
+        }
+        const ze = north ? pz0 + 0.5 : pz0 + d - 0.5;
+        box('flat:#f2c230', px0 + 0.3, GY, ze - 0.25, px0 + 0.9, GY + 1.4, ze + 0.25);
+        box('flat:#5f6266', px0 + 1.2, GY, ze - 0.05, px0 + 1.3, GY + 3.2, ze + 0.05);
+        for (const f of [-1, 1] as const) b.sign({ k: 'label', text: 'P', sub: '24h コインパーキング', fg: '#fff', bg: '#1f5fa8' }, px0 + 1.25 - O.x, GY + 2.7, ze + f * 0.06 - O.z, [0, f], 1.1, 0.9);
+        streetLamp(b, 'lamp_small', px0 + w - 0.5 - O.x, ze - O.z, [0, north ? 1 : -1]);
+      }
+      // The rest: planted.
+      for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+        if (!free[i][j]) continue;
+        const gx = ox + i * CELL, gz = oz + j * CELL;
+        deco('grass', gx, GY + 0.008, gz, gx + CELL, GY + 0.016, gz + CELL);
+        if ((i + j) % 2 === 0) {
+          const tx = gx + CELL / 2, tz = gz + CELL / 2;
+          modelTree(b, trees++ % 3 === 0 ? 'cherry' : trees % 3 === 1 ? 'zelkova' : 'camphor', tx - O.x, tz - O.z, 'b', GY, true);
+          block(tx - 0.4, GY, tz - 0.4, tx + 0.4, GY + 4, tz + 0.4);
+        } else if (r() < 0.35) {
+          roadModel(b, 'bench_s', gx + CELL / 2 - O.x, GY, gz + CELL / 2 - O.z, [0, j === 0 ? -1 : 1]);
+          block(gx + CELL / 2 - 0.95, GY, gz + CELL / 2 - 0.4, gx + CELL / 2 + 0.95, GY + 0.6, gz + CELL / 2 + 0.4);
+        }
+      }
     }
   }
 
