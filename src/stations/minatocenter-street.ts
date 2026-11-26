@@ -28,6 +28,7 @@
 //
 // Stage 1 (the station), 2 (streets and landmarks), 3 (the fill) and 4 (props), 2026-11-25.
 
+import { BRIDGE_LANE, CYCLE } from './shiomi-extras';
 import { rng, type LanePart } from '../world/builder';
 import { CARS, VEH, family } from '../traffic/vehicles';
 import { CIVIC } from './anchors/civic';
@@ -638,6 +639,7 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     fillRect(-33.6, NZ0, -8.3, NZ0 + 21, 'n', ['office'], 1);
     piece('mcenter', M, 'bhotel', 'n', 0, NZ0, (a) => {
       label(a.pts.name, MC_NAMES.bhotel, '#ffffff', '#2a3a52');
+      label(a.pts.roof, MC_NAMES.bhotel, '#ffffff', '#2a3a52');
       if (a.pts.blade) b.sign({ k: 'shop', ja: MC_NAMES.bhotel.ja, en: 'HOTEL', bg: '#2a3a52', fg: '#ffffff', vertical: true }, a.pts.blade[0], a.pts.blade[1] + GY, a.pts.blade[2], [a.pts.blade[5], a.pts.blade[6]], a.pts.blade[3], a.pts.blade[4]);
     });
     fillRect(8.3, NZ0, 43.8, NZ0 + 21, 'n', ['office'], 1);
@@ -766,6 +768,11 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     const W0 = PEN.wsh, N0 = PEN.nsh, CE = PEN.ce, SR = PEN.sr, MD = PEN.md, BR = PEN.br, HM = PEN.hm, CN = PEN.cn, S3 = PEN.s3;
     const srE = PEN.srE, srW = PEN.srW, hmN = HM.c - HM.half - HM.pave, hmS = HM.c + HM.half + HM.pave;
     const n3 = (ja: string, en: string): Named => ({ ja, en });
+    // 潮見大橋's road (stage 3 of Shiomi, 2026-11-25): Shiomi's Hamakaze-suji comes over the bascule bridge from the north
+    // (shiomi-street.ts, x −26 there) and meets Hama-dōri 18 m east of this Hamakaze-suji's T, a staggered junction; its
+    // lanes are handed across at the plot's edge (z N0), where Shiomi's world, which builds the bridge, takes over.
+    const BRX = { c: 114, half: 7, pave: 5 }, brW = BRX.c - BRX.half - BRX.pave, brE = BRX.c + BRX.half + BRX.pave;
+    const brCorr: Rect = [brW, N0, brE, hmN];
 
     // ── Ground: both arms, the carriageways cut out; pavements; the sea walls round the point and the river mouth ──
     const carrPen: Rect[] = [
@@ -777,6 +784,7 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       [SR.c - SR.half, HM.c - HM.half, CE, HM.c + HM.half],
       ...NS.map((st): Rect => [st.c - st.half, HM.c - HM.half, st.c + st.half, -N]),
       [S3.c - S3.half, HM.c - HM.half, S3.c + S3.half, -AV.half],
+      [BRX.c - BRX.half, N0, BRX.c + BRX.half, HM.c - HM.half],
     ];
     for (const [x0, z0, x1, z1] of [[W0, N0, -X, Z], [-X, N0, CE, -N]] as Rect[]) {
       b.slab('asphalt', x0, z0, x1, z1, -0.6, 0, []);
@@ -795,11 +803,13 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     pv(srW, hmN, srE, hmS);
     for (const st of NS) pv(st.c - st.half - st.pave, hmS, st.c + st.half + st.pave, -N);
     pv(S3.c - S3.half - S3.pave, hmS, S3.c + S3.half + S3.pave, BL.avN);
+    pv(brW, N0, BRX.c - BRX.half, hmN);
+    pv(BRX.c + BRX.half, N0, brE, hmN);
     // The west promenade (a walk on the sea wall, a lawn strip), the river-mouth promenade and its strip.
     b.slab(WALK, W0, hmN, W0 + 8, BL.avS, GY + 0.002, GY + 0.016, [], false);
     b.slab(PLAZA, W0 + 8, hmN, srW, BL.avS, GY + 0.002, GY + 0.014, [], false);
-    b.slab(WALK, W0, N0, CE, PEN.prom, GY + 0.002, GY + 0.016, [], false);
-    b.slab(PLAZA, W0, PEN.prom, CE, hmN, GY + 0.002, GY + 0.014, [], false);
+    b.slab(WALK, W0, N0, CE, PEN.prom, GY + 0.002, GY + 0.016, [brCorr], false);
+    b.slab(PLAZA, W0, PEN.prom, CE, hmN, GY + 0.002, GY + 0.014, [brCorr], false);
     b.deco(STONE, W0 - 0.6, -0.4, N0 - 0.6, W0, GY + 0.02, Z + 0.6);
     b.deco(STONE, W0 - 0.6, -0.4, N0 - 0.6, CE + 8, GY + 0.02, N0);
     const MAR = { x0: -212, x1: -88, z1: -530, gang: [-154, -146] as [number, number] };
@@ -811,7 +821,9 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       b.block(x0 - (axis === 'z' ? 1 : 0), -1, z0 - (axis === 'x' ? 1 : 0), x1, GY + 1.1, z1);
     };
     seaRail('z', W0, N0 + 0.1, Z - 0.1);
-    for (const [a, e] of [[W0 + 0.1, MAR.gang[0]], [MAR.gang[1], WB.x0], [WB.x1, CE]] as [number, number][]) seaRail('x', N0 + 0.1, a, e);
+    // (Open where 潮見大橋 lands: the walk and the road go on over it into Shiomi's world.)
+    for (const [a, e] of [[W0 + 0.1, MAR.gang[0]], [MAR.gang[1], brW], [brE, WB.x0], [WB.x1, CE]] as [number, number][]) seaRail('x', N0 + 0.1, a, e);
+    b.zone('street', brW, -0.3, N0, brE, 8, hmN, '潮見大橋 南詰', 'Shiomi Ōhashi, south end');
     // The arms' outer edge to the east: Shinshio's connector road beyond (only seen).
     b.block(CE, -1, N0, CE + 1, 60, -N);
     b.zone('street', W0, -0.3, BL.avS, srW, 8, Z, n3('渚の岬公園 西', '').ja, 'Nagisa Point Park, west');
@@ -929,6 +941,8 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     jn(CN.c, CN.half, MD.c, MD.half, { n: true, s: true, w: true, e: true }, n3('新潮連絡道中通', 'Renraku-dō-nakadōri'));
     jn(CN.c, CN.half, BR.c, BR.half, { n: true, s: true, w: true, e: true }, n3('新潮連絡道臨港', 'Renraku-dō-rinkō'), 'shared');
     jn(CN.c, CN.half, HM.c, HM.half, { s: true, w: true, e: true }, n3('新潮連絡道浜', 'Renraku-dō-hama'));
+    // 潮見大橋's T on Hama-dōri (its west crossing is Hamakaze-suji's east one, 18 m along).
+    jn(BRX.c, BRX.half, HM.c, HM.half, { n: true, e: true }, n3('潮見大橋南詰', 'Shiomi-ōhashi-minamizume'));
     // The Mall's crossings over the shore road and 展示場筋, as over the 筋.
     crosswalk(b, S3.c, MZ, 2 * S3.half - 0.4, 8, false);
     for (const sx of [-1, 1] as const) for (const sz of [-1, 1] as const) pedSignal(b, S3.c + sx * (S3.half + 0.8), MZ + sz * 3.6, [-sx, 0], 0, { flat: true, speaker: true });
@@ -952,9 +966,19 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       lane(bigP, SR.c + SR.half + 1, BR.c - z, CE, BR.c - z, { dead: true, closed: ['from', 'to'] });
       lane(bigP, CE, BR.c + z, SR.c + SR.half + 1, BR.c + z, { dead: true, closed: ['from', 'to'] });
     }
-    for (const st of [MD, HM]) {
-      lane(st === MD ? midP : smallP, SR.c + SR.half + 1, st.c - 1.6, CE, st.c - 1.6, { dead: true, closed: ['from', 'to'] });
-      lane(st === MD ? midP : smallP, CE, st.c + 1.6, SR.c + SR.half + 1, st.c + 1.6, { dead: true, closed: ['from', 'to'] });
+    lane(midP, SR.c + SR.half + 1, MD.c - 1.6, CE, MD.c - 1.6, { dead: true, closed: ['from', 'to'] });
+    lane(midP, CE, MD.c + 1.6, SR.c + SR.half + 1, MD.c + 1.6, { dead: true, closed: ['from', 'to'] });
+    // Hama-dōri: stopping at the bridge's signals too.
+    {
+      const xa = SR.c + SR.half + 1, crossX = [PEN.sr, PEN.s3, ...NS, BRX];
+      lane(smallP, xa, HM.c - 1.6, CE, HM.c - 1.6, { dead: true, closed: ['from', 'to'], stops: stops(1, xa, crossX, 0, CE - xa) });
+      lane(smallP, CE, HM.c + 1.6, xa, HM.c + 1.6, { dead: true, closed: ['from', 'to'], stops: stops(-1, CE, crossX, 0, CE - xa) });
+    }
+    // 潮見大橋's lanes: from Shiomi's world (fed at the edge) down to Hama-dōri, and back up, handed to Shiomi at the edge.
+    for (const d of [1.75, 5.25]) {
+      const zOut = N0 - 20, zIn = HM.c - HM.half - 1;
+      lane(midP, BRX.c + d, zOut, BRX.c + d, zIn, { closed: ['from'], fed: 'shiomi', dead: true, stops: [{ at: HM.c - HM.half - SL - 0.5 - zOut, axis: 1, exit: zIn - zOut }] });
+      lane(midP, BRX.c - d, zIn, BRX.c - d, zOut, { closed: ['from', 'to'], hand: { station: 'shiomi', at: [BRX.c - d, 0, N0] }, stops: [] });
     }
     for (const d of [1.75, 5.25]) {
       lane(midP, S3.c + d, HM.c + HM.half + 1, S3.c + d, AV.c - 1, { dead: true, closed: ['from'] });
@@ -973,7 +997,7 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     lampAt(srE, CE, nsCorrPen, 18).forEach((x, k) => { for (const z of [BR.c - BR.half - 0.7, BR.c + BR.half + 0.7]) streetLamp(b, 'lamp_led', x + (k % 2) * 0, z, [0, z < BR.c ? 1 : -1]); });
     lampAt(srE, CE, nsCorrPen, 20).forEach((x, k) => streetLamp(b, 'lamp_led', x, MD.c + (k % 2 ? 1 : -1) * (MD.half + 0.5), [0, k % 2 ? -1 : 1]));
     // Hama-dōri keeps its wires, as on Shinshio's side: a pole line on the north kerb, plain lamps on the south.
-    poleLine(b, { axis: 'x', from: srE + 4, to: CE - 3, at: HM.c - HM.half - 0.4, road: 1, step: 26, skip: (u) => !clearOf(u, nsCorrPen, 7), drops: 0.7, cross: 2 * HM.half + HM.pave + 0.4, name: { ja: sta.nameJa, en: sta.nameRomaji } });
+    poleLine(b, { axis: 'x', from: srE + 4, to: CE - 3, at: HM.c - HM.half - 0.4, road: 1, step: 26, skip: (u) => !clearOf(u, [...nsCorrPen, [BRX.c - BRX.half, BRX.c + BRX.half]], 7), drops: 0.7, cross: 2 * HM.half + HM.pave + 0.4, name: { ja: sta.nameJa, en: sta.nameRomaji } });
     lampAt(srE, CE, nsCorrPen, 24).forEach((x) => streetLamp(b, 'lamp_small', x, HM.c + HM.half + 0.45, [0, -1]));
     lampAt(hmS, BL.avN, corrZ.map(([p0, q0]): [number, number] => [p0 + 3, q0 - 3]), 16).forEach((z, k) => streetLamp(b, 'lamp_led', S3.c + (k % 2 ? 1 : -1) * (S3.half + 0.6), z, [k % 2 ? -1 : 1, 0]));
     for (let z = hmS + 10; z < BL.avN - 6; z += 12) if (clearOf(z, corrZ, 6)) for (const k of [-1, 1]) modelTree(b, 'ginkgo', S3.c + k * (S3.half + 2.5), z, 'b', GY, true);
@@ -996,6 +1020,7 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
     for (let x = W0 + 12; x < CE - 6; x += 18) {
       if (x > MAR.gang[0] - 3 && x < MAR.gang[1] + 3) continue;
       if (x > WB.x0 - 3 && x < WB.x1 + 3) continue;
+      if (x > brW - 1 && x < brE + 1) continue;
       streetLamp(b, 'lamp_small', x, PEN.prom - 0.4, [0, -1]);
     }
     roadName(b, srE + 0.6, BL.avN - 10, [1, 0], MC_NAMES.sr);
@@ -1413,7 +1438,7 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       piece('mcenter', M, 'pavilion', 'n', 30, PEN.prom + 0.5, (a) => label(a.pts.name, MC_NAMES.pav, '#ffffff', '#2f4a3a'));
       piece('mcenter', M, 'pavilion', 'n', 185, PEN.prom + 0.5, (a) => label(a.pts.name, MC_NAMES.pav2, '#ffffff', '#5a2a1e'));
       piece('mcenter', M, 'boathouse', 'n', -245, PEN.prom + 0.6, (a) => label(a.pts.name, MC_NAMES.rowing, '#ffffff', '#1f3550'));
-      const built: [number, number][] = [[2, 58], [157, 213], [-261, -229], [-162, -138], [128, 154], [-158, -142]];
+      const built: [number, number][] = [[2, 58], [157, 213], [-261, -229], [-162, -138], [128, 154], [-158, -142], [102, 126]];
       for (let x = W0 + 16; x < CE - 6; x += 16) {
         if (built.some(([p0, q0]) => x > p0 - 3 && x < q0 + 3)) continue;
         modelTree(b, (Math.round(x) % 3 ? 'pine' : 'cherry') as TreeKind, x, (PEN.prom + hmN) / 2, 'b');
@@ -1421,6 +1446,7 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
       for (let x = W0 + 20; x < CE - 6; x += 18) {
         if (x > MAR.gang[0] - 4 && x < MAR.gang[1] + 4) continue;
         if (x > WB.x0 - 4 && x < WB.x1 + 4) continue;
+        if (x > 100 && x < 128) continue;
         roadModel(b, 'bench_s', x, GY, PEN.prom - 2.4, [0, -1]);
         b.block(x - 0.9, GY, PEN.prom - 2.7, x + 0.9, GY + 0.5, PEN.prom - 2.1);
       }
@@ -1502,7 +1528,23 @@ export function minatoCenterStreet(c: Ctx, spec: SurfaceSpec, cw: number) {
           if (x > WB.x0 - 6 && x < WB.x1 + 6) continue;
           pmc('buoy', x, N0 + 0.6, 's', 0.45, 0.15, 2.1);
         }
-        for (const x of [-40, -34, 100, 106]) pmc('scope', x, N0 + 1.4, 'n', 0.25, 0.4, 1.5);
+        for (const x of [-40, -34, 160, 166]) pmc('scope', x, N0 + 1.4, 'n', 0.25, 0.4, 1.5);
+        // Shiomi's cycle path (shiomi-extras.ts) carried over 潮見大橋: up its footways and along the river-mouth promenade.
+        {
+          const [z0, z1] = [N0 + 3.6, N0 + 5.4], PY = GY + 0.018, zm = (z0 + z1) / 2;
+          const seg = (x0: number, x1: number) => {
+            b.deco(CYCLE.mat, x0, PY, z0, x1, PY + 0.006, z1);
+            for (const zz of [z0 + 0.06, z1 - 0.06]) b.deco('paint:#f4f4f0', x0, PY + 0.006, zz - 0.05, x1, PY + 0.009, zz + 0.05);
+            for (let x = x0 + 1; x < x1 - 1; x += 4) b.deco('paint:#f4f4f0', x, PY + 0.006, zm - 0.04, x + 2, PY + 0.009, zm + 0.04);
+          };
+          seg(W0 + 2, BRX.c - BRIDGE_LANE[0]);
+          seg(BRX.c + BRIDGE_LANE[0], CE - 2);
+          for (const k of [-1, 1]) b.deco(CYCLE.mat, Math.min(BRX.c + k * BRIDGE_LANE[0], BRX.c + k * BRIDGE_LANE[1]), PY, N0, Math.max(BRX.c + k * BRIDGE_LANE[0], BRX.c + k * BRIDGE_LANE[1]), PY + 0.006, z0);
+          for (const x of [-60, 60, 180]) {
+            b.box('flat:#8d949b', x - 0.04, GY, z0 - 0.4, x + 0.04, GY + 2.0, z0 - 0.32);
+            b.sign({ k: 'label', text: '自転車道', sub: CYCLE.en, fg: '#ffffff', bg: '#1f5fa8' }, x, GY + 2.3, z0 - 0.31, [0, 1], 0.9, 0.5);
+          }
+        }
         for (const [xc, d] of [[30, 1], [185, -1]] as [number, number][]) {
           pp('aboard', xc + d * 16, PEN.prom - 1.0, [0, -1], 0.3, 0.25, 1.0);
           pp('menucase', xc + d * 15, PEN.prom + 1.0, [0, -1], 0.35, 0.15, 1.5);

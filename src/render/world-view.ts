@@ -11,13 +11,14 @@ import { PF_H } from '../stations/kit';
 import { carBuild, carKind, trains, type TrainRuntime } from '../trains/system';
 import { CAR_HALF_W } from '../trains/car';
 import { carOf } from '../sim/geometry';
-import { cellMergedModels, loadBuildingModels, lodModels, updateLod } from './building-models';
-import { headlights, xingLights } from './lamps';
+import { buildingModel, cellMergedModels, loadBuildingModels, lodModels, updateLod } from './building-models';
+import { headlights, nightLevel, xingLights } from './lamps';
+import { timedOn } from '../world/timed';
 import { planBuilding, planRect } from './city-plan';
-import { crossingState } from '../signs/departures';
+import { BASCULE_AT, BASCULE_EVERY, basculeState, crossingState, crossingTest } from '../signs/departures';
 import { BUILDING_MODELS } from '../stations/buildings';
 import { carModel, loadCarModel } from './car-model';
-import type { ArmPart, BoxPart, GatePart, ModelPart } from '../world/builder';
+import type { ArmPart, BoxPart, Build, GatePart, LeafPart, ModelPart } from '../world/builder';
 import { builtRange, halfWidth, sampleChainages, structureAt } from '../world/structure';
 import { runOnRoads, runOnStrips } from '../world/runon';
 import { DEFAULT_PLOT, rng } from '../world/builder';
@@ -77,9 +78,54 @@ interface StationView {
   gates: GateSet[];
   /** Level crossings' arms, each turning on its hinge, and their lamps (world space). */
   arms: { hinge: THREE.Object3D; line: string; key: string }[];
+  /** Bascule bridges' leaves, each turning on its hinge. */
+  leaves: { hinge: THREE.Object3D; lift: number; key: string }[];
   xingLamps: { x: number; y: number; z: number; line: string; key: string; left: boolean }[];
+  /** Lighthouse lamps and the like (Build.flashers). */
+  flashers: { mesh: THREE.Object3D; period: number; on: number }[];
+  /** Boats through a bascule bridge (Build.boats): their models, made once the models have loaded. */
+  boats: { spec: NonNullable<Build['boats']>[number]; models: (THREE.Group | null)[]; group: THREE.Group }[];
+  /** Things out only at times (Build.stalls), one group per kind of time. */
+  timed: { group: THREE.Object3D; when: 'festival' }[];
   dispose: () => void;
 }
+
+/** Festival stalls' colours: canopy, valance stripe, banner. */
+const STALL_COLS = [['#c8102e', '#f4f1e8', '#f2c230'], ['#1f5fa8', '#f4f1e8', '#e86a1c'], ['#e86a1c', '#f4f1e8', '#1f3f7a'], ['#2a9d9a', '#f4f1e8', '#c8102e'], ['#d94f8a', '#f4f1e8', '#1d8a4e']];
+/** A festival stall (yatai): posts, a canopy with a striped valance, a counter, a banner, a string of lanterns. */
+function stallMesh(a: NonNullable<Build['stalls']>[number]): THREE.Object3D {
+  const g = new THREE.Group();
+  g.position.set(a.pos[0], a.pos[1], a.pos[2]);
+  g.rotation.y = Math.atan2(-a.face[0], -a.face[1]);
+  const [canopy, stripe, banner] = STALL_COLS[a.kind % STALL_COLS.length];
+  const box = (mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => {
+    const m = new THREE.Mesh(ARM_SEG, getMaterial(mat));
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    m.scale.set(x1 - x0, y1 - y0, z1 - z0);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    g.add(m);
+  };
+  const hw = a.w / 2, D = 2.2;
+  for (const x of [-hw + 0.1, hw - 0.1]) for (const z of [0.1, D - 0.1]) box('wood:#8a6a4a', x - 0.05, 0, z - 0.05, x + 0.05, 2.5, z + 0.05);
+  box(`flat:${canopy}`, -hw - 0.2, 2.5, -0.4, hw + 0.2, 2.62, D + 0.2);
+  const n = Math.round(a.w / 0.45);
+  for (let i = 0; i < n; i++) box(`flat:${i % 2 ? stripe : canopy}`, -hw - 0.2 + (i * (a.w + 0.4)) / n, 2.05, -0.42, -hw - 0.2 + ((i + 1) * (a.w + 0.4)) / n, 2.5, -0.38);
+  box('wood:#9c7b58', -hw + 0.15, 0, 0.15, hw - 0.15, 0.9, 0.7);
+  box('flat:#e9e7e0', -hw + 0.1, 0.9, 0.1, hw - 0.1, 0.95, 0.75);
+  box(`flat:${banner}`, -hw * 0.6, 1.35, -0.43, hw * 0.6, 2.0, -0.41);
+  box('flat:#3a3d41', -hw + 0.3, 0.95, 0.3, -hw + 1.2, 1.15, 0.6);
+  box('flat:#c94b3a', hw - 1.3, 0.95, 0.25, hw - 0.4, 1.05, 0.65);
+  box('flat:#d9d4c8', -hw + 0.2, 0, D - 0.7, -hw + 0.6, 0.6, D - 0.3);
+  for (let x = -hw + 0.3; x <= hw - 0.2; x += 0.75) {
+    box('glow:#ff8a4a', x - 0.13, 1.72, -0.62, x + 0.13, 2.02, -0.36);
+    box('flat:#1d1f22', x - 0.1, 2.02, -0.55, x + 0.1, 2.06, -0.43);
+  }
+  return g;
+}
+
+/** Which of a bridge's boats passes at the opening `n` (the same each time that opening is shown). */
+const boatOf = (n: number, count: number) => ((((n * 2654435761) >>> 0) % 1000) % count);
 
 /** A gate arm raised stands not quite upright, leaning over the road. */
 const ARM_UP = (82 * Math.PI) / 180;
@@ -106,6 +152,40 @@ function armMesh(a: ArmPart): { pivot: THREE.Object3D; hinge: THREE.Object3D } {
   hub.scale.set(0.55, 0.16, 0.14);
   hinge.add(hub);
   hinge.rotation.z = ARM_UP;
+  return { pivot, hinge };
+}
+
+/**
+ * A bascule leaf: its deck (asphalt between kerbs, the footways), the steel girders under it and the railings on it,
+ * built along +x from the hinge and turned to lie along `along`.
+ */
+function leafMesh(a: LeafPart): { pivot: THREE.Object3D; hinge: THREE.Object3D } {
+  const pivot = new THREE.Group(), hinge = new THREE.Group();
+  pivot.position.set(a.pivot[0], a.pivot[1], a.pivot[2]);
+  pivot.rotation.y = Math.atan2(-a.along[1], a.along[0]);
+  pivot.add(hinge);
+  const box = (mat: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => {
+    const m = new THREE.Mesh(ARM_SEG, getMaterial(mat));
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    m.scale.set(x1 - x0, y1 - y0, z1 - z0);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    hinge.add(m);
+  };
+  const hw = a.width / 2, L = a.len;
+  box('asphalt', 0, -0.25, -hw + 5, L, 0, hw - 5);
+  for (const s of [-1, 1]) {
+    box('tile:#c8c3b8', 0, -0.25, Math.min(s * (hw - 5), s * hw), L, 0.15, Math.max(s * (hw - 5), s * hw));
+    box('paint:#e9e9e4', 0, 0.004, s * (hw - 5.5) - 0.06, L, 0.012, s * (hw - 5.5) + 0.06);
+    box('paint:#3d5f7a', 0, -1.6, Math.min(s * (hw - 1), s * (hw - 0.3)), L, -0.25, Math.max(s * (hw - 1), s * (hw - 0.3)));
+    box('paint:#3d5f7a', 0, 1.05, Math.min(s * (hw - 0.15), s * hw), L, 1.15, Math.max(s * (hw - 0.15), s * hw));
+    for (let x = 0.5; x < L; x += 2) box('paint:#3d5f7a', x - 0.04, 0.15, s * (hw - 0.1) - 0.04, x + 0.04, 1.05, s * (hw - 0.1) + 0.04);
+  }
+  for (const p of a.paint ?? []) box(p.mat, 0, 0.152, Math.min(p.z0, p.z1), L, 0.162, Math.max(p.z0, p.z1));
+  box('paint:#3d5f7a', 0, -1.4, -hw + 6, L, -0.25, -hw + 6.8);
+  box('paint:#3d5f7a', 0, -1.4, hw - 6.8, L, -0.25, hw - 6);
+  // Black and yellow at the tip, where the two leaves meet.
+  for (let k = 0; k < 12; k++) box(k % 2 ? 'paint:#1c1c1e' : 'paint:#f2c200', L - 0.3, -0.25, -hw + (a.width * k) / 12, L, 0.02, -hw + (a.width * (k + 1)) / 12);
   return { pivot, hinge };
 }
 
@@ -140,13 +220,41 @@ function mountStation(w: StationWorld): StationView {
     group.add(pivot);
     return { hinge, line: a.line, key: a.key };
   });
+  const leaves = (w.build.leaves ?? []).map((a) => {
+    const { pivot, hinge } = leafMesh(a);
+    group.add(pivot);
+    return { hinge, lift: a.lift, key: a.key };
+  });
+  const flashers = (w.build.flashers ?? []).map((f) => {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(f.r, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(f.col).multiplyScalar(3) }));
+    mesh.position.set(f.pos[0], f.pos[1], f.pos[2]);
+    mesh.visible = false;
+    group.add(mesh);
+    return { mesh, period: f.period, on: f.on };
+  });
+  const boats = (w.build.boats ?? []).map((spec) => {
+    const g = new THREE.Group();
+    g.visible = false;
+    group.add(g);
+    return { spec, models: spec.ids.map(() => null as THREE.Group | null), group: g };
+  });
+  const timed: StationView['timed'] = [];
+  for (const when of ['festival'] as const) {
+    const list = (w.build.stalls ?? []).filter((s) => s.when === when);
+    if (!list.length) continue;
+    const g = new THREE.Group();
+    for (const s of list) g.add(stallMesh(s));
+    g.visible = false;
+    group.add(g);
+    timed.push({ group: g, when });
+  }
   const c = Math.cos(w.frame.yaw), sn = Math.sin(w.frame.yaw);
   const xingLamps = (w.build.xingLamps ?? []).map((l) => ({
     x: w.frame.x + l.pos[0] * c + l.pos[2] * sn, y: w.frame.y + l.pos[1], z: w.frame.z - l.pos[0] * sn + l.pos[2] * c, line: l.line, key: l.key, left: l.left,
   }));
   group.updateMatrixWorld(true);
   return {
-    group, cache, gates, surface, deep, arms, xingLamps,
+    group, cache, gates, surface, deep, arms, leaves, xingLamps, flashers, boats, timed,
     dispose: () => {
       st.dispose();
       disposeCache(cache);
@@ -729,6 +837,37 @@ export class WorldView {
             a.hinge.rotation.z = r;
             a.hinge.updateMatrixWorld(true);
           }
+        }
+        for (const a of v.leaves) {
+          const r = basculeState(clock.time).leaf * a.lift;
+          if (Math.abs(a.hinge.rotation.z - r) > 1e-4) {
+            a.hinge.rotation.z = r;
+            a.hinge.updateMatrixWorld(true);
+          }
+        }
+        for (const f of v.flashers) f.mesh.visible = nightLevel.v > 0.15 && ((clock.time % f.period) + f.period) % f.period < f.on;
+        for (const t of v.timed) t.group.visible = timedOn(t.when, clock.time);
+        // A boat through the open bridge: on its way in from 30 s, through while the leaves are up, gone by 110 s.
+        for (const bt of v.boats) {
+          const ph = (((clock.time - BASCULE_AT) % BASCULE_EVERY) + BASCULE_EVERY) % BASCULE_EVERY;
+          const n = Math.floor((clock.time - BASCULE_AT) / BASCULE_EVERY);
+          const show = crossingTest.force === null && ph > 30 && ph < 110;
+          bt.group.visible = show;
+          if (!show) continue;
+          const k = boatOf(n, bt.spec.ids.length);
+          if (!bt.models[k]) {
+            const [kind, id] = bt.spec.ids[k];
+            const m = buildingModel({ kind, id, pos: [0, 0, 0], yaw: 0, seed: 0 });
+            if (!m) continue;
+            bt.models[k] = m;
+            bt.group.add(m);
+          }
+          bt.models.forEach((m, i) => m && (m.visible = i === k));
+          const back = n % 2 !== 0, t = (ph - 30) / 80;
+          const [a, e] = back ? [bt.spec.to, bt.spec.from] : [bt.spec.from, bt.spec.to];
+          bt.group.position.set(a[0] + (e[0] - a[0]) * t, bt.spec.y, a[1] + (e[1] - a[1]) * t);
+          bt.group.rotation.y = Math.atan2(-(e[1] - a[1]), e[0] - a[0]);
+          bt.group.updateMatrixWorld(true);
         }
         // The flashing lamp of each pair lights the street red (lamps.ts: by night only).
         const leftOn = Math.floor(clock.time * 2) % 2 === 0;

@@ -261,6 +261,9 @@ function make(key: string): THREE.Material {
       return glass('#101a22', 0.72);
     case 'glassTint':
       return glass('#9fc4cf', 0.2);
+    // Deep-blue aquarium glass (Shiomi's station buildings): 'seaglass:#hex'.
+    case 'seaglass':
+      return glass(a ?? '#1f5f8f', 0.36, 0.03);
     case 'glassRoof':
       return glass('#f4f1e4', 0.5, 0.35);
 

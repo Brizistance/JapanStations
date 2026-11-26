@@ -1,6 +1,7 @@
 // Station registry: builds every station from the network data + its spec and
 // exposes the result as a collision frame plus render data.
 
+import { timedOn } from '../world/timed';
 import { LINES, STATIONS, stationById } from '../data/network';
 import type { StationDef } from '../data/types';
 import { RAIL_NET, clock, lineSim } from '../sim';
@@ -16,6 +17,7 @@ import { TOSEN_FRAME, TOSEN_NAMES, tosenMachi } from './tosen-street';
 import { KAMOME_FRAME, KAMOME_NAME, kamomeGaOka } from './kamome-street';
 import { HATOBA_FRAME, HATOBA_NAME, kitaHatoba } from './hatoba-street';
 import { SPECS } from './specs';
+import { BASCULE_LINE, crossingState } from '../signs/departures';
 
 export interface StationWorld {
   def: StationDef;
@@ -119,17 +121,24 @@ function place(def: StationDef, build: Build, primary: string, x: number, z: num
     if (inPlot(build.plot, lx, lz) || m.pos[1] < -0.5) return true;
     // (Placed on the water on purpose: Minatoura-bashi, the breakwater's lighthouse, the cranes across the harbour.)
     // (And Watayamachi's expressway, which leaves the shore on piers.)
-    if (m.kind === 'minato' || (m.kind === 'mcenter' && (m.id === 'yacht' || m.id === 'waterbus')) || (m.kind === 'shinshio' && m.id === 'pontoon') || (m.kind === 'port' && m.id === 'crane') || (m.kind === 'watacentre' && (m.id === 'deck' || m.id === 'pier_sea'))) return true;
+    if (m.kind === 'minato' || (m.kind === 'mcenter' && (m.id === 'yacht' || m.id === 'waterbus')) || (m.kind === 'shiomi' && m.id === 'lighthouse') || (m.kind === 'shinshio' && m.id === 'pontoon') || (m.kind === 'port' && m.id === 'crane') || (m.kind === 'watacentre' && (m.id === 'deck' || m.id === 'pier_sea'))) return true;
     return !wet(lx, lz) && !wet(lx + Math.sin(m.yaw) * 10, lz + Math.cos(m.yaw) * 10);
   });
-  const blockers: Blocker[] = build.gates.map((g) => {
+  const blockers: Blocker[] = (build.barriers ?? []).map((k): Blocker => ({ min: k.min, max: k.max, isOpen: () => !crossingState(BASCULE_LINE, k.key, clock.time).on }));
+  // Festival stalls stand in the way only while they are out (world/timed.ts).
+  for (const s of build.stalls ?? []) {
+    const hx = s.face[0] !== 0 ? 1.2 : s.w / 2 + 0.2, hz = s.face[0] !== 0 ? s.w / 2 + 0.2 : 1.2;
+    const cx = s.pos[0] - s.face[0] * 1.1, cz = s.pos[2] - s.face[1] * 1.1;
+    blockers.push({ min: [cx - hx, s.pos[1], cz - hz], max: [cx + hx, s.pos[1] + 2.6, cz + hz], isOpen: () => !timedOn(s.when, clock.time) });
+  }
+  blockers.push(...build.gates.map((g): Blocker => {
     const hx = g.along[0] !== 0 ? g.width / 2 : 0.1, hz = g.along[0] !== 0 ? 0.1 : g.width / 2;
     return {
       min: [g.pos[0] - hx, g.pos[1], g.pos[2] - hz],
       max: [g.pos[0] + hx, g.pos[1] + Math.max(1.3, g.height), g.pos[2] + hz],
       isOpen: () => gateOpen(g.line!, g.stop!, g.track!, g.service) > 0.7,
     };
-  });
+  }));
   const frame: Frame = {
     id: def.id, kind: 'station', x, y: 0, z, yaw, pitch: 0,
     colliders: makeColliders(build), blockers, radius: Math.hypot(build.plot.x, Math.max(build.plot.z, build.plot.north ?? 0)) + 5,

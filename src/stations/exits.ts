@@ -12,6 +12,7 @@ import type { LineDef, StationDef, StationId } from '../data/types';
 import { SPECS, type ElevatedSpec } from './specs';
 import { WATA, wataWell } from './wata-plan';
 import { MCA, MC_GY, MC_SLOPE } from './minatocenter-plan';
+import { SHIOMI } from './shiomi-plan';
 import type { BlockStyle, SurfaceSpec } from './surface';
 
 export interface Named {
@@ -144,6 +145,11 @@ const SHIONDAI_MALL: Named = { ja: '紫苑台タウンプラザ', en: 'Shiondai 
 const SHIONDAI_PARK: Named = { ja: '紫苑台中央公園', en: 'Shiondai Central Park' };
 const SEASIDE_DECK: Named = { ja: '新鴎シーサイドデッキ', en: 'Shin-Kamome Seaside Deck' };
 const SHIN_KAMOME_BUS: Named = { ja: '新鴎バスのりば', en: 'Shin-Kamome bus stop' };
+const SHIOMI_AQUARIUM: Named = { ja: '川湊水族館', en: 'Kawaminato Aquarium' };
+const SHIOMI_GREENWAY: Named = { ja: '潮見海浜緑道', en: 'Shiomi Seaside Greenway' };
+// (Stage 2 names the main road; web-check it then.)
+const SHIOMI_BAYDORI: Named = { ja: '潮見ベイ通り', en: 'Shiomi Bay-dōri' };
+const SHIOMI_BUS: Named = { ja: 'バスのりば', en: 'Buses' };
 const ASAHINO_ARCADE: Named = { ja: 'あさひの高架下商店街', en: 'Asahino Under-the-Tracks Shops' };
 const ASAHINO_BUS: Named = { ja: '旭野駅前バスのりば', en: 'Asahino bus stop' };
 const TAKANODAI_RIDGE: Named = { ja: '高野台団地', en: 'Takanodai Estate (ridge)' };
@@ -282,6 +288,25 @@ export const OPEN_AIR: Record<NonNullable<ElevatedSpec['layout']>, OpenAirPlan> 
     exits: [
       { rect: [9, -15.2, 14, -15], side: -1, near: [KASUMIDANI_BUS, PLACE.plaza] },
       { rect: [9, 15, 14, 15.2], side: 1, near: [KIND.house] },
+    ],
+  },
+  // Shiomi: the cutting is the platforms' length; the head house stands over its west end, the east hall over the
+  // tunnel mouth (shiomi-plan.ts). The streets round them are stage 2's.
+  headhouse: {
+    box: [SHIOMI.head.x0, -SHIOMI.head.z, SHIOMI.head.x1, SHIOMI.head.z],
+    areas: [
+      { r: [SHIOMI.cut.x0, -SHIOMI.cut.z - 0.4, SHIOMI.cut.x1, SHIOMI.cut.z + 0.4], fill: 'track' },
+      { r: [-130, -30, SHIOMI.head.x0, 30], fill: 'plaza', label: PLACE.plaza },
+      { r: [-150, 30, 150, 52], fill: 'green', label: SHIOMI_GREENWAY },
+      { r: [-150, 52, 150, 85], fill: 'sea' },
+    ],
+    bus: [-110, -22],
+    exits: [
+      { rect: [SHIOMI.head.x0 - SHIOMI.head.bow - 0.2, -SHIOMI.frontDoor, SHIOMI.head.x0 - SHIOMI.head.bow + 0.4, SHIOMI.frontDoor], side: 0, near: [PLACE.plaza, SHIOMI_AQUARIUM] },
+      { rect: [SHIOMI.sideDoor[0], -SHIOMI.head.z - 0.2, SHIOMI.sideDoor[1], -SHIOMI.head.z], side: -1, near: [SHIOMI_BUS] },
+      { rect: [SHIOMI.sideDoor[0], SHIOMI.head.z, SHIOMI.sideDoor[1], SHIOMI.head.z + 0.2], side: 1, near: [SHIOMI_GREENWAY] },
+      { rect: [SHIOMI.east.door[0], -SHIOMI.east.z - 0.2, SHIOMI.east.door[1], -SHIOMI.east.z], side: -1, near: [SHIOMI_BAYDORI] },
+      { rect: [SHIOMI.east.door[0], SHIOMI.east.z, SHIOMI.east.door[1], SHIOMI.east.z + 0.2], side: 1, near: [SHIOMI_GREENWAY] },
     ],
   },
   // Shiondai: the concourse is under the platform's +x end; the bus terminal and the deck to

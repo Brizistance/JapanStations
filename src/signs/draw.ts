@@ -1271,6 +1271,8 @@ function exitBadge(ctx: Ctx, x: number, y: number, s: number, num: string, fg = 
   ctx.fillStyle = bg;
   ctx.fill();
   if (num) text(ctx, num, x + s / 2, y + s * 0.53, s * 0.74, { align: 'center', color: fg, weight: 800, maxW: s * 0.84 });
+  // (Too small for the English under it, where many entrances share a row: the Japanese alone.)
+  else if (s * 0.17 < 4.5) text(ctx, '出入口', x + s / 2, y + s * 0.53, s * 0.3, { align: 'center', color: fg, weight: 800, maxW: s * 0.86 });
   else {
     text(ctx, '出入口', x + s / 2, y + s * 0.4, s * 0.28, { align: 'center', color: fg, weight: 800, maxW: s * 0.86 });
     text(ctx, 'Entrance', x + s / 2, y + s * 0.73, s * 0.17, { align: 'center', color: fg, weight: 600, maxW: s * 0.86 });

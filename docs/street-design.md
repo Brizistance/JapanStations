@@ -51,6 +51,14 @@ Added from the owner interview, 2026-11-21, after the Kita-Ōdōri rebuild (`src
 20. **Research before building.** Before any new kind of thing (a level crossing, a bus terminal, a shrine approach, an expressway), look up how it is really done in Japan, in Kansai where it differs; write the sources into this doc; ask the owner questions.
 21. **The signal standard is the researched one** (see Traffic signals below). It replaces rule 12's first two points.
 22. **Every invented name is web-checked** before it goes in, and `docs/worldbuilding.md` says which were. (At Kita-Ōdōri only eight were; the rest are owed.)
+23. **No awkward gaps in a street block** (the owner, 2026-11-25, after Minato Center and Shiomi).
+    - **Size blocks to their buildings before laying streets:** a block's depth is about two rows of the buildings meant for it plus at most a back alley (stock rows are 9–14 m deep). A block too big for its buildings gets another street first, never a lawn.
+    - **What a leftover becomes, by width:** up to 6 m a paved back alley with clutter (bins, AC units, bicycles); 6–15 m parking or a yard; wider than 15 m means the layout is wrong: add a building or a street.
+    - **By district:** dense places (old town, nightlife, station fronts) close gaps with buildings and alleys; new towns and waterfronts may also use parking and small greens.
+    - **Greens are small pockets only:** pocket parks, planted strips, courtyard trees; no open lawn longer than about 20 m, and a real park only where the plan names one.
+    - **Coin parking may open straight onto the street**, with its sign, pay machine and a lamp.
+    - **Every leftover is either walkable or plainly shut:** an enclosed courtyard gets a passage in; a sliver shut in behind buildings is a raised service yard, not bare ground.
+    - **Check before reporting:** the stage-3 bare-ground test, plus a view from above and one along each small street.
 
 ## How to work
 
@@ -246,6 +254,10 @@ After a redeveloped Meiji–Taishō port (Yokohama's red-brick bonded warehouses
 ## Two stations joined by a walked district (Umibe-shiyakusho-mae to Kawaminato-kō, 2026-11-25)
 
 The 422 m between the two plots is built in Umibe-shiyakusho-mae's world along its plot's `arms` (`src/stations/umibe-east.ts`, numbers in `umibe-plan.ts` `UMIBE_EAST`), not as a district world: one world's lanes then run the whole way and only the seam at Kawaminato-kō's west edge needs `hand` / `fed` lanes (both files; `minato-street.ts` opens its west wall at the boulevard, the back street and the promenade and no longer draws rows west of its edge). The avenue narrows from six lanes to Kawaminato-kō's four at 艀筋, where each station's back street ends at a T; the middle lanes end at the last 筋 before the seam. The street-rule checks cover the plot's rectangle only, not the arms.
+
+## A bascule bridge joining two stations (Shiomi to Minato Center, 2026-11-25)
+
+潮見大橋 carries Shiomi's Hamakaze-suji (4 lanes) over the river mouth to Minato Center, built in Shiomi's world as a plot arm to Minato Center's edge (`shiomi-street.ts`, numbers in `shiomi-plan.ts` `SHIOMI_BRIDGE`); lanes hand over at the seam both ways (`hand` / `fed`), and Minato Center meets it at a staggered T on Hama-dōri, 18 m east of its own Hamakaze-suji (a skewed bridge would have needed angled lanes joining straight ones). It opens on a cycle (`signs/departures.ts` `basculeState`, line `'bascule'`): the level-crossing kit's bell, lamps, barrier arms and traffic gates follow it, `build.barriers` hold people on foot, and `world-view.ts` lifts `build.leaves`. Tests: `shiomi-bridge.test.ts`.
 
 ## Size, joins, layout and edges (the owner, 2026-11-25)
 
