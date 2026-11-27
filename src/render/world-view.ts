@@ -17,7 +17,7 @@ import { timedOn } from '../world/timed';
 import { planBuilding, planRect } from './city-plan';
 import { BASCULE_AT, BASCULE_EVERY, basculeState, crossingState, crossingTest } from '../signs/departures';
 import { BUILDING_MODELS } from '../stations/buildings';
-import { carModel, loadCarModel } from './car-model';
+import { carModel, carModelFar, loadCarModel } from './car-model';
 import type { ArmPart, BoxPart, Build, GatePart, LeafPart, ModelPart } from '../world/builder';
 import { builtRange, halfWidth, sampleChainages, structureAt } from '../world/structure';
 import { runOnRoads, runOnStrips } from '../world/runon';
@@ -302,7 +302,11 @@ interface TrainView {
   lamps: { low: THREE.Mesh[]; high: THREE.Mesh[] };
   /** Per car: (sky, shade) added to the exterior's lighting as it moves between tunnel, station and open air. */
   env: { value: THREE.Vector2 }[];
+  /** Per car: its one-mesh stand-in for far off and what that replaces, or null if the car has none. */
+  detail: ({ far: THREE.Mesh; near: THREE.Object3D[] } | null)[];
 }
+/** Beyond this a car is drawn as its one-mesh stand-in (car-model.ts carModelFar); it comes back in full a little nearer. */
+const CAR_FAR = 240, CAR_NEAR = 215;
 
 // Head/tail lamps sit in the housings modelled on the cab front, turned to follow its curve.
 const lampGeo = new THREE.BoxGeometry(0.06, 0.1, 0.32);
@@ -342,7 +346,7 @@ function mountTrain(t: TrainRuntime): TrainView {
   const cache: SignCache = new Map();
   const line = t.sim.geom.def;
   const n = line.service.cars;
-  const view: TrainView = { group, cars: [], gates: [], signs: [], cache, lamps: { low: [], high: [] }, env: [] };
+  const view: TrainView = { group, cars: [], gates: [], signs: [], cache, lamps: { low: [], high: [] }, env: [], detail: [] };
   const resolve = (c: SignContent): SignContent =>
     c.k === 'lcd' ? { ...c, train: t.index, service: t.service?.id } : c.k === 'dest' ? { ...c, dir: destDir(t), service: t.service?.id } : c;
   for (let c = 0; c < n; c++) {
@@ -359,7 +363,9 @@ function mountTrain(t: TrainRuntime): TrainView {
       return c;
     };
     // The Blender model if it has loaded; the collision boxes drawn as they are if not.
-    const body = carModel(carOf(line).model, line.color, kind) ?? staticGroup(build, carEnv(carOf(line).half), `car:${line.id}:${kind}`).group;
+    const model = carModel(carOf(line).model, line.color, kind);
+    const body = model ?? staticGroup(build, carEnv(carOf(line).half), `car:${line.id}:${kind}`).group;
+    const far = model ? carModelFar(carOf(line).model, line.color, kind) : null;
     // A pantograph on every other car of a line on overhead wire, raised to the contact wire (track.ts WIRE_H).
     if (line.power === 'overhead' && c % 2 === 1) body.add(pantograph());
     body.traverse((o) => {
@@ -370,6 +376,12 @@ function mountTrain(t: TrainRuntime): TrainView {
     view.env.push(env);
     const signs = makeSigns(build, cache, resolve);
     g.add(signs.group);
+    if (far) {
+      far.material = mine(far.material as THREE.Material);
+      far.visible = false;
+      g.add(far);
+    }
+    view.detail.push(far ? { far, near: [body, signs.group] } : null);
     const gates = new GateSet(build.gates, [{ mat: 'glassDark', rect: [0.2, 0.42, 0.86, 0.9], proud: 0.005 }], mine);
     g.add(...gates.meshes);
     if (kind !== 'mid') {
@@ -449,15 +461,15 @@ function backdropModels(): THREE.Group {
     if (b) planBuilding(m.pos[0], m.pos[2], m.yaw, b.w, b.d);
   }
   parts.push(...bandParts);
-  const { group, rest } = lodModels(parts);
+  const { group, rest } = lodModels(parts, false, true);
   // In grid cells, not one city-wide mesh: cells behind the camera or past the fog are skipped (cull()).
   // (The far blocks: simplified, and full near the camera only on High and up: setBackdropDetail.)
   if (farParts.length) {
-    const far = lodModels(farParts, true);
+    const far = lodModels(farParts, true, true);
     group.add(far.group);
-    if (far.rest.length) group.add(cellMergedModels(far.rest, BACKDROP_CELL, { noAO: true }));
+    if (far.rest.length) group.add(cellMergedModels(far.rest, BACKDROP_CELL, { noAO: true }, true));
   }
-  if (rest.length) group.add(cellMergedModels(rest, BACKDROP_CELL, { noAO: true }));
+  if (rest.length) group.add(cellMergedModels(rest, BACKDROP_CELL, { noAO: true }, true));
   return group;
 }
 
@@ -898,7 +910,7 @@ export class WorldView {
   /** `fogFar`: where the fog is total right now, m (cells past it are not drawn). */
   update(dt: number, cam: THREE.Vector3, vis: 'any' | 'street' | 'under' = 'any', fogFar = FOG_OPEN, riding = false) {
     this.cull(cam, vis, fogFar, riding);
-    updateLod(cam);
+    updateLod(cam, Math.min(FOG_OPEN, fogFar));
     // Stations: at most one mount per frame to spread the cost.
     for (const tick of this.trackTicks) tick(clock.time);
     // Departure boards in the station around the player redraw at ~15 Hz (scrolling tickers).
@@ -997,6 +1009,7 @@ export class WorldView {
       }
       v.group.visible = true;
       const k = Math.min(1, dt * 5);
+      let anyNear = false;
       t.cars.forEach((f, c) => {
         const g = v!.cars[c];
         g.position.set(f.x, f.y, f.z);
@@ -1008,6 +1021,17 @@ export class WorldView {
         e.x += ((open ? 1 : 0) - e.x) * k;
         e.y += ((open ? 0 : atStation ? 0.12 : 0.86) - e.y) * k;
         v!.gates[c].update((gate) => (gate.side === t.doorSide ? t.state.doorOpen : 0));
+        // Far off, the car is one mesh: its glass, signs and fittings are too small to see.
+        const det = v!.detail[c];
+        if (det) {
+          const cd = Math.hypot(f.x - cam.x, f.y - cam.y, f.z - cam.z);
+          const isFar = cd > (det.far.visible ? CAR_NEAR : CAR_FAR);
+          if (isFar !== det.far.visible) {
+            det.far.visible = isFar;
+            for (const o of det.near) o.visible = !isFar;
+          }
+          if (!isFar) anyNear = true;
+        } else anyNear = true;
       });
       const lowLeads = t.state.heading < 0;
       // The headlight's pool on the track ahead of the leading cab (lamps.ts).
@@ -1015,7 +1039,8 @@ export class WorldView {
       if (lead.y > -5.4) headlights.push({ x: lead.x + Math.cos(lead.yaw) * ahead, y: lead.y + 1.4, z: lead.z - Math.sin(lead.yaw) * ahead });
       for (const m of v.lamps.low) m.material = lowLeads ? white : red;
       for (const m of v.lamps.high) m.material = lowLeads ? red : white;
-      if (live) {
+      // (A train wholly far off has its signs hidden: they are redrawn within half a second of it coming near.)
+      if (live && anyNear) {
         for (const s of v.signs) s.refresh();
         redrawLive(v.cache);
       }

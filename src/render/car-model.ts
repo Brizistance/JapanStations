@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CarKind } from '../trains/car';
+import { lit } from './lit';
 import { getMaterial } from './materials';
 
 interface Piece {
@@ -90,15 +91,86 @@ export function loadCarModel(model: string): Promise<void> {
   return p;
 }
 
+/** A copy of a piece (sharing its buffers) with one colour on every vertex. */
+function tinted(src: THREE.BufferGeometry, color: THREE.Color): THREE.BufferGeometry {
+  const g = new THREE.BufferGeometry();
+  for (const a of ['position', 'normal', 'uv', 'aEnv']) g.setAttribute(a, src.getAttribute(a));
+  const n = src.getAttribute('position').count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) color.toArray(col, i * 3);
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
+
+// The 'flat' and 'paint' finishes (materials.ts) taking their colour from the vertices.
+const flatMat = lit({ color: '#ffffff', vertexColors: true, roughness: 0.62, metalness: 0 }, { macro: 0.05, macroRough: 0.1 });
+const paintMat = lit({ color: '#ffffff', vertexColors: true, roughness: 0.3, metalness: 0 }, { macro: 0.05, macroRough: 0.16 });
+/** One car's meshes as drawn near: per model, line colour and mid / cab. */
+const nearPieces = new Map<string, { geometry: THREE.BufferGeometry; material: THREE.Material }[]>();
+
+// A car seen from far off: its opaque pieces merged into one mesh, each piece's colour on its vertices.
+const farGeo = new Map<string, THREE.BufferGeometry | null>();
+const farMat = lit({ color: '#ffffff', vertexColors: true, roughness: 0.6, metalness: 0 }, { macro: 0, macroRough: 0 });
+
+/**
+ * One car as a single mesh (one draw call instead of ~25), for cars too far off for glass, textures or
+ * gloss to show, or null while the model is not loaded. The geometry is shared; the caller may swap the material.
+ */
+export function carModelFar(model: string, lineColor: string, kind: CarKind): THREE.Mesh | null {
+  const set = pieces.get(model);
+  if (!set) return null;
+  const id = `${model}:${lineColor}:${kind}`;
+  let geo = farGeo.get(id);
+  if (geo === undefined) {
+    const list: THREE.BufferGeometry[] = [];
+    for (const p of kind === 'mid' ? set.mid : set.cab) {
+      const key = p.mat === 'LINE' ? `paint:${lineColor}` : p.mat === 'SEAT' ? `flat:${lineColor}` : p.mat;
+      const material = getMaterial(key) as THREE.MeshStandardMaterial;
+      if (material.transparent || !material.isMeshStandardMaterial) continue;
+      list.push(tinted(p.geometry, material.color));
+    }
+    geo = list.length ? mergeGeometries(list, false) : null;
+    // The model's cab is at +x; the low-end cab car is the same car turned round.
+    if (geo && kind === 'cabLow') geo.rotateY(Math.PI);
+    geo?.computeBoundingSphere();
+    farGeo.set(id, geo);
+  }
+  if (!geo) return null;
+  const m = new THREE.Mesh(geo, farMat);
+  m.matrixAutoUpdate = false;
+  m.receiveShadow = true;
+  m.userData.noAO = true;
+  m.userData.shared = true;
+  return m;
+}
+
 /** A new group for one car in the line's colours, or null while the model is not loaded. */
 export function carModel(model: string, lineColor: string, kind: CarKind): THREE.Group | null {
   const set = pieces.get(model);
   if (!set) return null;
   const group = new THREE.Group();
-  for (const p of kind === 'mid' ? set.mid : set.cab) {
-    const key = p.mat === 'LINE' ? `paint:${lineColor}` : p.mat === 'SEAT' ? `flat:${lineColor}` : p.mat;
-    const material = getMaterial(key);
-    const m = new THREE.Mesh(p.geometry, material);
+  const id = `${model}:${lineColor}:${kind === 'mid' ? 'mid' : 'cab'}`;
+  let list = nearPieces.get(id);
+  if (!list) {
+    // The plain finishes differ only in colour: all the 'flat' pieces become one mesh with the colours on its
+    // vertices, and all the 'paint' pieces another, so a car is ~9 draw calls and materials, not ~24.
+    list = [];
+    const plain = new Map<'flat' | 'paint', THREE.BufferGeometry[]>();
+    for (const p of kind === 'mid' ? set.mid : set.cab) {
+      const key = p.mat === 'LINE' ? `paint:${lineColor}` : p.mat === 'SEAT' ? `flat:${lineColor}` : p.mat;
+      const [k, hex] = key.split(':');
+      if ((k === 'flat' || k === 'paint') && hex) (plain.get(k) ?? plain.set(k, []).get(k)!).push(tinted(p.geometry, new THREE.Color(hex)));
+      else list.push({ geometry: p.geometry, material: getMaterial(key) });
+    }
+    for (const [k, geos] of plain) {
+      const g = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+      if (!g) continue;
+      g.computeBoundingSphere();
+      list.push({ geometry: g, material: k === 'flat' ? flatMat : paintMat });
+    }
+    nearPieces.set(id, list);
+  }
+  for (const { geometry, material } of list) {
+    const m = new THREE.Mesh(geometry, material);
     m.matrixAutoUpdate = false;
     if (material.transparent) m.renderOrder = 2;
     const litOpaque = !material.transparent && (material as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;

@@ -393,6 +393,19 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
   for (let s = steps.next(); ; s = steps.next()) if (s.done) return s.value;
 }
 
+/**
+ * A merged mesh's vertex data is never read again once it is on the graphics card: drop the copy in memory
+ * then. (The city's merged buildings were ~2.5 GB of it, which had the browser collecting garbage on every core.)
+ */
+function freeOnUpload(g: THREE.BufferGeometry) {
+  // Culling needs the bounds, and they cannot be worked out afterwards.
+  g.computeBoundingSphere();
+  for (const a of Object.values(g.attributes)) {
+    const at = a as THREE.BufferAttribute;
+    at.onUpload(() => ((at as { array: unknown }).array = null));
+  }
+}
+
 /** `mergedModels`, gathering `chunk` parts a step (a station mount spreads a big merge over frames). */
 export function* mergedModelsSteps(parts: ModelPart[], o: { cast?: boolean; noAO?: boolean } = {}, chunk = Infinity): Generator<string, THREE.Group> {
   const group = new THREE.Group();
@@ -435,6 +448,7 @@ export function* mergedModelsSteps(parts: ModelPart[], o: { cast?: boolean; noAO
     const merged = mergeGeometries(list, false);
     for (const g of list) g.dispose();
     if (!merged) continue;
+    freeOnUpload(merged);
     const mesh = new THREE.Mesh(merged, mat);
     mesh.matrixAutoUpdate = false;
     if (mat.transparent) mesh.renderOrder = 2;
@@ -456,7 +470,7 @@ export function* mergedModelsSteps(parts: ModelPart[], o: { cast?: boolean; noAO
  * whole). Each cell group carries `userData.cell = { x, z, r }`: its centre and a radius that
  * covers its buildings.
  */
-export function cellMergedModels(parts: ModelPart[], size: number, o: { cast?: boolean; noAO?: boolean } = {}): THREE.Group {
+export function cellMergedModels(parts: ModelPart[], size: number, o: { cast?: boolean; noAO?: boolean } = {}, lazy = false): THREE.Group {
   const group = new THREE.Group();
   const cells = new Map<string, { cx: number; cz: number; list: ModelPart[] }>();
   for (const p of parts) {
@@ -466,13 +480,33 @@ export function cellMergedModels(parts: ModelPart[], size: number, o: { cast?: b
     c.list.push(p);
   }
   for (const c of cells.values()) {
-    const g = mergedModels(c.list, o);
-    if (!g.children.length) continue;
     // Half the cell's diagonal plus room for a building standing on its edge.
-    g.userData.cell = { x: (c.cx + 0.5) * size, z: (c.cz + 0.5) * size, r: size * 0.71 + 40 };
+    const cell = { x: (c.cx + 0.5) * size, z: (c.cz + 0.5) * size, r: size * 0.71 + 40 };
+    // `lazy` (the city backdrop): an empty group now, its models merged when the camera comes in range (updateLod).
+    const g = lazy ? new THREE.Group() : mergedModels(c.list, o);
+    if (lazy) {
+      lazyCells.add({ holder: g, ...cell, parts: c.list, o, built: null });
+      lodAt = null; // new cells: the next updateLod builds what is in range at once
+    }
+    else if (!g.children.length) continue;
+    g.userData.cell = cell;
     group.add(g);
   }
   return group;
+}
+
+/** A backdrop cell whose models are merged only while the camera is in range of it. */
+interface LazyCell { holder: THREE.Group; x: number; z: number; r: number; parts: ModelPart[]; o: { cast?: boolean; noAO?: boolean }; built: THREE.Group | null }
+const lazyCells = new Set<LazyCell>();
+/** Time a frame may spend merging cells coming into range, ms; how far past the open-air fog a built cell is kept, m. */
+const LAZY_BUDGET = 4, LAZY_KEEP = 2300;
+/** Where updateLod last saw the camera: a jump (the start, a teleport) is behind a cover, so it builds everything in range at once. */
+let lodAt: THREE.Vector3 | null = null;
+
+/** Take a merged group out of the scene and free its geometry (its materials are shared). */
+function freeMerged(g: THREE.Object3D) {
+  g.removeFromParent();
+  g.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
 }
 
 // ── Detail by distance ───────────────────────────────────────────────────────────────────────
@@ -494,7 +528,11 @@ export function setBackdropDetail(far: boolean) {
  * Every mounted detail cell: its centre in its group's frame, its simplified copies, and its full
  * models, merged only once the camera first comes near (`parts` until then).
  */
-interface LodCell { group: THREE.Object3D; x: number; z: number; lo: THREE.Object3D; full: THREE.Object3D | null; parts: ModelPart[]; far: boolean }
+interface LodCell {
+  group: THREE.Object3D; x: number; z: number; full: THREE.Object3D | null; parts: ModelPart[]; far: boolean;
+  /** The simplified copies; null in a `lazy` cell (the city backdrop) while the camera is out of range. */
+  lo: THREE.Object3D | null; loParts: ModelPart[]; lazy: boolean;
+}
 const lodCells = new Set<LodCell>();
 const lodV = new THREE.Vector3();
 
@@ -505,13 +543,13 @@ const lodV = new THREE.Vector3();
  * is cheap, and mounting a station stays quick. Returns the group and the parts it did not take
  * (props, trees: no simplified copy).
  */
-export function lodModels(parts: ModelPart[], far = false): { group: THREE.Group; rest: ModelPart[] } {
-  const steps = lodModelsSteps(parts, far);
+export function lodModels(parts: ModelPart[], far = false, lazy = false): { group: THREE.Group; rest: ModelPart[] } {
+  const steps = lodModelsSteps(parts, far, undefined, lazy);
   for (let s = steps.next(); ; s = steps.next()) if (s.done) return s.value;
 }
 
 /** `lodModels`, one cell's simplified copies merged per step (a station mount spreads them over frames). */
-export function* lodModelsSteps(parts: ModelPart[], far = false, into?: THREE.Group): Generator<string, { group: THREE.Group; rest: ModelPart[] }> {
+export function* lodModelsSteps(parts: ModelPart[], far = false, into?: THREE.Group, lazy = false): Generator<string, { group: THREE.Group; rest: ModelPart[] }> {
   const group = into ?? new THREE.Group();
   const rest: ModelPart[] = [];
   const cells = new Map<string, { cx: number; cz: number; full: ModelPart[]; lo: ModelPart[] }>();
@@ -528,10 +566,12 @@ export function* lodModelsSteps(parts: ModelPart[], far = false, into?: THREE.Gr
     c.lo.push({ ...p, id: `${base}_lo` });
   }
   for (const c of cells.values()) {
-    const lo = mergedModels(c.lo, { noAO: true });
-    group.add(lo);
-    lodCells.add({ group, x: (c.cx + 0.5) * LOD_CELL, z: (c.cz + 0.5) * LOD_CELL, lo, full: null, parts: c.full, far });
-    yield `lo cell (${c.lo.length})`;
+    // (A `lazy` cell's simplified copies wait for the camera to come in range: updateLod.)
+    const lo = lazy ? null : mergedModels(c.lo, { noAO: true });
+    if (lo) group.add(lo);
+    lodCells.add({ group, x: (c.cx + 0.5) * LOD_CELL, z: (c.cz + 0.5) * LOD_CELL, lo, loParts: c.lo, lazy, full: null, parts: c.full, far });
+    if (lo) yield `lo cell (${c.lo.length})`;
+    else lodAt = null; // new lazy cells: the next updateLod builds what is in range at once
   }
   return { group, rest };
 }
@@ -541,21 +581,48 @@ export function* lodModelsSteps(parts: ModelPart[], far = false, into?: THREE.Gr
  * cell whose full models are not merged yet keeps its simplified copies until they are: one cell is
  * merged per frame, so walking up to a block never stalls a frame for long.
  */
-export function updateLod(cam: THREE.Vector3) {
+export function updateLod(cam: THREE.Vector3, range = Infinity) {
+  // The city backdrop is merged only within `range` (where the fog is total), a few ms a frame as the camera moves,
+  // all at once after a jump; what is left far behind is freed. (Whole, it was ~2 GB of vertices at the start.)
+  const t0 = performance.now(), rush = !lodAt || Math.hypot(cam.x - lodAt.x, cam.z - lodAt.z) > 300;
+  (lodAt ??= new THREE.Vector3()).copy(cam);
+  const spare = () => rush || performance.now() - t0 < LAZY_BUDGET;
   let built = false;
   for (const c of lodCells) {
     lodV.set(c.x, 0, c.z).applyMatrix4(c.group.matrixWorld);
-    let near = Math.hypot(lodV.x - cam.x, lodV.z - cam.z) < (c.far ? FAR_NEAR : LOD_NEAR);
+    const d = Math.hypot(lodV.x - cam.x, lodV.z - cam.z), nearAt = c.far ? FAR_NEAR : LOD_NEAR;
+    let near = d < nearAt;
+    if (c.lazy) {
+      if (!c.lo && d < range + LOD_CELL && spare()) c.group.add((c.lo = mergedModels(c.loParts, { noAO: true })));
+      else if (c.lo && d > LAZY_KEEP) {
+        freeMerged(c.lo);
+        c.lo = null;
+      }
+    }
     if (near && !c.full) {
-      if (built) near = false;
+      if (built && !rush) near = false;
       else {
         c.full = mergedModels(c.parts, { cast: true });
         c.group.add(c.full);
         built = true;
       }
     }
+    // Full models left well behind are freed too (they are merged again on the way back).
+    if (c.full && d > nearAt + 400) {
+      freeMerged(c.full);
+      c.full = null;
+    }
     if (c.full) c.full.visible = near;
-    c.lo.visible = !near;
+    if (c.lo) c.lo.visible = !near;
+  }
+  for (const c of lazyCells) {
+    lodV.set(c.x, 0, c.z).applyMatrix4(c.holder.matrixWorld);
+    const d = Math.hypot(lodV.x - cam.x, lodV.z - cam.z) - c.r;
+    if (!c.built && d < range && spare()) c.holder.add((c.built = mergedModels(c.parts, c.o)));
+    else if (c.built && d > LAZY_KEEP) {
+      freeMerged(c.built);
+      c.built = null;
+    }
   }
 }
 
