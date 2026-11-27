@@ -282,8 +282,13 @@ export function concourse(c0: Ctx, o: ShellOpts) {
   const walk: Rect[] = [[x0, -cw, x1, cw], ...rooms.map((r) => r.rect), ...plan.floor];
   for (const r of walk) b.slab(style.floor, r[0], r[1], r[2], r[3], cf - SLAB, cf, o.holes);
   if (fw > cw) b.slab('concrete', x0, -fw, x1, fw, cf - SLAB, cf - 0.02, [...o.holes, ...walk]);
-  if (o.ceilHoles?.length) b.slab(ceilMat, x0 - 0.4, -fw - 0.4, x1 + 0.4, fw + 0.4, ceil, ceil + 0.5, o.ceilHoles);
+  // A look may raise the ceiling over each unpaid hall (between the gate line and the end wall).
+  const vaults: Rect[] = look.hallVault ? o.ends.map((e): Rect => (e.hi ? [e.g + 2.6, -cw + 1.5, x1 - 1.5, cw - 1.5] : [x0 + 1.5, -cw + 1.5, e.g - 2.6, cw - 1.5])) : [];
+  const ceilHoles = [...(o.ceilHoles ?? []), ...vaults];
+  if (ceilHoles.length) b.slab(ceilMat, x0 - 0.4, -fw - 0.4, x1 + 0.4, fw + 0.4, ceil, ceil + 0.5, ceilHoles);
   else b.box(ceilMat, x0 - 0.4, ceil, -fw - 0.4, x1 + 0.4, ceil + 0.5, fw + 0.4);
+  // (The street's slab is 0.6 m thick over it: GROUND_Y is the pavement.)
+  const vaultTop = vaults.map((v) => look.hallVault!(b, v, ceil, -0.75 - ceil));
 
   // Stairwells: walls round every stair opening, a portal at its head.
   const stairRoom = (st: StairInfo) => rooms.findIndex((r) => r.stairs.includes(st));
@@ -454,6 +459,18 @@ export function concourse(c0: Ctx, o: ShellOpts) {
     concRooms.forEach((r, index) => look.bay?.({
       ...r, b, station, line: c.line, era: info.era, style, wall: style.concWall, floor: style.floor, ceil: ceilMat, cf, clear: CONC_CLEAR, index, conc: info,
     }));
+  });
+  // Under a raised ceiling: what hung from the old one (sign hangers) is carried up to the new, and the
+  // old ceiling's flush light panels there go (the raised ceiling has its own).
+  vaults.forEach((v, k) => {
+    const inV = (q: { min: number[]; max: number[] }) => (q.min[0] + q.max[0]) / 2 > v[0] && (q.min[0] + q.max[0]) / 2 < v[2] && (q.min[2] + q.max[2]) / 2 > v[1] && (q.min[2] + q.max[2]) / 2 < v[3];
+    for (const list of [b.out.boxes, b.out.meshes.filter((m) => 'min' in m)] as { min: number[]; max: number[] }[][]) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const q = list[i];
+        if (!inV(q) || Math.abs(q.max[1] - ceil) > 0.011 || q.min[1] < cf + 2.2) continue;
+        if (q.max[1] - q.min[1] < 0.1) { if (list === b.out.boxes) list.splice(i, 1); else q.max[1] = q.min[1]; } else q.max[1] = vaultTop[k]((q.min[0] + q.max[0]) / 2, (q.min[2] + q.max[2]) / 2);
+      }
+    }
   });
 }
 

@@ -442,7 +442,7 @@ describe('street lanes', () => {
   it('run on past the plot edge at most stations', () => {
     const n = withLanes.filter((w) => runOns(w).some(([before, after]) => before || after)).length;
     expect(n).toBeGreaterThan(25);
-    // All four signalled stations among them.
+    // The signalled stations among them.
     for (const id of ['kita-odori', 'tsumugibashi', 'hyotanbori', 'minamihorie']) {
       const w = withLanes.find((s) => s.def.id === id)!;
       expect(runOns(w).filter(([before, after]) => before || after).length, id).toBeGreaterThan(1);

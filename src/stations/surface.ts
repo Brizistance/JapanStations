@@ -33,6 +33,8 @@ export interface SurfaceSpec {
   poles?: boolean;
   /** A wide second avenue crossing at x = 0 (interchange). */
   avenue?: boolean;
+  /** The plot reaches into a river on its north side: north of this z the water is the station's own (Tsumugibashi's stepped bank on the Mio-gawa, tsumugi-canal.ts). */
+  riverNorth?: number;
   /** Replace the cross street at this x with a canal and bridge. */
   canalAt?: number;
   /** Covered shopping arcade over the cross street at this x, on the -z side. */

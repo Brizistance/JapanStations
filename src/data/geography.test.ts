@@ -14,9 +14,9 @@ describe('geography', () => {
       const f = w.frame, p = w.build.plot, north = p.north ?? p.z;
       const c = Math.cos(f.yaw), s = Math.sin(f.yaw);
       const world = (lx: number, lz: number): [number, number] => [f.x + lx * c + lz * s, f.z - lx * s + lz * c];
-      const sf = (SPECS as Record<string, { surface?: { right?: string; left?: string; canalAt?: number } }>)[w.def.id]?.surface;
+      const sf = (SPECS as Record<string, { surface?: { right?: string; left?: string; canalAt?: number; riverNorth?: number } }>)[w.def.id]?.surface;
       const own = (lx: number, lz: number) =>
-        (sf?.right === 'sea' && lz > SEA_Z - 2) || (sf?.left === 'sea' && lz < -SEA_Z + 2) || (sf?.canalAt !== undefined && Math.abs(lx - sf.canalAt) < 12);
+        (sf?.right === 'sea' && lz > SEA_Z - 2) || (sf?.left === 'sea' && lz < -SEA_Z + 2) || (sf?.canalAt !== undefined && Math.abs(lx - sf.canalAt) < 12) || (sf?.riverNorth !== undefined && lz < sf.riverNorth);
       const wet: string[] = [];
       for (let lx = -p.x + 1; lx <= p.x - 1; lx += 4)
         for (let lz = -north + 1; lz <= p.z - 1; lz += 4) if (!own(lx, lz) && isWater(...world(lx, lz))) wet.push(`(${lx.toFixed(0)}, ${lz.toFixed(0)})`);

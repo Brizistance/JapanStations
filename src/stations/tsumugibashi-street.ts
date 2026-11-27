@@ -49,6 +49,9 @@ import { kerbGaps, kerbRail, mark, pedSignal, poleLine, roadKit, roadModel, road
 import type { SurfaceSpec } from './surface';
 import { boulevard, crosswalk, fillModelLots } from './surface';
 import { EXCH } from './exchange';
+import { AV_EAST, CANAL_GEOM, canalTown } from './tsumugi-canal';
+import { canalLandmarks } from './tsumugi-land';
+import { canalDress } from './tsumugi-dress';
 import { LOT as TSUMUGI_EXCHANGE } from './rotunda';
 import { modelTree, type TreeKind } from './trees';
 
@@ -59,6 +62,16 @@ type Named = { ja: string; en: string };
 /** Half extents of Tsumugibashi's plot. */
 export const TSUMUGI_PLOT = { x: 200, z: 150 };
 const X = TSUMUGI_PLOT.x, Z = TSUMUGI_PLOT.z;
+/**
+ * The 2026-11-26 rebuild, stage 1: the outside is wiped to bare ground over the new, larger plot (north to
+ * the Mio-gawa's bank, west towards Aizomechō), with only the exits, the canal and its bridge and the station's
+ * buildings standing. The old streets below are switched off, kept for what stage 2 takes from them.
+ */
+const BARE = true;
+/** The old bank (build_exchange.py BANK_W, BANK_D, BANK_H + attic, PORT, BANK_COLS). */
+const BANK = { w: 34, d: 26, h: 15.2, port: 6, cols: [-12.5, -7.5, -2.5, 2.5, 7.5, 12.5] };
+/** The new plot: how far north the main rectangle goes (the bank is at −414 at its east end), and the west arm (the bank is at −429 … −444 there). */
+const NORTH = 410, ARM: Rect = [-350, -428, -TSUMUGI_PLOT.x, TSUMUGI_PLOT.z];
 /** The avenue's half width and its building line (the exits and the Exchange are fitted to it: rotunda.ts ZF). */
 const RW = 12, FRONT = 36.5;
 /** Across each half of the avenue: the planted separator (RW … SEP), the side lane (SEP … SVC), the planting strip (SVC … STRIP), the pavement (STRIP … FRONT). */
@@ -183,6 +196,66 @@ export function tsumugiStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numbe
   };
   const BIZ = ['office', 'zakkyo', 'manshon'], SMALL = ['zakkyo', 'manshon', 'shophouse'], LOW = ['shophouse', 'machi'];
 
+  // (The purpose-built fronts' helpers: used by the old streets below and by the 2026-11-26 fill.)
+  const used = new Map<string, number>();
+  const nameNo = new Map<Style, number>();
+  /** A combination of the given fronts filling a frontage of length L (0.3 … 3 m to spare), the least used first. */
+  const packFront = (L: number, ids: string[]): string[] => {
+    const W = (id: string) => TSUMUGIFRONT[id].w;
+    const order = [...ids].sort((p, q) => (used.get(p) ?? 0) - (used.get(q) ?? 0) || r() - 0.5);
+    let best: string[] = [], bestScore = Infinity, steps = 0;
+    const go = (acc: string[], sum: number) => {
+      if (++steps > 30000) return;
+      const rem = L - sum;
+      if (acc.length && rem >= 0.3 && rem <= 3.2) {
+        const score = acc.reduce((t, id) => t + (used.get(id) ?? 0) * 4, 0) + rem + acc.length * 0.2;
+        if (score < bestScore) (bestScore = score), (best = [...acc]);
+      }
+      if (acc.length >= 6 || rem < 7.8) return;
+      for (const id of order) if (!acc.includes(id) && W(id) <= rem - 0.3) {
+        acc.push(id);
+        go(acc, sum + W(id));
+        acc.pop();
+      }
+    };
+    go([], 0);
+    for (const id of best) used.set(id, (used.get(id) ?? 0) + 1);
+    // (Mixed up, so the towers do not all stand at one end.)
+    return best.map((id) => [id, r()] as const).sort((p, q) => p[1] - q[1]).map(([id]) => id);
+  };
+  const letter = (id: string, p: Record<string, AnchorPt>) => {
+    const sty = styleOf(id), k = nameNo.get(sty) ?? 0;
+    nameNo.set(sty, k + 1);
+    const [ja, en] = NAMES[sty][k % NAMES[sty].length], [bg, fg] = BOARD[sty];
+    if (p.name) label(p.name, ja, en, bg, fg);
+    if (p.roof) {
+      const [rj, re] = ROOF[sty]?.[k % ROOF[sty].length] ?? [ja, en];
+      label(p.roof, rj, re, sty === 'seni' ? '#1f3f7a' : '#f4f1e8', sty === 'seni' ? '#ffffff' : '#1f2023');
+    }
+    if (p.vertical) upright(p.vertical, ja.split(' ')[0], '#f4f1e8', '#1f3f7a');
+  };
+  /** Fronts along a frontage: on `face`, the building line at `line`, from u0 to u1 along it. Returns their depth's far edge per piece. */
+  const fronts = (face: Face, line: number, u0: number, u1: number, ids: string[]) => {
+    const row = packFront(u1 - u0, ids);
+    const total = row.reduce((t, id) => t + TSUMUGIFRONT[id].w, 0);
+    const gap = row.length ? (u1 - u0 - total) / (row.length + 1) : 0;
+    let u = u0 + gap;
+    const placed: Rect[] = [];
+    for (const id of row) {
+      const a = TSUMUGIFRONT[id], uc = u + a.w / 2;
+      const alongX = face === 'n' || face === 's';
+      const [x, z] = alongX ? [uc, line] : [line, uc];
+      piece('tsumugifront', TSUMUGIFRONT, id, face, x, z, (q) => letter(id, q.pts));
+      const d = a.d;
+      placed.push(alongX ? [u, face === 'n' ? line : line - d, u + a.w, face === 'n' ? line + d : line] : [face === 'w' ? line : line - d, u, face === 'w' ? line + d : line, u + a.w]);
+      u += a.w + gap;
+    }
+    return placed;
+  };
+  const FRONT_IDS = Object.keys(TSUMUGIFRONT).filter((k) => !k.startsWith('canal_'));
+  const SHALLOW = Object.keys(TSUMUGIFRONT).filter((k) => k.startsWith('canal_'));
+  const NO_TOWER = FRONT_IDS.filter((k) => !k.startsWith('tower_'));
+
   // ═════════════════════════ Ground ═════════════════════════
   // The canal and its riverside walks are cut out of the street; the bridge carries the avenue over.
   const canalCut: Rect[] = [];
@@ -227,15 +300,193 @@ export function tsumugiStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numbe
   ];
   // (The slabs stand back 5 cm from the exits' wells, so their edges never share a plane with the well walls.)
   const wellHoles: Rect[] = holes.map(([x0, z0, x1, z1]) => [x0 - 0.05, z0 - 0.05, x1 + 0.05, z1 + 0.05]);
+  if (BARE) {
+    // Stage 2a: ground, water, streets, decks and edges (tsumugi-canal.ts). Tsumugi-bori between z ±Z stays here.
+    canalTown(b, { ja: st.nameJa, en: st.nameRomaji }, [...wellHoles, ...canalCut, ...wells]);
+    // Stage 2b: the landmarks (tsumugi-land.ts). The footbridge is back, into the Exchange's second-floor door.
+    canalLandmarks(b, st.id, (TSUMUGI_EXCHANGE.x0 + TSUMUGI_EXCHANGE.x1) / 2 + (EXCH.DOOR2[0] + EXCH.DOOR2[1]) / 2, EXCH.F2, FRONT);
+    // The old bank across the avenue from the Exchange, the station's second entrance: its portico stands
+    // forward over the pavement and exit 4's stair rises under it (build_exchange.py bank(): BANK).
+    {
+      const well = exits.find((q) => q[0] > 0 && q[1] < 0);
+      if (!well) throw new Error('tsumugiStreet: no north-east exit for the bank\'s portico');
+      const xc = (well[0] + well[2]) / 2;
+      if (well[3] > -FRONT + BANK.port - 1.6 || Math.abs(well[2] - well[0]) > 2 * (BANK.cols[4] - 0.7)) throw new Error('tsumugiStreet: the exit\'s well does not fit under the bank\'s portico');
+      b.open(() => at('s', xc, -FRONT, () => {
+        b.model('exchange', 'bank', 0, GY, 0);
+        b.block(-BANK.w / 2, GY, 0, BANK.w / 2, GY + BANK.h, BANK.d);
+        for (const x of BANK.cols) b.block(x - 0.75, GY, -BANK.port + 0.15, x + 0.75, GY + 10, -BANK.port + 1.65);
+        b.sign({ k: 'label', text: '紬橋銀行 本店', sub: 'TSUMUGIBASHI BANK — Head Office', fg: '#2a2622', bg: '#d8cfbd' }, 0, GY + 11.7, -BANK.port - 0.03, [0, -1], 11, 0.7);
+        b.sign({ k: 'entrance', station: st.id }, 0, GY + 10.85, -BANK.port - 0.03, [0, -1], 4.4, 0.8);
+      }));
+    }
+    const frontLots: { r: Rect; face: Face }[] = [];
+    // ═════════════════════════ Stage 3: the fill ═════════════════════════
+    // Purpose-built fronts on Tsumugi-dōri and Yanagi-suji; every other block in rows of the stock sets, two rows
+    // back to back, tall and commercial by the station, low houses and workshops on the island and at the edges.
+    {
+      const G = CANAL_GEOM, NZ = -347.5;
+      const reserved: Rect[] = [[16, RW, QUAY, 92.5], [29, -63, 65, -30], [20, -147.4, QUAY, -135], ...holes.map(([x0, z0, x1, z1]): Rect => [x0 - 1.5, z0 - 1.5, x1 + 1.5, z1 + 1.5])];
+      const hit = (rs: Rect[], x: number, z: number) => rs.some((q) => x > q[0] && x < q[2] && z > q[1] && z < q[3]);
+      const street = (x: number, z: number) => hit(G.roads, x, z);
+      const free = (x: number, z: number) => x > G.x0 + 0.2 && x < G.x1 - 0.2 && z < Z - 0.2 && z > NZ && !street(x, z) && !hit(G.water, x, z) && !hit(reserved, x, z);
+      const runsOf = (a: number, e: number, ok: (u: number) => boolean): [number, number][] => {
+        const out: [number, number][] = [];
+        let s0: number | null = null;
+        for (let u = a; u <= e; u += 0.5) {
+          const good = u < e && ok(u + 0.25);
+          if (good && s0 === null) s0 = u;
+          if (!good && s0 !== null) { out.push([s0, u]); s0 = null; }
+        }
+        return out;
+      };
+      // Fronts: the avenue's two sides, then Yanagi-suji's (the corners belong to the avenue's).
+      for (const s of [-1, 1] as const) for (const [p, q] of runsOf(G.x0, G.x1, (x) => free(x, s * (FRONT + 1)) && free(x, s * (FRONT + 19)))) if (q - p >= 11.5) { const got = fronts(s < 0 ? 's' : 'n', s * FRONT, p + 0.3, q - 0.3, FRONT_IDS); reserved.push(...got); frontLots.push(...got.map((rc) => ({ r: rc, face: (s < 0 ? 's' : 'n') as Face }))); }
+      const YL = YAN.half + YAN.pave;
+      for (const s of [-1, 1] as const) for (const [p, q] of runsOf(NZ, Z, (z) => free(s * (YL + 1), z) && free(s * (YL + 19), z))) if (q - p >= 11.5) { const got = fronts(s < 0 ? 'e' : 'w', s * YL, p + 0.3, q - 0.3, NO_TOWER); reserved.push(...got); frontLots.push(...got.map((rc) => ({ r: rc, face: (s < 0 ? 'e' : 'w') as Face }))); }
+      // The blocks: what is left, cut into rectangles.
+      const cutsX = [...new Set([G.x0, G.x1, ...[...G.roads, ...G.water, ...reserved].flatMap((q) => [q[0], q[2]])].filter((v) => v >= G.x0 && v <= G.x1).map((v) => Math.round(v * 100) / 100))].sort((m, n) => m - n);
+      const cutsZ = [...new Set([NZ, Z, ...[...G.roads, ...G.water, ...reserved].flatMap((q) => [q[1], q[3]])].filter((v) => v >= NZ && v <= Z).map((v) => Math.round(v * 100) / 100))].sort((m, n) => m - n);
+      let open: Rect[] = [];
+      const blocks: Rect[] = [];
+      for (let j = 0; j + 1 < cutsZ.length; j++) {
+        const z0 = cutsZ[j], z1 = cutsZ[j + 1], row: [number, number][] = [];
+        for (let i = 0; i + 1 < cutsX.length; i++) {
+          if (!free((cutsX[i] + cutsX[i + 1]) / 2, (z0 + z1) / 2)) continue;
+          if (row.length && Math.abs(row[row.length - 1][1] - cutsX[i]) < 0.01) row[row.length - 1][1] = cutsX[i + 1];
+          else row.push([cutsX[i], cutsX[i + 1]]);
+        }
+        const next: Rect[] = [];
+        for (const [a, e] of row) {
+          const up = open.find((q) => Math.abs(q[0] - a) < 0.01 && Math.abs(q[2] - e) < 0.01 && Math.abs(q[3] - z0) < 0.01);
+          if (up) { up[3] = z1; next.push(up); } else { const q: Rect = [a, z0, e, z1]; blocks.push(q); next.push(q); }
+        }
+        open = next;
+      }
+      const kindsAt = (x: number, z: number): string[] => {
+        const island = z < -170 && x > -133 && x < QUAY;
+        if (island) return Math.abs(x) < 45 ? SMALL : LOW;
+        if (Math.abs(z) < 105 && x > -240 && x < 170) return BIZ;
+        if (x < -290 || z < -215 || z > 108 || x > 130) return LOW;
+        return SMALL;
+      };
+      const M = 0.35;
+      for (const [x0, z0, x1, z1] of blocks) {
+        const W = x1 - x0, D = z1 - z0, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2;
+        if (Math.min(W, D) < 8.4 || Math.max(W, D) < 9) continue;
+        const kinds = kindsAt(xc, zc);
+        const st = (x: number, z: number) => street(x, z) || (x > G.x1 - 0.3 || x < G.x0 + 0.3 ? false : false);
+        const sN = [0.25, 0.5, 0.75].some((t) => st(x0 + W * t, z0 - 1.2)), sS = [0.25, 0.5, 0.75].some((t) => st(x0 + W * t, z1 + 1.2));
+        const sW = [0.25, 0.5, 0.75].some((t) => st(x0 - 1.2, z0 + D * t)), sE = [0.25, 0.5, 0.75].some((t) => st(x1 + 1.2, z0 + D * t));
+        const ns = W >= D ? (sN || sS) || !(sW || sE) : (sN || sS) && !(sW || sE);
+        if (ns) {
+          if (sN && sS && D > 17.5) { fillRect(x0 + M, z0 + M, x1 - M, zc - 0.4, 'n', kinds); fillRect(x0 + M, zc + 0.4, x1 - M, z1 - M, 's', kinds); }
+          else fillRect(x0 + M, z0 + M, x1 - M, z1 - M, sS && !sN ? 's' : 'n', kinds);
+        } else if (sW && sE && W > 17.5) { fillRect(x0 + M, z0 + M, xc - 0.4, z1 - M, 'w', kinds); fillRect(xc + 0.4, z0 + M, x1 - M, z1 - M, 'e', kinds); }
+        else fillRect(x0 + M, z0 + M, x1 - M, z1 - M, sE && !sW ? 'e' : 'w', kinds);
+      }
+      // North of the riverside street: a row on the street, a lane, a row on the river walk (the garden and the hall apart).
+      for (const [a, e, zn] of [[-283, -223, -420], [-206.5, -126, -414], [105, 199.5, -404]]) {
+        fillRect(a, -372.5, e, NZ - 0.6, 's', SMALL);
+        fillRect(a, zn, e, -378.5, 'n', LOW);
+      }
+      // Past the edge: a row each side of every street that runs on, as deep as the next street allows.
+      const m1 = b.out.models.length;
+      for (const q of G.runOn) {
+        if ((q.ax as string) === 'z' || q.k > 0) continue; // (east and south are whole blocks: below)
+        const others = G.runOn.filter((o) => o !== q && o.ax === q.ax && o.k === q.k).map((o) => [o.c - o.half - o.pave, o.c + o.half + o.pave]);
+        for (const sd of [-1, 1] as const) {
+          const line = q.c + sd * (q.half + q.pave + 0.2);
+          const room = Math.min(13.5, ...others.filter(([p, e]) => (sd > 0 ? p > line : e < line)).map(([p, e]) => (sd > 0 ? p - line : line - e) / 2 - 0.4));
+          if (room < 9) continue;
+          const [u0, u1] = q.ax === 'z' ? [Z + 0.4, Z + 150] : q.k > 0 ? [G.x1 + 0.4, G.x1 + 150] : [G.x0 - 150, G.x0 - 0.4];
+          const kinds = q.kind === 'small' ? LOW : q.kind === 'wide' ? BIZ : SMALL;
+          const [v0, v1] = sd > 0 ? [line, line + room] : [line - room, line];
+          if (q.ax === 'z') { fillRect(v0, u0, v1, u1, sd > 0 ? 'w' : 'e', kinds, true); b.clearScenery(v0 - 2, u0, v1 + 2, u1); }
+          else { fillRect(u0, v0, u1, v1, sd > 0 ? 'n' : 's', kinds, true); b.clearScenery(u0, v0 - 2, u1, v1 + 2); }
+        }
+      }
+      // East and south (2026-11-26): whole blocks for 150 m between the carried-on streets, not one row a street. A
+      // row on each street, a back lane with a row or two between them where the block is deep, a cross lane half
+      // way out, and paving under all of it; one step lower in the far half (the merchant town fading out).
+      const lower = (kinds: string[]) => (kinds === BIZ ? SMALL : LOW);
+      const band = (ax: 'x' | 'z', u0: number, u1: number, lim0: number, lim1: number, extra: { lo: number; hi: number; kinds: string[] }[] = []) => {
+        const um = (u0 + u1) / 2;
+        const sts = [
+          ...G.runOn.filter((q) => q.ax === ax && q.k > 0).map((q) => ({ lo: q.c - q.half - q.pave - 0.2, hi: q.c + q.half + q.pave + 0.2, kinds: q.kind === 'small' ? LOW : q.kind === 'wide' ? BIZ : SMALL })),
+          ...extra,
+        ].sort((m, n) => m.lo - n.lo);
+        const rect = (ua: number, v0: number, ue: number, v1: number): Rect => (ax === 'x' ? [ua, v0, ue, v1] : [v0, ua, v1, ue]);
+        /** A row between v0 and v1 whose street (or lane) lies at its low or its high side. */
+        const row = (v0: number, v1: number, at: 'lo' | 'hi', kinds: string[]) => {
+          if (v1 - v0 < 8.6) return;
+          const face: Face = ax === 'x' ? (at === 'lo' ? 'n' : 's') : at === 'lo' ? 'w' : 'e';
+          for (const [ua, ue, ks] of [[u0, um - 3, kinds], [um + 3, u1, lower(kinds)]] as [number, number, string[]][]) {
+            const [x0, z0, x1, z1] = rect(ua, v0, ue, v1);
+            fillRect(x0, z0, x1, z1, face, ks, true);
+          }
+        };
+        const lane = (v0: number, v1: number) => { const [x0, z0, x1, z1] = rect(u0, v0, u1, v1); b.deco('tile:#a89f8d', x0, GY - 0.004, z0, x1, GY + 0.002, z1); };
+        const middle = (m0: number, m1: number) => {
+          const R = m1 - m0;
+          if (R < 12.6) return;
+          if (R < 22) { lane(m0, m0 + 4); row(m0 + 4, Math.min(m1, m0 + 17.5), 'lo', LOW); return; }
+          const c = (m0 + m1) / 2;
+          lane(c - 2, c + 2);
+          row(Math.max(m0, c - 15.5), c - 2, 'hi', LOW);
+          row(c + 2, Math.min(m1, c + 15.5), 'lo', LOW);
+        };
+        const gaps: { v0: number; v1: number; a?: string[]; e?: string[] }[] = [];
+        let v = lim0, prev: string[] | undefined;
+        for (const q of sts) { if (q.lo - v > 1) gaps.push({ v0: v, v1: q.lo, a: prev, e: q.kinds }); v = Math.max(v, q.hi); prev = q.kinds; }
+        if (lim1 - v > 1) gaps.push({ v0: v, v1: lim1, a: prev });
+        for (const g of gaps) {
+          const D = g.v1 - g.v0, [x0, z0, x1, z1] = rect(u0 - 0.4, g.v0, u1, g.v1);
+          b.deco('paver', x0, -0.05, z0, x1, GY - 0.004, z1);
+          { const [cx0, cz0, cx1, cz1] = rect(um - 3, g.v0, um + 3, g.v1); b.deco('asphalt', cx0, GY - 0.004, cz0, cx1, GY + 0.001, cz1); }
+          b.clearScenery(x0 - 2, z0 - 2, x1 + 2, z1 + 2);
+          if (g.a && g.e) {
+            if (D <= 27.8) { if (D >= 17.6) { row(g.v0, g.v0 + D / 2 - 0.3, 'lo', g.a); row(g.v1 - D / 2 + 0.3, g.v1, 'hi', g.e); } else row(g.v0, g.v1, 'lo', g.a); }
+            else { row(g.v0, g.v0 + 13.5, 'lo', g.a); row(g.v1 - 13.5, g.v1, 'hi', g.e); middle(g.v0 + 13.9, g.v1 - 13.9); }
+          } else if (g.a) { row(g.v0, g.v0 + Math.min(D, 13.5), 'lo', g.a); middle(g.v0 + 13.9, g.v1); }
+          else if (g.e) { row(g.v1 - Math.min(D, 13.5), g.v1, 'hi', g.e); middle(g.v0, g.v1 - 13.9); }
+        }
+      };
+      band('x', G.x1 + 0.4, G.x1 + 150, -400, Z);
+      // (Tsumugi-bori runs on south between its quays: no block stands over it.)
+      band('z', Z + 0.4, Z + 150, G.x0, G.x1, [{ lo: QUAY - 0.2, hi: 104.7, kinds: SMALL }]);
+      // Tsumugi-dōri carried on towards Daigaku-mae (owner, 2026-11-26): mixed-use fronts each side, a back lane
+      // and a low row behind, for as far as the road goes (tsumugi-canal.ts AV_EAST).
+      {
+        const xa = G.x1 + 150.4, xe = G.x1 + AV_EAST, F = FRONT + 0.2;
+        for (const sd of [-1, 1] as const) {
+          const z = (d: number) => sd * (F + d);
+          b.deco('paver', xa - 0.4, -0.05, Math.min(z(0), z(34)), xe, GY - 0.004, Math.max(z(0), z(34)));
+          b.deco('tile:#a89f8d', xa - 0.4, GY - 0.004, Math.min(z(13.9), z(17.9)), xe, GY + 0.002, Math.max(z(13.9), z(17.9)));
+          b.clearScenery(xa - 2, Math.min(z(-2), z(36)), xe + 2, Math.max(z(-2), z(36)));
+          for (const [p, q] of [[xa, (xa + xe) / 2 - 3], [(xa + xe) / 2 + 3, xe]]) {
+            fillRect(p, Math.min(z(0), z(13.5)), q, Math.max(z(0), z(13.5)), sd > 0 ? 'n' : 's', SMALL, true);
+            fillRect(p, Math.min(z(17.9), z(31.4)), q, Math.max(z(17.9), z(31.4)), sd > 0 ? 'n' : 's', LOW, true);
+          }
+        }
+      }
+      void m1;
+      // ═════════════════════════ Stage 4: what is left inside the blocks, then the streets' dress ═════════════════════════
+      leftovers(b, r, blocks.map(([x0, z0, x1, z1]): Rect => [x0 + 0.3, z0 + 0.3, x1 - 0.3, z1 - 0.3]), reserved, holes, { park: [] }, piece);
+    }
+    canalDress(b, exits, frontLots);
+  } else {
   b.slab('asphalt', -X, -Z, X, Z, -0.6, 0, [...wellHoles, ...canalCut, ...wells]);
-  b.slab('paver', -X, -Z, X, Z, 0, GY, [...wellHoles, ...canalCut, ...wells, ...carriage]);
-  b.zone('street', -X, -0.3, -Z, X, 80, Z, `${st.nameJa}駅前`, `${st.nameRomaji} — street level`);
-  b.block(-X - 1, -1, -Z - 1, -X, 60, Z + 1);
-  b.block(X, -1, -Z - 1, X + 1, 60, Z + 1);
-  b.block(-X, -1, -Z - 1, X, 60, -Z);
-  b.block(-X, -1, Z, X, 60, Z + 1);
+    b.slab('paver', -X, -Z, X, Z, 0, GY, [...wellHoles, ...canalCut, ...wells, ...carriage]);
+    b.zone('street', -X, -0.3, -Z, X, 80, Z, `${st.nameJa}駅前`, `${st.nameRomaji} — street level`);
+    b.block(-X - 1, -1, -Z - 1, -X, 60, Z + 1);
+    b.block(X, -1, -Z - 1, X + 1, 60, Z + 1);
+    b.block(-X, -1, -Z - 1, X, 60, -Z);
+    b.block(-X, -1, Z, X, 60, Z + 1);
+}
   b.out.district = { radius: 560, old: [CX, 0], oldRadius: 170, towers: 10 };
 
+  if (!BARE) {
   // ═════════════════════════ Roads ═════════════════════════
   /** Where a north–south street's own paint stops for a crossing. */
   const crossingsNS: [number, number][] = [[-RW - 9, RW + 9], [NEW.z - NEW.half - 8, NEW.z + NEW.half + 8], [SEW.z - SEW.half - 8, SEW.z + SEW.half + 8]];
@@ -536,6 +787,7 @@ export function tsumugiStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numbe
     }
   }
 
+  }
   // ═════════════════════════ Tsumugi-bori: the bridge, the quay, the riverside walk ═════════════════════════
   // (All of it open air: below the street, but never hidden as the station's underground is.)
   b.open(() => {
@@ -689,6 +941,7 @@ export function tsumugiStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numbe
     }
   });
 
+  if (!BARE) {
   // ═════════════════════════ The footbridge 紬橋歩道橋 ═════════════════════════
   {
     const K = TSUMUGIKIT, way: Named = { ja: '紬橋歩道橋', en: 'Tsumugibashi Footbridge' };
@@ -827,64 +1080,6 @@ export function tsumugiStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numbe
   }
 
   // ═════════════════════════ The fronts on Tsumugi-dōri and Yanagi-suji ═════════════════════════
-  const used = new Map<string, number>();
-  const nameNo = new Map<Style, number>();
-  /** A combination of the given fronts filling a frontage of length L (0.3 … 3 m to spare), the least used first. */
-  const packFront = (L: number, ids: string[]): string[] => {
-    const W = (id: string) => TSUMUGIFRONT[id].w;
-    const order = [...ids].sort((p, q) => (used.get(p) ?? 0) - (used.get(q) ?? 0) || r() - 0.5);
-    let best: string[] = [], bestScore = Infinity, steps = 0;
-    const go = (acc: string[], sum: number) => {
-      if (++steps > 30000) return;
-      const rem = L - sum;
-      if (acc.length && rem >= 0.3 && rem <= 3.2) {
-        const score = acc.reduce((t, id) => t + (used.get(id) ?? 0) * 4, 0) + rem + acc.length * 0.2;
-        if (score < bestScore) (bestScore = score), (best = [...acc]);
-      }
-      if (acc.length >= 6 || rem < 7.8) return;
-      for (const id of order) if (!acc.includes(id) && W(id) <= rem - 0.3) {
-        acc.push(id);
-        go(acc, sum + W(id));
-        acc.pop();
-      }
-    };
-    go([], 0);
-    for (const id of best) used.set(id, (used.get(id) ?? 0) + 1);
-    // (Mixed up, so the towers do not all stand at one end.)
-    return best.map((id) => [id, r()] as const).sort((p, q) => p[1] - q[1]).map(([id]) => id);
-  };
-  const letter = (id: string, p: Record<string, AnchorPt>) => {
-    const sty = styleOf(id), k = nameNo.get(sty) ?? 0;
-    nameNo.set(sty, k + 1);
-    const [ja, en] = NAMES[sty][k % NAMES[sty].length], [bg, fg] = BOARD[sty];
-    if (p.name) label(p.name, ja, en, bg, fg);
-    if (p.roof) {
-      const [rj, re] = ROOF[sty]?.[k % ROOF[sty].length] ?? [ja, en];
-      label(p.roof, rj, re, sty === 'seni' ? '#1f3f7a' : '#f4f1e8', sty === 'seni' ? '#ffffff' : '#1f2023');
-    }
-    if (p.vertical) upright(p.vertical, ja.split(' ')[0], '#f4f1e8', '#1f3f7a');
-  };
-  /** Fronts along a frontage: on `face`, the building line at `line`, from u0 to u1 along it. Returns their depth's far edge per piece. */
-  const fronts = (face: Face, line: number, u0: number, u1: number, ids: string[]) => {
-    const row = packFront(u1 - u0, ids);
-    const total = row.reduce((t, id) => t + TSUMUGIFRONT[id].w, 0);
-    const gap = row.length ? (u1 - u0 - total) / (row.length + 1) : 0;
-    let u = u0 + gap;
-    const placed: Rect[] = [];
-    for (const id of row) {
-      const a = TSUMUGIFRONT[id], uc = u + a.w / 2;
-      const alongX = face === 'n' || face === 's';
-      const [x, z] = alongX ? [uc, line] : [line, uc];
-      piece('tsumugifront', TSUMUGIFRONT, id, face, x, z, (q) => letter(id, q.pts));
-      const d = a.d;
-      placed.push(alongX ? [u, face === 'n' ? line : line - d, u + a.w, face === 'n' ? line + d : line] : [face === 'w' ? line : line - d, u, face === 'w' ? line + d : line, u + a.w]);
-      u += a.w + gap;
-    }
-    return placed;
-  };
-  const FRONT_IDS = Object.keys(TSUMUGIFRONT).filter((k) => !k.startsWith('canal_'));
-  const SHALLOW = Object.keys(TSUMUGIFRONT).filter((k) => k.startsWith('canal_'));
-  const NO_TOWER = FRONT_IDS.filter((k) => !k.startsWith('tower_'));
   const takenFront: Rect[] = [];
   // Along the avenue: every block's frontage, west to east; the wholesalers' lane opens off the north side.
   const avenueCorr = (north: boolean): [number, number][] => [bl(KUW), bl(KIN), bl(HAT), bl(YAN), ...(north ? [LANE] : []), [QUAY, TSB.c - TSB.half - TSB.pave], bl(TSB), bl(MAY)];
@@ -1113,6 +1308,7 @@ export function tsumugiStreet(c: Ctx, spec: SurfaceSpec, cw: number, dir: [numbe
 
   // ═════════════════════════ Past the plot's edge ═════════════════════════
   pastEdge(b, r, fillRect, spec);
+  }
   void SL;
 }
 

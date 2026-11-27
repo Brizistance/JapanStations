@@ -201,7 +201,8 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
   b.block(-X - 1, -1, -ZN - 1, -X, 60, Z + 1);
   b.block(X, -1, -ZN - 1, X + 1, 60, Z + 1);
   b.block(-X, -1, -ZN - 1, X, 60, -ZN);
-  b.block(-X, -1, Z, X, 60, Z + 1);
+  // (Open across Yanagi-suji: Tsumugibashi's bridge 澪大橋 arrives there and is walked through, tsumugi-canal.ts.)
+  for (const [p, q] of [[-X, -(YAN.half + YAN.pave)], [YAN.half + YAN.pave, X]]) b.block(p, -1, Z, q, 60, Z + 1);
   b.out.district = { radius: 620, old: [0, 0], oldRadius: 0, towers: 22 };
 
   // ═════════════════════════ Roads ═════════════════════════
@@ -1734,9 +1735,16 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     const hub = stationById('kita-odori').position;
     let OUT_S = OUT;
     for (let u = 0; u < OUT; u += 0.5) if (isWater(hub.x, hub.y + Z + u + 0.6)) { OUT_S = Math.max(0, u - 0.6); break; }
+    // The bank is not parallel to the plot (the river bends north to the west): how far south of the plot's
+    // edge the land goes over x0 … x1, less the coping (negative where the bank lies north of the edge).
+    const bankS = (x0: number, x1: number) => {
+      let best = OUT;
+      for (let x = x0; x <= x1 + 0.01; x += Math.max(0.5, Math.min(2, x1 - x0))) for (let u = -80; u < best; u += 0.5) if (isWater(hub.x + x, hub.y + Z + u)) { best = u; break; }
+      return best - 1.2;
+    };
     type Edge = { c: number; half: number; pave: number; wide: boolean; tree?: TreeKind };
     const roadOut = (alongZ: boolean, s: 1 | -1, q: Edge) => {
-      const len = alongZ && s > 0 ? OUT_S : OUT;
+      const len = alongZ && s > 0 ? Math.min(OUT, bankS(q.c - q.half - q.pave, q.c + q.half + q.pave)) : OUT;
       if (len < 1) return;
       const lim = alongZ ? (s > 0 ? Z : ZN) : X, u0 = s > 0 ? lim : -lim - len, u1 = u0 + len;
       const R = (mat: string, v0: number, v1: number, y0: number, y1: number, a = u0, e = u1) => (alongZ ? b.deco(mat, q.c + v0, y0, a, q.c + v1, y1, e) : b.deco(mat, a, y0, q.c + v0, e, y1, q.c + v1));
@@ -1761,7 +1769,7 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
     };
     const pack = (alongZ: boolean, s: 1 | -1, a: number, e: number) => {
       // The ground between two streets beyond the edge: rows fronting each, back to back; a cross street half way out.
-      const lim = alongZ ? (s > 0 ? Z : ZN) : X, mid = (a + e) / 2, len = alongZ && s > 0 ? OUT_S : OUT;
+      const lim = alongZ ? (s > 0 ? Z : ZN) : X, mid = (a + e) / 2, len = alongZ && s > 0 ? Math.min(OUT, bankS(a, e)) : OUT;
       // (A strip too shallow for a row before the river is left as the riverside street's pavement.)
       if (len < 24) return;
       for (const [d0, d1] of [[0.5, Math.min(len, CROSS - CW)], [CROSS + CW, len]]) {
@@ -1771,14 +1779,16 @@ export function hubStreet(c: Ctx, seed: number, dir: [number, number], cf: numbe
           fillRect(a + 0.2, u0, mid - 0.4, u1, 'w', BIZ, true);
           fillRect(mid + 0.4, u0, e - 0.2, u1, 'e', BIZ, true);
         } else {
+          // (East and west the southmost strip ends at the river's bank where that is nearer than the next street.)
+          const eb = Math.min(e, Z + bankS(u0, u1));
           fillRect(u0, a + 0.2, u1, mid - 0.4, 'n', BIZ, true);
-          fillRect(u0, mid + 0.4, u1, e - 0.2, 's', BIZ, true);
+          if (eb - mid > 9) fillRect(u0, mid + 0.4, u1, eb - 0.2, 's', BIZ, true);
         }
       }
       const uc = s > 0 ? lim + CROSS : -lim - CROSS;
       if (len < CROSS + CW) return;
       if (alongZ) b.deco('asphalt', a - 20, -0.03, uc - CW, e + 20, 0.004, uc + CW);
-      else b.deco('asphalt', uc - CW, -0.03, a - 20, uc + CW, 0.004, e + 20);
+      else b.deco('asphalt', uc - CW, -0.03, a - 20, uc + CW, 0.004, Math.min(e + 20, Z + bankS(uc - CW, uc + CW)));
     };
     const wideE = (st2: NS): Edge => ({ c: st2.c, half: st2.half, pave: st2.pave, wide: true, tree: st2 === SHI ? 'dogwood' : st2 === TOK ? 'camphor' : 'zelkova' });
     const localE = (cx: number): Edge => ({ c: cx, half: LH, pave: LP, wide: false });

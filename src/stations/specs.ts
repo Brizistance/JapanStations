@@ -186,7 +186,7 @@ export const SPECS: Record<StationId, StationSpec> = {
       smallStreets: true,
       roadNames: { main: { ja: '紬通', en: 'Tsumugi-dōri' }, cross: [{ ja: '絹屋町筋', en: 'Kinuyamachi-suji' }, { ja: '紬堀筋', en: 'Tsumugibori-suji' }] },
       junctions: [{ ja: '紬橋西', en: 'Tsumugibashi-nishi' }, { ja: '紬橋東詰', en: 'Tsumugibashi-higashizume' }],
-      canalAt: 92, canalName: { ja: '紬橋', en: 'Tsumugi-bashi' }, canalStone: true,
+      canalAt: 92, canalName: { ja: '紬橋', en: 'Tsumugi-bashi' }, canalStone: true, riverNorth: -410,
       landmark: { ja: '紬橋絹取引所', en: 'Tsumugibashi Silk Exchange', side: 1, x0: 26, x1: 73, depth: 28 },
       // A corner shop by the side street and a shop in the base of an avenue block.
       konbini: [{ type: 'corner', chain: 'hinode', side: 1, x0: -85.5 }, { type: 'ground', chain: 'maruhoshi', side: -1, x0: -44 }],

@@ -33,6 +33,8 @@ const ENT = 8.6, HALL = 9.6;
 const PW = 1.75, SH = 3.5;
 /** The lot (surface.ts keeps it clear: specs.ts `landmark`) and the building's eaves. */
 export const LOT = { x0: 26.5, x1: 72.5, depth: 28, h: 9.2 }; // 46 × 28 m, eaves at 9.2: build_exchange.py W, D, EAVES
+/** The clock tower against the hall's west end (its side, the top of its clock stage) and the annex behind the hall (depth, height). */
+export const TOWER = { w: 10, h: 31 }, ANNEX = { d: 18, h: 22 };
 const STONE = 'flat:#c4b89f', STONE_DK = 'flat:#7d7361';
 /** The rotunda's own shops (invented; docs/worldbuilding.md). None repeats a shop of the concourse. */
 const SHOPS = {
@@ -180,6 +182,11 @@ export function buildRotunda(c: Ctx, cf: number, sw: number, outer: number, door
   b.open(() => {
     b.slab(STONE_DK, LOT.x0 + e, ZF + e, LOT.x1 - e, zb - e, roof, roof + 0.3, [[CX - R - 0.3, CZ - R - 0.3, CX + R + 0.3, CZ + R + 0.3]]);
     b.model('exchange', 'hall', (LOT.x0 + LOT.x1) / 2, GY, ZF);
+    // The 2026-11-26 enlargement (build_exchange.py TOWER, ANNEX): the clock tower on the crossing's corner, the annex behind.
+    b.model('exchange', 'tower', (LOT.x0 + LOT.x1) / 2, GY, ZF);
+    b.block(LOT.x0 - TOWER.w, GY, ZF, LOT.x0, GY + TOWER.h, ZF + TOWER.w);
+    b.model('exchange', 'annex', (LOT.x0 + LOT.x1) / 2, GY, ZF);
+    b.block(LOT.x0, GY, zb, LOT.x1, GY + ANNEX.h, zb + ANNEX.d);
     // The portal's column plinths and lamp bases stand on the pavement.
     for (const s of [-1, 1]) {
       const xc = (dx0 + dx1) / 2 + s * 3.55;

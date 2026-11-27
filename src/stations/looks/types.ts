@@ -326,6 +326,12 @@ export interface RoomInfo extends ConcRoom {
 
 export interface StationLook {
   finishes?: Finishes;
+  /**
+   * A raised ceiling over each unpaid ticket hall (Tsumugibashi, 2026-11-26): the kit cuts `rect` out of the
+   * concourse's ceiling slab (underside at `ceil`) and this builds what closes it, up to `room` higher at most.
+   * It returns the new ceiling's height at a point, so that what hangs from the old one can be carried up to it.
+   */
+  hallVault?: (b: Builder, rect: Rect, ceil: number, room: number) => (x: number, z: number) => number;
   /** Set false to leave the kit's posters off the paid-area walls (when shops go there). */
   posters?: false;
   /** Set false to leave off the kit's accent rail and skirting on the long walls. */

@@ -1041,7 +1041,39 @@ function bay(r: RoomInfo) {
 
 // ── The look ─────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The ticket halls' ceiling (2026-11-26, the station made grander): coved and coffered, 折上格天井, as in
+ * the best room of a merchant's house. Four steps up from the low 1961 ceiling, a timber rail and a
+ * strip of light at each, to a lattice of timber over lit paper panels.
+ */
+function hallVault(b: Builder, [x0, z0, x1, z1]: Rect, ceil: number, room: number) {
+  const N = 4, STEP = Math.min(0.4, (room - 0.2) / N), IN = 0.85, top = ceil + N * STEP;
+  const PLASTER = 'paint:#ece4d2', PAPER = 'flat:#f6efdc';
+  for (let k = 1; k < N; k++) b.slab(PLASTER, x0 - 0.3, z0 - 0.3, x1 + 0.3, z1 + 0.3, ceil + k * STEP, ceil + (k + 1) * STEP, [[x0 + k * IN, z0 + k * IN, x1 - k * IN, z1 - k * IN]]);
+  b.box(PLASTER, x0 - 0.3, top, z0 - 0.3, x1 + 0.3, top + 0.2, z1 + 0.3);
+  for (let k = 0; k < N; k++) {
+    const a = x0 + k * IN, c = x1 - k * IN, p = z0 + k * IN, q = z1 - k * IN, y = ceil + k * STEP;
+    // The riser's face (the ceiling slab's own edge is the first), a timber rail at its head, light at its foot.
+    for (const [ra, rp, rc, rq] of [[a, p, c, p + 0.03], [a, q - 0.03, c, q], [a, p, a + 0.03, q], [c - 0.03, p, c, q]] as Rect[]) b.deco(PLASTER, ra, y, rp, rc, y + STEP, rq);
+    for (const [ra, rp, rc, rq] of [[a, p, c, p + 0.09], [a, q - 0.09, c, q], [a, p, a + 0.09, q], [c - 0.09, p, c, q]] as Rect[]) b.deco(TIMBER, ra, y + STEP - 0.1, rp, rc, y + STEP, rq);
+    if (k > 0) for (const [ra, rp, rc, rq] of [[a - 0.5, p - 0.5, c + 0.5, p - 0.36], [a - 0.5, q + 0.36, c + 0.5, q + 0.5], [a - 0.5, p - 0.5, a - 0.36, q + 0.5], [c + 0.36, p - 0.5, c + 0.5, q + 0.5]] as Rect[]) b.deco('light', ra, y - 0.025, rp, rc, y, rq);
+  }
+  // The lattice: timber ribs both ways over paper panels, every third panel a light.
+  const a = x0 + (N - 1) * IN, c = x1 - (N - 1) * IN, p = z0 + (N - 1) * IN, q = z1 - (N - 1) * IN;
+  const nx = Math.max(2, Math.round((c - a) / 1.25)), nz = Math.max(2, Math.round((q - p) / 1.25));
+  b.deco(PAPER, a, top - 0.012, p, c, top, q);
+  for (let i = 0; i <= nx; i++) b.deco(TIMBER, a + ((c - a) * i) / nx - 0.045, top - 0.1, p, a + ((c - a) * i) / nx + 0.045, top, q);
+  for (let j = 0; j <= nz; j++) b.deco(TIMBER, a, top - 0.1, p + ((q - p) * j) / nz - 0.045, c, top, p + ((q - p) * j) / nz + 0.045);
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+    if ((i + 2 * j) % 3) continue;
+    const u = a + ((c - a) * (i + 0.5)) / nx, v = p + ((q - p) * (j + 0.5)) / nz, hx = (c - a) / nx / 2 - 0.1, hz = (q - p) / nz / 2 - 0.1;
+    b.deco('light', u - hx, top - 0.03, v - hz, u + hx, top - 0.012, v + hz);
+  }
+  return (x: number, z: number) => ceil + STEP * Math.min(N, 1 + Math.max(0, Math.floor(Math.min(x - x0, x1 - x, z - z0, z1 - z) / IN)));
+}
+
 export const look: StationLook = {
+  hallVault,
   finishes: { wall: 'tile:#f2ece0', floor: 'floor:#d3ccbe', pillar: TILE, ceil: 'paint:#ddd6c6' },
   posters: false,
   skirting: false,
