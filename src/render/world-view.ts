@@ -819,6 +819,11 @@ export class WorldView {
     }, (e) => console.warn('building models not loaded:', e));
   }
 
+  /** True while stations are still being built or prepared (Scene.tsx keeps the full frame rate until they are done). */
+  get building() {
+    return this.jobs.size > 0 || mountWait.busy;
+  }
+
   /** Build the queued stations, nearest first, within this frame's budget; prepare and show the finished ones. */
   private runJobs() {
     const urgent = [...this.jobs.values()].some((j) => j.d < URGENT);

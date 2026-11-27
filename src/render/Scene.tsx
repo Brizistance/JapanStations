@@ -33,6 +33,8 @@ const SKY = new THREE.Color(), SUN = new THREE.Vector3();
 const atm = newAtmosphere(), atmTarget = newAtmosphere();
 /** Time constant of the sky easing: about 95% of the way after 1.5 s. */
 const ATM_EASE_TAU = 0.5;
+/** Frames drawn per second at most: walking and riding, and behind a menu or the pause screen. */
+const MAX_FPS = 60, MENU_FPS = 30;
 const tmp: [number, number, number] = [0, 0, 0];
 
 function World() {
@@ -120,8 +122,17 @@ function World() {
     post.current?.setSize(size.width, size.height);
   }, [size]);
 
+  // Time since the last frame drawn: the browser's frames in between are skipped (the canvas keeps its picture).
+  const sinceDraw = useRef(0);
   useFrame((state, rawDt) => {
-    const dt = Math.min(rawDt, 0.1);
+    // At most 60 frames a second (a 120 Hz display would double every cost), and 30 behind a menu or the
+    // pause screen, except while stations are still being built (their build budget is per frame).
+    const ui = useUI.getState();
+    const cap = (ui.mode !== 'play' || ui.paused) && !view.building ? MENU_FPS : MAX_FPS;
+    sinceDraw.current += rawDt;
+    if (sinceDraw.current < 0.9 / cap) return;
+    const dt = Math.min(sinceDraw.current, 0.1);
+    sinceDraw.current = 0;
     const t0 = performance.now();
     // Field of view is a setting; it applies live, on the menu backdrop too.
     const cam = camera as THREE.PerspectiveCamera, fov = useUI.getState().fov;
