@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import type { Build, GatePart } from '../world/builder';
 import { boxesToGeometry, groupBy, meshesToGeometry, polysToGeometry, skyAt, type EnvMode } from './geometry';
-import { dropLod, isLo, lodModelsSteps, mergedModels, mergedModelsSteps } from './building-models';
+import { dropLod, freeOnUpload, isLo, lodModelsSteps, mergedModels, mergedModelsSteps } from './building-models';
 import { getMaterial } from './materials';
 import { SignSet, type SignCache } from './sign-set';
 import { separateCoplanarSteps } from './zfight';
@@ -85,6 +85,8 @@ function* makeStaticSteps(build: Build, mode: EnvMode, group: THREE.Group): Gene
   };
   const add = (g: THREE.BufferGeometry | null, mat: string, layer: Layer) => {
     if (!g) return;
+    // Nothing reads the vertices back (collision comes from the Build): drop the in-memory copy once uploaded.
+    freeOnUpload(g);
     const material = getMaterial(mat);
     const m = new THREE.Mesh(g, material);
     m.matrixAutoUpdate = false;

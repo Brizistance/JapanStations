@@ -230,7 +230,8 @@ export function tickListener(x: number, y: number, z: number, yaw: number, h: He
   // Each PA speaker reaches you after its own travel time: the smeared, overlapping sound
   // of a long row of ceiling speakers.
   for (const ch of channels.values()) {
-    for (const s of ch.speakers) s.delay.delayTime.setTargetAtTime(dist(s.at, listener) / SOUND_SPEED, t, 0.05);
+    // (Capped at the delay line's 1 s: a speaker past ~340 m is out of earshot anyway, and over it the browser warns every frame.)
+    for (const s of ch.speakers) s.delay.delayTime.setTargetAtTime(Math.min(0.99, dist(s.at, listener) / SOUND_SPEED), t, 0.05);
   }
 }
 const dist = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -725,7 +726,7 @@ function placeSpeakers(ch: Channel) {
   }
   ch.speakers = ch.want.map((at) => {
     const delay = c.createDelay(1);
-    delay.delayTime.value = dist(at, listener) / SOUND_SPEED;
+    delay.delayTime.value = Math.min(0.99, dist(at, listener) / SOUND_SPEED);
     const g = c.createGain();
     g.gain.value = 1 / Math.sqrt(ch.want.length);
     // Zoned, downward-aimed speakers: loud beneath, falling off fast across the platform.

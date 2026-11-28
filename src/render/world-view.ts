@@ -463,7 +463,7 @@ function backdropModels(): THREE.Group {
   parts.push(...bandParts);
   const { group, rest } = lodModels(parts, false, true);
   // In grid cells, not one city-wide mesh: cells behind the camera or past the fog are skipped (cull()).
-  // (The far blocks: simplified, and full near the camera only on High and up: setBackdropDetail.)
+  // (The far blocks: simplified, and full near the camera only on Ultra: setBackdropDetail.)
   if (farParts.length) {
     const far = lodModels(farParts, true, true);
     group.add(far.group);

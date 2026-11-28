@@ -86,6 +86,7 @@ function Graphics() {
   const { preset, fx } = useUI((s) => s.graphics);
   const setPreset = useUI((s) => s.setPreset);
   const setFx = useUI((s) => s.setFx);
+  const maxFps = useUI((s) => s.maxFps), setMaxFps = useUI((s) => s.setMaxFps);
   return (
     <>
       <h3><Bi ja="プリセット" en="Preset" /></h3>
@@ -108,6 +109,13 @@ function Graphics() {
         <div className="sg-seg tight">
           {SCALES.map((s) => (
             <button key={s} className={fx.scale === s ? 'on' : ''} aria-pressed={fx.scale === s} onClick={() => setFx({ scale: s })}>{s}×</button>
+          ))}
+        </div>
+      </Row>
+      <Row ja="フレームレート" en="Frame rate" hint="Most frames a second; 30 keeps a laptop cooler and quieter">
+        <div className="sg-seg tight">
+          {([30, 60] as const).map((f) => (
+            <button key={f} className={maxFps === f ? 'on' : ''} aria-pressed={maxFps === f} onClick={() => setMaxFps(f)}>{f}</button>
           ))}
         </div>
       </Row>

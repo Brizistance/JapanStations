@@ -340,6 +340,10 @@ function signMaterial(kind: BuildingKind, id: string, seed: number, boards: Boar
   tex.flipY = false;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  // The atlas is never redrawn: once on the graphics card, shrink the canvas (~4 MB each, ~100 of them; Safari reloads the tab over its canvas memory).
+  tex.onUpdate = () => {
+    canvas.width = canvas.height = 1;
+  };
   m = lit({ map: tex, roughness: 0.5, metalness: 0 }, { macro: 0, macroRough: 0, glow: 0.55 });
   materials.set(key, m);
   return m;
@@ -397,7 +401,7 @@ export function mergedModels(parts: ModelPart[], o: { cast?: boolean; noAO?: boo
  * A merged mesh's vertex data is never read again once it is on the graphics card: drop the copy in memory
  * then. (The city's merged buildings were ~2.5 GB of it, which had the browser collecting garbage on every core.)
  */
-function freeOnUpload(g: THREE.BufferGeometry) {
+export function freeOnUpload(g: THREE.BufferGeometry) {
   // Culling needs the bounds, and they cannot be worked out afterwards.
   g.computeBoundingSphere();
   for (const a of Object.values(g.attributes)) {
@@ -517,12 +521,12 @@ let LOD_NEAR = 190;
 /** The same for the backdrop's far blocks (`far` cells): never full on Low, out to the whole district above it. */
 let FAR_NEAR = 0;
 /**
- * The graphics preset's backdrop detail (2026-11-25): on High and Ultra every backdrop block within ~450 m of the
- * camera shows its full model; on Low only the blocks right behind a plot do, within 190 m, as before.
+ * The graphics preset's building detail (owner, 2026-11-28): Low (0) shows only the simplified models, everywhere;
+ * High (1) the full models of the blocks right behind a plot, within 190 m; Ultra (2) every block within ~450 m.
  */
-export function setBackdropDetail(far: boolean) {
-  LOD_NEAR = far ? 450 : 190;
-  FAR_NEAR = far ? 450 : 0;
+export function setBackdropDetail(level: 0 | 1 | 2) {
+  LOD_NEAR = [0, 190, 450][level];
+  FAR_NEAR = level === 2 ? 450 : 0;
 }
 /**
  * Every mounted detail cell: its centre in its group's frame, its simplified copies, and its full
@@ -608,7 +612,8 @@ export function updateLod(cam: THREE.Vector3, range = Infinity) {
       }
     }
     // Full models left well behind are freed too (they are merged again on the way back).
-    if (c.full && d > nearAt + 400) {
+    // (At once where this detail level never shows them.)
+    if (c.full && (d > nearAt + 400 || nearAt === 0)) {
       freeMerged(c.full);
       c.full = null;
     }

@@ -50,7 +50,7 @@ export type Lang = 'ja' | 'en';
 export type SettingsTab = 'graphics' | 'sound' | 'controls' | 'language';
 
 const VOICE_KEY = 'js.voiceVolume', SFX_KEY = 'js.sfxVolume', MASTER_KEY = 'js.masterVolume', MUTE_KEY = 'js.muted', MUSIC_KEY = 'js.musicVolume', MUSIC_MUTE_KEY = 'js.musicMuted', MUSIC_STYLE_KEY = 'js.musicStyle';
-const PLAN_KEY = 'js.floorPlan', FPS_KEY = 'js.fps', GUIDE_VIEW_KEY = 'js.guideView';
+const PLAN_KEY = 'js.floorPlan', FPS_KEY = 'js.fps', MAX_FPS_KEY = 'js.maxFps',GUIDE_VIEW_KEY = 'js.guideView';
 const SENS_KEY = 'js.sensitivity', INVERT_KEY = 'js.invertY', FOV_KEY = 'js.fov', LANG_KEY = 'js.lang';
 export const SENS_RANGE = [0.3, 2.5] as const, FOV_RANGE = [55, 100] as const;
 /** What "Reset to defaults" restores. */
@@ -229,6 +229,9 @@ interface UI {
   /** The frames-per-second counter (saved). */
   fpsOn: boolean;
   setFps: (v: boolean) => void;
+  /** Most frames drawn a second while playing (saved): 30 runs the laptop cooler. */
+  maxFps: 30 | 60;
+  setMaxFps: (v: 30 | 60) => void;
   /** The quick menu ring is up (Z held). */
   wheelOpen: boolean;
   setWheel: (v: boolean) => void;
@@ -504,6 +507,11 @@ export const useUI = create<UI>((set, get) => ({
   setFps: (fpsOn) => {
     save(FPS_KEY, fpsOn ? '1' : '0');
     set({ fpsOn });
+  },
+  maxFps: loadNumber(MAX_FPS_KEY, 30, 60, 60) < 45 ? 30 : 60,
+  setMaxFps: (maxFps) => {
+    save(MAX_FPS_KEY, String(maxFps));
+    set({ maxFps });
   },
   wheelOpen: false,
   setWheel: (wheelOpen) => set({ wheelOpen }),

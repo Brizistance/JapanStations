@@ -155,7 +155,7 @@ All in the road kit (`tools/blender/build_road.py`, `src/stations/roads.ts`) and
 
 **Boulevard (2026-11-21):** Tsumugibashi's avenue runs on 435 m to Kita-Ōdōri (spec `boulevard`, `surface.ts`): median trees, side streets with building rows, frontage rising to towers, landmark corners (つむぎ百貨店 Tsumugi Department Store, 時計の辻 Clock Corner, ホテル 柳筋 Hotel Yanagisuji). Past the plots everything is merged, nothing underground is drawn, and AO is off.
 
-**Detail by distance (2026-11-21):** building models with a simplified copy go in 150 m cells (`lodModels`/`updateLod` in `render/building-models.ts`): full models near the camera, merged lazily one cell a frame. Leftover gaps in building rows become alleys (`alley` in `surface.ts`). Districts reach 450 m; daytime haze 200–800 m. Measure frame rate with the browser pane visible: a hidden pane throttles to 1 fps.
+**Detail by distance (2026-11-21):** building models with a simplified copy go in 150 m cells (`lodModels`/`updateLod` in `render/building-models.ts`): full models near the camera, merged lazily one cell a frame. By preset (2026-11-28): Low simplified only, High full within 190 m, Ultra full within 450 m. Leftover gaps in building rows become alleys (`alley` in `surface.ts`). Districts reach 450 m; daytime haze 200–800 m. Measure frame rate with the browser pane visible: a hidden pane throttles to 1 fps.
 
 **Backs and lanes (2026-11-21):** every building set has detailed backs and sides (`backs()` in `tools/blender/buildkit.py`: windows, pipes, AC units, meters, back doors, fire escapes on tall ones). Back lanes behind the front rows are dressed (`backLane`), and each plot side street carries on 170 m past the edge with a cross street (`sideStreetOut`).
 

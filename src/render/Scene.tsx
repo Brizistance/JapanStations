@@ -34,7 +34,13 @@ const atm = newAtmosphere(), atmTarget = newAtmosphere();
 /** Time constant of the sky easing: about 95% of the way after 1.5 s. */
 const ATM_EASE_TAU = 0.5;
 /** Frames drawn per second at most: walking and riding, and behind a menu or the pause screen. */
-const MAX_FPS = 60, MENU_FPS = 30;
+const MENU_FPS = 30, IDLE_FPS = 10;
+/** The window is in the background (another app in front): draw only enough to keep the picture alive. */
+let unfocused = typeof document !== 'undefined' && !document.hasFocus();
+if (typeof window !== 'undefined') {
+  window.addEventListener('blur', () => (unfocused = true));
+  window.addEventListener('focus', () => (unfocused = false));
+}
 const tmp: [number, number, number] = [0, 0, 0];
 
 function World() {
@@ -114,9 +120,9 @@ function World() {
     post.current?.apply(fx);
     lighting.current?.setDetail(fx.hq);
     lighting.current?.setClouds(fx.clouds);
-    // Full backdrop buildings far out on High and Ultra (and a custom mix with shadows on); simplified on Low.
+    // Building detail: simplified only on Low, full nearby on High, full far out on Ultra (a custom mix: by its HQ and shadows).
     const preset = useUI.getState().graphics.preset;
-    setBackdropDetail(preset === 'custom' ? fx.shadows : preset !== 'low');
+    setBackdropDetail(preset === 'custom' ? (fx.hq ? 2 : fx.shadows ? 1 : 0) : preset === 'ultra' ? 2 : preset === 'high' ? 1 : 0);
   }, [fx, wantPost]);
   useEffect(() => {
     post.current?.setSize(size.width, size.height);
@@ -128,7 +134,8 @@ function World() {
     // At most 60 frames a second (a 120 Hz display would double every cost), and 30 behind a menu or the
     // pause screen, except while stations are still being built (their build budget is per frame).
     const ui = useUI.getState();
-    const cap = (ui.mode !== 'play' || ui.paused) && !view.building ? MENU_FPS : MAX_FPS;
+    // The player's cap (30 or 60) while playing; 10 while the window is in the background.
+    const cap = view.building ? 60 : unfocused ? IDLE_FPS : ui.mode !== 'play' || ui.paused ? Math.min(MENU_FPS, ui.maxFps) : ui.maxFps;
     sinceDraw.current += rawDt;
     if (sinceDraw.current < 0.9 / cap) return;
     const dt = Math.min(sinceDraw.current, 0.1);
